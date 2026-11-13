@@ -1,6 +1,7 @@
 module
 
 public import Veir.Meta.Tactic.BVNormalizeSimp
+public import Veir.Meta.Tactic.PBVDecide
 
 /-! ## Veir Bitblasting Tactic -/
 
@@ -33,6 +34,15 @@ then calls `bv_decide` to automatically close the goal.
 -/
 @[expose] macro "veir_bv_decide" : tactic =>
   `(tactic| ((veir_bv_normalize <;> bv_decide (config := { timeout := 300 }))))
+
+/--
+`veir_pbv_decide n` preprocesses a goal with `LLVM.Int`s and other bitblastable
+Veir types via `veir_bv_normalize`, and then calls `pbv_decide n` to close the
+goal for every width up to `n`. Any configuration options (e.g.
+`(blastWidth := 64)`) are passed through to `pbv_decide`.
+-/
+@[expose] macro "veir_pbv_decide" ppSpace colGt n:num cfg:optConfig : tactic =>
+  `(tactic| ((veir_bv_normalize <;> pbv_decide $n $cfg)))
 
 attribute [veir_bv_normalize] Bool.false_eq_true false_and or_self decide_false
   dite_eq_ite Bool.if_false_right Bool.and_true implies_true

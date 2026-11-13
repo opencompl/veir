@@ -21,9 +21,9 @@ meta import Veir.Meta.Tactic.PBVDecide
 /-!
 # CTree validity of the custom legalizations (`Validity/Custom`) by `pbv_decide`
 
-Each rule is proven by `proveLegalValid with pbvClose` alone. Where the matcher leaves the
+Each rule is proven by `proveLegalValid with veir_pbv_decide` alone. Where the matcher leaves the
 widths unbounded, the side goals `w ≤ 64` are assumed with `sorry`, so such a theorem is proven
-up to 64 bits only. The rules `pbvClose` does not prove are commented out, with the reason it
+up to 64 bits only. The rules `veir_pbv_decide` does not prove are commented out, with the reason it
 fails.
 -/
 set_option Elab.async false
@@ -44,75 +44,72 @@ attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
 attribute [local implicit_reducible] TypeAttr
 
-/-- Close a normalized value goal by `pbv_decide 64`, assuming the width bounds it cannot derive. -/
-macro "pbvClose" : tactic => `(tactic| ((veir_bv_normalize <;> pbv_decide 64)))
-
 theorem custom_urem_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_remuw) := by
-  proveLegalValid with pbvClose
+  proveLegalValid with veir_pbv_decide 64
 
 theorem custom_ctlz_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordUnary .g_clzw) := by
-  proveLegalValid with pbvClose
+  proveLegalValid with veir_pbv_decide 64
 
 theorem custom_cttz_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordUnary .g_ctzw) := by
-  proveLegalValid with pbvClose
+  proveLegalValid with veir_pbv_decide 64
 
 theorem custom_abs_valid : Puddle.CTree.Pattern.Valid customLegalizeAbs := by
-  proveLegalValid with pbvClose
+  proveLegalValid with veir_pbv_decide 64
 
 -- the target's `default` flags are not reduced, so they are abstracted
 -- theorem custom_add_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_addw) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- the target's `default` flags are not reduced, so they are abstracted
 -- theorem custom_sub_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_subw) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- the target's `default` flags are not reduced, so they are abstracted
 -- theorem custom_mul_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_mulw) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- the target's `default` flags are not reduced, so they are abstracted
 -- theorem custom_shl_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_sllw) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- the target's `default` flags are not reduced, so they are abstracted
 -- theorem custom_lshr_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_srlw) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- the target's `default` flags are not reduced, so they are abstracted
 -- theorem custom_ashr_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_sraw) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- the target's `default` flags are not reduced, so they are abstracted
 -- theorem custom_sdiv_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_divw) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- the target's `default` flags are not reduced, so they are abstracted
 -- theorem custom_udiv_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_divuw) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- `brev8` is abstracted as an opaque function
 -- theorem custom_bitreverse_valid : Puddle.CTree.Pattern.Valid customLegalizeBitreverse8 := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
 theorem custom_uaddsat_valid :
     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_uaddsat false true) := by
-  proveLegalValid with pbvClose
+  proveLegalValid with veir_pbv_decide 64
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
 theorem custom_usubsat_valid :
     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_usubsat false false) := by
-  proveLegalValid with pbvClose
+  proveLegalValid with veir_pbv_decide 64
 
 -- the width-dependent constant `BitVec.ofInt 64 (bitwidth - 1)` is abstracted
 -- theorem custom_saddsat_valid :
 --     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_saddsat true true) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 -- the width-dependent constant `BitVec.ofInt 64 (bitwidth - 1)` is abstracted
 -- theorem custom_ssubsat_valid :
 --     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_ssubsat true false) := by
---   proveLegalValid with pbvClose
+--   proveLegalValid with veir_pbv_decide 64
 
 end Veir.Legalization.CTreeProofs.PBV

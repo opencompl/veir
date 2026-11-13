@@ -1880,48 +1880,39 @@ variable {w : Nat}
 
 theorem hoist_and_shl (hw : w ≤ 64) (x y s : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
     (x.shl s n₁ u₁).and (y.shl s n₂ u₂) ⊒ (x.and y).shl s := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_or_shl (hw : w ≤ 64) (x y s : LLVM.Int w) (n₁ u₁ n₂ u₂ d : Bool) :
     (x.shl s n₁ u₁).or (y.shl s n₂ u₂) d ⊒ (x.or y).shl s := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_xor_shl (hw : w ≤ 64) (x y s : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
     (x.shl s n₁ u₁).xor (y.shl s n₂ u₂) ⊒ (x.xor y).shl s := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_and_lshr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
     (x.lshr s e₁).and (y.lshr s e₂) ⊒ (x.and y).lshr s := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_or_lshr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ d : Bool) :
     (x.lshr s e₁).or (y.lshr s e₂) d ⊒ (x.or y).lshr s := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_xor_lshr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
     (x.lshr s e₁).xor (y.lshr s e₂) ⊒ (x.xor y).lshr s := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_and_ashr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
     (x.ashr s e₁).and (y.ashr s e₂) ⊒ (x.and y).ashr s := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_or_ashr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ d : Bool) :
     (x.ashr s e₁).or (y.ashr s e₂) d ⊒ (x.or y).ashr s := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_xor_ashr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
     (x.ashr s e₁).xor (y.ashr s e₂) ⊒ (x.xor y).ashr s := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem and_and_and_right (x y z : BitVec w) : x &&& z &&& (y &&& z) = x &&& y &&& z := by
   apply BitVec.eq_of_getElem_eq
@@ -1936,144 +1927,114 @@ theorem xor_and_and_right (x y z : BitVec w) : x &&& z ^^^ y &&& z = (x ^^^ y) &
   cases x[i] <;> cases y[i] <;> cases z[i] <;> rfl
 
 theorem hoist_and_and (hw : w ≤ 64) (x y z : LLVM.Int w) : (x.and z).and (y.and z) ⊒ (x.and y).and z := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_or_and (hw : w ≤ 64) (x y z : LLVM.Int w) (d : Bool) : (x.and z).or (y.and z) d ⊒ (x.or y).and z := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem hoist_xor_and (hw : w ≤ 64) (x y z : LLVM.Int w) : (x.and z).xor (y.and z) ⊒ (x.xor y).and z := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 /-! ### Additive identities -/
 
 theorem sub_add_reg_x_add_y_sub_y (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
     (x.add y n₁ u₁).sub y n₂ u₂ ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem sub_add_reg_x_add_y_sub_x (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
     (x.add y n₁ u₁).sub x n₂ u₂ ⊒ y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem sub_add_reg_negate (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
     x.sub (y.add x n₁ u₁) n₂ u₂ ⊒ (LLVM.Int.val 0#w).sub y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem sub_add_reg_negate_x_first (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
     x.sub (x.add y n₁ u₁) n₂ u₂ ⊒ (LLVM.Int.val 0#w).sub y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem add_sub_reg_0 (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) : x.add (y.sub x n₁ u₁) n₂ u₂ ⊒ y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem add_sub_reg_1 (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) : (y.sub x n₁ u₁).add x n₂ u₂ ⊒ y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem same_val_zero_sub (hw : w ≤ 64) (x : LLVM.Int w) (n u : Bool) : x.sub x n u ⊒ LLVM.Int.val 0#w := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem same_val_zero_xor (hw : w ≤ 64) (x : LLVM.Int w) : x.xor x ⊒ LLVM.Int.val 0#w := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem binop_same_val_and (hw : w ≤ 64) (x : LLVM.Int w) : x.and x ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem binop_same_val_or (hw : w ≤ 64) (x : LLVM.Int w) (d : Bool) : x.or x d ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem APlusBMinusCMinusB (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
     (a.add (b.sub c n₁ u₁) n₂ u₂).sub b n₃ u₃ ⊒ a.sub c := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem AMinusBMinusCMinusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
     (a.sub (b.sub c n₁ u₁) n₂ u₂).sub c n₃ u₃ ⊒ a.sub b := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem AMinusBPlusCMinusA (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
     (a.sub b n₁ u₁).add (c.sub a n₂ u₂) n₃ u₃ ⊒ c.sub b := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem AMinusBPlusBMinusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
     (a.sub b n₁ u₁).add (b.sub c n₂ u₂) n₃ u₃ ⊒ a.sub c := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem APlusBMinusAPlusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
     a.add (b.sub (a.add c n₁ u₁) n₂ u₂) n₃ u₃ ⊒ b.sub c := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem APlusBMinusCPlusA (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
     a.add (b.sub (c.add a n₁ u₁) n₂ u₂) n₃ u₃ ⊒ b.sub c := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem AMinusBMinusA (hw : w ≤ 64) (a b : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) : a.sub (a.sub b n₁ u₁) n₂ u₂ ⊒ b := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem AMinusBMinusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
     a.sub (b.sub c n₁ u₁) n₂ u₂ ⊒ a.add (c.sub b) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem xor_of_and_with_same_reg (hw : w ≤ 64) (x y : LLVM.Int w) :
     (x.and y).xor y ⊒ (x.xor (.val (BitVec.ofInt w (-1)))).and y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem combine_or_of_and_left (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : (x.and y).or x d ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem combine_or_of_and_left' (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : (y.and x).or x d ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem combine_or_of_and_right (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : x.or (x.and y) d ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem combine_or_of_and_right' (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : x.or (y.and x) d ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 /-! ### Casts of casts -/
 
 theorem trunc_of_zext (hw : w ≤ 64) {W : Nat} (hW : W ≤ 64) (x : LLVM.Int w) (h : w < W) (h' : W > w) (nneg nsw nuw : Bool) :
     (x.zext W nneg h).trunc w nsw nuw h' ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem trunc_of_sext (hw : w ≤ 64) {W : Nat} (hW : W ≤ 64) (x : LLVM.Int w) (h : w < W) (h' : W > w) (nsw nuw : Bool) :
     (x.sext W h).trunc w nsw nuw h' ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem zext_of_zext (hw : w ≤ 64) {M W : Nat} (hM : M ≤ 64) (hW : W ≤ 64) (x : LLVM.Int w) (h₁ : w < M) (h₂ : M < W) (h₃ : w < W)
     (n₁ n₂ : Bool) : (x.zext M n₁ h₁).zext W n₂ h₂ ⊒ x.zext W false h₃ := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem sext_of_sext (hw : w ≤ 64) {M W : Nat} (hM : M ≤ 64) (hW : W ≤ 64) (x : LLVM.Int w) (h₁ : w < M) (h₂ : M < W) (h₃ : w < W) :
     (x.sext M h₁).sext W h₂ ⊒ x.sext W h₃ := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 /-- Zero extension without `nneg` keeps refinement both ways. -/
 theorem zext_isRefinedBy_zext {W : Nat} (x y : LLVM.Int w) (h : w < W) :
@@ -2103,23 +2064,19 @@ theorem bitreverse_lshr (x s : LLVM.Int w) (e : Bool) :
 
 theorem add_eq_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
     (x.add y n u).icmp x .eq ⊒ y.icmp (.val 0#w) .eq := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem add_ne_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
     (x.add y n u).icmp x .ne ⊒ y.icmp (.val 0#w) .ne := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem sub_eq_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
     (x.sub y n u).icmp x .eq ⊒ y.icmp (.val 0#w) .eq := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem sub_ne_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
     (x.sub y n u).icmp x .ne ⊒ y.icmp (.val 0#w) .ne := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem xor_eq_self_iff (x y : BitVec w) : (x ^^^ y = x) ↔ y = 0#w := by
   constructor
@@ -2134,12 +2091,10 @@ theorem xor_beq_self (x y : BitVec w) : (x ^^^ y == x) = (y == 0#w) := by
   simp [xor_eq_self_iff]
 
 theorem xor_eq_self (hw : w ≤ 64) (x y : LLVM.Int w) : (x.xor y).icmp x .eq ⊒ y.icmp (.val 0#w) .eq := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem xor_ne_self (hw : w ≤ 64) (x y : LLVM.Int w) : (x.xor y).icmp x .ne ⊒ y.icmp (.val 0#w) .ne := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem ofBool_eq_zero (b : Bool) : (BitVec.ofBool b = 0#1) ↔ b = false := by
   cases b <;> decide
@@ -2156,54 +2111,43 @@ local macro "select_minmax_tac" : tactic => `(tactic| (
 
 theorem select_same_val (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : LLVM.Int wc) (x : LLVM.Int w) : GMIR.selectNonzero c x x ⊒ x := by
   subst_vars
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem select_ugt_umax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .ugt) x y ⊒ x.umax y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem select_uge_umax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .uge) x y ⊒ x.umax y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem select_sgt_smax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .sgt) x y ⊒ x.smax y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem select_sge_smax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .sge) x y ⊒ x.smax y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem select_ult_umin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .ult) x y ⊒ x.umin y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem select_ule_umin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .ule) x y ⊒ x.umin y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem select_slt_smin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .slt) x y ⊒ x.smin y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem select_sle_smin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .sle) x y ⊒ x.smin y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem zext_of_select {wc W : Nat} (hwc : wc ≤ 64) (hW : W ≤ 64) (c : LLVM.Int wc) (x y : LLVM.Int w) (h : w < W) (nneg : Bool) :
     (GMIR.selectNonzero c x y).zext W nneg h ⊒
       GMIR.selectNonzero c (x.zext W false h) (y.zext W false h) := by
   subst_vars
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem trunc_of_select {wc W : Nat} (hwc : wc ≤ 64) (hW : W ≤ 64) (c : LLVM.Int wc) (x y : LLVM.Int W) (h : W > w) (nsw nuw : Bool) :
     (GMIR.selectNonzero c x y).trunc w nsw nuw h ⊒
       GMIR.selectNonzero c (x.trunc w false false h) (y.trunc w false false h) := by
   subst_vars
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 /-! ### Selects of a binary operation on the other arm, with the arms exchanged -/
 
@@ -2259,33 +2203,27 @@ theorem ofInt_neg_toInt (x : BitVec w) : BitVec.ofInt w (-x.toInt) = -x := by
 
 theorem right_identity_zero_sub (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
     x.sub (.val c) n u ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem right_identity_zero_add (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
     x.add (.val c) n u ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem right_identity_zero_or (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (d : Bool) :
     x.or (.val c) d ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem right_identity_zero_xor (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) :
     x.xor (.val c) ⊒ x := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem binop_right_to_zero (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
     x.mul (.val c) n u ⊒ .val c := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem binop_left_to_zero_mul (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
     (LLVM.Int.val c).mul x n u ⊒ .val c := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem right_identity_one_mul (x : LLVM.Int w) (c : BitVec w) (hc : c.toNat = 1) (n u : Bool) :
     x.mul (.val c) n u ⊒ x := by
@@ -2302,23 +2240,19 @@ theorem right_identity_one_mul (x : LLVM.Int w) (c : BitVec w) (hc : c.toNat = 1
 
 theorem sub_minus_one (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = -1) (n u : Bool) :
     (LLVM.Int.val c).sub x n u ⊒ x.xor (.val c) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem ZeroMinusAPlusB (hw : w ≤ 64) (a b : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ : Bool) :
     ((LLVM.Int.val c).sub a n₁ u₁).add b n₂ u₂ ⊒ b.sub a := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem APlusZeroMinusB (hw : w ≤ 64) (a b : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ : Bool) :
     a.add ((LLVM.Int.val c).sub b n₁ u₁) n₂ u₂ ⊒ a.sub b := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem AMinusZeroMinusB (hw : w ≤ 64) (a b : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ : Bool) :
     a.sub ((LLVM.Int.val c).sub b n₁ u₁) n₂ u₂ ⊒ a.add b := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem sub_one_from_sub (x y : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 1) (n₁ u₁ n₂ u₂ : Bool) :
     (x.sub y n₁ u₁).sub (.val c) n₂ u₂ ⊒ (y.xor (.val (BitVec.ofInt w (-1)))).add x := by
@@ -2334,51 +2268,43 @@ theorem APlusC1MinusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (
     (a.add (.val c₁) n₁ u₁).sub (.val c₂) n₂ u₂ ⊒
       a.add (.val (BitVec.ofInt w (c₁.toInt - c₂.toInt))) := by
   simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem C2MinusAPlusC1 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
     (LLVM.Int.val c₂).sub (a.add (.val c₁) n₁ u₁) n₂ u₂ ⊒
       (LLVM.Int.val (BitVec.ofInt w (c₂.toInt - c₁.toInt))).sub a := by
   simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem AMinusC1MinusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
     (a.sub (.val c₁) n₁ u₁).sub (.val c₂) n₂ u₂ ⊒
       a.sub (.val (BitVec.ofInt w (c₁.toInt + c₂.toInt))) := by
   simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem C1MinusAMinusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
     ((LLVM.Int.val c₁).sub a n₁ u₁).sub (.val c₂) n₂ u₂ ⊒
       (LLVM.Int.val (BitVec.ofInt w (c₁.toInt - c₂.toInt))).sub a := by
   simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem AMinusC1PlusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
     (a.sub (.val c₁) n₁ u₁).add (.val c₂) n₂ u₂ ⊒
       a.add (.val (BitVec.ofInt w (c₂.toInt - c₁.toInt))) := by
   simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem binop_left_to_zero_shl (hw : w ≤ 64) (c : BitVec w) (hc : c = 0) (s : LLVM.Int w) (n u : Bool) :
     (LLVM.Int.val c).shl s n u ⊒ .val c := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem binop_left_to_zero_lshr (hw : w ≤ 64) (c : BitVec w) (hc : c = 0) (s : LLVM.Int w) (e : Bool) :
     (LLVM.Int.val c).lshr s e ⊒ .val c := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem binop_left_to_zero_ashr (hw : w ≤ 64) (c : BitVec w) (hc : c = 0) (s : LLVM.Int w) (e : Bool) :
     (LLVM.Int.val c).ashr s e ⊒ .val c := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem sub_of_mul_const (a x : LLVM.Int w) (c : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
     a.sub (x.mul (.val c) n₁ u₁) n₂ u₂ ⊒ a.add (x.mul (.val (BitVec.ofInt w (-c.toInt)))) := by
@@ -2421,13 +2347,11 @@ theorem mulo_by_2 (x : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 2) (n u : Bool
 
 theorem add_shift (hw : w ≤ 64) (a b s : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
     a.add (((LLVM.Int.val c).sub b n₁ u₁).shl s n₂ u₂) n₃ u₃ ⊒ a.sub (b.shl s) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem add_shift' (hw : w ≤ 64) (a b s : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
     (((LLVM.Int.val c).sub b n₁ u₁).shl s n₂ u₂).add a n₃ u₃ ⊒ a.sub (b.shl s) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem NotAPlusNegOne (x : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = -1) (h₂ : c₂ = -1)
     (n u : Bool) :
@@ -2475,51 +2399,43 @@ theorem or_and_not_self (x y : BitVec w) :
 
 theorem or_and_xor_to_or (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
     (x.and (y.xor (.val c))).or y d ⊒ x.or y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem or_and_xor_to_or' (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
     (x.or (y.xor (.val c)) d).and y ⊒ x.and y := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem or_and_xor_to_xor_or (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
     (x.and y).or (y.xor (.val c)) d ⊒ x.or (y.xor (.val c)) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem or_and_xor_to_xor_or' (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
     (x.or y d).and (y.xor (.val c)) ⊒ x.and (y.xor (.val c)) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem simplify_neg_smax (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
     (n₁ u₁ n₂ u₂ : Bool) :
     (LLVM.Int.val c₁).sub (a.smax ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
       a.smin ((LLVM.Int.val c₂).sub a n₁ u₁) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem simplify_neg_umax (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
     (n₁ u₁ n₂ u₂ : Bool) :
     (LLVM.Int.val c₁).sub (a.umax ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
       a.umin ((LLVM.Int.val c₂).sub a n₁ u₁) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem simplify_neg_smin (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
     (n₁ u₁ n₂ u₂ : Bool) :
     (LLVM.Int.val c₁).sub (a.smin ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
       a.smax ((LLVM.Int.val c₂).sub a n₁ u₁) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem simplify_neg_umin (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
     (n₁ u₁ n₂ u₂ : Bool) :
     (LLVM.Int.val c₁).sub (a.umin ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
       a.umax ((LLVM.Int.val c₂).sub a n₁ u₁) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 /-- The predicate of the negated comparison, as `not_cmp_fold_pattern` pairs them. -/
 @[expose] def IntPred.inverse : IntPred → IntPred
@@ -2566,31 +2482,27 @@ theorem double_icmp_zero_and (hw : w ≤ 64) {v : Nat} (hv : v ≤ 64) (x y : LL
     (h₂ : c₂ = 0) :
     (x.icmp (.val c₁) .eq).and (y.icmp (.val c₂) .eq) ⊒ (x.or y).icmp (.val c₁) .eq := by
   subst_vars
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem double_icmp_zero_or (hw : w ≤ 64) {v : Nat} (hv : v ≤ 64) (x y : LLVM.Int v) (c₁ c₂ : BitVec v) (h₁ : c₁ = 0)
     (h₂ : c₂ = 0) (d : Bool) :
     (x.icmp (.val c₁) .ne).or (y.icmp (.val c₂) .ne) d ⊒ (x.or y).icmp (.val c₁) .ne := by
   subst_vars
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem double_icmp_zero_and_zext (hw : w ≤ 64) {v W : Nat} (hv : v ≤ 64) (hW : W ≤ 64) (h : 1 < W) (x y : LLVM.Int v) (c₁ c₂ : BitVec v)
     (h₁ : c₁ = 0) (h₂ : c₂ = 0) :
     ((x.icmp (.val c₁) .eq).zext W false h).and ((y.icmp (.val c₂) .eq).zext W false h) ⊒
       ((x.or y).icmp (.val c₁) .eq).zext W false h := by
   subst_vars
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem double_icmp_zero_or_zext (hw : w ≤ 64) {v W : Nat} (hv : v ≤ 64) (hW : W ≤ 64) (h : 1 < W) (x y : LLVM.Int v) (c₁ c₂ : BitVec v)
     (h₁ : c₁ = 0) (h₂ : c₂ = 0) (d : Bool) :
     ((x.icmp (.val c₁) .ne).zext W false h).or ((y.icmp (.val c₂) .ne).zext W false h) d ⊒
       ((x.or y).icmp (.val c₁) .ne).zext W false h := by
   subst_vars
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem constant_fold_add (c₁ c₂ : BitVec w) (n u : Bool) :
     (LLVM.Int.val c₁).add (.val c₂) n u ⊒ .val (BitVec.ofInt w (c₁.toInt + c₂.toInt)) := by
@@ -2620,14 +2532,12 @@ theorem constant_fold_smax (c₁ c₂ : BitVec w) :
 theorem select_constant_cmp_nonzero (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : BitVec wc) (hc : ¬ c = 0#wc) (x y : LLVM.Int w) :
     GMIR.selectNonzero (.val c) x y ⊒ x := by
   subst_vars
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem select_constant_cmp_zero (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : BitVec wc) (hc : c = 0#wc) (x y : LLVM.Int w) :
     GMIR.selectNonzero (.val c) x y ⊒ y := by
   subst_vars
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 theorem sub_to_add (a : LLVM.Int w) (c : BitVec w) (n u : Bool) :
     a.sub (.val c) n u ⊒

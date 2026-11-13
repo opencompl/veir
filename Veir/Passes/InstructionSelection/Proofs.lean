@@ -700,8 +700,7 @@ theorem sext_refinement_1_32 {x : LLVM.Int 1} :
 theorem trunc_refinement_le64 {w₁ w₂ : Nat} (hw : w₁ ≤ 64) {x : LLVM.Int w₁} {nsw nuw : Bool}
     {h : w₁ > w₂} :
     (Data.LLVM.Int.trunc x w₂ nsw nuw h) ⊒ (RISCV.Reg.toInt (LLVM.Int.toReg x) w₂) := by
-  veir_bv_normalize
-  pbv_decide 64
+  veir_pbv_decide 64
 
 /--
   Prove the correctness of the `smax` lowering pattern (`llvm.intr.smax` -> `max`).

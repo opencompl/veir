@@ -40,7 +40,7 @@ attribute [local implicit_reducible] TypeAttr
 /-- `canonicalize_icmp_pattern`: swapping the operands of a comparison swaps its predicate. -/
 private theorem icmp_swap {w : Nat} (hw : w ≤ 64) (k x : Data.LLVM.Int w) (p : Data.LLVM.IntPred) :
     k.icmp x p ⊒ x.icmp k (swapIntPred p) := by
-  cases p <;> simp only [swapIntPred] <;> veir_bv_normalize <;> pbv_decide 64
+  cases p <;> simp only [swapIntPred] <;> veir_pbv_decide 64
 
 /-- The low bit of an odd constant is set. -/
 private theorem one_and_ofInt_of_odd {W : Nat} (hW : 0 < W) (v : _root_.Int) (hv : v % 2 = 1) :
