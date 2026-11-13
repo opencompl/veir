@@ -12,6 +12,12 @@ namespace Veir
   as optimizations!
 -/
 
+/-- Signed case values paired with their original successor indices. Merge sort has a
+    library permutation theorem, used by the semantic refinement proof. -/
+public def llvmSwitchCases (width : Nat) (values : Array Int) : Array (Int × Nat) :=
+  (values.mapIdx fun i v => ((BitVec.ofInt width v).toInt, i + 1)).mergeSort
+    (fun a b => a.1 ≤ b.1)
+
 public def convertLLVMSwitch (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode) := do
   if op.getOpType! ctx.raw ≠ .llvm .switch then return ctx
@@ -21,9 +27,7 @@ public def convertLLVMSwitch (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType intType := type.val | none
   let defaultDest := op.getSuccessor! ctx.raw 0
   let defaultArgs := (← BranchOpInterface.getSuccessorOperands? op 0 ctx.raw).forwardedOperands
-  let cases := (← props.caseValues? intType.bitwidth).values.mapIdx fun i v =>
-    ((BitVec.ofInt intType.bitwidth v).toInt, i + 1)
-  let cases := cases.qsort (·.1 < ·.1)
+  let cases := llvmSwitchCases intType.bitwidth (← props.caseValues? intType.bitwidth).values
   if cases.isEmpty then
     let (ctx, _) ← WfRewriter.createOp! ctx GMIR.g_br #[] defaultArgs
       #[defaultDest] #[] () (some (.before op))
