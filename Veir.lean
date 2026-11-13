@@ -23,6 +23,8 @@ import Veir.Passes.Canonicalize.Proofs
 import Veir.Passes.RISCVCombines.Proofs
 import Veir.Benchmarks
 import Veir.Parser.Lexer
+import Veir.Parser.LLVMLexer
+import Veir.Parser.LLVMAST
 import Veir.Interpreter
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
