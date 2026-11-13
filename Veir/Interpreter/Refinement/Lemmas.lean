@@ -435,7 +435,7 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
   case int.int w x w' y =>
     obtain ⟨rfl, h₁⟩ := h₁; obtain ⟨_, h₂⟩ := h₂
     simp only [Data.LLVM.Int.cast_self] at h₁ h₂
-    cases x <;> cases y <;> simp_all [LLVM.Int.isRefinedBy_eq]
+    rw [LLVM.Int.isRefinedBy_antisymm h₁ h₂]
   case byte.byte w x w' y =>
     obtain ⟨rfl, h₁⟩ := h₁; obtain ⟨_, h₂⟩ := h₂
     simp only [Byte.cast_self] at h₁ h₂
