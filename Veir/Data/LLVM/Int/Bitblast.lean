@@ -2,9 +2,7 @@ module
 
 public meta import Veir.Meta.Tactic.BVDecide
 public import Veir.Data.LLVM.Int.Basic
-public import Veir.Data.Refinement
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 
 open Veir.Data.LLVM
 

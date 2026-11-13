@@ -893,6 +893,43 @@ def freeze {w : Nat} (x : Int w) : Int w := Id.run do
   | .val v => .val v
   | .poison => .val 0
 
+/-!
+  ## Refinement
+-/
+
+/--
+  `LLVM.Int` is refined by `LLVM.Int`.
+  `i'` refines `i` if its behaviour are a subset of the behaviours allowed by `i`.
+  In particular, any concrete `i'` refines a poison `i`, but a poison `i'` does *not* refine
+  any `i`.
+-/
+def isRefinedBy {w : Nat} (i i' : Int w) : Prop :=
+  match i, i' with
+  | .val v, .val v' => v = v'
+  | .val _, .poison => False
+  | .poison, _ => True
+
+@[inherit_doc] infix:50 " ⊒ " => LLVM.Int.isRefinedBy
+
+theorem isRefinedBy_eq {w : Nat} (i i' : Int w) :
+  i ⊒ i' ↔ (match i, i' with
+            | .val v, .val v' => v = v'
+            | .val _, .poison => False
+            | .poison, _ => True) := by rfl
+
+@[simp, grind .]
+theorem isRefinedBy_refl {w : Nat} (i : Int w) : i ⊒ i := by
+  grind [isRefinedBy, cases Int]
+
+theorem isRefinedBy_trans {w : Nat} {i j k : Int w}
+    (h₁ : i ⊒ j) (h₂ : j ⊒ k) : i ⊒ k := by
+  grind [isRefinedBy, cases Int]
+
+/-- Poison is refined by any value. -/
+@[simp, grind .]
+theorem poison_isRefinedBy {w : Nat} (i : Int w) : poison ⊒ i := by
+  simp [isRefinedBy]
+
 end Int
 end
 end Veir.Data.LLVM

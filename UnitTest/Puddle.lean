@@ -57,14 +57,14 @@ private theorem muli_iff {signedness : IntegerType.Signedness} (w : Nat) (props 
 
 private theorem add_zero_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
     RuntimeValue.int w (LLVM.Int.add x (.val (BitVec.ofInt w 0)) nsw nuw) ⊒ .int w x := by
-  cases x <;> simp [RuntimeValue.isRefinedBy, LLVM.Int.add, isRefinedBy, Id.run, pure]
+  cases x <;> simp [RuntimeValue.isRefinedBy, LLVM.Int.add, LLVM.Int.isRefinedBy, Id.run, pure]
   grind
 
 private theorem mul_two_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
     RuntimeValue.int w (LLVM.Int.mul x (.val (BitVec.ofInt w 2)) nsw nuw) ⊒
       .int w (LLVM.Int.add x x) := by
   cases x <;> simp [RuntimeValue.isRefinedBy, LLVM.Int.mul, LLVM.Int.add,
-    isRefinedBy, Id.run, pure, BitVec.mul_two]
+    LLVM.Int.isRefinedBy, Id.run, pure, BitVec.mul_two]
   grind
 
 /- ## Example patterns -/
