@@ -1,6 +1,5 @@
 module
 
-public import Veir.IR.Attribute
 public import Veir.Passes.RegisterAllocation.RegisterStack
 public import Veir.Rewriter.WfRewriter
 public import Veir.GlobalOpInfo
@@ -22,9 +21,10 @@ def allocateRegister (ctx : WfIRContext OpCode) (value : ValuePtr) (stack : Regi
   return (ctx, s, reg)
 
 /--
-Allocate registers for operations during a backward traversal.
-Assign registers to all results (if not allocated) before releasing their registers for reuse by operands.
-Only reusing virtual registers at the current stage.
+Allocate registers for an operation and all preceding operations in the same block by traversing backward.
+For each operation, allocate registers for all unallocated results before releasing reusable registers.
+At this stage, register reuse is limited to virtual registers.
+Termination is guaranteed by the finite number of operations in the block.
 -/
 partial def allocateOps (ctx: WfIRContext OpCode) (op: Option OperationPtr) (stack: RegisterStack) :
     Except String (WfIRContext OpCode × RegisterStack) := do

@@ -14,7 +14,7 @@ namespace Veir
 
 /--
 A load is monotone: a poison pointer is undefined behavior and
-a concrete one is fixed by refinement.
+a concrete one is refined only by itself.
 -/
 instance : InterpretOp'Monotone (.llvm .load) where
   monotone props resultTypes operands operands' blockOperands mem h := by
@@ -25,7 +25,7 @@ instance : InterpretOp'Monotone (.llvm .load) where
         obtain rfl : operands = #[.addr (.val ptr)] := List.eq_toArray_iff.mpr hOps
         obtain ⟨w, rfl, hRef⟩ := RuntimeValue.singleton_isRefinedBy_iff.mp h
         obtain rfl := RuntimeValue.addr_val_isRefinedBy_iff.mp hRef
-        exact Interp.isRefinedBy_refl_operationResult _
+        exact Interp.isRefinedBy_refl_operationResult_sameMemory _
       · simp [Interp.isRefinedBy]
     · simp [Interp.isRefinedBy]
 

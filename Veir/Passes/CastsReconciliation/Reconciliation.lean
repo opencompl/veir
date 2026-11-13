@@ -126,12 +126,12 @@ def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : o
     reconcileRegToPtr.run,
     reconcileModArithToInt.run,
     reconcileCirToInt.run] ++ reconcileRegIntCasts.map (·.run)
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying cast reconciliation"
   -- The patterns leave the (now dead) parent casts behind: `LocalRewritePattern` can only erase
   -- the matched operation. Clean them up here so the pass is self-contained.
   | some ctx =>
-    match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
+    match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx op with
     | none => throw "Error while applying DCE after cast reconciliation"
     | some ctx => pure ctx
 

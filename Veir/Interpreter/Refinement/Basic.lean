@@ -1,7 +1,9 @@
 module
 
 public import Veir.Interpreter.Basic
+public import Veir.Interpreter.CTreeInterpreter
 public import Veir.Dominance
+public import CTree.Sim
 
 
 public section
@@ -17,8 +19,9 @@ relate a program to a rewritten or lowered version of it). Refinement is defined
 * `FunctionOp.isRefinedBy` relates two function-like operations: interpreting the source
   with any arguments and memory is refined by interpreting the target.
   `OperationPtr.isRefinedByAsFunction` states the same for operation pointers.
-* `OperationPtr.isRefinedByAsModule` relates two modules: every top-level `func.func` of the source
+* `OperationPtr.isModuleRefinedBy` relates two modules: every top-level `func.func` of the source
   module must be refined, as a function, by a same-named top-level `func.func` of the target module.
+  `OperationPtr.isModuleRefinedByCTree` uses the CTree interpreter and simulation instead.
 
 Additionally, we define a refinement relation between two interpreter states given a mapping of
 variables in the source to variables in the target.
@@ -70,38 +73,23 @@ def MemoryByte.isRefinedBy (source target : MemoryByte) : Prop :=
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryByte.isRefinedBy
 
-/-- Refinement of memory states: the same objects, each refined bytewise. -/
+/-- Refinement of memory states: the same objects and global symbols, with each byte refined. -/
 @[expose]
 def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
-  source.objects = target.objects ∧ ∀ addr, source.byte addr ⊒ target.byte addr
+  (source.objects = target.objects ∧ ∀ addr, source.byte addr ⊒ target.byte addr) ∧
+    source.globals = target.globals
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryState.isRefinedBy
 
 /--
-A function interpretation `source` is refined by `target`. This asserts that the final memories
-are equal, and the returned values refine pointwise.
+A function interpretation `source` is refined by `target` when its final memory refines
+and the returned values refine pointwise.
 -/
 @[expose]
 def FunctionResult.isRefinedBy (source target : MemoryState × Array RuntimeValue) : Prop :=
-  source.1 = target.1 ∧ source.2 ⊒ target.2
+  source.1 ⊒ target.1 ∧ source.2 ⊒ target.2
 
 @[inherit_doc] infix:50 " ⊒ " => FunctionResult.isRefinedBy
-
-/--
-An interpretation result `source` is refined by `target` given a refinement relation `R`
-on the underlying values. This asserts:
-* every well-defined outcome `.ok a` of `source` must be matched by an outcome
-  `.ok b` of `target` with `R a b`;
-* when `source` is undefined behaviour (`.ub`) or failed interpretation (`.fail`), `target`
-  is unconstrained
--/
-@[expose]
-def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
-  match source, target with
-  | .ok a, .ok b => R a b
-  | .ub _, _ => True
-  | .fail _, _ => True
-  | _, _ => False
 
 /--
 Refinement between two control flow actions: same constructor, equal successor block `dest`, and
@@ -127,12 +115,12 @@ def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option Co
 
 /--
 The result of interpreting a single operation. `source` is refined by `target`
-when values refine pointwise, memories are equal, and actions refine.
+when values refine pointwise, memories refine, and actions refine.
 -/
 @[expose]
 def OperationResult.isRefinedBy (source target :
     Array RuntimeValue × MemoryState × Option ControlFlowAction) : Prop :=
-  source.1 ⊒ target.1 ∧ source.2.1 = target.2.1 ∧
+  source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
     ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2
 
 /--
@@ -190,6 +178,43 @@ def OperationPtr.isModuleRefinedBy (mod₁ : OperationPtr) (ctx₁ : WfIRContext
         func₂.IsTopLevelFuncWithName mod₂ ctx₂.raw name ∧
           func₁.isRefinedByAsFunction ctx₁ func₂ ctx₂ func₁In func₂In
 
+/--
+The function-like operation `op₁` (in `ctx₁`) is *refined by* `op₂` (in `ctx₂`) using the CTree
+interpreter. This does not hold if either operation is not function-like.
+
+For refining arguments and any initial memory, every target behavior must be simulated by a
+source behavior, with returned values refining pointwise. `CTree.Sim` takes the target tree first
+and the source tree second, so its return relation also reverses the arguments. The CTree function
+interpreter returns only the function's values.
+-/
+@[expose]
+def OperationPtr.isRefinedByAsFunctionCTree (op₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
+    (op₂ : OperationPtr) (ctx₂ : WfIRContext OpCode)
+    (op₁In : op₁.InBounds ctx₁.raw := by grind)
+    (op₂In : op₂.InBounds ctx₂.raw := by grind) : Prop :=
+  match FunctionOp.of? op₁ ctx₁.raw, FunctionOp.of? op₂ ctx₂.raw with
+  | some _, some _ =>
+    ∀ (valuesSource valuesTarget : Array RuntimeValue) (mem : MemoryState),
+      valuesSource ⊒ valuesTarget →
+      CTree.Sim (fun target source => RuntimeValue.arrayIsRefinedBy source target)
+        (CTree.interpretFunction op₂ valuesTarget mem op₂In)
+        (CTree.interpretFunction op₁ valuesSource mem op₁In)
+  | _, _ => False
+
+/--
+CTree-based module refinement: every top-level `func.func` of `mod₁` is refined, using CTree
+simulation, by a same-named top-level `func.func` of `mod₂`. The target module may have extra
+top-level functions.
+-/
+@[expose]
+def OperationPtr.isModuleRefinedByCTree (mod₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
+    (mod₂ : OperationPtr) (ctx₂ : WfIRContext OpCode) : Prop :=
+  ∀ (func₁ : OperationPtr) (func₁In : func₁.InBounds ctx₁.raw) (name : StringAttr),
+    func₁.IsTopLevelFuncWithName mod₁ ctx₁.raw name →
+      ∃ (func₂ : OperationPtr) (func₂In : func₂.InBounds ctx₂.raw),
+        func₂.IsTopLevelFuncWithName mod₂ ctx₂.raw name ∧
+          func₁.isRefinedByAsFunctionCTree ctx₁ func₂ ctx₂ func₁In func₂In
+
 abbrev ValueMapping (ctx ctx' : WfIRContext OpInfo) : Type :=
   {v : ValuePtr // v.InBounds ctx.raw} → {v : ValuePtr // v.InBounds ctx'.raw}
 
@@ -242,14 +267,14 @@ def VariableState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
 
 /--
 An interpreter state `state` is refined by `state'` through the value mapping
-`mapping`: they have the same memory, and the variable state of `state` is refined by the variable
+`mapping`: its memory refines, and the variable state of `state` is refined by the variable
 state of `state'` through `mapping`.
 -/
 @[expose]
 def InterpreterState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
     (mapping : ValueMapping ctx ctx') : Prop :=
-  state.memory = state'.memory ∧
+  state.memory ⊒ state'.memory ∧
   state.variables.isRefinedBy state'.variables mapping
 
 /-!
@@ -338,13 +363,13 @@ def VariableState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
 
 /--
 A refinement relation for interpreter states in two different locations.
-This asserts that memory is equal, and that the variable states are refined at the given points.
+This asserts that memory refines, and that the variable states are refined at the given points.
 -/
 def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
     (mapping : ValueMapping ctx ctx') (s : RefinementPoint) (s' : RefinementPoint)
     (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind) : Prop :=
-  state.memory = state'.memory ∧
+  state.memory ⊒ state'.memory ∧
   state.variables.isRefinedByAt state'.variables mapping s s'
 
 end Veir

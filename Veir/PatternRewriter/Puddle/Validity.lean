@@ -2,6 +2,7 @@ module
 
 public import Veir.PatternRewriter.Puddle.Builders
 public import Veir.Interpreter.Refinement.Lemmas
+public import Veir.Verifier
 
 /-!
 # Puddle Patterns Validity
@@ -119,9 +120,11 @@ deriving DecidableEq
 namespace HandleContext
 
 /-- The empty handle context. -/
+@[expose]
 def empty : HandleContext := ⟨[], []⟩
 
 /-- Look up the kind occupying an identifier. -/
+@[expose]
 def lookup (handles : HandleContext) (id : Nat) : Option (HandleType OpCode) :=
   let rec lookupBindings : List (Nat × HandleType OpCode) → Option (HandleType OpCode)
     | [] => none
@@ -140,6 +143,7 @@ def requireMany (ctx : HandleContext) (handles : List (Handle OpCode kind)) : Bo
   handles.all ctx.require
 
 /-- Record an output, requiring its identifier to be fresh in the context. -/
+@[expose]
 def insertFresh (ctx : HandleContext) (handle : Handle OpCode kind) : Option HandleContext :=
   match ctx.lookup handle.id with
   | none => some ⟨(handle.id, kind) :: ctx.bindings, ctx.unavailable⟩
@@ -152,6 +156,7 @@ def insertManyFresh (ctx : HandleContext) (handles : List (Handle OpCode kind))
   handles.foldlM insertFresh ctx
 
 /-- Mark an allocated handle as unavailable to creation and replacement inputs. -/
+@[expose]
 def forbid (ctx : HandleContext) (handle : Handle OpCode kind) : HandleContext :=
   ⟨ctx.bindings, handle.id :: ctx.unavailable⟩
 
@@ -326,7 +331,7 @@ program produces an assignment that refines the root operation's results.
 
 /-- The denotation of a value or metadata handle for a particular program execution. -/
 inductive SemanticBinding where
-| value (value : RuntimeValue)
+| value (value : RuntimeValue) (type : TypeAttr)
 | type (type : TypeAttr)
 | property (opCode : OpCode) (value : propertiesOf opCode)
 
@@ -364,11 +369,23 @@ theorem SemanticAssignment.bind_of_ne_eq (assignment : SemanticAssignment)
     assignment.bind id binding queried = assignment queried := by
   simp [SemanticAssignment.bind, hne]
 
-/-- Binds a runtime value to a value handle. -/
+/-- Bind a runtime value together with its declared IR type. -/
 @[expose]
 def SemanticAssignment.bindValue (assignment : SemanticAssignment)
-    (handle : Handle OpCode .value) (value : RuntimeValue) : SemanticAssignment :=
-  assignment.bind handle.id (.value value)
+    (handle : Handle OpCode .value) (value : RuntimeValue)
+    (type : TypeAttr) : SemanticAssignment :=
+  assignment.bind handle.id (.value value type)
+
+/-- Bind operation results with one declared type per handle, rejecting mismatched lengths. -/
+@[expose]
+def SemanticAssignment.bindValues (values : Array RuntimeValue)
+    (assignment : SemanticAssignment) (handles : List (Handle OpCode .value))
+    (types : List TypeAttr) (index : Nat := 0) : Option SemanticAssignment :=
+  match handles, types with
+  | [], [] => some assignment
+  | handle :: handles, type :: types =>
+      bindValues values (assignment.bindValue handle values[index]! type) handles types (index + 1)
+  | _, _ => none
 
 /-- Binds a concrete type to a type handle. -/
 @[expose]
@@ -387,8 +404,22 @@ def SemanticAssignment.bindProperty (assignment : SemanticAssignment)
 def SemanticAssignment.getValue (assignment : SemanticAssignment)
     (handle : Handle OpCode .value) : Option RuntimeValue :=
   match assignment handle.id with
-  | some (.value value) => some value
+  | some (.value value _) => some value
   | _ => none
+
+/-- The declared IR type attached to a value handle, independent of its runtime representation. -/
+@[expose]
+def SemanticAssignment.getValueType (assignment : SemanticAssignment)
+    (handle : Handle OpCode .value) : Option TypeAttr :=
+  match assignment handle.id with
+  | some (.value _ type) => some type
+  | _ => none
+
+/-- Resolve the declared operand types; unbound or non-value handles reject the model. -/
+@[expose]
+def SemanticAssignment.getValueTypes (assignment : SemanticAssignment)
+    (handles : List (Handle OpCode .value)) : Option (List TypeAttr) :=
+  handles.mapM assignment.getValueType
 
 /--
 Get the binding of a type handle.
@@ -521,13 +552,14 @@ Then, call the continuation with the list of values and the updated assignment.
 -/
 @[expose]
 def SemanticAssignment.ForallValues (assignment : SemanticAssignment)
-    (handles : List (Handle OpCode .value))
+    (handles : List (Handle OpCode .value)) (types : List TypeAttr)
     (k : List RuntimeValue → SemanticAssignment → Prop) : Prop :=
-  match handles with
-  | [] => k [] assignment
-  | handle :: handles =>
-      ∀ value, SemanticAssignment.ForallValues (assignment.bindValue handle value) handles
-        fun values assignment => k (value :: values) assignment
+  match handles, types with
+  | [], [] => k [] assignment
+  | handle :: handles, type :: types =>
+      ∀ value, SemanticAssignment.ForallValues (assignment.bindValue handle value type) handles types
+        (fun values assignment => k (value :: values) assignment)
+  | _, _ => False
 
 /--
 Collect the constraints of a matching declaration on the given assignment,
@@ -541,18 +573,20 @@ def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
     ∀ type, matcher type → k (assignment.bindType handle type)
   | .value typeHandle handle =>
     match assignment.getType typeHandle with
-    | some ty => ∀ value, value.Conforms ty → k (assignment.bindValue handle value)
+    | some ty => ∀ value, value.Conforms ty → k (assignment.bindValue handle value ty)
     | none => False
   | .operation opCode operandHandles resultTypeHandles propertyMatcher propertyHandle _
       resultHandles _ =>
     match assignment.getValues operandHandles.toList,
+      assignment.getValueTypes operandHandles.toList,
       assignment.getTypes resultTypeHandles.toList with
-    | some operands, some resultTypes =>
-      ∀ property, assignment.ForallValues resultHandles.toList fun results assignment =>
+    | some operands, some operandTypes, some resultTypes =>
+      ∀ property, assignment.ForallValues resultHandles.toList resultTypes fun results assignment =>
         propertyMatcher property = true →
+        IsFromVerifiedOp opCode operandTypes.toArray resultTypes.toArray property →
         InterpretsTo opCode property resultTypes.toArray operands.toArray results.toArray →
         k (assignment.bindProperty propertyHandle property)
-      | _, _ => False
+      | _, _, _ => False
   | @MatchDecl.inspectOperation _ _ _ outputBundle _ _ outputs =>
     /- Contextual inspection are not reasoned about in our current model, so we only bind the
     matched metadata without constraining it. -/
@@ -564,19 +598,19 @@ def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
 
 /-- Generates matcher semantics for the given declarations, then call the continuation. -/
 @[expose]
-def MatchProg.modelsDecls (decls : List (MatchDecl OpCode)) (assignment : SemanticAssignment)
+def MatchProg.ModelsDecls (decls : List (MatchDecl OpCode)) (assignment : SemanticAssignment)
     (k : SemanticAssignment → Prop) : Prop :=
   match decls with
   | [] => k assignment
   | decl :: decls =>
       decl.Models assignment fun assignment =>
-        MatchProg.modelsDecls decls assignment k
+        MatchProg.ModelsDecls decls assignment k
 
 /-- Generate matcher semantics in binding order, then call the continuation. -/
 @[expose]
 def MatchProg.Models (prog : MatchProg OpCode α)
     (k : SemanticAssignment → Prop) : Prop :=
-  MatchProg.modelsDecls prog.bindingDecls SemanticAssignment.empty k
+  MatchProg.ModelsDecls prog.bindingDecls SemanticAssignment.empty k
 
 /-!
 ### Creation semantics
@@ -590,20 +624,21 @@ proposition.
 /-- Existentially bind one runtime value for every handle, in handle order. -/
 @[expose]
 def SemanticAssignment.ExistsValues (assignment : SemanticAssignment)
-    (handles : List (Handle OpCode .value))
+    (handles : List (Handle OpCode .value)) (types : List TypeAttr)
     (k : List RuntimeValue → SemanticAssignment → Prop) : Prop :=
-  match handles with
-  | [] => k [] assignment
-  | handle :: handles =>
-      ∃ value, SemanticAssignment.ExistsValues (assignment.bindValue handle value) handles
-        fun values assignment => k (value :: values) assignment
+  match handles, types with
+  | [], [] => k [] assignment
+  | handle :: handles, type :: types =>
+      ∃ value, SemanticAssignment.ExistsValues (assignment.bindValue handle value type) handles types
+        (fun values assignment => k (value :: values) assignment)
+  | _, _ => False
 
 /--
 Collect the constraints of a creation declaration on the given assignment,
 and call the continuation with the updated assignment.
 -/
 @[expose]
-def CreateDecl.Models (decl : CreateDecl OpCode) (assignment : SemanticAssignment)
+def CreateDecl.semantics (decl : CreateDecl OpCode) (assignment : SemanticAssignment)
     (k : SemanticAssignment → Prop) : Prop :=
   match decl with
   | .type value result =>
@@ -614,7 +649,7 @@ def CreateDecl.Models (decl : CreateDecl OpCode) (assignment : SemanticAssignmen
     match assignment.getValues operandHandles.toList,
       assignment.getTypes resultTypeHandles.toList, assignment.getProperty propertyHandle with
     | some operands, some resultTypes, some actualProperty =>
-      assignment.ExistsValues resultHandles.toList fun results assignment =>
+      assignment.ExistsValues resultHandles.toList resultTypes fun results assignment =>
         InterpretsTo opCode actualProperty resultTypes.toArray operands.toArray results.toArray ∧
           k assignment
     | _, _, _ => False
@@ -626,19 +661,19 @@ def CreateDecl.Models (decl : CreateDecl OpCode) (assignment : SemanticAssignmen
 
 /-- Generate creation semantics for the declaration list, then call the continuation. -/
 @[expose]
-def CreateProg.modelsDecls (decls : List (CreateDecl OpCode)) (assignment : SemanticAssignment)
+def CreateProg.semanticsDecls (decls : List (CreateDecl OpCode)) (assignment : SemanticAssignment)
     (k : SemanticAssignment → Prop) : Prop :=
   match decls with
   | [] => k assignment
   | decl :: decls =>
-    decl.Models assignment fun assignment =>
-      CreateProg.modelsDecls decls assignment k
+    decl.semantics assignment fun assignment =>
+      CreateProg.semanticsDecls decls assignment k
 
 /-- Generate creation semantics in execution order, then call the continuation. -/
 @[expose]
-def CreateProg.Models (prog : CreateProg OpCode α) (assignment : SemanticAssignment)
+def CreateProg.semantics (prog : CreateProg OpCode α) (assignment : SemanticAssignment)
     (k : SemanticAssignment → Prop) : Prop :=
-  CreateProg.modelsDecls prog.decls assignment k
+  CreateProg.semanticsDecls prog.decls assignment k
 
 /--
 Check that the root results of the matcher assignment refine the replacement values
@@ -657,7 +692,7 @@ def Replacement.RefinesRoot (replacement : Replacement OpCode)
 @[expose]
 def Pattern.PreservesSemantics (rule : Pattern OpCode) : Prop :=
   rule.matcher.Models fun matched =>
-    rule.creation.Models matched fun final =>
+    rule.creation.semantics matched fun final =>
       rule.replacement.RefinesRoot rule.matcher.rootResults? matched final
 
 /-!
@@ -687,6 +722,11 @@ This section defines tactics for proving the different obligations of `Pattern.V
 are intended to be used in the proof of `Pattern.Valid` for a specific Puddle pattern.
 -/
 
+/-- Avoid expanding the global default-properties dispatcher for conversion casts. -/
+public theorem conversion_cast_default_properties :
+    (default : propertiesOf (OpCode.builtin .unrealized_conversion_cast)) = () := by
+  rfl
+
 /-- Unfold and simplify the builders used to construct a concrete Puddle pattern. -/
 macro "unfoldPuddleBuilder" : tactic =>
   `(tactic| (
@@ -703,7 +743,11 @@ macro "unfoldPuddleBuilder" : tactic =>
       Nat.zero_add, Nat.reduceAdd, List.size_toArray, List.length_cons, List.length_nil,
       Array.size_map, Array.size_range, Nat.lt_add_one, getElem!_pos, Array.getElem_map,
       Array.getElem_range, Nat.add_zero, List.cons_append, List.nil_append,
-      List.reverse_cons, List.reverse_nil]))
+      List.reverse_cons, List.reverse_nil,
+      /- Normalize fixed builder branches before evaluating structural checks. -/
+      ↓reduceIte,
+      /- Resolve cast defaults before traversing their instance arguments. -/
+      ↓conversion_cast_default_properties]))
 
 /-- Prove a `Puddle.Supported` goal. -/
 macro "provePuddleSupported" : tactic =>
@@ -717,9 +761,10 @@ macro "provePuddleSupported" : tactic =>
 macro "simpPuddleSemantics" : tactic =>
   `(tactic| simp only [Pattern.PreservesSemantics, MatchProg.Models,
     MatchProg.bindingDecls, List.partition_eq_filter_filter, List.range_succ, List.reverse_cons,
-    MatchProg.modelsDecls, MatchDecl.Models,
-    CreateProg.Models, CreateProg.modelsDecls, CreateDecl.Models,
+    MatchProg.ModelsDecls, MatchDecl.Models,
+    CreateProg.semantics, CreateProg.semanticsDecls, CreateDecl.semantics,
     SemanticAssignment.getValues, SemanticAssignment.getTypes,
+    SemanticAssignment.getValueTypes, SemanticAssignment.getValueType,
     SemanticAssignment.getValue, SemanticAssignment.getType,
     SemanticAssignment.getProperty,
     SemanticAssignment.bindProperty, SemanticAssignment.bindType,
@@ -758,7 +803,7 @@ Lean 4.35's cbv simproc for `if True` has a bug that prevents it from being used
 This `cbv_eval` rule will prevent this `if True` from appearing in puddle proofs.
 -/
 @[scoped cbv_eval]
-theorem guard_eq_cond {condition : Prop} [Decidable condition] :
+public theorem guard_eq_cond {condition : Prop} [Decidable condition] :
     (guard condition : Option Unit) = cond (decide condition) (some ()) none := by
   cases ‹Decidable condition› <;> rfl
 

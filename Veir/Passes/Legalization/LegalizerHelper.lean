@@ -4,6 +4,7 @@ public import Veir.PatternRewriter.Puddle.Definitions
 public import Veir.PatternRewriter.Basic
 public import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
+import Veir.Interfaces.ControlFlowInterfaces
 
 /-!
 # Legalization Actions
@@ -414,6 +415,73 @@ def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
       return #[trunc.res[0]!, ov.res[0]!])
     (fun results => results)
 
+/--
+Lowers `g_uadde` to a `g_add` of the operands, and a `g_add` of the carry-in to that sum, and
+`g_usube` to the same with `g_sub`, as LLVM's `LegalizerHelper::lower` does. The first operation
+carries when its result is less than either operand (for `g_add`) or greater than the left operand
+(for `g_sub`). The second one only carries when the carry-in is set, and the second result (for
+`g_add`) or the first result (for `g_sub`) is zero.
+-/
+def lowerAddSubE (isAdd : Bool) : Pattern OpCode :=
+  let (opcode, arithOpcode, predicate) :=
+    if isAdd then (GMIR.g_uadde, GMIR.g_add, Data.LLVM.IntPred.ult)
+    else (.g_usube, .g_sub, .ugt)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let flagType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let flagIn ← MatchProg.value flagType
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs, flagIn] #[type, flagType]
+      -- The `i1` carry-in is zero-extended to the type of the operands, so that type must be wider.
+      MatchProg.matchNative type fun type =>
+        match type.val with
+        | .integerType type => 1 < type.bitwidth
+        | _ => false
+      return (type, flagType, lhs, rhs, flagIn))
+    (fun (type, flagType, lhs, rhs, flagIn) => do
+      let tmp ← CreateProg.operation (.gmir arithOpcode) #[lhs, rhs] #[type]
+      let flag ← CreateProg.operation (.gmir .g_icmp) #[tmp.res[0]!, lhs] #[flagType]
+        (.inl { predicate })
+      let ext ← CreateProg.operation (.gmir .g_zext) #[flagIn] #[type]
+      let result ← CreateProg.operation (.gmir arithOpcode) #[tmp.res[0]!, ext.res[0]!] #[type]
+      let zero ← createConstant type 0
+      let zeroOperand := if isAdd then result.res[0]! else tmp.res[0]!
+      let isZero ← CreateProg.operation (.gmir .g_icmp) #[zeroOperand, zero.res[0]!] #[flagType]
+        (.inl { predicate := .eq })
+      let flag2 ← CreateProg.operation (.gmir .g_and) #[isZero.res[0]!, flagIn] #[flagType]
+      let flagOut ← CreateProg.operation (.gmir .g_or) #[flag.res[0]!, flag2.res[0]!] #[flagType]
+      return #[result.res[0]!, flagOut.res[0]!])
+    (fun results => results)
+
+/--
+Narrows a `2 * width`-bit `g_add` to a `g_uaddo` of the low halves and a `g_uadde` of the high
+halves, and `g_sub` to the same with `g_usubo` and `g_usube`, as LLVM's
+`LegalizerHelper::narrowScalarAddSub` does.
+-/
+def narrowAddSub (isAdd : Bool) (width : Nat) : Pattern OpCode :=
+  let (opcode, loOpcode, hiOpcode) :=
+    if isAdd then (GMIR.g_add, GMIR.g_uaddo, GMIR.g_uadde) else (.g_sub, .g_usubo, .g_usube)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 2 * width)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let halfType ← CreateProg.type (IntegerType.signless width)
+      let carryType ← CreateProg.type (IntegerType.signless 1)
+      let lhsHalves ← CreateProg.operation (.gmir .g_unmerge_values) #[lhs] #[halfType, halfType]
+      let rhsHalves ← CreateProg.operation (.gmir .g_unmerge_values) #[rhs] #[halfType, halfType]
+      let lo ← CreateProg.operation (.gmir loOpcode) #[lhsHalves.res[0]!, rhsHalves.res[0]!]
+        #[halfType, carryType]
+      let hi ← CreateProg.operation (.gmir hiOpcode)
+        #[lhsHalves.res[1]!, rhsHalves.res[1]!, lo.res[1]!] #[halfType, carryType]
+      CreateProg.operation (.gmir .g_merge_values) #[lo.res[0]!, hi.res[0]!] #[type])
+    (fun merge => merge)
+
 public section
 
 /--
@@ -500,6 +568,38 @@ def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
         #[ov.res[0]!, satVal.res[0]!, result.res[0]!] #[type])
     (fun op => op)
 
+/--
+Lowers `g_scmp` or `g_ucmp` as LLVM's `LegalizerHelper::lowerThreewayCompare`, using its
+arithmetic path for targets such as RISC-V whose booleans are zero or one:
+
+  cmp lhs rhs = zext (icmp gt lhs rhs) - zext (icmp lt lhs rhs)
+
+The comparisons produce `i1`; both are zero-extended to the independent result width before
+subtracting. Existing comparison legalization and artifact combines handle the intermediate casts.
+-/
+def lowerThreewayCompare (signed : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let operandType ← MatchProg.type (Attr := IntegerType)
+      let resultType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value operandType
+      let rhs ← MatchProg.value operandType
+      let _ ← MatchProg.root (.gmir (if signed then .g_scmp else .g_ucmp))
+        #[lhs, rhs] #[resultType]
+      return (resultType, lhs, rhs))
+    (fun (resultType, lhs, rhs) => do
+      let boolType ← CreateProg.type (IntegerType.signless 1)
+      let gtProps ← CreateProg.property (.gmir .g_icmp)
+        { predicate := if signed then .sgt else .ugt }
+      let ltProps ← CreateProg.property (.gmir .g_icmp)
+        { predicate := if signed then .slt else .ult }
+      let isGT ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[boolType] gtProps
+      let isLT ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[boolType] ltProps
+      let isGT ← CreateProg.operation (.gmir .g_zext) #[isGT.res[0]!] #[resultType]
+      let isLT ← CreateProg.operation (.gmir .g_zext) #[isLT.res[0]!] #[resultType]
+      CreateProg.operation (.gmir .g_sub) #[isGT.res[0]!, isLT.res[0]!] #[resultType])
+    (fun op => op)
+
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
@@ -518,6 +618,10 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_usubo => lowerUAddSubO false
   | .g_saddo => lowerSAddSubO true
   | .g_ssubo => lowerSAddSubO false
+  | .g_uadde => lowerAddSubE true
+  | .g_usube => lowerAddSubE false
+  | .g_scmp => lowerThreewayCompare true
+  | .g_ucmp => lowerThreewayCompare false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
@@ -561,6 +665,10 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_udiv, .type 0, width => widenTypeGroup .g_udiv (.type 0) .g_zext width
   | .g_urem, .type 0, width => widenTypeGroup .g_urem (.type 0) .g_zext width
   | .g_constant, .type 0, width => widenConstant width
+  -- A wide poison truncates to poison.
+  | .g_poison, .type 0, width => widenTypeGroup .g_poison (.type 0) .g_anyext width
+  -- The memory size is kept, so the wide load is any-extended.
+  | .g_load, .type 0, width => widenTypeGroup .g_load (.type 0) .g_anyext width
   -- `g_sext_inreg` only reads the low `sz` bits, so any extension is fine.
   | .g_sext_inreg, .type 0, width => widenTypeGroup .g_sext_inreg (.type 0) .g_anyext width
   -- The count fits in the wide result, so the result is just truncated back.
@@ -589,6 +697,54 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_saddo, .type 0, width => widenScalarAddSubOverflow .g_saddo width
   | .g_ssubo, .type 0, width => widenScalarAddSubOverflow .g_ssubo width
   | _, _, _ => none
+
+/-- Narrows type group `typeIdx` of `opcode` to `width` bits. -/
+def narrowScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
+  | .g_add, .type 0, width => narrowAddSub true width
+  | .g_sub, .type 0, width => narrowAddSub false width
+  | _, _, _ => none
+
+/-! ## Block arguments
+
+  The block arguments are the phis of our gMIR MLIR-dialect, so they are legalized with the target's
+  block-argument rules. A Puddle pattern cannot match a block argument and its predecessors,
+  so these are local rewrites. -/
+
+/-- The uses of `block` as a successor, one for each edge into it. -/
+private def incomingEdges (ctx : IRContext OpCode) (block : BlockPtr) : List BlockOperandPtr :=
+  Id.run do
+    let mut edges := []
+    let mut use? := block.getFirstUse! ctx
+    while let some use := use? do
+      edges := use :: edges
+      use? := use.getNextUse! ctx
+    return edges.reverse
+
+/--
+Widens argument `i` of `block` to `width` bits for each `(i, width)` in `args`, as LLVM does for
+`G_PHI`: each branch to `block` passes a `g_anyext`, and a `g_trunc` restores the original type.
+Returns `none` if a predecessor is not a branch.
+-/
+def widenBlockArguments (block : BlockPtr) (args : List (Nat × Nat))
+    (ctx : WfIRContext OpCode) : Option (WfIRContext OpCode) := do
+  let edges ← (incomingEdges ctx.raw block).mapM fun edge =>
+    return (edge.op, ← BranchOpInterface.getSuccessorOperands? edge.op edge.index ctx.raw)
+  -- The `g_trunc`s go first: a branch from the block back to itself passes a `g_anyext` of one.
+  let start := InsertPoint.atStart! block ctx.raw
+  let ctx ← args.foldlM (init := ctx) fun ctx (i, width) => do
+    let arg : BlockArgumentPtr := { block := block, index := i }
+    let type := (ValuePtr.blockArgument arg).getType! ctx.raw
+    let ctx := WfRewriter.setType! ctx arg (IntegerType.signless width)
+    let (ctx, trunc) ← WfRewriter.createOp! ctx GMIR.g_trunc #[type] #[] #[] #[]
+      (({ nsw := false, nuw := false } : NswNuwProperties) : propertiesOf GMIR.g_trunc) start
+    let ctx := WfRewriter.replaceValue! ctx arg (trunc.getResult 0)
+    return WfRewriter.pushOperand! ctx trunc arg
+  edges.foldlM (init := ctx) fun ctx (branch, operands) => args.foldlM (init := ctx)
+    fun ctx (i, width) => do
+      let operand : OpOperandPtr := { op := branch, index := operands.getOperandIndex i }
+      let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_anyext #[IntegerType.signless width]
+        #[branch.getOperand! ctx.raw operand.index] #[] #[] () (InsertPoint.before branch)
+      return WfRewriter.replaceOperand! ctx operand (ext.getResult 0)
 
 end
 

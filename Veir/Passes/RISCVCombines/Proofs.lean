@@ -11,6 +11,11 @@ meta import Std.Tactic.BVDecide.Reflect
 
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Lemmas
+import all Veir.Passes.RISCVCombines.Combine
+import all Veir.PatternRewriter.Puddle.Validity
+import all Veir.Dialects.RISCV.OpInfo
+import all Veir.Dialects.RISCV.Properties
+import all Veir.GlobalOpInfo
 
 public section
 
@@ -25,6 +30,91 @@ namespace Veir.Data.RISCV
 -/
 theorem right_identity_zero_add:
     (RISCV.add lhs (Data.RISCV.li (BitVec.ofInt 64 0))) = lhs := by
+  veir_bv_decide
+
+/-- `add x (li c) -> addi x c`: the signed bounds from `liFitsSImm12` ensure
+    that truncating `c` to 12 bits and sign-extending recovers `c`.
+    This also holds for zero. `RISCV.add` takes operands in `(rs2, rs1)` order. -/
+theorem add_li_to_addi {x : Reg} {c : BitVec 64}
+    (hlo : -2048 ≤ c.toInt) (hhi : c.toInt ≤ 2047) :
+    RISCV.add (RISCV.li c) x = RISCV.addi (c.setWidth 12) x := by
+  -- Express the bounds as bitvector comparisons for the bitblaster.
+  have hlo' : (-2048#64).sle c := BitVec.sle_iff_toInt_le.mpr hlo
+  have hhi' : c.sle 2047#64 := BitVec.sle_iff_toInt_le.mpr hhi
+  veir_bv_decide
+
+/-- The other operand order matched by `add_li_to_addi_commuted`. -/
+theorem add_li_to_addi_commuted {x : Reg} {c : BitVec 64}
+    (hlo : -2048 ≤ c.toInt) (hhi : c.toInt ≤ 2047) :
+    RISCV.add x (RISCV.li c) = RISCV.addi (c.setWidth 12) x := by
+  simpa only [RISCV.add, BitVec.add_comm] using (add_li_to_addi (x := x) hlo hhi)
+
+/-- Both sides retain bits 31:0 and clear bits 63:32. -/
+theorem and_li_to_zextw {x : Reg} :
+    RISCV.and (RISCV.li 0xffffffff#64) x = RISCV.zextw x := by
+  veir_bv_decide
+
+/-- The other operand order matched by `and_li_to_zextw_commuted`. -/
+theorem and_li_to_zextw_commuted {x : Reg} :
+    RISCV.and x (RISCV.li 0xffffffff#64) = RISCV.zextw x := by
+  simpa only [RISCV.and, BitVec.and_comm] using (and_li_to_zextw (x := x))
+
+/-! Shift-amount combines (R1). Register semantics take `(amount, data)`,
+    the reverse of the SSA operand order. The mask hypotheses use the exact
+    64-bit immediate-property predicate from the Puddle matcher. -/
+
+theorem sll_amount_andi {x amount : Reg} {mask : BitVec 64}
+    (hmask : mask &&& 63 = 63) :
+    RISCV.sll (RISCV.andi (mask.setWidth 12) amount) x = RISCV.sll amount x := by
+  veir_bv_decide
+
+theorem srl_amount_andi {x amount : Reg} {mask : BitVec 64}
+    (hmask : mask &&& 63 = 63) :
+    RISCV.srl (RISCV.andi (mask.setWidth 12) amount) x = RISCV.srl amount x := by
+  veir_bv_decide
+
+theorem sra_amount_andi {x amount : Reg} {mask : BitVec 64}
+    (hmask : mask &&& 63 = 63) :
+    RISCV.sra (RISCV.andi (mask.setWidth 12) amount) x = RISCV.sra amount x := by
+  veir_bv_decide
+
+theorem sllw_amount_andi {x amount : Reg} {mask : BitVec 64}
+    (hmask : mask &&& 31 = 31) :
+    RISCV.sllw (RISCV.andi (mask.setWidth 12) amount) x = RISCV.sllw amount x := by
+  veir_bv_decide
+
+theorem srlw_amount_andi {x amount : Reg} {mask : BitVec 64}
+    (hmask : mask &&& 31 = 31) :
+    RISCV.srlw (RISCV.andi (mask.setWidth 12) amount) x = RISCV.srlw amount x := by
+  veir_bv_decide
+
+theorem sraw_amount_andi {x amount : Reg} {mask : BitVec 64}
+    (hmask : mask &&& 31 = 31) :
+    RISCV.sraw (RISCV.andi (mask.setWidth 12) amount) x = RISCV.sraw amount x := by
+  veir_bv_decide
+
+theorem sll_amount_zextw {x amount : Reg} :
+    RISCV.sll (RISCV.zextw amount) x = RISCV.sll amount x := by
+  veir_bv_decide
+
+theorem srl_amount_zextw {x amount : Reg} :
+    RISCV.srl (RISCV.zextw amount) x = RISCV.srl amount x := by
+  veir_bv_decide
+
+theorem sra_amount_zextw {x amount : Reg} :
+    RISCV.sra (RISCV.zextw amount) x = RISCV.sra amount x := by
+  veir_bv_decide
+
+theorem sllw_amount_zextw {x amount : Reg} :
+    RISCV.sllw (RISCV.zextw amount) x = RISCV.sllw amount x := by
+  veir_bv_decide
+
+theorem srlw_amount_zextw {x amount : Reg} :
+    RISCV.srlw (RISCV.zextw amount) x = RISCV.srlw amount x := by
+  veir_bv_decide
+
+theorem sraw_amount_zextw {x amount : Reg} :
+    RISCV.sraw (RISCV.zextw amount) x = RISCV.sraw amount x := by
   veir_bv_decide
 
 /--
@@ -124,6 +214,12 @@ theorem zextw_zextb {x : Reg} :
     zero-extended. -/
 theorem zextb_lbu {byte : Reg} :
     RISCV.zextb (RISCV.zextb byte) = RISCV.zextb byte := by
+  veir_bv_decide
+
+/-- `andi 255 (lbu byte) = lbu byte`: an unsigned byte load is already masked.
+    The combine reuses the existing load result. -/
+theorem andi_255_lbu {byte : Reg} :
+    RISCV.andi 255 (RISCV.zextb byte) = RISCV.zextb byte := by
   veir_bv_decide
 
 /-- The byte-packing pre-canonicalization is valid for each selected shift:
@@ -456,3 +552,131 @@ theorem sexth_li_low16 {x : BitVec 64} (h : (x.extractLsb 15 0).signExtend 64 = 
   veir_bv_decide
 
 end Veir.Data.RISCV
+
+end
+
+namespace Veir.RISCV
+
+open Puddle
+
+/-- R2 preserves semantics and satisfies Puddle's structural obligations in
+    both operand orders, for arbitrary register types and shared masks. -/
+theorem and_li_to_zextw_valid (liFirst : Bool) :
+    Pattern.Valid (and_li_to_zextw_pattern liFirst) := by
+  cases liFirst <;> simp only [and_li_to_zextw_pattern, Bool.false_eq_true, ↓reduceIte]
+  all_goals
+    provePuddleValid
+    simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
+      forall_eq_apply_imp_iff]
+    rintro xType x maskType ⟨mask⟩ maskValue rfl - hli resultType props result - hand
+    -- These pure operations have the same results in every memory state.
+    cases hli.2 .empty
+    cases hand.2 .empty
+    refine ⟨.reg (Data.RISCV.zextw x), ⟨?_, fun _ => rfl⟩, ?_⟩
+    · simp [RuntimeValue.ArrayConforms]
+  -- Register refinement is equality, so the register lemmas close both cases.
+  · exact Data.RISCV.and_li_to_zextw
+  · exact Data.RISCV.and_li_to_zextw_commuted
+
+/-! Connect the R1 register equalities to the actual Puddle matchers and
+    replacements, including structural validity and runtime value conformance. -/
+
+-- The shared operand matcher uses `Array.mapM`. This local instance lets the
+-- proof normalize that builder through its list representation.
+local instance : LawfulMonad MatchProg.Builder := by
+  refine LawfulMonad.mk' _ ?_ ?_ ?_ <;> intros <;> rfl
+
+/-- A pure register instruction's interpretation determines its sole result. -/
+private theorem interprets_reg_iff {op : OpCode} {props : propertiesOf op}
+    {ty : RegisterType} {args : Array RuntimeValue} {v : RuntimeValue} {result : Data.RISCV.Reg}
+    (h : ∀ mem, interpretOp' op props #[ty] args #[] mem =
+      .ok (#[.reg result], mem, none)) :
+    InterpretsTo op props #[ty] args #[v] ↔ v = .reg result := by
+  constructor
+  · intro hv
+    simpa [h] using (hv.2 .empty).symm
+  · rintro rfl
+    refine ⟨?_, h⟩
+    simp [RuntimeValue.ArrayConforms]
+
+local macro "normalizeShiftAmountPattern" : tactic => `(tactic| (
+  simp only [drop_shift_amount_mask_pattern, drop_zextw_shift_amount_pattern,
+    drop_ext_low_word_pattern, drop_unary_operand_pattern]
+  simp only [← List.toArray_range, List.mapM_toArray, List.range_succ,
+    List.range_zero, List.mapM_cons, List.mapM_nil, List.cons_append,
+    List.nil_append, Nat.reduceEqDiff, ↓reduceIte, pure_bind, map_eq_pure_bind]
+  provePuddleValid
+  simp only [Array.toList_set!, List.set]
+  simpPuddleSemantics
+  simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
+    forall_eq_apply_imp_iff]))
+
+local macro "proveShiftAmountMaskValid" equality:ident : tactic => `(tactic| (
+  normalizeShiftAmountPattern
+  rintro aty amount ⟨mask⟩ v hmask _ hprod xty x rty sprops result _verifiedShift hshift
+  cases (interprets_reg_iff fun _ => rfl).mp hprod
+  cases (interprets_reg_iff fun _ => rfl).mp hshift
+  refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
+  simp only [RISCVImmediateProperties.immField]
+  rw [$equality hmask]
+  exact RuntimeValue.isRefinedBy_refl _))
+
+local macro "proveShiftAmountZextValid" equality:ident : tactic => `(tactic| (
+  normalizeShiftAmountPattern
+  intro aty amount props v _ hprod xty x rty sprops result _verifiedShift hshift
+  cases (interprets_reg_iff fun _ => rfl).mp hprod
+  cases (interprets_reg_iff fun _ => rfl).mp hshift
+  refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
+  rw [($equality)]
+  exact RuntimeValue.isRefinedBy_refl _))
+
+theorem drop_sll_amount_mask_valid :
+    Pattern.Valid (drop_shift_amount_mask_pattern .sll 63) := by
+  proveShiftAmountMaskValid Data.RISCV.sll_amount_andi
+
+theorem drop_srl_amount_mask_valid :
+    Pattern.Valid (drop_shift_amount_mask_pattern .srl 63) := by
+  proveShiftAmountMaskValid Data.RISCV.srl_amount_andi
+
+theorem drop_sra_amount_mask_valid :
+    Pattern.Valid (drop_shift_amount_mask_pattern .sra 63) := by
+  proveShiftAmountMaskValid Data.RISCV.sra_amount_andi
+
+theorem drop_sllw_amount_mask_valid :
+    Pattern.Valid (drop_shift_amount_mask_pattern .sllw 31) := by
+  proveShiftAmountMaskValid Data.RISCV.sllw_amount_andi
+
+theorem drop_srlw_amount_mask_valid :
+    Pattern.Valid (drop_shift_amount_mask_pattern .srlw 31) := by
+  proveShiftAmountMaskValid Data.RISCV.srlw_amount_andi
+
+theorem drop_sraw_amount_mask_valid :
+    Pattern.Valid (drop_shift_amount_mask_pattern .sraw 31) := by
+  proveShiftAmountMaskValid Data.RISCV.sraw_amount_andi
+
+theorem drop_sll_amount_zextw_valid :
+    Pattern.Valid (drop_zextw_shift_amount_pattern .sll) := by
+  proveShiftAmountZextValid Data.RISCV.sll_amount_zextw
+
+theorem drop_srl_amount_zextw_valid :
+    Pattern.Valid (drop_zextw_shift_amount_pattern .srl) := by
+  proveShiftAmountZextValid Data.RISCV.srl_amount_zextw
+
+theorem drop_sra_amount_zextw_valid :
+    Pattern.Valid (drop_zextw_shift_amount_pattern .sra) := by
+  proveShiftAmountZextValid Data.RISCV.sra_amount_zextw
+
+-- The existing low-word family supplies the word-shift zero-extension cases.
+theorem drop_sllw_amount_zextw_valid (h : ReadsLowWord .sllw 2) :
+    Pattern.Valid (drop_ext_low_word_pattern .zextw .sllw 2 1 h) := by
+  proveShiftAmountZextValid Data.RISCV.sllw_amount_zextw
+
+theorem drop_srlw_amount_zextw_valid (h : ReadsLowWord .srlw 2) :
+    Pattern.Valid (drop_ext_low_word_pattern .zextw .srlw 2 1 h) := by
+  proveShiftAmountZextValid Data.RISCV.srlw_amount_zextw
+
+theorem drop_sraw_amount_zextw_valid (h : ReadsLowWord .sraw 2) :
+    Pattern.Valid (drop_ext_low_word_pattern .zextw .sraw 2 1 h) := by
+  proveShiftAmountZextValid Data.RISCV.sraw_amount_zextw
+
+end Veir.RISCV

@@ -82,6 +82,12 @@ axiom bind {RR RR'} (t : CTree E C X) (u : CTree E C' X') (k : X → CTree E C Y
   (∀ x y, RR x y → Sim RR' (k x) (k' y)) →
   Sim RR' (bind t k) (bind u k')
 
+/-- Simulations compose by relating their return values through an intermediate outcome. -/
+axiom trans_rel {R₁ R₂ R₃ : Type u} {RS : R₁ → R₂ → Prop} {RT : R₂ → R₃ → Prop}
+    {t : CTree E C R₁} {u : CTree E C' R₂} {v : CTree E D R₃} :
+    Sim RS t u → Sim RT u v →
+    Sim (fun x z => ∃ y, RS x y ∧ RT y z) t v
+
 axiom iter {I I'} {RRi : I → I' → Prop} {RRo : X → Y → Prop}
     (body : I → CTree E C (I ⊕ X)) (body' : I' → CTree E C (I' ⊕ Y)) i i' :
   RRi i i' →

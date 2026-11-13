@@ -21,7 +21,7 @@ inductive Seq where
 | firmem__read_write_port
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Seq.propertiesOf (op : Seq) : Type :=
 match op with
 | .to_clock => Unit
@@ -163,12 +163,7 @@ private def Seq.verifyFirMemPort {OpInfo : Type} [IsOpCode OpInfo] (opName : Str
     (required : Array Bool) (sizes : Array Int) (results : Nat) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) :
     Except String (Seq.FirMemType × Array (Option Nat)) := do
-  if op.getNumResults ctx.raw opIn ≠ results then
-    throw s!"{opName}: Expected {results} result(s)"
-  if op.getNumRegions ctx.raw opIn ≠ 0 then
-    throw s!"{opName}: Expected 0 regions"
-  if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-    throw s!"{opName}: Expected 0 successors"
+  op.verifyNonOperandCounts ctx opIn results 0 0
   let indices ← Seq.firMemPortOperands opName required sizes (op.getNumOperands ctx.raw opIn)
   let .seqFirMemType memType := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
     | throw s!"{opName}: expected the memory operand to be a '!seq.firmem'"

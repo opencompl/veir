@@ -17,7 +17,7 @@ inductive Builtin where
 | unrealized_conversion_cast
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Builtin.propertiesOf (op : Builtin) : Type :=
 match op with
 | .unregistered => UnregisteredProperties
@@ -105,14 +105,7 @@ def Builtin.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .module => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     pure ()
 
 /-- A `builtin.module` is an optional symbol. -/

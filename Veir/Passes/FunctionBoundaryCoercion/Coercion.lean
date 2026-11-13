@@ -12,7 +12,7 @@ namespace Veir
 
   The coercion applied is selected by a `BoundaryCoercion` flag:
   - `.riscvReg`: i1-, i8-, i16-, i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
-    `isel-abi-riscv64` applies this only to LLVM functions as its first step.
+    `call-lowering-riscv64` applies this only to LLVM functions as its first step.
   - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
   - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
 -/
@@ -128,7 +128,7 @@ public def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRCon
 def CoerceFunctionBoundariesPass.impl (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let ctx ← coerceFunctionBoundaries coercion ctx
-  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
+  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx op with
   | none => throw "Error while applying DCE after function boundary coercion"
   | some ctx => pure ctx
 

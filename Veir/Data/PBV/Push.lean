@@ -97,9 +97,10 @@ namespace Veir.Data.PBV
 
 public section
 
-attribute [pbv_push] signBitOfMask_eq maskOfWidth_zero BitVec.setWidth_zero
-  BitVec.ofNat_eq_ofNat BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq BitVec.setWidth_and Nat.sub_zero
-  BitVec.extractLsb
+attribute [pbv_push] signBitOfMask_eq BitVec.setWidth_zero BitVec.ofNat_eq_ofNat
+  BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq BitVec.setWidth_and Nat.sub_zero
+  BitVec.extractLsb BitVec.ofInt_natCast BitVec.ofNat_toNat BitVec.umod_eq
+  BitVec.ofInt_toInt
 
 attribute [pbv_push low] BitVec.setWidth_eq
 
@@ -162,6 +163,11 @@ theorem setWidth_bif {c : Bool} {o w : Nat} (a b : BitVec w) :
     (bif c then a else b).setWidth o
       = bif c then (a.setWidth o) else (b.setWidth o) := by grind
 
+@[pbv_push]
+theorem setWidth_ite {c : Prop} {o w : Nat} (a b : BitVec w) [Decidable c] :
+    (if c then a else b).setWidth o
+      = if c then (a.setWidth o) else (b.setWidth o) := by grind
+
 /-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 
 @[pbv_push low]
@@ -169,6 +175,11 @@ theorem setWidth_setWidth {o w u : Nat} (h : w ≤ o) (a : BitVec u) :
     (a.setWidth w).setWidth o = a.setWidth o &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
   rw [BitVec.toNat_setWidth, BitVec.toNat_setWidth, Nat.mod_mod_pow_of_le h]
+
+theorem setWidth_toMask {o w : Nat} (h : w ≤ o) (a : BitVec w) :
+    a.setWidth o = a.setWidth o &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  rw [BitVec.toNat_setWidth, Nat.mod_mod_pow_of_le h, Nat.mod_eq_of_lt (a.isLt)]
 
 /-! ## Push `setWidth` into arithmetic -/
 
@@ -429,6 +440,41 @@ theorem msb_eq_and_signBitOfMask_ne_zero (o : Nat) {w : Nat} (h : w ≤ o) (a : 
     cases a.getLsbD (w - 1)
     · simp
     · simp [BitVec.twoPow_ne_zero hlt]
+
+@[pbv_push]
+theorem setWidth_twoPow {o w n : Nat} (h : w ≤ o) :
+    (BitVec.twoPow w n).setWidth o = (maskOfWidth o n + 1) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp [maskOfWidth, Nat.mod_mod_pow_of_le h, Nat.sub_one_add_one]
+
+@[pbv_push]
+theorem setWidth_ofIntMin {o w : Nat} (h : w ≤ o) :
+    (BitVec.intMin w).setWidth o = maskOfWidth o w ^^^ (maskOfWidth o w >>> 1) := by
+  ext i hi
+  simp only [BitVec.getElem_setWidth, BitVec.getLsbD_intMin, maskOfWidth_eq_allOnes h, BitVec.truncate_eq_setWidth,
+    BitVec.getElem_xor, BitVec.getLsbD_allOnes, BitVec.getElem_ushiftRight, BitVec.getLsbD_setWidth]
+  grind
+
+@[pbv_push]
+theorem setWidth_ofIntMax {o w : Nat} (h : w ≤ o) :
+    (BitVec.intMax w).setWidth o = (maskOfWidth o w >>> 1) := by
+  ext i hi
+  simp only [BitVec.getElem_setWidth, BitVec.getLsbD_intMax, maskOfWidth_eq_allOnes h, BitVec.truncate_eq_setWidth,
+    BitVec.getElem_ushiftRight, BitVec.getLsbD_setWidth, BitVec.getLsbD_allOnes]
+  grind
+
+@[pbv_push]
+theorem setWidth_ofInt {o w : Nat} {i : Int} (h : w ≤ o) :
+    (BitVec.ofInt w i).setWidth o = (BitVec.ofInt o i) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp only [BitVec.toNat_ofInt]
+  have hdvd : ((2 ^ w : Nat) : Int) ∣ ((2 ^ o : Nat) : Int) :=
+    Int.natCast_dvd_natCast.mpr (Nat.pow_dvd_pow 2 h)
+  have hw := Nat.two_pow_pos w
+  have ho := Nat.two_pow_pos o
+  apply Int.ofNat_inj.mp
+  rw [Int.natCast_emod, Int.toNat_of_nonneg (Int.emod_nonneg _ (by omega)),
+    Int.toNat_of_nonneg (Int.emod_nonneg _ (by omega)), Int.emod_emod_of_dvd _ hdvd]
 
 /-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
 @[pbv_push]

@@ -14,7 +14,7 @@ inductive Rv64 where
 | get_register
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Rv64.propertiesOf (op : Rv64) : Type :=
 match op with
 | _ => Unit

@@ -56,6 +56,8 @@ inductive GMIR where
 | g_smax
 | g_umin
 | g_umax
+| g_scmp
+| g_ucmp
 | g_abs
 | g_ctlz
 | g_cttz
@@ -78,9 +80,10 @@ inductive GMIR where
 | g_fshr
 | g_rotl
 | g_rotr
+| g_poison
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def GMIR.propertiesOf : GMIR → Type
   | .g_add | .g_sub | .g_mul | .g_shl | .g_trunc => NswNuwProperties
   | .g_sdiv | .g_udiv | .g_lshr | .g_ashr => ExactProperties
@@ -95,11 +98,11 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
-  | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
+  | .g_smin | .g_smax | .g_umin | .g_umax | .g_scmp | .g_ucmp | .g_abs
   | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
-  | .g_fshl | .g_fshr | .g_rotl | .g_rotr => Unit
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr | .g_poison => Unit
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -119,11 +122,11 @@ def GMIR.fromAttrDict
      | g_and | g_xor | g_srem | g_urem
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse | g_brev8
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
-     | g_smin | g_smax | g_umin | g_umax | g_abs
+     | g_smin | g_smax | g_umin | g_umax | g_scmp | g_ucmp | g_abs
      | g_merge_values | g_unmerge_values | g_br
      | g_uaddo | g_uadde | g_usubo | g_usube | g_saddo | g_ssubo
      | g_ctlz | g_cttz | g_ctlz_zero_poison | g_cttz_zero_poison | g_ctpop
-     | g_fshl | g_fshr | g_rotl | g_rotr => exact .ok ()
+     | g_fshl | g_fshr | g_rotl | g_rotr | g_poison => exact .ok ()
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -160,10 +163,10 @@ def GMIR.toAttrDict
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
-  | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_br
+  | .g_smin | .g_smax | .g_umin | .g_umax | .g_scmp | .g_ucmp | .g_abs | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
-  | .g_fshl | .g_fshr | .g_rotl | .g_rotr
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr | .g_poison
   | .g_merge_values | .g_unmerge_values => {}
 
 #generate_dialect GMIR
@@ -208,7 +211,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_fshl | .g_fshr =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 0, .type 1] }
-  | .g_icmp =>
+  | .g_icmp | .g_scmp | .g_ucmp =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1, .type 1] }
   | .g_select =>
@@ -222,7 +225,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_bswap | .g_bitreverse | .g_brev8 | .g_abs | .g_sext_inreg =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0] }
-  | .g_constant =>
+  | .g_constant | .g_poison =>
     { outOperandList := #[.type 0]
       inOperandList := #[] }
   | .g_load =>
@@ -276,6 +279,29 @@ private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
   resultType.verifyIntegerType s!"{instrName}: Expected result to have integer type"
 
 /--
+`g_scmp` and `g_ucmp` compare two integers of the same type (type group 1). The result is an integer
+of any width that can hold `-1`, `0` and `1`, so at least `i2`, as for `llvm.intr.scmp`.
+-/
+private def OperationPtr.verifyGMIRThreeWayCmp {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operands to have integer type"
+  let .integerType resultType := ((op.getResult 0).getType! ctx.raw).val
+    | throw s!"{instrName}: Expected result to have integer type"
+  if resultType.bitwidth < 2 then
+    throw s!"{instrName}: Expected result type to be at least i2"
+
+private def OperationPtr.verifyGMIRSelect {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) : Except String PUnit := do
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    "gmir.g_select: Expected the condition to have integer type"
+  -- `gmir.g_select` also selects pointers. The type groups make the other values match operand 1.
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerOrPointerType
+    "gmir.g_select: Expected the selected values to have integer or pointer type"
+
+/--
 Converts a shift amount (type group 1) to the width `w` of the shifted value (type group 0).
 An amount that does not fit in `w` bits is out of range, so it is replaced by the all-ones value,
 which is also out of range and hence yields the same (poison) result.
@@ -284,11 +310,8 @@ private def shiftAmount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.In
   | .val v => .val (if v.toNat < w then BitVec.ofNat w v.toNat else BitVec.allOnes w)
   | .poison => .poison
 
-/--
-Zero-extends or truncates `x` to width `w`, as LLVM's `zextOrTrunc`. This converts the bit counts of
-`g_ctlz`/`g_cttz`/`g_ctpop` and the carries of `g_uaddo`/`g_uadde`/`g_usubo`/`g_usube`.
--/
-private def zextOrTrunc {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
+/-- Converts a bit count to the width `w` of the result (type group 0) of `g_ctlz`/`g_cttz`/`g_ctpop`. -/
+private def resizeCount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
   | .val v => .val (BitVec.ofNat w v.toNat)
   | .poison => .poison
 
@@ -414,6 +437,12 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType bw := resType.val | none
     return (#[.int bw.bitwidth (.val (BitVec.ofInt bw.bitwidth properties.value.value))], mem, none)
+  | .g_poison => do
+    let some resType := resultTypes[0]? | none
+    match resType.val with
+    | .integerType bw => return (#[.int bw.bitwidth .poison], mem, none)
+    | .llvmPointerType _ => return (#[.addr .poison], mem, none)
+    | _ => none
   | .g_mul => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -518,6 +547,20 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (Data.LLVM.Int.umax lhs rhs)], mem, none)
+  | .g_scmp => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let [type] := resultTypes.toList | none
+    let .integerType resType := type.val | none
+    return (#[.int resType.bitwidth (Data.LLVM.Int.scmp lhs rhs resType.bitwidth)], mem, none)
+  | .g_ucmp => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let [type] := resultTypes.toList | none
+    let .integerType resType := type.val | none
+    return (#[.int resType.bitwidth (Data.LLVM.Int.ucmp lhs rhs resType.bitwidth)], mem, none)
   | .g_abs => do
     let [.int bw x] := operands.toList | none
     return (#[.int bw (Data.LLVM.Int.abs x false)], mem, none)
@@ -534,27 +577,27 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let [.int _ x] := operands.toList | none
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
-    return (#[.int resBw.bitwidth (zextOrTrunc resBw.bitwidth (Data.LLVM.Int.ctlz x false))], mem, none)
+    return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.ctlz x false))], mem, none)
   | .g_cttz => do
     let [.int _ x] := operands.toList | none
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
-    return (#[.int resBw.bitwidth (zextOrTrunc resBw.bitwidth (Data.LLVM.Int.cttz x false))], mem, none)
+    return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.cttz x false))], mem, none)
   | .g_ctlz_zero_poison => do
     let [.int _ x] := operands.toList | none
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
-    return (#[.int resBw.bitwidth (zextOrTrunc resBw.bitwidth (Data.LLVM.Int.ctlz x true))], mem, none)
+    return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.ctlz x true))], mem, none)
   | .g_cttz_zero_poison => do
     let [.int _ x] := operands.toList | none
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
-    return (#[.int resBw.bitwidth (zextOrTrunc resBw.bitwidth (Data.LLVM.Int.cttz x true))], mem, none)
+    return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.cttz x true))], mem, none)
   | .g_ctpop => do
     let [.int _ x] := operands.toList | none
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
-    return (#[.int resBw.bitwidth (zextOrTrunc resBw.bitwidth (Data.LLVM.Int.ctpop x))], mem, none)
+    return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.ctpop x))], mem, none)
   | .g_inttoptr => do
     let [.int bw val] := operands.toList | none
     if h : bw = 64 then return (#[.addr (mem.ptrFromInt (val.cast h))], mem, none) else .fail none
@@ -571,10 +614,9 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let .integerType ⟨w, _⟩ := type.val
       | return (#[← mem.llvmLoad addr type], mem, none)
     let size := properties.size.toNat
-    -- gMIR has no byte type, so a byte load is converted to an integer load of the same size.
-    let val ← mem.frozenLoad addr size
-    /- TODO: The high bits of a wider result are undefined and should have the same semantic
-       like `g_anyext`. Support nondeterminisim once CTrees have landed. -/
+    let val ← mem.intLoad addr size
+    /- The high bits of a wider result are unspecified, as for `g_anyext` (see
+       `GMIR.interpretOpCTree`); this (non-CTree) interpreter sets them to 0. -/
     if h : size < w then return (#[.int w (val.zext w (_h := h))], mem, none)
     if h : size = w then return (#[.int w (val.cast h)], mem, none)
     none
@@ -618,52 +660,44 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
         return (#[], mem, some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
     | some (RuntimeValue.int _ .poison) => Interp.ub none
     | _ => none
-  -- TODO: As for `g_icmp`, a wider carry is assumed to be `0` or `1`, i.e. the target's booleans are
-  -- `ZeroOrOneBooleanContent`, as on RISC-V. LLVM leaves the high bits of a wider carry to the target.
   | .g_uaddo => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    let some carryType := resultTypes[1]? | none
-    let .integerType carryBw := carryType.val | none
-    return (#[.int bw (Data.LLVM.Int.add lhs rhs),
-      .int carryBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.uaddOverflowFlag lhs rhs))], mem, none)
+    return (#[.int bw (Data.LLVM.Int.add lhs rhs), .int 1 (Data.LLVM.Int.uaddOverflowFlag lhs rhs)],
+      mem, none)
   | .g_uadde => do
     let [.int bw lhs, .int bw' rhs, .int carryBw carry] := operands.toList | none
     if h : bw' ≠ bw then none else
+    if hc : carryBw ≠ 1 then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    let (sum, carry) := uaddWithCarry lhs rhs (zextOrTrunc 1 carry)
-    return (#[.int bw sum, .int carryBw (zextOrTrunc _ carry)], mem, none)
+    let (sum, carry) := uaddWithCarry lhs rhs (carry.cast (by simp at hc; exact hc))
+    return (#[.int bw sum, .int 1 carry], mem, none)
   | .g_usubo => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    let some borrowType := resultTypes[1]? | none
-    let .integerType borrowBw := borrowType.val | none
-    return (#[.int bw (Data.LLVM.Int.sub lhs rhs),
-      .int borrowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.usubOverflowFlag lhs rhs))], mem, none)
+    return (#[.int bw (Data.LLVM.Int.sub lhs rhs), .int 1 (Data.LLVM.Int.usubOverflowFlag lhs rhs)],
+      mem, none)
   | .g_usube => do
     let [.int bw lhs, .int bw' rhs, .int borrowBw borrow] := operands.toList | none
     if h : bw' ≠ bw then none else
+    if hb : borrowBw ≠ 1 then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    let (diff, borrow) := usubWithBorrow lhs rhs (zextOrTrunc 1 borrow)
-    return (#[.int bw diff, .int borrowBw (zextOrTrunc _ borrow)], mem, none)
+    let (diff, borrow) := usubWithBorrow lhs rhs (borrow.cast (by simp at hb; exact hb))
+    return (#[.int bw diff, .int 1 borrow], mem, none)
   | .g_saddo => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    let some overflowType := resultTypes[1]? | none
-    let .integerType overflowBw := overflowType.val | none
-    return (#[.int bw (Data.LLVM.Int.add lhs rhs),
-      .int overflowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.saddOverflowFlag lhs rhs))], mem, none)
+    return (#[.int bw (Data.LLVM.Int.add lhs rhs), .int 1 (Data.LLVM.Int.saddOverflowFlag lhs rhs)],
+      mem, none)
   | .g_ssubo => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    let some overflowType := resultTypes[1]? | none
-    let .integerType overflowBw := overflowType.val | none
-    return (#[.int bw (Data.LLVM.Int.sub lhs rhs),
-      .int overflowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.ssubOverflowFlag lhs rhs))], mem, none)
+    return (#[.int bw (Data.LLVM.Int.sub lhs rhs), .int 1 (Data.LLVM.Int.ssubOverflowFlag lhs rhs)],
+      mem, none)
   | .g_fshl => do
     let [.int bw x, .int bw' y, .int _ z] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -768,6 +802,9 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_icmp =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRICmp ctx opIn
+  | .g_scmp | .g_ucmp =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyGMIRThreeWayCmp ctx opIn
   | .g_anyext | .g_sext | .g_zext =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyIntegerExtTypes ctx opIn
@@ -778,11 +815,17 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_shl | .g_lshr | .g_ashr
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_bitreverse
-  -- TODO: Also accept a `g_select` of pointers, as LLVM does.
-  | .g_select | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
+  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
+  | .g_poison =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    ((opPtr.getResult 0).getType! ctx.raw).verifyIntegerOrPointerType
+      "gmir.g_poison: Expected result to have integer or !llvm.ptr type"
+  | .g_select =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyGMIRSelect ctx
   | .g_bswap =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
@@ -855,6 +898,11 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
+    -- The carry-in of `g_uadde`/`g_usube` has the type of the carry out (type group 1).
+    let carryType := (opPtr.getResult 1).getType! ctx.raw
+    if carryType.val ≠ .integerType (.signless 1) then
+      let instrName := String.fromUTF8! (IsOpCode.name (opPtr.getOpType ctx.raw opIn))
+      throw s!"{instrName}: Expected the carry to have type i1, but got {carryType}"
 
 def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
@@ -862,18 +910,19 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_shl | .g_lshr | .g_ashr
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
-  | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
+  | .g_smin | .g_smax | .g_umin | .g_umax | .g_scmp | .g_ucmp | .g_abs
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr => true
   -- Poison on the arm that `g_select` does not select does not reach its result.
-  | .g_select | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
+  | .g_select | .g_constant | .g_poison | .g_load | .g_store | .g_br | .g_brcond => false
 
 /--
 `g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and
 `llvm.store`. Other operations have no effects.
 -/
+@[get_effects]
 def GMIR.getEffects (op : GMIR) (props : GMIR.propertiesOf op) : MemoryEffects :=
   match op, props with
   | .g_load, props => if props.volatile_ then .readWrite else .read
@@ -901,6 +950,7 @@ def GMIR.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
 def GMIR.hasSSADominance (_op : GMIR) (_index : Nat) : Bool :=
   true
 
+@[is_terminator]
 def GMIR.isTerminator : GMIR → Bool
   | .g_br | .g_brcond => true
   | _ => false

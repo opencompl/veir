@@ -24,10 +24,11 @@ namespace Veir
 Interprets an LLVM operation using CTrees.
 Fallback to the `Interp` based interpreter for operations that do not rely on non-determinism.
 -/
-def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType)
+def Llvm.interpretOpCTree {EIn : Type} {E : EIn → Type}
+    [ErrorE -< E] [UBE -< E] (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)
-    : CTree (ErrorE ⊕ₑ UBE) FreezeC (((Array RuntimeValue) × MemoryState × Option ControlFlowAction)) :=
+    : CTree E FreezeC (((Array RuntimeValue) × MemoryState × Option ControlFlowAction)) :=
   match opType with
   | .freeze => do
     let [val] := operands.toList | fail
@@ -41,7 +42,9 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     | .byte w val =>
         let bv : FreezeC (.mk w) ← CTree.choose (FreezeCIn.mk w)
         return (#[.byte w (.fromBitVec (val.val ||| (val.poison &&& bv)))], mem, none)
-    | .addr .poison => return (#[.addr LLVM.Ptr.null], mem, none)
+    | .addr .poison =>
+        let address : FreezeC (.mk 64) ← CTree.choose (FreezeCIn.mk 64)
+        return (#[.addr (.val ⟨UInt64.ofBitVec address⟩)], mem, none)
     | .addr (.val p) => return (#[.addr (.val p)], mem, none)
     | _ => fail
   | other =>

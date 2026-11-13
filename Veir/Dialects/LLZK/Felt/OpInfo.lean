@@ -38,20 +38,11 @@ inductive Felt where
 | shr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Felt.propertiesOf (op : Felt) : Type :=
 match op with
 | .const => FeltConstProperties
 | _ => Unit
-
-/-- Reject properties on Felt operations whose schema carries none. -/
-private def noProperties (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String Unit :=
-  if attrDict.size > 0 then
-    let plural := if attrDict.size = 1 then "property" else "properties"
-    .error s!"felt: expected no properties, but got {attrDict.size} {plural}"
-  else
-    .ok ()
 
 def Felt.fromAttrDict
     (op : Felt) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -60,7 +51,7 @@ def Felt.fromAttrDict
   | .const => FeltConstProperties.fromAttrDict attrDict
   | .add | .sub | .mul | .pow | .div | .uintdiv | .sintdiv | .umod | .smod
   | .neg | .inv | .bit_and | .bit_or | .bit_xor | .bit_not | .shl | .shr =>
-    noProperties attrDict
+    expectNoProperties "felt" attrDict
 
 def Felt.toAttrDict
     (op : Felt) (props : Felt.propertiesOf op) :

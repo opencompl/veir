@@ -8,6 +8,8 @@ from __future__ import annotations
 import functools
 import subprocess
 
+from riscv_target import LLC_TARGET_FLAGS
+
 # Register-allocation stage: MIR -> fully-lowered MIR. Rather than a canned
 # -O0/-O2 pipeline we drive an explicit minimal machine pipeline via -run-pass
 # so VeIR's instruction selection passes through unmodified while we still get
@@ -41,7 +43,7 @@ LLVM23_PASS_NAMES = {
 def pass_registered(llc: str, name: str) -> bool:
     """Whether this llc accepts `name` as a -run-pass argument."""
     result = subprocess.run(
-        [llc, "-mtriple=riscv64", "-x", "mir", f"-run-pass={name}",
+        [llc, *LLC_TARGET_FLAGS, "-x", "mir", f"-run-pass={name}",
          "-o", "/dev/null", "/dev/null"],
         stdin=subprocess.DEVNULL, capture_output=True, text=True)
     return "is not registered" not in result.stderr
@@ -57,7 +59,7 @@ def pass_name(llc: str, name: str) -> str:
 
 def regalloc_cmd(llc: str, mir: str, lowered: str) -> list[str]:
     passes = ",".join(pass_name(llc, p) for p in REGALLOC_PASSES.split(","))
-    return [llc, mir, "-mtriple=riscv64", "-x", "mir", f"-run-pass={passes}",
+    return [llc, mir, *LLC_TARGET_FLAGS, "-x", "mir", f"-run-pass={passes}",
             "-o", lowered]
 
 
@@ -68,6 +70,6 @@ def emit_asm_cmd(llc: str, lowered: str, asm: str) -> list[str]:
     insertion, which would corrupt the already-lowered MIR. Direct object
     emission isn't possible: pseudos like PseudoLLA are only expanded by the
     assembler."""
-    return [llc, lowered, "-mtriple=riscv64", "-x", "mir",
+    return [llc, lowered, *LLC_TARGET_FLAGS, "-x", "mir",
             f"-start-after={pass_name(llc, 'riscv-expand-pseudo-pre-emit')}",
             "-o", asm]

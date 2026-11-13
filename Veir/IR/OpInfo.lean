@@ -75,7 +75,14 @@ structure CallOpInterface (Properties : Type) where
 structure SuccessorOperands where
   /-- The SSA values forwarded to the successor. -/
   forwardedOperands : Array ValuePtr
+  /-- The index of the first forwarded operand in the operands of the branch operation. -/
+  beginOperandIndex : Nat := 0
 deriving Inhabited, Repr, DecidableEq
+
+/-- The index of the branch operand forwarded to block argument `blockArgumentIndex`. -/
+def SuccessorOperands.getOperandIndex (operands : SuccessorOperands) (blockArgumentIndex : Nat) :
+    Nat :=
+  operands.beginOperandIndex + blockArgumentIndex
 
 instance : GetElem SuccessorOperands Nat ValuePtr
     (fun operands blockArgumentIndex => blockArgumentIndex < operands.forwardedOperands.size) where
@@ -253,6 +260,18 @@ public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpI
   | some parentOp =>
     HasOpInfo.hasNoTerminator (parentOp.getOpType! ctx.raw) ((parentOp.getRegions! ctx.raw).idxOf region)
   | none => false
+
+/--
+  Reject the properties of an operation whose schema has none. `name` prefixes the
+  error message, e.g. `"tensor"` or `"pdl.erase"`.
+-/
+def expectNoProperties (name : String) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String Unit :=
+  if attrDict.size > 0 then
+    let plural := if attrDict.size = 1 then "property" else "properties"
+    .error s!"{name}: expected no properties, but got {attrDict.size} {plural}"
+  else
+    .ok ()
 
 end -- public section
 

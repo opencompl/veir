@@ -105,10 +105,6 @@ def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
   | .llvmPointerType _ => some 64
   | _ => none
 
-/-- Whether a `gmir.g_constant` with properties `props` is the integer `0`. -/
-def isGMIRConstantZero (props : GMIRConstantProperties) : Bool :=
-  BitVec.ofInt props.value.type.bitwidth props.value.value = 0
-
 /--
   Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
   byte types, and the result is strictly narrower than the operand.
@@ -286,18 +282,6 @@ inductive AddrMode where
   | gepIndex
   | gepConst
 
-/-- The width in bytes of a load or store of a value of `type`, for the integers
-  and pointers whose data-layout size fits one `l*`/`s*` instruction. An integer
-  must fill its bytes exactly, since `getTypeSize` rounds an odd width up. -/
-def memAccessWidth? (type : TypeAttr) : Option Nat := do
-  match type.val with
-  | .integerType t => guard (t.bitwidth % 8 = 0)
-  | .llvmPointerType _ => pure ()
-  | _ => none
-  let width ← DataLayout.riscv64.getTypeSize type.val
-  guard (width ∈ [1, 2, 4, 8])
-  return width
-
 /-- `riscv.lb` / `riscv.lh` / `riscv.lw` / `riscv.ld`, for a `width`-byte load. -/
 def createLoadLocal (ctx : WfIRContext OpCode) (width : Nat) (addr : ValuePtr)
     (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
@@ -361,10 +345,12 @@ def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RI
   | none => CreateProg.applyNative access fun props => memProps (some 0) props
 
 /--
-  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8), for a
-  `width`-byte load with `riscvOp`, its address split as `mode` says (see `AddrMode`).
+  Lower the load `accessOp` to `riscvOp` if `guard` accepts its result type, address type and
+  properties. The address is split as `mode` says (see `AddrMode`).
 -/
-def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
+def lowerLoadOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
+    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop accessOp) →
+      MatchProg.Builder Unit) (mode : AddrMode) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
     Pattern OpCode :=
   Pattern.Builder
@@ -372,18 +358,16 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
       let baseType ← MatchProg.type (Attr := TypeAttr)
       let base ← MatchProg.value baseType
       let (addr, gep?) ← matchAddr mode base
-      /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the loaded value type) -/
       let resType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => memAccessWidth? t = some width)
-      let root ← MatchProg.root (.llvm .load) #[addr] #[resType]
+      let root ← MatchProg.root accessOp #[addr] #[resType]
+      guard resType baseType root.properties
       return (resType, base, gep?, root.properties))
     (fun (resType, base, gep?, loadProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[base] #[regType]
-      let memProps ←
-        addrMemProps riscvOp h (accessOp := .llvm .load) (·.volatile_) gep? loadProps
+      let memProps ← addrMemProps riscvOp h (accessOp := accessOp) volatile gep? loadProps
       let ldOp ← CreateProg.operation (.riscv riscvOp)
           #[baseCastOp.res[0]!] #[regType] memProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -392,12 +376,25 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /--
-  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8).
+  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8), for a
+  `width`-byte load with `riscvOp`, its address split as `mode` says (see `AddrMode`).
+-/
+def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
+    (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
+    Pattern OpCode :=
+  lowerLoadOf (.llvm .load) (·.volatile_) (mode := mode) (riscvOp := riscvOp) (h := h)
+    fun resType _ _ => MatchProg.matchNative resType fun type => memAccessWidth? type = some width
+
+/--
+  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8).
   The patterns folding a constant `getelementptr` offset into the immediate come first.
+  The high bits of the register holding a loaded `i8` are unspecified, so either byte load
+  would do; like LLVM (`LdPat<extloadi8, LBU>`), take `lbu`, whose result `riscv-combine`
+  can then use for a zero-extension without a mask.
 -/
 def load : Array (Puddle.CompiledPattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[lowerLoad mode 1 .lb, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
+    #[lowerLoad mode 1 .lbu, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
       lowerLoad mode 8 .ld].map (·.compile)
 
 /--
@@ -779,12 +776,12 @@ def fshrGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 64).compi
 def fshrGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 32).compile
 
 
-/-- llvm.mlir.poison -> riscv.li 0 -/
-def poisonConst_pattern : Pattern OpCode :=
+/-- gmir.g_poison -> riscv.li 0 -/
+def gmirPoison_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
       let resType ← MatchProg.type (Attr := TypeAttr)
-      let _ ← MatchProg.root (.llvm .mlir__poison) #[] #[resType]
+      let _ ← MatchProg.root (.gmir .g_poison) #[] #[resType]
       return resType)
     (fun resType => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -815,16 +812,16 @@ def zeroConst_pattern : Pattern OpCode :=
 /-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
 def zeroConst : Puddle.CompiledPattern OpCode := zeroConst_pattern.compile
 
-/-- llvm.mlir.poison -> riscv.li 0 -/
-def poisonConst : Puddle.CompiledPattern OpCode := poisonConst_pattern.compile
+/-- gmir.g_poison -> riscv.li 0 -/
+def gmirPoison : Puddle.CompiledPattern OpCode := gmirPoison_pattern.compile
 
-/-- llvm.freeze arg : Int w ->
+/-- llvm.freeze arg : Int w, for w ≤ 64 ->
   unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
 def freeze_pattern : Pattern OpCode :=
   lowerRegCast (.llvm .freeze) fun opType resType _ =>
     match opType.val, resType.val with
     | .integerType opType, .integerType resType =>
-      (opType.bitwidth = 64 ∨ opType.bitwidth = 32) ∧ (resType.bitwidth = 64 ∨ resType.bitwidth = 32)
+      opType.bitwidth ≤ 64 && opType == resType
     | _, _ => false
 
 /-- llvm.freeze arg : Int w ->
@@ -950,6 +947,72 @@ def memIntrinsic : RewritePattern OpCode :=
   .GreedyRewritePattern <| memIntrinsicCalls.map (·.run) ++
     #[.fromLocalRewrite memIntrinsicInline_local]
 
+/-!
+An integer of 3, 5, 6 or 7 bytes fits no single `l*`/`s*` instruction, so it is accessed in
+power-of-two pieces, as in LLVM's `LegalizerHelper::lowerLoad`/`lowerStore`.
+-/
+
+/-- The `(offset, width)` pieces of a load or store of a value of `type`, if it needs splitting. -/
+def splitAccesses? (type : TypeAttr) : Option (Array (Nat × Nat)) := do
+  let .integerType t := type.val | none
+  guard (t.bitwidth % 8 = 0 ∧ t.bitwidth / 8 ∈ [3, 5, 6, 7])
+  return memAccesses (t.bitwidth / 8) 8
+
+/-- `riscv.lbu` / `riscv.lhu` / `riscv.lwu`, for a `width`-byte zero-extending load. -/
+def createZextLoadLocal (ctx : WfIRContext OpCode) (width : Nat) (addr : ValuePtr)
+    (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
+  match width with
+  | 1 => WfRewriter.createOp! ctx Riscv.lbu #[RegisterType.mk] #[addr] #[] #[] props none
+  | 2 => WfRewriter.createOp! ctx Riscv.lhu #[RegisterType.mk] #[addr] #[] #[] props none
+  | _ => WfRewriter.createOp! ctx Riscv.lwu #[RegisterType.mk] #[addr] #[] #[] props none
+
+/-- llvm.load -> zero-extending loads of the pieces, shifted into place and or-ed together. -/
+def splitLoad_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  if op.getOpType! ctx.raw ≠ Llvm.load then return (ctx, none)
+  let some accesses := splitAccesses? ((op.getResult 0).getType! ctx.raw) | return (ctx, none)
+  let props : LoadProperties := op.getProperties! ctx.raw Llvm.load
+  let (ctx, addrCast) ← castToRegLocal ctx (op.getOperand! ctx.raw 0)
+  let addr := addrCast.getResult 0
+  let mut ctx := ctx
+  let mut ops := #[addrCast]
+  /- Replaced by the piece at offset 0, which comes first. -/
+  let mut result := addr
+  for (offset, width) in accesses do
+    let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.volatile_
+    let (ctx', ld) ← createZextLoadLocal ctx width addr memProps
+    ctx := ctx'; ops := ops.push ld
+    if offset = 0 then
+      result := ld.getResult 0
+    else
+      let (ctx', shifted) ← createRISCVImmLocal ctx .slli rfl #[ld.getResult 0] (8 * offset)
+      let (ctx', merged) ← createRISCVUnitLocal ctx' .or rfl #[result, shifted.getResult 0]
+      ctx := ctx'; ops := ops ++ #[shifted, merged]; result := merged.getResult 0
+  let (ctx', castBack) ← replaceWithRegLocal ctx op result
+  return (ctx', some (ops.push castBack, #[castBack.getResult 0]))
+
+/-- llvm.store -> a store of each piece, shifted down to the low bits of a register. -/
+def splitStore_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  if op.getOpType! ctx.raw ≠ Llvm.store then return (ctx, none)
+  let operands := op.getOperands! ctx.raw
+  let some accesses := splitAccesses? (operands[0]!.getType! ctx.raw) | return (ctx, none)
+  let props : StoreProperties := op.getProperties! ctx.raw Llvm.store
+  let (ctx, valCast) ← castToRegLocal ctx operands[0]!
+  let (ctx, addrCast) ← castToRegLocal ctx operands[1]!
+  let addr := addrCast.getResult 0
+  let mut ctx := ctx
+  let mut ops := #[valCast, addrCast]
+  for (offset, width) in accesses do
+    let mut piece := valCast.getResult 0
+    if offset ≠ 0 then
+      let (ctx', shifted) ← createRISCVImmLocal ctx .srli rfl #[piece] (8 * offset)
+      ctx := ctx'; ops := ops.push shifted; piece := shifted.getResult 0
+    let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.volatile_
+    let (ctx', st) ← createStoreLocal ctx width piece addr memProps
+    ctx := ctx'; ops := ops.push st
+  return (ctx, some (ops, #[]))
+
 /-! # gMIR Lowering Patterns
 
   The gMIR patterns only select operations that `riscv64LegalizerInfo` considers legal, since
@@ -972,6 +1035,28 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
     MatchProg.matchNative (type, type₁, properties) fun (type, type₁, properties) =>
       riscv64LegalizerInfo.isLegal opcode #[type, type₁] properties
 
+/--
+  gmir.g_load -> riscv.ld / riscv.lw / riscv.lh / riscv.lbu, for a legal `width`-byte load.
+  Its high bits are unspecified, so a sign- or zero-extending load refines it
+  (see `gmir_load_refinement`).
+-/
+def gmirLoad_pattern (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
+    (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
+    Pattern OpCode :=
+  lowerLoadOf (.gmir .g_load) (·.volatile_) (mode := mode) (riscvOp := riscvOp) (h := h)
+    fun resType addrType mmo => do
+      matchLegal .g_load resType mmo (type₁ := addrType)
+      MatchProg.matchNative mmo fun mmo => mmo.size.toNat = 8 * width
+
+/--
+  The `gmirLoad_pattern`s. A widened `g_load` is an any-extending load, which LLVM selects as `lbu`,
+  `lh` and `lw` (`LdPat<extloadi8, LBU>`, `LdPat<extloadi16, LH>`, `LdPat<extloadi32, LW, i64>`).
+-/
+def gmirLoad : Array (Puddle.CompiledPattern OpCode) :=
+  #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
+    #[gmirLoad_pattern mode 1 .lbu, gmirLoad_pattern mode 2 .lh, gmirLoad_pattern mode 4 .lw,
+      gmirLoad_pattern mode 8 .ld].map (·.compile)
+
 /-! ## Zicond branchless `g_select` lowering
 
   The Zicond extension lowers `gmir.g_select` branchlessly, mirroring LLVM's SelectionDAG
@@ -982,9 +1067,9 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
     (select c, 0, f) -> (czero.nez f, c)
     (select c, t, f) -> (or (czero.eqz t, c), (czero.nez f, c))
   ```
-  A legal `g_select` selects `i64` values with an `i64` condition, which is true when it is
-  nonzero, as `czero.eqz` and `czero.nez` test it. The zero-arm patterns inspect the `g_constant`,
-  so they run in the early loop, before `gmirConstant` lowers it.
+  A legal `g_select` selects `i64` or pointer values with an `i64` condition, which is true when
+  it is nonzero, as `czero.eqz` and `czero.nez` test it. The zero-arm patterns inspect the
+  `g_constant`, so they run in the early loop, before `gmirConstant` lowers it.
 -/
 
 /--
@@ -999,7 +1084,7 @@ def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
       let cond ← MatchProg.value condType
       let val ← MatchProg.value type
       let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      MatchProg.matchNative zeroOp.properties isGMIRConstantZero
+      MatchProg.matchNative zeroOp.properties GMIRConstantProperties.isZero
       let operands :=
         if zeroFalse then #[cond, val, zeroOp.res[0]!] else #[cond, zeroOp.res[0]!, val]
       let root ← MatchProg.root (.gmir .g_select) operands #[type]
@@ -1022,6 +1107,79 @@ def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[czOp.res[0]!] #[type])
     (fun castBackOp => castBackOp)
 
+/--
+  A zero-arm `gmir.g_select` on an equality `gmir.g_icmp` tests the difference of its operands
+  directly, as `czero.eqz` and `czero.nez` test their condition against zero. This mirrors LLVM's
+  `CondOpsPat` (`RISCVInstrInfoZicond.td`), whose `riscv_setne`/`riscv_seteq` operands match
+  `(setcc x, 0)` as `x` and `(setcc x, y)` as `(xor x, y)`:
+  ```
+    (select (icmp ne x, y), t, 0) -> (czero.eqz t, (xor x, y))
+    (select (icmp eq x, y), t, 0) -> (czero.nez t, (xor x, y))
+    (select (icmp ne x, y), 0, f) -> (czero.nez f, (xor x, y))
+    (select (icmp eq x, y), 0, f) -> (czero.eqz f, (xor x, y))
+  ```
+  where `(xor x, 0)` is `x` when `zeroRhs` is set. They take priority over `gmirSelectZero`, which
+  would test the `0`/`1` result of the selected `g_icmp`.
+-/
+def gmirSelectZeroOfSetcc_pattern (zeroFalse : Bool) (pred : Data.LLVM.IntPred) (zeroRhs : Bool) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let opType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value opType
+      let rhs ← if zeroRhs then do
+          let rhsZeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[opType]
+          MatchProg.matchNative rhsZeroOp.properties GMIRConstantProperties.isZero
+          pure rhsZeroOp.res[0]!
+        else
+          MatchProg.value opType
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[condType]
+          (fun props => props.predicate = pred)
+      matchLegal .g_icmp condType icmp.properties (type₁ := opType)
+      let val ← MatchProg.value type
+      let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+      MatchProg.matchNative zeroOp.properties GMIRConstantProperties.isZero
+      let operands :=
+        if zeroFalse then #[icmp.res[0]!, val, zeroOp.res[0]!]
+        else #[icmp.res[0]!, zeroOp.res[0]!, val]
+      let root ← MatchProg.root (.gmir .g_select) operands #[type]
+      matchLegal .g_select type root.properties (type₁ := condType)
+      return (type, lhs, rhs, val))
+    (fun (type, lhs, rhs, val) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[val] #[regType]
+      let lhsCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType]
+      let diff ← if zeroRhs then pure lhsCastOp.res[0]! else do
+          let rhsCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+              #[rhs] #[regType]
+          let xorProps ← CreateProg.property (.riscv .xor) ()
+          let xorOp ← CreateProg.operation (.riscv .xor)
+              #[lhsCastOp.res[0]!, rhsCastOp.res[0]!] #[regType] xorProps
+          pure xorOp.res[0]!
+      -- The result is zero when the `g_icmp` selects the zero arm: when `diff` is zero for
+      -- `ne` with a zero false arm or `eq` with a zero true arm (`czero.eqz`), and when it is
+      -- nonzero otherwise (`czero.nez`).
+      let czOp ← if zeroFalse == (pred == .ne) then do
+          let czProps ← CreateProg.property (.riscv .czeroeqz) ()
+          CreateProg.operation (.riscv .czeroeqz) #[valCastOp.res[0]!, diff] #[regType] czProps
+        else do
+          let czProps ← CreateProg.property (.riscv .czeronez) ()
+          CreateProg.operation (.riscv .czeronez) #[valCastOp.res[0]!, diff] #[regType] czProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[czOp.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
+
+/-- The zero-arm `gmir.g_select` patterns on an equality `gmir.g_icmp` (see
+    `gmirSelectZeroOfSetcc_pattern`), the zero-`rhs` ones first. -/
+def gmirSelectZeroOfSetcc : Array (Puddle.CompiledPattern OpCode) :=
+  #[true, false].flatMap fun zeroRhs =>
+    #[true, false].flatMap fun zeroFalse =>
+      #[Data.LLVM.IntPred.ne, .eq].map fun pred =>
+        (gmirSelectZeroOfSetcc_pattern zeroFalse pred zeroRhs).compile
+
 /-- The zero-arm `gmir.g_select` patterns (see `gmirSelectZero_pattern`). -/
 def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) :=
   #[true, false].map (gmirSelectZero_pattern · |>.compile)
@@ -1033,7 +1191,7 @@ def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) :=
 def gmirSelect_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := TypeAttr)
       let condType ← MatchProg.type (Attr := IntegerType)
       let cond ← MatchProg.value condType
       let tval ← MatchProg.value type
@@ -1083,15 +1241,25 @@ def gmirLshr_pattern : Pattern OpCode :=
 def gmirAshr_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_ashr) (·.bitwidth = 64) .sra () (guard := matchLegal .g_ashr)
 
-/-- `gmir.g_trunc` -> a cast through `!riscv.reg`, since LLVM selects it as a copy. -/
+/-- `gmir.g_trunc` -> a cast through `!riscv.reg` when the result fits in a register.
+The operand may be wider: truncation only needs the low result bits. -/
 def gmirTrunc_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_trunc) fun opType resType properties =>
-    riscv64LegalizerInfo.isLegal .g_trunc #[resType, opType] properties
+    match opType.val, resType.val with
+    | .integerType _, .integerType dst =>
+      decide (dst.bitwidth ≤ 64) &&
+        riscv64LegalizerInfo.isLegal .g_trunc #[resType, opType] properties
+    | _, _ => false
 
-/-- `gmir.g_anyext` -> a cast through `!riscv.reg`, since LLVM selects it as a copy. -/
+/-- `gmir.g_anyext` -> a cast through `!riscv.reg` when the operand fits in a register.
+The result may be wider: the additional bits may all be chosen as zero. -/
 def gmirAnyext_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_anyext) fun opType resType properties =>
-    riscv64LegalizerInfo.isLegal .g_anyext #[resType, opType] properties
+    match opType.val, resType.val with
+    | .integerType src, .integerType _ =>
+      decide (src.bitwidth ≤ 64) &&
+        riscv64LegalizerInfo.isLegal .g_anyext #[resType, opType] properties
+    | _, _ => false
 
 /--
   `gmir.g_anyext` of a cast from `!riscv.reg` -> a cast of that register to the result type.
@@ -1796,7 +1964,7 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
       let lhs ← MatchProg.value opType
       let rhs ← if zeroRhs then do
           let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[opType]
-          MatchProg.matchNative zeroOp.properties isGMIRConstantZero
+          MatchProg.matchNative zeroOp.properties GMIRConstantProperties.isZero
           pure zeroOp.res[0]!
         else
           MatchProg.value opType
@@ -1894,20 +2062,21 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Composed loop: select expressions of several gMIR operations into one instruction, before
      the later loops select their inner operations. -/
   let composed := RewritePattern.GreedyRewritePattern <| gmirComposed.map (·.run)
-  let ctx ← match RewritePattern.applyInContext composed ctx with
+  let ctx ← match RewritePattern.applyToFunctions composed ctx op with
   | none => throw "Error while applying composed instruction-selection patterns"
   | some ctx => pure ctx
   /- Early loop: fold composed intrinsics and inspect constants before the per-op
      lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
-    #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
-    store.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
+    #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic, .fromLocalRewrite splitLoad_local,
+    .fromLocalRewrite splitStore_local] ++ load.map (·.run) ++ gmirLoad.map (·.run) ++
+    store.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
     gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
     gmirCpopw.run, gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
-  let ctx ← match RewritePattern.applyInContext early ctx with
+  let ctx ← match RewritePattern.applyToFunctions early ctx op with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
@@ -1918,9 +2087,9 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
     zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
-    load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
+    load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
-    poisonConst.run, zeroConst.run, freeze.run,
+    gmirPoison.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
@@ -1931,7 +2100,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
     gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
     gmirIcmp.map (·.run)
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyToFunctions pattern ctx op with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
 

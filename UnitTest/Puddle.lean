@@ -93,9 +93,9 @@ theorem addZero_valid : Pattern.Valid addZero := by
   provePuddleValid
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
-  rintro ⟨w⟩ x cstProp val propzero hinterpCst
+  rintro ⟨w⟩ x cstProp val propzero _ hinterpCst
   obtain ⟨_, rfl, rfl⟩ := (constant_iff _ _ _).mp hinterpCst
-  intro addProp val hinterpAdd
+  intro addProp val _ hinterpAdd
   obtain rfl := (addi_iff _ _ _ _ _).mp hinterpAdd
   grind [add_zero_refines]
 
@@ -120,9 +120,9 @@ theorem mulTwo_valid : Pattern.Valid mulTwo := by
   provePuddleValid
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
-  rintro ⟨w⟩ x cstProp val proptwo hinterpCst
+  rintro ⟨w⟩ x cstProp val proptwo _ hinterpCst
   obtain ⟨_, rfl, rfl⟩ := (constant_iff _ _ _).mp hinterpCst
-  intro mulProp val hinterpMul
+  intro mulProp val _ hinterpMul
   obtain rfl := (muli_iff _ _ _ _ _).mp hinterpMul
   exists (.int w (LLVM.Int.add x x))
   constructor; exact (addi_iff _ _ _ _ _).mpr rfl
@@ -167,9 +167,9 @@ theorem nativeMatch_valid : Pattern.Valid nativeMatch := by
   provePuddleValid
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
-  rintro ⟨w⟩ x cstProp val hinterpCst
+  rintro ⟨w⟩ x cstProp val _ hinterpCst
   obtain ⟨_, rfl, rfl⟩ := (constant_iff _ _ _).mp hinterpCst
-  intro addProp val hinterpAddi
+  intro addProp val _ hinterpAddi
   obtain rfl := (addi_iff _ _ _ _ _).mp hinterpAddi
   intro _
   obtain rfl : w = 32 := by grind [IntegerType.signless]
@@ -213,7 +213,7 @@ example (parentOpCode : OpCode) : Pattern.Valid (parentOpGuard parentOpCode) := 
   provePuddleValid
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
-  rintro ⟨w⟩ x cstProp val propzero hinterpCst
+  rintro ⟨w⟩ x cstProp val propzero _ hinterpCst
   grind [add_zero_refines, constant_iff, addi_iff]
 
 /- ## Test matcher builder validation -/
@@ -262,7 +262,7 @@ private def mulTwoProgram := r#""builtin.module"() ({
 private def rewriteAndPrint (source : String) (rule : Pattern OpCode) : IO Unit := do
   let some program := parseBinaryProgram source | IO.println "parse failed"
   let pattern := Pattern.compile rule
-  let some ctx := RewritePattern.applyInContext pattern.run program.ctx | IO.println "rewrite failed"
+  let some ctx := RewritePattern.applyInContext pattern.run program.ctx program.moduleOp | IO.println "rewrite failed"
   Printer.printModule ctx.raw program.moduleOp
 
 /--

@@ -10,7 +10,6 @@ import Veir.Passes.InstCombine
 import Veir.Passes.ApplyPatterns
 import Veir.Passes.CSE
 import Veir.Passes.InstructionSelection.RISCV64
-import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RISCV64Branches
 import Veir.Passes.InstructionSelection.RISCV64Abi
 import Veir.Passes.DCE.dce
@@ -23,6 +22,7 @@ import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
+import Veir.Passes.Legalization.RISCV64PreLegalizerCombiner
 import Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
 import Veir.Passes.CirToStd
 import Veir.Passes.LLVMToGMIR
@@ -42,9 +42,8 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      ApplyPatternsPass,
      CSEPass,
      IselRISCV64,
-     IselSDAG,
      IselBrRISCV64,
-     IselAbiRISCV64,
+     CallLoweringRISCV64,
      DCEPass,
      CastReconcilePass,
      CoerceModArithFunctionBoundariesPass,
@@ -56,6 +55,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      CanonicalizePass,
      LegalizePass,
      LegalizeRISCV64Pass,
+     PreLegalizerCombinerRISCV64Pass,
      PostLegalizerCombinerRISCV64Pass,
      CirToStdPass,
      LLVMToGMIRPass ] : List (Pass OpCode)).foldl
@@ -75,7 +75,7 @@ def passGroups : Std.HashMap String String :=
     |>.insert "mod-arith-pow2-width"
         "mod-arith-to-arith{barrett pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,cse,dce"
     |>.insert "riscv"
-        "isel-sdag-riscv64,llvm-to-gmir,legalize-riscv64,postlegalizer-combiner-riscv64,isel-br-riscv64,isel-riscv64,isel-abi-riscv64,reconcile-cast,riscv-combine,dce"
+        "llvm-to-gmir,call-lowering-riscv64,prelegalizer-combiner-riscv64,legalize-riscv64,postlegalizer-combiner-riscv64,isel-br-riscv64,isel-riscv64,reconcile-cast,riscv-combine,dce"
     |>.insert "cir"
         "cir-to-std,cse,coerce-cir-function-boundaries,reconcile-cast,canonicalize,cse,dce"
 
@@ -117,6 +117,8 @@ structure VeirOptArgs where
   printGenericOpForm : Bool
   /-- The marker to split the input at, if any. -/
   splitInputFile : Option String
+  /-- Whether to report to stderr the time taken by parsing, each pass, and printing. -/
+  timePasses : Bool
 
 /--
   Replace every pass-group name in a pipeline string by the passes it stands for, leaving
@@ -188,6 +190,9 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   -- Consume `--split-input-file[=<marker>]` if present.
   let splitInputFile := flags.findSome? splitMarkerOfFlag?
   let flags := flags.filter fun flag => (splitMarkerOfFlag? flag).isNone
+  -- Consume `--time-passes` if present.
+  let timePasses := flags.contains "--time-passes"
+  let flags := flags.filter (· != "--time-passes")
   -- If anything survived, it was unrecognized and we error out.
   if let some flag := flags.head? then
     .error s!"Unrecognized flag '{flag}'."
@@ -195,7 +200,7 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   match inputSourceOfArgs positional with
   | .ok filename =>
     return { filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers,
-             printGenericOpForm, splitInputFile }
+             printGenericOpForm, splitInputFile, timePasses }
   | .error errMsg => .error errMsg
 
 set_option warn.sorry false in
@@ -204,11 +209,17 @@ set_option warn.sorry false in
 -/
 def processBuffer (args : VeirOptArgs) (sourceName : String) (input : ByteArray)
     (start : Parser.Location) : ExceptT String IO Unit := do
+  let totalStart ← IO.monoNanosNow
   let (ctx, op, _) ← liftExcept (parseSourceString input sourceName
     args.allowUnregisteredDialect (verifyAfterParse := !args.disableVerifiers) start)
-  let ctx ← try args.passes.run ⟨ctx, by sorry⟩ op args.disableVerifiers
+  if args.timePasses then reportTime "parse" totalStart
+  let ctx ← try args.passes.run ⟨ctx, by sorry⟩ op args.disableVerifiers args.timePasses
             catch errMsg => throw s!"Error: {errMsg}"
+  let printStart ← IO.monoNanosNow
   Veir.Printer.printModule ctx.raw op { printGenericOpForm := args.printGenericOpForm }
+  if args.timePasses then
+    reportTime "print" printStart
+    reportTime "total" totalStart
 
 /--
   Run `processBuffer` on each chunk of `content`, printing `defaultSplitMarker` between their
@@ -230,8 +241,9 @@ def main (args : List String) : IO Unit := do
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers] [--print-op-generic] [--split-input-file[=<marker>]]"
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers] [--print-op-generic] [--split-input-file[=<marker>]] [--time-passes]"
     IO.eprintln "  -p may be repeated; passes run in the order the flags appear."
+    IO.eprintln "  --time-passes reports to stderr the time taken by parsing, each pass, and printing."
     IO.eprintln "  A pass name may be followed by boolean options: pass{opt1 opt2=false}."
     IO.eprintln "  Bare option names mean true; omitted options take their declared defaults."
     IO.eprintln "  The passes taking options are:"

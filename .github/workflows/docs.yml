@@ -5,6 +5,8 @@ on:
     branches: [main]
 
 permissions:
+  # To delete the site artifacts of earlier attempts, see below.
+  actions: write
   contents: read
   pages: write
   id-token: write
@@ -54,6 +56,22 @@ jobs:
         run: |
           sed -i 's/^defaultTargets = .*$/defaultTargets = ["Veir"]/' lakefile.toml
           grep -qx 'defaultTargets = \["Veir"\]' lakefile.toml
+
+      # A deployment that times out leaves its `github-pages` artifact in the
+      # run, and `deploy-pages` refuses to deploy when a re-run adds a second
+      # one. Delete the artifacts of earlier attempts so a re-run can deploy.
+      - name: Delete the site artifacts of earlier attempts
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              { ...context.repo, run_id: context.runId, name: 'github-pages' });
+            for (const artifact of artifacts) {
+              core.info(`Deleting artifact ${artifact.id}`);
+              await github.rest.actions.deleteArtifact(
+                { ...context.repo, artifact_id: artifact.id });
+            }
 
       - uses: leanprover-community/docgen-action@dacc1acc2a3f532cc577266979ba9c36c7593f7c # main, 2026-10-05
         with:

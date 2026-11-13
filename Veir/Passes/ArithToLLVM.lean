@@ -320,7 +320,7 @@ def ArithToLLVMPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     lowerCeilDivUI, lowerCeilDivSI, lowerFloorDivSI,
     lowerAddUIExtended, lowerSubUIExtended, lowerMulSIExtended, lowerMulUIExtended
   ]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying arith-to-llvm lowering"
   | some ctx => pure ctx
 

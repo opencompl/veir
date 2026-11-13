@@ -15,7 +15,7 @@ inductive Tensor where
 | insert
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Tensor.propertiesOf (_op : Tensor) : Type :=
   Unit
 
@@ -23,12 +23,7 @@ def Tensor.propertiesOf (_op : Tensor) : Type :=
 def Tensor.fromAttrDict
     (op : Tensor) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (Tensor.propertiesOf op) :=
-  if attrDict.size > 0 then
-    let plural := if attrDict.size = 1 then "property" else "properties"
-    .error s!"tensor: expected no properties, but got {attrDict.size} {plural}"
-  else by
-    cases op
-    all_goals exact .ok ()
+  expectNoProperties "tensor" attrDict
 
 def Tensor.toAttrDict
     (op : Tensor) (_props : Tensor.propertiesOf op) :

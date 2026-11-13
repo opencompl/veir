@@ -5,6 +5,7 @@ import Veir.PatternRewriter.Basic
 import Veir.Passes.Legalization.LegalizerHelper
 import Veir.Passes.Legalization.LegalizationArtifactCombiner
 import Veir.PatternRewriter.Puddle.Execution
+import Veir.Interfaces.ControlFlowInterfaces
 
 /-!
 # GMIR Legalizer
@@ -51,6 +52,8 @@ private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCod
     if isArtifact opcode && hasIllegalSource info ctx.raw op then return (ctx, none)
     let pattern? : Option (LocalRewritePattern OpCode) := match info.getAction ctx.raw op opcode with
       | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
+      | .narrowScalar typeIdx width =>
+        (narrowScalar? opcode typeIdx width).map Puddle.Pattern.interpret
       | .lower => (lower? opcode).map Puddle.Pattern.interpret
       | .custom => (info.legalizeCustom opcode).map Puddle.Pattern.interpret
       | .legal | .unsupported => none
@@ -71,27 +74,73 @@ where
       | some (ctx, none) => go op patterns ctx
       | result => result
 
-/-- The error message for `op`, which could not be legalized with `action`. -/
-private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode : GMIR)
-    (action : LegalizeAction) : String :=
-  let name := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx))
-  let types := opcode.getTypeGroupTypes! op ctx
+/-- The error message when `action` cannot legalize `name`, whose type groups have `types`. -/
+private def illegalReason (name : String) (types : Array TypeAttr) (action : LegalizeAction) :
+    String :=
   let reason := match action, types.find? fun type => (LLT.ofType? type).isNone with
     | .widenScalar (.type idx) _, _ => s!"widening type group {idx} is not implemented"
+    | .narrowScalar (.type idx) _, _ => s!"narrowing type group {idx} is not implemented"
     | .lower, _ => "the lowering is not implemented"
     | .custom, _ => "the custom legalization does not apply"
     | _, some type => s!"unsupported type {type}"
     | _, none => "no legalization rule matches"
   s!"unable to legalize {name}: {reason}"
 
-/-- Legalizes all GMIR operations of `ctx`. Fails if one of them remains illegal. -/
-def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) :
+/-! ## Block arguments -/
+
+/-- The action for a block argument of type `type`, or `none` if it has no low-level type. -/
+private def blockArgumentAction? (info : LegalizerInfo) (type : TypeAttr) :
+    Option LegalizeAction :=
+  (LegalityQuery.ofTypes? #[type] ()).map info.getBlockArgumentAction
+
+/--
+  The blocks in the functions under `root` that a branch jumps to. Only their arguments are phis:
+  the arguments of an entry block are the parameters of the function.
+-/
+private def phiBlocks (ctx : IRContext OpCode) (root : OperationPtr) : List BlockPtr := Id.run do
+  let mut blocks := []
+  for func in collectNestedFunctions ctx root do
+    let mut block? := (func.getRegion! ctx 0).getFirstBlock! ctx
+    while let some block := block? do
+      if block.hasPredecessor! ctx then blocks := block :: blocks
+      block? := block.getNextBlock! ctx
+  return blocks.reverse
+
+/-- Widens the block arguments in the functions under `root` as the block-argument rules ask. -/
+private def legalizeBlockArguments (info : LegalizerInfo) (ctx : WfIRContext OpCode)
+    (root : OperationPtr) : Except String (WfIRContext OpCode) :=
+  (phiBlocks ctx.raw root).foldlM (init := ctx) fun ctx block => do
+    let args := (block.getArguments! ctx.raw).toList.zipIdx.filterMap fun (arg, i) => do
+      let .widenScalar (.type 0) width ← blockArgumentAction? info (arg.getType! ctx.raw) | none
+      return (i, width)
+    if args.isEmpty then return ctx
+    let some ctx := widenBlockArguments block args ctx
+      | throw "unable to widen a block argument: a predecessor is not a branch"
+    return ctx
+
+/-- Fails if a block argument that is a phi is not legal. -/
+private def checkBlockArguments (info : LegalizerInfo) (ctx : IRContext OpCode) :
+    Except String Unit :=
+  ctx.forBlocksDepM fun block _ => do
+    if !block.hasPredecessor! ctx then return
+    for arg in block.getArguments! ctx do
+      let type := arg.getType! ctx
+      match blockArgumentAction? info type with
+      | none | some .legal => pure ()
+      | some action => throw (illegalReason s!"a block argument of type {type}" #[type] action)
+
+/--
+Legalizes the block arguments and all GMIR operations in the functions under `root`. Fails if one of
+them remains illegal.
+-/
+def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) (root : OperationPtr) :
     Except String (WfIRContext OpCode) := do
+  let ctx ← info.legalizeBlockArguments ctx root
   -- As in LLVM, an artifact is combined before it is legalized.
   -- TODO: Use a proper worklist for artifacts.
   let pattern := RewritePattern.GreedyRewritePattern
     #[.fromLocalRewrite combineArtifactStep, .fromLocalRewrite info.legalizeInstrStep]
-  let some ctx := RewritePattern.applyInContext pattern ctx
+  let some ctx := RewritePattern.applyToFunctions pattern ctx root
     | throw "error while applying legalization"
   -- The greedy rewriter does not report the operations it could not rewrite, so we check the
   -- legality of every operation afterwards.
@@ -99,7 +148,10 @@ def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) :
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return
     match info.getAction ctx.raw op opcode with
     | .legal => pure ()
-    | action => throw (illegalReason ctx.raw op opcode action)
+    | action =>
+      let name := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx.raw))
+      throw (illegalReason name (opcode.getTypeGroupTypes! op ctx.raw) action)
+  info.checkBlockArguments ctx.raw
   return ctx
 
 end LegalizerInfo

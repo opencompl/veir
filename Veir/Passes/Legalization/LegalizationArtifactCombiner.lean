@@ -90,6 +90,35 @@ def combineZExtOfTruncOfICmp : Pattern OpCode :=
     pure (fun x => x)
 
 /--
+Combines `g_sext (g_trunc c)` (`g_zext` when `signed` is not set) of a `g_constant` `c` to `c` when
+it has the type of the extension and truncating it keeps its signed (unsigned) value. LLVM's
+`tryCombineSExt` elides the `G_SEXT_INREG` of `sext (trunc x)` when `x` has more sign bits than the
+truncation drops, and `tryCombineZExt` the `G_AND` of `zext (trunc x)` when the dropped bits are
+known zeros; both use known bits, which we do not have. The constant is the case that widening a
+`g_constant` under an extended operand, such as that of a `g_icmp`, leaves behind.
+-/
+def combineExtOfTruncOfConstant (signed : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+      let narrowType ← MatchProg.type (Attr := IntegerType)
+      let trunc ← MatchProg.operation (.gmir .g_trunc) #[constant.res[0]!] #[narrowType]
+      MatchProg.matchNative (narrowType, constant.properties) fun (narrowType, c) =>
+        match narrowType.val with
+        | .integerType narrowType =>
+          let width := narrowType.bitwidth
+          if signed then
+            0 < width && -2 ^ (width - 1) ≤ c.bits.toInt && c.bits.toInt < 2 ^ (width - 1)
+          else
+            c.bits.toNat < 2 ^ width
+        | _ => false
+      let _ ← MatchProg.root (.gmir (if signed then .g_sext else .g_zext))
+        #[trunc.res[0]!] #[type]
+      return constant.res[0]!)
+    pure (fun c => c)
+
+/--
 Combines `g_trunc (g_trunc x)` to `g_trunc x`. As in LLVM, the new `g_trunc` has no flags.
 -/
 def combineTruncOfTrunc : Pattern OpCode :=
@@ -105,6 +134,23 @@ def combineTruncOfTrunc : Pattern OpCode :=
     (fun (x, type) => CreateProg.operation (.gmir .g_trunc) #[x] #[type])
     (fun trunc => trunc)
 
+/--
+Combines `g_unmerge_values (g_merge_values lo hi)` to `lo` and `hi`, as LLVM's
+`tryCombineUnmergeValues` does.
+-/
+def combineUnmergeOfMerge : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let halfType ← MatchProg.type (Attr := IntegerType)
+      let lo ← MatchProg.value halfType
+      let hi ← MatchProg.value halfType
+      let type ← MatchProg.type (Attr := IntegerType)
+      let merge ← MatchProg.operation (.gmir .g_merge_values) #[lo, hi] #[type]
+      let _ ← MatchProg.root (.gmir .g_unmerge_values) #[merge.res[0]!] #[halfType, halfType]
+      return #[lo, hi])
+    pure
+    (fun halves => halves)
+
 public section
 
 /--
@@ -117,8 +163,10 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
       combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
       combineAnyExtOfAnyExt]
-  | .g_zext => [combineZExtOfTruncOfICmp]
+  | .g_zext => [combineZExtOfTruncOfICmp, combineExtOfTruncOfConstant false]
+  | .g_sext => [combineExtOfTruncOfConstant true]
   | .g_trunc => [combineTruncOfTrunc]
+  | .g_unmerge_values => [combineUnmergeOfMerge]
   | _ => []
 
 end

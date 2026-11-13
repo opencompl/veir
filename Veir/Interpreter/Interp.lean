@@ -112,6 +112,11 @@ instance : LawfulMonad Interp :=
     (pure_bind := fun _ _ => rfl)
     (bind_assoc := fun x _ _ => by cases x <;> rfl)
 
+/-- Running a computation twice runs it once: `Interp` has no state. -/
+theorem Interp.bind_bind_self {α β : Type} (x : Interp α) (k : α → α → Interp β) :
+    (x >>= fun a => x >>= fun b => k a b) = x >>= fun a => k a a := by
+  cases x <;> rfl
+
 theorem Interp.bind_eq_bind_iff {α β : Type} {x : Interp α} {f g : α → Interp β} :
     (x >>= f) = (x >>= g) ↔ ∀ a, x = .ok a → f a = g a := by
   cases x <;> simp [Interp.bind_def]
@@ -161,5 +166,56 @@ def Interp.withBlame (op : OperationPtr) : Interp α → Interp α
 @[simp, grind =] theorem Interp.isUB_withBlame (x : Interp α) :
     (x.withBlame op).isUB = x.isUB := by
   unfold Interp.withBlame; split <;> rfl
+
+/-! ## Refinement -/
+
+/--
+An interpretation result `source` is refined by `target` given a refinement relation `R`
+on the underlying values. This asserts:
+* every well-defined outcome `.ok a` of `source` must be matched by an outcome
+  `.ok b` of `target` with `R a b`;
+* when `source` is undefined behaviour (`.ub`) or failed interpretation (`.fail`), `target`
+  is unconstrained
+-/
+@[expose]
+def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
+  match source, target with
+  | .ok a, .ok b => R a b
+  | .ub _, _ => True
+  | .fail _, _ => True
+  | _, _ => False
+
+/-- Any outcome is refined by itself. -/
+theorem Interp.isRefinedBy_eq_refl {α : Type} (x : Interp α) : Interp.isRefinedBy Eq x x := by
+  cases x <;> simp [Interp.isRefinedBy]
+
+/-- A computation that succeeds with the same result, bound to a continuation. -/
+theorem Interp.isRefinedBy_eq_bind_left {α β : Type} {x y : Interp α}
+    (h : Interp.isRefinedBy Eq x y) (f : α → Interp β) :
+    Interp.isRefinedBy Eq (x >>= f) (y >>= f) := by
+  cases x <;> cases y <;> simp [Interp.isRefinedBy] at h ⊢
+  subst h
+  exact Interp.isRefinedBy_eq_refl _
+
+/-- A computation bound to continuations that succeed with the same results. -/
+theorem Interp.isRefinedBy_eq_bind_right {α β : Type} (x : Interp α) {f g : α → Interp β}
+    (h : ∀ a, Interp.isRefinedBy Eq (f a) (g a)) :
+    Interp.isRefinedBy Eq (x >>= f) (x >>= g) := by
+  cases x with
+  | ok a => exact h a
+  | _ => simp [Interp.isRefinedBy]
+
+/-- A computation that succeeds wherever another does, with the same result. -/
+theorem Interp.isRefinedBy_eq_of_ok {α : Type} {x y : Interp α}
+    (h : ∀ a, x = .ok a → y = .ok a) : Interp.isRefinedBy Eq x y := by
+  cases x with
+  | ok a => rw [h a rfl]; exact Interp.isRefinedBy_eq_refl _
+  | _ => simp [Interp.isRefinedBy]
+
+/-- A refinement followed by a computation that succeeds with the same result. -/
+theorem Interp.isRefinedBy_trans_eq {α β : Type} {R : α → β → Prop} {s : Interp α}
+    {t t' : Interp β} (h : Interp.isRefinedBy R s t) (h' : Interp.isRefinedBy Eq t t') :
+    Interp.isRefinedBy R s t' := by
+  cases s <;> cases t <;> cases t' <;> simp_all [Interp.isRefinedBy]
 
 end Veir

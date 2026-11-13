@@ -327,7 +327,7 @@ def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (reduction : Reductio
   let taggingPattern := RewritePattern.GreedyRewritePattern #[
     tagModArithOpsWithReduction reduction
   ]
-  let some ctx := RewritePattern.applyInContext taggingPattern ctx
+  let some ctx := RewritePattern.applyInContext taggingPattern ctx op
     | throw "Error while tagging mod_arith operations with their reduction kind"
 
   -- Now apply the actual "lowering" part, via RewritePatterns
@@ -337,7 +337,7 @@ def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (reduction : Reductio
     lowerModArithSubOp legalizeWidth,
     lowerModArithMulOp legalizeWidth
   ]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying mod-arith-to-arith lowering"
   | some ctx => pure ctx
 

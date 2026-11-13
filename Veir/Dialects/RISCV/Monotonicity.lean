@@ -39,16 +39,17 @@ theorem Riscv.interpretOp'_eq_fail_or_eq_of_not_regs {operands operands' : Array
 /-- `Riscv.interpretOp'` is monotone in its operands. -/
 theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
     operands ⊒ operands' →
-    Interp.isRefinedBy OperationResult.isRefinedBy
+    Interp.isRefinedBy (fun source target =>
+      OperationResult.isRefinedBy source target ∧ source.2.1 = target.2.1)
       (Riscv.interpretOp' opType properties resultTypes operands blockOperands mem)
       (Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
   intro h
   by_cases hregs : ∀ v ∈ operands, ∃ r, v = .reg r
   · obtain rfl := RuntimeValue.eq_of_arrayIsRefinedBy_of_regs h hregs
-    apply Interp.isRefinedBy_refl_operationResult
+    apply Interp.isRefinedBy_refl_operationResult_sameMemory
   · rcases Riscv.interpretOp'_eq_fail_or_eq_of_not_regs (operands' := operands') hregs with heq | heq
     · rw [heq]; simp [Interp.isRefinedBy]
-    · rw [heq]; apply Interp.isRefinedBy_refl_operationResult
+    · rw [heq]; apply Interp.isRefinedBy_refl_operationResult_sameMemory
 
 instance (opType : Riscv) : InterpretOp'Monotone (.riscv opType) where
   monotone _ _ _ _ _ _ h := by

@@ -106,13 +106,24 @@ private def p0 : LLT := .pointer 0
 public section
 
 def riscv64LegalizerInfo : LegalizerInfo where
+  -- LLVM also makes `s32` legal, to place 32-bit floats in 32-bit float registers. An integer
+  -- `s32` is later placed in a 64-bit GPR by instruction selection, which leaves the upper bits
+  -- unspecified as `g_anyext` does.
+  blockArgumentRules := [
+    .legalFor [p0, s64],
+    .clampScalar (.type 0) 64 64,
+  ]
   rules
     | .g_add | .g_sub => [
       .legalFor [s64],
       -- LLVM custom-legalizes `s32` into the `s64` operation and a `G_SEXT_INREG` of 32 bits, and
       -- selects `addw`/`subw` later (see `GMIR_RISCV`).
       .customFor [s32],
-      .minScalar (.type 0) 64,
+      .widenScalarToNextPow2 (.type 0),
+      .clampScalar (.type 0) 64 64,
+    ]
+    | .g_uadde | .g_usube => [
+      .lower,
     ]
     | .g_shl | .g_lshr | .g_ashr => [
       .legalForTypePairs [(s64, s64)],
@@ -126,10 +137,13 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
-    -- LLVM is also legal for `s32`, for floating point, and for `p0`, which `g_select` does not
-    -- accept yet.
+    -- As in LLVM's RISCVLegalizerInfo, lower to comparisons and boolean arithmetic.
+    | .g_scmp | .g_ucmp => [
+      .lower,
+    ]
+    -- LLVM is also legal for `s32` and for floating point.
     | .g_select => [
-      .legalForTypePairs [(s64, s64)],
+      .legalForTypePairs [(s64, s64), (p0, s64)],
       .minScalar (.type 0) 64,
       .minScalar (.type 1) 64,
     ]
@@ -253,6 +267,20 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
+    | .g_poison => [
+      .legalFor [s64, p0],
+      .minScalar (.type 0) 64,
+    ]
+    -- Loads must be naturally aligned, as in LLVM without `+unaligned-scalar-mem`. LLVM also makes
+    -- `s16` and `s32` legal, for `flh`/`flw` We have no FPs, so we widen to `s64`.
+    -- TODO: Split odd-sized and misaligned loads, as LLVM's `lowerIfMemSizeNotByteSizePow2` and
+    -- `lower`.
+    | .g_load => [
+      .legalForTypesWithMemDesc [⟨s64, p0, 8, 8⟩, ⟨s64, p0, 16, 16⟩, ⟨s64, p0, 32, 32⟩,
+        ⟨s64, p0, 64, 64⟩, ⟨p0, p0, 64, 64⟩],
+      .widenScalarToNextPow2 (.type 0),
+      .minScalar (.type 0) 64,
+    ]
     | .g_br => [
       .alwaysLegal,
     ]
@@ -284,7 +312,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"
     description := "Legalize gMIR operations for RISC-V 64."
-    run := fun _ ctx _ _ => riscv64LegalizerInfo.legalize ctx }
+    run := fun _ ctx op _ => riscv64LegalizerInfo.legalize ctx op }
 
 end
 

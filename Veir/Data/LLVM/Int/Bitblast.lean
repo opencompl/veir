@@ -930,3 +930,18 @@ theorem getValue_freeze {w : Nat} (x : Int w) :
     (freeze x).getValue = if h : x.isPoison then 0#w else x.getValue := by
   simp [freeze, Id.run]
   grind
+
+@[veir_bv_normalize]
+theorem neg_twoPow_sub_eq_intMin {w : Nat} :
+    LLVM.Int.constant w (-2 ^ (w - 1)) = LLVM.Int.constant w ((BitVec.intMin w).toInt) := by
+  simp [veir_bv_normalize]
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · decide
+  · rw [← BitVec.ofInt_toInt (x := BitVec.intMin w), BitVec.toInt_intMin,
+      Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by lia) (by lia))]
+    norm_cast
+
+@[veir_bv_normalize]
+theorem twoPow_sub_one_eq_intMin {w : Nat} :
+    LLVM.Int.constant w (2 ^ (w - 1) - 1) = LLVM.Int.constant w ((BitVec.intMax w).toInt) := by
+  simp [veir_bv_normalize]

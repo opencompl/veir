@@ -12,13 +12,19 @@ namespace Veir
 /-!
   # Lowering to the RISC-V calling convention
 
+  This pass runs right after `llvm-to-gmir`, like LLVM's `RISCVCallLowering`. A register
+  holds an `i64`, so narrower values are copied into it with a gMIR extension and out of it
+  with a `g_trunc`. These are legalization artifacts: the legalizer folds a `g_trunc` into
+  the `g_anyext` or `g_trunc` that uses it, but not yet into a `g_sext` or `g_zext`.
+
   1. LLVM function boundaries are coerced to `!riscv.reg`
-     (`coerceFunctionBoundaries .riscvReg`).
+     (`coerceFunctionBoundaries .riscvReg`), and the arguments are copied out of
+     their registers.
   2. Every `llvm.return` of a function whose operands are now registers
      becomes a `riscv_cf.return`.
   3. Every `llvm.call` whose arguments and results are passed in a single
-     integer register becomes a `riscv_cf.call`, with its operands cast to registers in
-     front of it and its results cast back to their original types after it.
+     integer register becomes a `riscv_cf.call`, with its operands copied to registers in
+     front of it and its results copied out of registers after it.
 -/
 
 /-- ABI requirements and call semantics that we do not lower yet. -/
@@ -120,39 +126,70 @@ private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : B
   !(abiAttrEntries ctx op).any isUnsupportedAbiAttr && hasRegBoundary ctx op
 
 /--
-  Extend `reg`, which holds a value of type `type` in its low bits, to the full
-  register as `ext` requests. An `i32` is sign-extended, as the psABI requires, unless
-  it is `zeroext`, which LLVM honors by zero-extending it.
-  The sequences match `llc -mtriple=riscv64 -mattr=+zba,+zbb`.
+  Extend `v` to `i64` as `ext` requests, with the gMIR extension of LLVM's
+  `extendOpFromFlags`. An `i32` is sign-extended, as the psABI requires, unless
+  it is `zeroext`.
 -/
-def extendForAbi (ctx : WfIRContext OpCode) (ext : AbiExt) (type : TypeAttr) (reg : ValuePtr)
+def extendForAbi (ctx : WfIRContext OpCode) (ext : AbiExt) (v : ValuePtr)
     : Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
-  let .integerType t := type.val | return (ctx, #[], reg)
-  match ext, t.bitwidth with
-  | .sext, 1 =>
-    let (ctx, shl) ← createRISCVImmLocal ctx .slli rfl #[reg] 63
-    let (ctx, sra) ← createRISCVImmLocal ctx .srai rfl #[shl.getResult 0] 63
-    return (ctx, #[shl, sra], sra.getResult 0)
-  | .zext, 1 =>
-    let (ctx, andOp) ← createRISCVImmLocal ctx .andi rfl #[reg] 1
-    return (ctx, #[andOp], andOp.getResult 0)
-  | .sext, 8 => extendWith ctx .sextb rfl reg
-  | .zext, 8 => extendWith ctx .zextb rfl reg
-  | .sext, 16 => extendWith ctx .sexth rfl reg
-  | .zext, 16 => extendWith ctx .zexth rfl reg
-  | .zext, 32 => extendWith ctx .zextw rfl reg
-  | _, 32 => extendWith ctx .sextw rfl reg
-  | _, _ => return (ctx, #[], reg)
-where
-  extendWith (ctx : WfIRContext OpCode) (dst : Riscv) (h : Riscv.propertiesOf dst = Unit)
-      (reg : ValuePtr) : Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
-    let (ctx, extOp) ← createRISCVUnitLocal ctx dst h #[reg]
-    return (ctx, #[extOp], extOp.getResult 0)
+  let .integerType t := (v.getType! ctx.raw).val | return (ctx, #[], v)
+  if 64 ≤ t.bitwidth then return (ctx, #[], v)
+  let extOp := match ext, t.bitwidth with
+    | .sext, _ | .none, 32 => GMIR.g_sext
+    | .zext, _ => GMIR.g_zext
+    | .none, _ => GMIR.g_anyext
+  let (ctx, extend) ← WfRewriter.createOp! ctx extOp #[IntegerType.signless 64] #[v] #[] #[]
+    default none
+  return (ctx, #[extend], extend.getResult 0)
+
+/-- Copy `v` to a register, extended as `extendForAbi` describes, like LLVM's `buildCopyToRegs`. -/
+def copyToReg (ctx : WfIRContext OpCode) (ext : AbiExt) (v : ValuePtr)
+    : Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
+  let (ctx, extOps, wide) ← extendForAbi ctx ext v
+  let (ctx, cast) ← castToRegLocal ctx wide
+  return (ctx, extOps.push cast, cast.getResult 0)
 
 /--
-  Replace `op` by a `riscv_cf.return` if it returns registers from a function. The
-  boundary coercion casts each coerced return value to a register, which is then
-  extended as `extendForAbi` describes.
+  Copy the register `reg` out to a value of type `type`, like LLVM's `buildCopyFromRegs`.
+  A narrower integer is a `g_trunc` of the register's `i64`.
+-/
+def copyFromReg (ctx : WfIRContext OpCode) (type : TypeAttr) (reg : ValuePtr)
+    : Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
+  let narrow := match type.val with
+    | .integerType t => t.bitwidth < 64
+    | _ => false
+  let wideType : TypeAttr := if narrow then IntegerType.signless 64 else type
+  let (ctx, cast) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast
+    #[wideType] #[reg] #[] #[] () none
+  if !narrow then return (ctx, #[cast], cast.getResult 0)
+  let (ctx, trunc) ← WfRewriter.createOp! ctx GMIR.g_trunc #[type] #[cast.getResult 0] #[] #[]
+    default none
+  return (ctx, #[cast, trunc], trunc.getResult 0)
+
+/--
+  Copy a narrow argument out of its register, like LLVM's `RISCVCallLowering::lowerFormalArguments`.
+  `op` is the cast of a register argument that the boundary coercion inserts at the entry.
+  Arguments of other blocks are left alone.
+-/
+def lowerFormalArgument : LocalRewritePattern OpCode := fun ctx op => do
+  let some reg := matchCastOp op ctx.raw | return (ctx, none)
+  let .blockArgument arg := reg | return (ctx, none)
+  if !(reg.getType! ctx.raw).isa RegisterType then return (ctx, none)
+  let some region := arg.block.getParent! ctx.raw | return (ctx, none)
+  if region.getFirstBlock! ctx.raw != some arg.block then return (ctx, none)
+  let some func := region.getParent! ctx.raw | return (ctx, none)
+  if func.getOpType! ctx.raw != .llvm .func || !supportsFunctionAbi ctx.raw func then
+    return (ctx, none)
+  let type := (op.getResult 0).getType! ctx.raw
+  -- A full-width argument is already copied by the cast.
+  let .integerType t := type.val | return (ctx, none)
+  if 64 ≤ t.bitwidth then return (ctx, none)
+  let (ctx, ops, value) ← copyFromReg ctx type reg
+  return (ctx, some (ops, #[value]))
+
+/--
+  Replace `op` by a `riscv_cf.return` if it returns registers from a function. Each
+  value that the boundary coercion casts to a register is copied to it as `copyToReg` describes.
 -/
 def lowerReturn : LocalRewritePattern OpCode := fun ctx op => do
   let some parent := op.getParentOp! ctx.raw | return (ctx, none)
@@ -164,7 +201,7 @@ def lowerReturn : LocalRewritePattern OpCode := fun ctx op => do
   let (ctx, newOps, regs) ← operands.zipIdx.foldlM (init := (ctx, #[], #[]))
       fun (ctx, newOps, regs) (v, i) => do
     let (ctx, extOps, reg) ← match v.definingOp?.bind (matchCastOp · ctx.raw) with
-      | some input => extendForAbi ctx (abiExtOf entries "res_attrs" i) (input.getType! ctx.raw) v
+      | some input => copyToReg ctx (abiExtOf entries "res_attrs" i) input
       | none => pure (ctx, #[], v)
     return (ctx, newOps ++ extOps, regs.push reg)
   let (ctx, ret) ← WfRewriter.createOp! ctx Riscv_Cf.return #[] regs #[] #[] () none
@@ -204,20 +241,20 @@ def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
     | ext => ext
   let (ctx, newOps, regs) ← operands.zipIdx.foldlM (init := (ctx, #[], #[]))
       fun (ctx, newOps, regs) (v, i) => do
-    let (ctx, cast) ← castToRegLocal ctx v
-    let (ctx, extOps, reg) ← extendForAbi ctx (argExt i) (v.getType! ctx.raw) (cast.getResult 0)
-    return (ctx, newOps.push cast ++ extOps, regs.push reg)
+    let (ctx, copyOps, reg) ← copyToReg ctx (argExt i) v
+    return (ctx, newOps ++ copyOps, regs.push reg)
   let (ctx, call) ← WfRewriter.createOp! ctx Riscv_Cf.call
     (resultTypes.map fun _ => RegisterType.mk) regs #[] #[] ({ callee } : RISCVCallProperties) none
   let newOps := newOps.push call
   -- LLVM calls have at most one result.
   if resultTypes.isEmpty then return (ctx, some (newOps, #[]))
-  let (ctx, cast) ← replaceWithRegLocal ctx op (call.getResult 0)
-  return (ctx, some (newOps.push cast, #[cast.getResult 0]))
+  let (ctx, copyOps, value) ← copyFromReg ctx resultTypes[0]! (call.getResult 0)
+  return (ctx, some (newOps ++ copyOps, #[value]))
 
-/-- Lower `op` if it is an LLVM return or call. -/
+/-- Lower `op` if it is an argument cast, or an LLVM return or call. -/
 def lowerOp : LocalRewritePattern OpCode := fun ctx op =>
   match op.getOpType! ctx.raw with
+  | .builtin .unrealized_conversion_cast => lowerFormalArgument ctx op
   | .llvm .return => lowerReturn ctx op
   | .llvm .call =>
     let props : LLVMCallProperties := op.getProperties! ctx.raw (OpCode.llvm .call)
@@ -226,17 +263,17 @@ def lowerOp : LocalRewritePattern OpCode := fun ctx op =>
 
 /-! # Pass implementation -/
 
-def IselAbiRISCV64.impl (ctx : WfIRContext OpCode) (_op : OperationPtr)
-    (_ : _op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+def CallLoweringRISCV64.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let ctx ← coerceFunctionBoundaries .riscvReg ctx fun ctx op =>
     op.getOpType! ctx == .llvm .func && supportsFunctionAbi ctx op
   -- The rewrite driver inserts the new operations, replaces results, and removes dead casts.
-  match RewritePattern.applyInContext (.fromLocalRewrite lowerOp) ctx with
-  | none => throw "Error while applying isel-abi-riscv64"
+  match RewritePattern.applyToFunctions (.fromLocalRewrite lowerOp) ctx op with
+  | none => throw "Error while applying call-lowering-riscv64"
   | some ctx => pure ctx
 
-public def IselAbiRISCV64 : Pass OpCode :=
-  { name := "isel-abi-riscv64"
+public def CallLoweringRISCV64 : Pass OpCode :=
+  { name := "call-lowering-riscv64"
     description :=
       "Lower LLVM function boundaries, returns and calls to the RISC-V calling convention."
-    run := fun _ => IselAbiRISCV64.impl }
+    run := fun _ => CallLoweringRISCV64.impl }
