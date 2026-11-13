@@ -925,6 +925,11 @@ theorem isRefinedBy_trans {w : Nat} {i j k : Int w}
     (h₁ : i ⊒ j) (h₂ : j ⊒ k) : i ⊒ k := by
   grind [isRefinedBy, cases Int]
 
+/-- Two integers that refine each other are equal. -/
+theorem isRefinedBy_antisymm {w : Nat} {i j : Int w} (h₁ : i ⊒ j) (h₂ : j ⊒ i) :
+    i = j := by
+  grind [isRefinedBy, cases Int]
+
 /-- Poison is refined by any value. -/
 @[simp, grind .]
 theorem poison_isRefinedBy {w : Nat} (i : Int w) : poison ⊒ i := by
