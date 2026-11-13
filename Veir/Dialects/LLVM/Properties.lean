@@ -6,7 +6,6 @@ public import Veir.Data.LLVM.AtomicOrdering
 public import Veir.Data.LLVM.ComdatKind
 public import Std.Data.HashMap
 public import Veir.IR.Attribute
-public import Veir.IR.DenseElements
 
 import Veir.Dialects.Builtin.Properties
 
@@ -717,15 +716,26 @@ def LLVMSwitchProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
 /--
   The case values, read for a `width`-bit condition, one per case operand segment. `#[]` when
   `case_values` is absent and there are no cases. `none` when `case_values` is absent although
-  there are cases, or is not a one-dimensional tensor or vector of `width`-bit integers with one
-  element per case, or holds a value out of range for `width`.
+  there are cases, is not a one-dimensional tensor or vector of `width`-bit integers with one
+  element per case, or holds a value out of MLIR's range for `width`, from the signed minimum
+  to the unsigned maximum.
+
+  `case_values` is a dense elements attribute VeIR keeps as text, so its body -- `5` for one
+  case, `[13, 35]` for several -- is read back here. Other encodings, such as raw hex data, are
+  not read.
 -/
 def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) (width : Nat) :
-    Option (Array Int) :=
+    Option (Array Int) := do
   let count := props.case_operand_segments.values.size
-  match props.case_values with
-  | none => if count = 0 then some #[] else none
-  | some attr => attr.integers? [count] width
+  let some attr := props.case_values | if count = 0 then some #[] else none
+  let type := String.ofList (attr.type.toList.filter (!·.isWhitespace))
+  guard (type == s!"vector<{count}xi{width}>" || type == s!"tensor<{count}xi{width}>")
+  let body := String.ofList (attr.value.toList.filter fun c =>
+    !c.isWhitespace && c != '[' && c != ']')
+  let values ← if body.isEmpty then pure #[] else (body.splitOn ",").toArray.mapM String.toInt?
+  guard (values.size == count)
+  guard (values.all fun v => -(2 ^ (width - 1) : Int) ≤ v && v < 2 ^ width)
+  return values
 
 /--
   An optional array-valued property, absent when the attribute is not there.
