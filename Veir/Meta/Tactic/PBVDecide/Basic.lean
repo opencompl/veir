@@ -87,8 +87,23 @@ meta def Tm.getUpperBound {k : TmKind} (tm : Tm k) (bound : Nat) : Nat :=
   | .widthEq  v w
   | .and      v w => (v.getUpperBound bound).max (w.getUpperBound bound)
 
+/-- The width variables and opaque atoms a width term is built from. -/
+meta def Tm.atoms : WidthTm → HashSet WidthTm
+  | .widthLit _ => {}
+  | t@(.widthAtom _) | t@(.widthFVar _ _) => {t}
+  | .widthAdd a b | .widthSub a b => (Tm.atoms a).union (Tm.atoms b)
+
+/-- The width variables and opaque atoms a width prop is built from. -/
+meta def Tm.propAtoms : WidthProp → HashSet WidthTm
+  | .widthLt a b | .widthLe a b | .widthEq a b => a.atoms.union b.atoms
+  | .and a b => (Tm.propAtoms a).union (Tm.propAtoms b)
+
 /-- The set of width terms found in the goal. -/
 abbrev WidthTms := HashSet WidthTm
+
+/-- The width variables and opaque atoms the width terms are built from. -/
+meta def WidthTms.atoms (this : WidthTms) : HashSet WidthTm :=
+  this.fold (init := {}) fun acc t => acc.union t.atoms
 
 meta def WidthTms.getUpperBound (this : WidthTms) (bound : Nat) : Nat :=
   this.fold (init := bound) fun acc wTm =>
@@ -110,6 +125,12 @@ structure ReifyState where
   bvs : BitVecFVarsToRevert := {}
   /-- The props on widths found in the local context (the preconditions). -/
   props : WidthProps := {}
+  /--
+  `Nat` terms used as values rather than as the width of a `BitVec`, such as the
+  `n` in `BitVec.ofNat w n` or the start of an `extractLsb'`. They become width
+  terms only if they are built from the widths of the goal (see `reifyValues`).
+  -/
+  valueCands : HashSet Expr := {}
 
 meta def ReifyState.dependsOnBvs (self : ReifyState) (ldecl : LocalDecl) : MetaM Bool :=
   localDeclDependsOnPred ldecl (fun fvar => self.bvs.contains fvar)

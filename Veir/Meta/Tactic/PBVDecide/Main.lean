@@ -84,6 +84,10 @@ public meta def runPbvDecide (g : MVarId) (ctx : PbvDecideContext) : TacticM Uni
   let g ← g.casesAnd
   -- Keep the untranslated goal, to check counterexamples against it
   let origGoal := g
+  -- Unfold derived operations, exposing their widths and values to the reification
+  let some g ← unfoldDerivedOps g
+    | replaceMainGoal []
+      return
   let (ldeclsToRevert, reifiedState) ← ReifyM.run <| reifyWidths g
   -- Revert all ldecls
   let (_, g) ← g.revert ldeclsToRevert.keys.toArray

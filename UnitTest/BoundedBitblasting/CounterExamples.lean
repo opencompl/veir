@@ -176,17 +176,6 @@ example {v w : Nat} (x : BitVec (w - v)) (hw : w ≤ 4) :
     x + 0 = x := by
   pbv_decide 4
 
--- Extracting at a symbolic offset induces spurious bound requirement
-/--
-warning: `grind` could not prove the following : s ≤ 4
----
-error: unsolved goals
--/
-#guard_msgs(error, warning, substring := true) in
-example {w s v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
-    x.extractLsb' s v = (x >>> s).setWidth v := by
-  pbv_decide 4
-
 structure CexBVPair (w : Nat) where
   fst : BitVec w
   snd : BitVec w
@@ -235,4 +224,13 @@ error: `pbv_decide` found a counterexample
 #guard_msgs(error, substring := true) in
 example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
     (x.zeroExtend 8).clz = x.clz.zeroExtend 8 := by
+  pbv_decide 8
+
+-- Without `0 < w` this fails at `w = 0`
+/--
+error: `pbv_decide` found a counterexample
+-/
+#guard_msgs(error, substring := true) in
+example {w : Nat} (hw : w ≤ 8) :
+    BitVec.ofNat w (w - 1) < BitVec.ofNat w w := by
   pbv_decide 8

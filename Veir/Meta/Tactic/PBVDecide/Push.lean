@@ -73,6 +73,23 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray)
   return g
 
 /--
+Unfold the operations defined in terms of other `BitVec` operations (the `pbv_unfold` set)
+in the goal and in the `Prop` hypotheses, before reification. Returns `none` if this closes
+the goal.
+-/
+public meta def unfoldDerivedOps (g : MVarId) : MetaM (Option MVarId) := g.withContext do
+  let some unfoldExt ← getSimpExtension? `pbv_unfold
+    | throwError "Failed to obtain `pbv_unfold simp set."
+  let simpCtx ← Simp.mkContext (config := { decide := false, failIfUnchanged := false })
+    (simpTheorems := #[← unfoldExt.getTheorems])
+  let hyps ← (← getLCtx).foldlM (init := #[]) fun hyps ldecl => do
+    if !ldecl.isImplementationDetail && (← isProp ldecl.type) then
+      return hyps.push ldecl.fvarId
+    return hyps
+  let (result, _) ← simpGoal g simpCtx (fvarIdsToSimp := hyps)
+  return result.map (·.2)
+
+/--
 Lift the goal to the blast width, then push the resulting `setWidth`s in so
 that `bv_decide` can decide it.
 -/

@@ -480,6 +480,11 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.extractLsb' (w - 1) 1 = if x.msb then 1#1 else 0 := by
   pbv_decide 4
 
+/-- Extracting at an offset which is not a width needs no bound on the offset -/
+example {w s v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
+    x.extractLsb' s v = (x >>> s).setWidth v := by
+  pbv_decide 4
+
 /-- Arithmetic shifting right by zero is identity -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.sshiftRight' 0#w = x := by
@@ -755,6 +760,16 @@ example {w t : Nat} (hwt : t ≤ w) (hw : w ≤ 8) :
     BitVec.ofNat w (t - w) = 0#w := by
   pbv_decide 8
 
+/-- Subtracting a `Nat` which is not a width from a width does not exceed the width -/
+example {w n : Nat} (hw : w ≤ 8) :
+    BitVec.ofNat w (w - n) ≤ BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- A width which only appears in a value, minus a literal, at a fixed width -/
+example {w : Nat} (hw0 : 0 < w) (hw : w ≤ 8) :
+    BitVec.ofNat 8 (w - 1) + 1#8 = BitVec.ofNat 8 w := by
+  pbv_decide 8
+
 /-- Xor with all ones is complement -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x ^^^ BitVec.allOnes w = ~~~x := by
@@ -894,3 +909,18 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (h : 1 < w) :
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.rotateRight 1 = (x >>> 1) ||| (x <<< (w - 1)) := by
   pbv_decide 4
+
+/-- A `Nat` shift by a difference of widths agrees with the `BitVec` shift -/
+example {w t : Nat} (x : BitVec t) (hwt : w ≤ t) (ht : t ≤ 8) :
+    x >>> (t - w) = x >>> BitVec.ofNat t (t - w) := by
+  pbv_decide 8
+
+/-- A `Nat` shift amount built from the width is reified, and given a mask -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x <<< (w + 1) = 0#w := by
+  pbv_decide 8
+
+/-- A bit index built from widths is a shift amount -/
+example {w t : Nat} (x : BitVec t) (hwt : w ≤ t) (ht : t ≤ 8) :
+    x.getLsbD (t - w) = (x >>> BitVec.ofNat t (t - w)).getLsbD 0 := by
+  pbv_decide 8
