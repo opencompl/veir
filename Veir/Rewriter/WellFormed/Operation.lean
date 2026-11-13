@@ -643,13 +643,6 @@ theorem BlockPtr.operationList_rewriter_eraseOp
       BlockPtr.opChain_rewriter_detachOperands,
       BlockPtr.opChain_rewriter_detachBlockOperands]
 
-set_option warn.sorry false in
-theorem OperationPtr.getOperand_Rewriter_eraseOp
-    (heq : Rewriter.eraseOp ctx op hctx hop = newCtx) (hne : op ≠ op'):
-    OperationPtr.getOperand op' newCtx idx inBounds idxInBounds =
-    OperationPtr.getOperand op' ctx idx (by sorry) (by sorry) := by
-  sorry
-
 section createOp
 
 variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
