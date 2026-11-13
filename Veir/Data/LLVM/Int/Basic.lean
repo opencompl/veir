@@ -893,6 +893,12 @@ def freeze {w : Nat} (x : Int w) : Int w := Id.run do
   | .val v => .val v
   | .poison => .val 0
 
+theorem IntPred.eq_cases (p : IntPred) :
+    p = .eq ∨ p = .ne ∨ p = .ugt ∨ p = .uge ∨ p = .ult ∨ p = .ule ∨
+      p = .sgt ∨ p = .sge ∨ p = .slt ∨ p = .sle := by
+  cases p <;> simp
+
+
 end Int
 end
 end Veir.Data.LLVM
