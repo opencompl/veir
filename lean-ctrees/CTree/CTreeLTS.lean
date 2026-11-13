@@ -33,7 +33,7 @@ def CTree.lts (EIn CIn : Type u) (E : EIn → Type u) (C : CIn → Type u) (α :
   ⟨@CTree.Obs _ E _, CTree E C α, CTree.Trans⟩
 
 inductive CTree.Robs (RE : ∀ {i i'}, E i → E i' → Prop) (RR : α → β → Prop) : @Obs EIn E α → @Obs EIn E β → Prop where
-| eff i i' (x : E i) (y : E i') (hRE : RE x x') : Robs RE RR (Obs.eff i x) (Obs.eff i' y)
+| eff i i' (x : E i) (y : E i') (hRE : RE x y) : Robs RE RR (Obs.eff i x) (Obs.eff i' y)
 | effEmpty i : Robs RE RR (.effEmpty i) (.effEmpty i)
 | val (r : α) (r' : β) : RR r r' → Robs RE RR (.val r) (.val r')
 
