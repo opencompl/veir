@@ -107,6 +107,17 @@ def LLVM.Byte.toFrozenInt (b : Veir.Data.LLVM.Byte w) : Veir.Data.LLVM.Int w :=
   if b.poison = BitVec.allOnes w then .poison else .val b.val
 
 /--
+  A poison integer casts to the wholly poison byte, which `llvm.mlir.poison` of a byte type is.
+  This is the correctness of `lowerBytePoison` in `llvm-to-gmir`.
+-/
+@[simp]
+theorem LLVM.Byte.fromInt_poison {w : Nat} :
+    Veir.Data.LLVM.Byte.fromInt (Veir.Data.LLVM.Int.poison : Veir.Data.LLVM.Int w) =
+      Veir.Data.LLVM.Byte.allPoison := by
+  simp [Veir.Data.LLVM.Byte.fromInt, Veir.Data.LLVM.Byte.allPoison,
+    Veir.Data.LLVM.Int.isPoison]
+
+/--
   An integer cast to a byte and back is unchanged.
 -/
 @[simp, grind =]

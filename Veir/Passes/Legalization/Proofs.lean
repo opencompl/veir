@@ -94,6 +94,14 @@ theorem trunc_trunc (w n m : Nat) (hn : n < m) (hm : m < w) (x : LLVM.Int w)
   simp [BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hn)]
 
 /--
+Prove the correctness of widening `g_poison`: truncating a wide poison, whatever the `nsw` and
+`nuw` flags, refines the narrow poison.
+-/
+theorem poison_widening {w n : Nat} (h : n < w) (nsw nuw : Bool) :
+    (LLVM.Int.poison : LLVM.Int n) ⊒ LLVM.Int.trunc (LLVM.Int.poison : LLVM.Int w) n nsw nuw h :=
+  poison_isRefinedBy _
+
+/--
 Prove `combineExtOfTruncOfConstant true` at every width: truncating a constant that fits in the
 narrow signed range and sign-extending it back refines to the original constant, whatever the
 `nsw` and `nuw` flags of the truncation.
