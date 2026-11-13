@@ -1,4 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p=llvm-to-gmir | veir-interpret | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p=llvm-to-gmir,legalize-riscv64 | veir-interpret | filecheck %s
 // RUN: CTREE
 // RUN: LLUBI
 // RUN: ALIVE_EXEC

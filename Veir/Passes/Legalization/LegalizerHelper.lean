@@ -568,6 +568,38 @@ def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
         #[ov.res[0]!, satVal.res[0]!, result.res[0]!] #[type])
     (fun op => op)
 
+/--
+Lowers `g_scmp` or `g_ucmp` as LLVM's `LegalizerHelper::lowerThreewayCompare`, using its
+arithmetic path for targets such as RISC-V whose booleans are zero or one:
+
+  cmp lhs rhs = zext (icmp gt lhs rhs) - zext (icmp lt lhs rhs)
+
+The comparisons produce `i1`; both are zero-extended to the independent result width before
+subtracting. Existing comparison legalization and artifact combines handle the intermediate casts.
+-/
+def lowerThreewayCompare (signed : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let operandType ← MatchProg.type (Attr := IntegerType)
+      let resultType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value operandType
+      let rhs ← MatchProg.value operandType
+      let _ ← MatchProg.root (.gmir (if signed then .g_scmp else .g_ucmp))
+        #[lhs, rhs] #[resultType]
+      return (resultType, lhs, rhs))
+    (fun (resultType, lhs, rhs) => do
+      let boolType ← CreateProg.type (IntegerType.signless 1)
+      let gtProps ← CreateProg.property (.gmir .g_icmp)
+        { predicate := if signed then .sgt else .ugt }
+      let ltProps ← CreateProg.property (.gmir .g_icmp)
+        { predicate := if signed then .slt else .ult }
+      let isGT ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[boolType] gtProps
+      let isLT ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[boolType] ltProps
+      let isGT ← CreateProg.operation (.gmir .g_zext) #[isGT.res[0]!] #[resultType]
+      let isLT ← CreateProg.operation (.gmir .g_zext) #[isLT.res[0]!] #[resultType]
+      CreateProg.operation (.gmir .g_sub) #[isGT.res[0]!, isLT.res[0]!] #[resultType])
+    (fun op => op)
+
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
@@ -588,6 +620,8 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_ssubo => lowerSAddSubO false
   | .g_uadde => lowerAddSubE true
   | .g_usube => lowerAddSubE false
+  | .g_scmp => lowerThreewayCompare true
+  | .g_ucmp => lowerThreewayCompare false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
