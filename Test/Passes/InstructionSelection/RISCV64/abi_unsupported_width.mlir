@@ -1,4 +1,4 @@
-// RUN: veir-opt %s --print-op-generic -p=isel-abi-riscv64 | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p=call-lowering-riscv64 | filecheck %s
 
 // A function with any boundary type that is not passed in a single register is
 // left entirely unlowered, rather than having only its other boundaries coerced.

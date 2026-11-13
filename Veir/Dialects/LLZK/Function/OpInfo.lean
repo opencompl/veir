@@ -21,7 +21,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 end LLZK
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def LLZK.Function.propertiesOf (op : LLZK.Function) : Type :=
 match op with
 | .«def» => FunctionDefProperties

@@ -34,6 +34,16 @@ def GMIR.interpretOpCTree {EIn : Type} {E : EIn → Type}
       if h : resBw.bitwidth <= w then fail else
       .tau (.mk (resBw.bitwidth - w))
         (fun msb => .ret (#[.int resBw.bitwidth (val.ext resBw.bitwidth msb (_h := by omega))], mem, none))
+  | .g_load => do
+      let (results, mem, action) ←
+        monadLift $ GMIR.interpretOp' .g_load properties resultTypes operands blockOperands mem
+      let size := properties.size.toNat
+      let [.int w val] := results.toList | return (results, mem, action)
+      if h : size < w then
+        -- The high bits are unspecified, as for `g_anyext`.
+        .tau (.mk (w - size)) fun msb =>
+          .ret (#[.int w ((val.trunc size false false h).ext w msb h)], mem, action)
+      else return (results, mem, action)
   | opType => do
       monadLift $ GMIR.interpretOp' opType properties resultTypes operands blockOperands mem
 

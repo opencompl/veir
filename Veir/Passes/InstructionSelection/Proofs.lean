@@ -2,6 +2,7 @@ module
 
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.Ptr.Basic
 public import Veir.Data.Casting
 public import Veir.Data.Refinement
 public import Veir.Dialects.GMIR.Semantics
@@ -46,11 +47,26 @@ theorem constant_refinement {v : Int}:
   veir_bv_decide
 
 /--
-  Prove the correctness of the `poisonConst` lowering pattern.
+  Prove the correctness of the `gmirPoison` lowering pattern.
 -/
-theorem poisonConst_refinement :
+theorem gmirPoison_refinement :
     (LLVM.Int.poison (w := _)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) 64) := by
   veir_bv_decide
+
+/--
+  Prove the correctness of the `gmirPoison` lowering pattern at every width `w`, as for a
+  `g_poison` selected before legalization: the low `w` bits of `li 0` refine poison.
+-/
+theorem gmirPoison_refinement_any_width {w : Nat} :
+    (LLVM.Int.poison (w := w)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) w) :=
+  poison_isRefinedBy _
+
+/--
+  Prove the correctness of the `gmirPoison` lowering pattern for a pointer: the pointer that
+  `li 0` is cast to, like any other, refines a poison pointer.
+-/
+theorem gmirPoison_ptr_refinement (p : LLVM.Ptr) : LLVM.Ptr.poison ⊒ p := by
+  simp [LLVM.Ptr.isRefinedBy]
 
 /--
   Prove the correctness of the `constant` lowering pattern at every width `w ≤ 64`: the
@@ -1132,3 +1148,13 @@ theorem anyext_of_reg_refinement (n m : Nat) (h : n < m) (r : Reg) :
     veir_bv_normalize
     simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
     grind⟩
+
+/--
+  A `g_load` of `n` bits `v` into an `i64` is refined by any register whose low `n` bits are `v`,
+  such as the result of `lbu`, `lh` or `lw` (see `gmirLoad_pattern`).
+-/
+theorem gmir_load_refinement {n : Nat} (h : n < 64) (v : BitVec n) (r : Reg)
+    (hlow : r.val.setWidth n = v) :
+    ∃ ext : BitVec (64 - n), LLVM.Int.ext (.val v) 64 ext h ⊒ RISCV.Reg.toInt r 64 := by
+  have hv : RISCV.Reg.toInt r n = .val v := by simp [RISCV.Reg.toInt, ← hlow]
+  simpa [hv] using anyext_of_reg_refinement n 64 h r
