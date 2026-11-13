@@ -1130,7 +1130,8 @@ theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
   veir_bv_decide
 
-/-- Freezing any integer that fits in a register is refined by its register round trip. -/
+/-- Prove `gmirFreeze`: freezing an integer that fits in a register is refined by its register
+  round trip. -/
 theorem freeze_refinement {w : Nat} (hw : w ≤ 64) {a : LLVM.Int w} :
     (Data.LLVM.Int.freeze a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) w) := by

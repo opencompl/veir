@@ -34,6 +34,13 @@ def GMIR.interpretOpCTree {EIn : Type} {E : EIn → Type}
       if h : resBw.bitwidth <= w then fail else
       .tau (.mk (resBw.bitwidth - w))
         (fun msb => .ret (#[.int resBw.bitwidth (val.ext resBw.bitwidth msb (_h := by omega))], mem, none))
+  | .g_freeze => do
+      match operands.toList with
+      | [.int w (.val v)] => return (#[.int w (.val v)], mem, none)
+      | [.int w .poison] =>
+          let (bv : FreezeC (.mk w)) ← CTree.choose (FreezeCIn.mk w)
+          return (#[.int w (LLVM.Int.val bv)], mem, none)
+      | _ => fail
   | .g_load => do
       let (results, mem, action) ←
         monadLift $ GMIR.interpretOp' .g_load properties resultTypes operands blockOperands mem

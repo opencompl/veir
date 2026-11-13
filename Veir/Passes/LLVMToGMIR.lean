@@ -402,6 +402,19 @@ def lowerPoison : Puddle.Pattern OpCode :=
 
 def g_poison := lowerPoison.compile
 
+/-- `llvm.freeze` (integer) -> `gmir.g_freeze`. -/
+def lowerIntegerFreeze : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+      let x ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.llvm .freeze) #[x] #[type]
+      return (type, x))
+    (fun (type, x) => Puddle.CreateProg.operation (.gmir .g_freeze) #[x] #[type])
+    (fun newOp => newOp)
+
+def g_freeze := lowerIntegerFreeze.compile
+
 /--
   The integer type with the same width as the byte type `type`.
   Returns `none` if `type` is not a byte type.
@@ -544,7 +557,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_scmp.run, g_ucmp.run, g_abs.run, g_fshl.run, g_fshr.run,
     g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run,
-    g_constant.run, g_poison.run, g_bytePoison.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
+    g_constant.run, g_poison.run, g_bytePoison.run, g_freeze.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices,
     lowerStaticAlloca.run, g_load.run,
     intToByteRoundTrip.run
