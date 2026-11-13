@@ -29,15 +29,14 @@ This section defines the predicate `Pattern.Supported` that specify what kind of
 allowed in a Puddle pattern.
 -/
 
-/-- Every non-root match is pure; the root and creation operations may have memory effects.
-No operation should be a terminators. -/
+/-- No operation should be a terminator. Every operation may have memory effects: a pattern only
+reuses the results of the operations it matches below its root, so they keep running as before, and
+`CanInterpretTo` only assumes that they ran in some memory. -/
 @[expose]
 def Pattern.Supported (rule : Pattern OpCode) : Prop :=
   (∀ decl ∈ rule.matcher.decls,
     match decl with
-    | .operation opCode _ _ _ _ handle _ _ =>
-      HasOpInfo.isTerminator opCode = false ∧
-        (handle ≠ rule.matcher.rootHandle → ∀ property, HasOpInfo.getEffects opCode property = .none)
+    | .operation opCode .. => HasOpInfo.isTerminator opCode = false
     | _ => True) ∧
   (∀ decl ∈ rule.creation.decls,
     match decl with
