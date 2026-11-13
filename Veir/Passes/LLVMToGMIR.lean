@@ -7,6 +7,7 @@ import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.InstructionSelection.Common
 import Veir.Passes.LLVMToGMIR.Branches
+import Veir.Passes.LLVMToGMIR.Switches
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
@@ -581,6 +582,8 @@ def intToByteRoundTrip := (reconcilePairingCast isIntToByteRoundTrip).compile
 
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+  -- Switches become chains of gMIR tests first.
+  let ctx ← ExceptT.mk (pure (convertLLVMSwitches ctx))
   -- Branches are translated by a separate step, which is proved to refine the module.
   let ctx ← ExceptT.mk (pure (convertLLVMBranches ctx))
   let pattern := RewritePattern.GreedyRewritePattern #[
