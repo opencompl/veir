@@ -154,6 +154,27 @@ def g_sshlsat := (lowerBinop .intr__sshl__sat .g_sshlsat).compile
 def g_ushlsat := (lowerBinop .intr__ushl__sat .g_ushlsat).compile
 
 /--
+  `llvm.intr.scmp`/`llvm.intr.ucmp` -> `g_scmp`/`g_ucmp`, as LLVM's `IRTranslator`. Only operands
+  and results of at most 64 bits are translated; wider ones stay in the LLVM dialect.
+-/
+def lowerThreeWayCmp (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let resultType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let lhs ← Puddle.MatchProg.value operandType
+      let rhs ← Puddle.MatchProg.value operandType
+      let _ ← Puddle.MatchProg.root (.llvm lOp) #[lhs, rhs] #[resultType]
+      return (resultType, lhs, rhs))
+    (fun (resultType, lhs, rhs) =>
+      Puddle.CreateProg.operation (.gmir gOp) #[lhs, rhs] #[resultType])
+    (fun newOp => newOp)
+
+def g_scmp := (lowerThreeWayCmp .intr__scmp .g_scmp).compile
+
+def g_ucmp := (lowerThreeWayCmp .intr__ucmp .g_ucmp).compile
+
+/--
   `llvm.intr.fshl`/`llvm.intr.fshr` -> `g_fshl`/`g_fshr`, except for `i32` and `i64`: instruction
   selection still matches those widths in the LLVM dialect (as rotates or LLVM's
   `expandFunnelShift`), while the legalizer lowers the other widths to shifts.
@@ -523,7 +544,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_bswap.run, g_bitreverse.run,
-    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run, g_fshl.run, g_fshr.run,
+    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_scmp.run, g_ucmp.run, g_abs.run, g_fshl.run, g_fshr.run,
     g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run,
     g_constant.run, g_poison.run, g_bytePoison.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
