@@ -49,6 +49,16 @@ theorem add_li_to_addi_commuted {x : Reg} {c : BitVec 64}
     RISCV.add x (RISCV.li c) = RISCV.addi (c.setWidth 12) x := by
   simpa only [RISCV.add, BitVec.add_comm] using (add_li_to_addi (x := x) hlo hhi)
 
+/-- Both sides retain bits 31:0 and clear bits 63:32. -/
+theorem and_li_to_zextw {x : Reg} :
+    RISCV.and (RISCV.li 0xffffffff#64) x = RISCV.zextw x := by
+  veir_bv_decide
+
+/-- The other operand order matched by `and_li_to_zextw_commuted`. -/
+theorem and_li_to_zextw_commuted {x : Reg} :
+    RISCV.and x (RISCV.li 0xffffffff#64) = RISCV.zextw x := by
+  simpa only [RISCV.and, BitVec.and_comm] using (and_li_to_zextw (x := x))
+
 /-! Shift-amount combines (R1). Register semantics take `(amount, data)`,
     the reverse of the SSA operand order. The mask hypotheses use the exact
     64-bit immediate-property predicate from the Puddle matcher. -/
@@ -548,6 +558,25 @@ end
 namespace Veir.RISCV
 
 open Puddle
+
+/-- R2 preserves semantics and satisfies Puddle's structural obligations in
+    both operand orders, for arbitrary register types and shared masks. -/
+theorem and_li_to_zextw_valid (liFirst : Bool) :
+    Pattern.Valid (and_li_to_zextw_pattern liFirst) := by
+  cases liFirst <;> simp only [and_li_to_zextw_pattern, Bool.false_eq_true, ↓reduceIte]
+  all_goals
+    provePuddleValid
+    simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
+      forall_eq_apply_imp_iff]
+    rintro xType x maskType ⟨mask⟩ maskValue rfl - hli resultType props result - hand
+    -- These pure operations have the same results in every memory state.
+    cases hli.2 .empty
+    cases hand.2 .empty
+    refine ⟨.reg (Data.RISCV.zextw x), ⟨?_, fun _ => rfl⟩, ?_⟩
+    · simp [RuntimeValue.ArrayConforms]
+  -- Register refinement is equality, so the register lemmas close both cases.
+  · exact Data.RISCV.and_li_to_zextw
+  · exact Data.RISCV.and_li_to_zextw_commuted
 
 /-! Connect the R1 register equalities to the actual Puddle matchers and
     replacements, including structural validity and runtime value conformance. -/

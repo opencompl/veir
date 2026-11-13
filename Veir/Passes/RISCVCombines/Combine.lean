@@ -311,6 +311,34 @@ def add_li_to_addi : Puddle.CompiledPattern OpCode :=
 def add_li_to_addi_commuted : Puddle.CompiledPattern OpCode :=
   (add_li_to_addi_pattern true).compile
 
+/-- `and x (li 0xffffffff) -> zextw x`, in either operand order. Preserve the
+    root's result type; existing DCE handles the mask when it becomes unused.
+
+    LLVM GlobalISel imports `ADD_UWPat`'s RV64+Zba rule, selecting
+    `and GPR, 0xFFFFFFFF` as `ADD_UW GPR, X0` (the `zext.w` alias).
+    https://github.com/llvm/llvm-project/blob/99a148b807da7942d629fd8e807d12026fcb5e20/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L758-L764 -/
+def and_li_to_zextw_pattern (liFirst : Bool) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let x ← Puddle.MatchProg.value xType
+      let liType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let li ← Puddle.MatchProg.operation (.riscv .li) #[] #[liType]
+        (fun props => props.value == 0xffffffff#64)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let _ ← Puddle.MatchProg.root (.riscv .and)
+        (if liFirst then #[li.res[0]!, x] else #[x, li.res[0]!]) #[resultType]
+      return (x, resultType))
+    (fun (x, resultType) =>
+      Puddle.CreateProg.operation (.riscv .zextw) #[x] #[resultType] (.inl ()))
+    (fun op => op)
+
+def and_li_to_zextw : Puddle.CompiledPattern OpCode :=
+  (and_li_to_zextw_pattern false).compile
+
+def and_li_to_zextw_commuted : Puddle.CompiledPattern OpCode :=
+  (and_li_to_zextw_pattern true).compile
+
 /-- Apply `riscv.sextw` to the register results of an interpreted operation. -/
 abbrev sextwResults : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
     Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
@@ -1145,6 +1173,8 @@ private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , andi_255_lbu
      , add_li_to_addi
      , add_li_to_addi_commuted
+     , and_li_to_zextw
+     , and_li_to_zextw_commuted
      , zextw_slliw_lbu 8
      , zextw_slliw_lbu 16
      , zextw_slliw_lbu 24
