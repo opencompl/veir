@@ -568,7 +568,7 @@ theorem and_li_to_zextw_valid (liFirst : Bool) :
     provePuddleValid
     simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
       forall_eq_apply_imp_iff]
-    rintro xType x maskType ⟨mask⟩ maskValue rfl hli resultType props result hand
+    rintro xType x maskType ⟨mask⟩ maskValue rfl - hli resultType props result - hand
     -- These pure operations have the same results in every memory state.
     cases hli.2 .empty
     cases hand.2 .empty
