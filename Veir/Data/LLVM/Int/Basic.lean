@@ -755,6 +755,26 @@ def umin {w : Nat} (x y : Int w) : Int w := Id.run do
   val (if x'.ule y' then x' else y')
 
 /--
+The `scmp` intrinsic is a three-way signed comparison: it returns `-1` if `x` is signed less than
+`y`, `0` if they are equal, and `1` if `x` is signed greater than `y`. The result width `w₂` is
+independent of the operand width. If either operand is poison, the result is poison.
+-/
+def scmp {w₁ : Nat} (x y : Int w₁) (w₂ : Nat) : Int w₂ := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.slt y' then -1#w₂ else if x' = y' then 0#w₂ else 1#w₂)
+
+/--
+The `ucmp` intrinsic is a three-way unsigned comparison: it returns `-1` if `x` is unsigned less
+than `y`, `0` if they are equal, and `1` if `x` is unsigned greater than `y`. The result width `w₂`
+is independent of the operand width. If either operand is poison, the result is poison.
+-/
+def ucmp {w₁ : Nat} (x y : Int w₁) (w₂ : Nat) : Int w₂ := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.ult y' then -1#w₂ else if x' = y' then 0#w₂ else 1#w₂)
+
+/--
 The `abs` intrinsic returns the magnitude (always non-negative) of its argument.
 Because `-intMin` is not representable, when the argument is `intMin` the result
 is `intMin` if `is_int_min_poison` is false and poison if it is true. If the

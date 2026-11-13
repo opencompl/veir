@@ -613,7 +613,7 @@ local macro "normalizeShiftAmountPattern" : tactic => `(tactic| (
 
 local macro "proveShiftAmountMaskValid" equality:ident : tactic => `(tactic| (
   normalizeShiftAmountPattern
-  rintro aty amount ⟨mask⟩ v hmask hprod xty x rty sprops result hshift
+  rintro aty amount ⟨mask⟩ v hmask _ hprod xty x rty sprops result _verifiedShift hshift
   cases (interprets_reg_iff fun _ => rfl).mp hprod
   cases (interprets_reg_iff fun _ => rfl).mp hshift
   refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
@@ -623,7 +623,7 @@ local macro "proveShiftAmountMaskValid" equality:ident : tactic => `(tactic| (
 
 local macro "proveShiftAmountZextValid" equality:ident : tactic => `(tactic| (
   normalizeShiftAmountPattern
-  intro aty amount props v hprod xty x rty sprops result hshift
+  intro aty amount props v _ hprod xty x rty sprops result _verifiedShift hshift
   cases (interprets_reg_iff fun _ => rfl).mp hprod
   cases (interprets_reg_iff fun _ => rfl).mp hshift
   refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩

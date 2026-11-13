@@ -19,7 +19,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 end LLZK
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def LLZK.Include.propertiesOf (op : LLZK.Include) : Type :=
 match op with
 | .from => IncludeFromProperties

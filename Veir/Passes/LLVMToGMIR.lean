@@ -6,6 +6,7 @@ import Veir.DataLayout.RISCV64
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.InstructionSelection.Common
+import Veir.Passes.LLVMToGMIR.Branches
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
@@ -23,12 +24,16 @@ namespace Veir
   upstream's `MachineInstr::copyFlagsFromInstruction`
 
   This lowering differs from the upstream implementation in the following ways:
-  - Upstream converts all poison values to undef values; we only have poison but no undef.
+  - Upstream converts all poison values to undef values; we only have poison but no undef, and
+    translate `llvm.mlir.poison` to `g_poison`, which LLVM is introducing to replace undef.
   - Some information represented as operation properties (e.g. the icmp condition code) is
     represented as special operands in upstream gMIR. This includes all operands with type `immediate`
     or `unknown` in upstream's llvm/include/llvm/Target/GenericOpcodes.td.
   - GEP indices are normalized here, but GEP address arithmetic remains in the LLVM dialect
     until instruction selection. The currently supported pointer index width is 64 bits.
+  - Only naturally aligned loads of `i8`/`i16`/`i32`/`i64` and pointers become `g_load`; the
+    others stay in the LLVM dialect (see `loadMemOperand?`).
+    TODO: Translate the others once the legalizer can split them, as LLVM's `lowerLoad`.
   - A static alloca is lowered directly to `riscv_stack.alloca` rather than to a frame index,
     using the RISC-V 64 data layout; this is the one target-specific lowering here.
 -/
@@ -148,6 +153,27 @@ def g_sshlsat := (lowerBinop .intr__sshl__sat .g_sshlsat).compile
 def g_ushlsat := (lowerBinop .intr__ushl__sat .g_ushlsat).compile
 
 /--
+  `llvm.intr.scmp`/`llvm.intr.ucmp` -> `g_scmp`/`g_ucmp`, as LLVM's `IRTranslator`. Only operands
+  and results of at most 64 bits are translated; wider ones stay in the LLVM dialect.
+-/
+def lowerThreeWayCmp (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let resultType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let lhs ← Puddle.MatchProg.value operandType
+      let rhs ← Puddle.MatchProg.value operandType
+      let _ ← Puddle.MatchProg.root (.llvm lOp) #[lhs, rhs] #[resultType]
+      return (resultType, lhs, rhs))
+    (fun (resultType, lhs, rhs) =>
+      Puddle.CreateProg.operation (.gmir gOp) #[lhs, rhs] #[resultType])
+    (fun newOp => newOp)
+
+def g_scmp := (lowerThreeWayCmp .intr__scmp .g_scmp).compile
+
+def g_ucmp := (lowerThreeWayCmp .intr__ucmp .g_ucmp).compile
+
+/--
   `llvm.intr.fshl`/`llvm.intr.fshr` -> `g_fshl`/`g_fshr`, except for `i32` and `i64`: instruction
   selection still matches those widths in the LLVM dialect (as rotates or LLVM's
   `expandFunnelShift`), while the legalizer lowers the other widths to shifts.
@@ -252,19 +278,6 @@ private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
       operands #[] #[] props none
   return (ctx', some (ops.push gep, #[gep.getResult 0]))
 
-private def lowerBranch : LocalRewritePattern OpCode := fun ctx op => do
-  let opType := op.getOpType! ctx.raw
-  if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then return (ctx, none)
-  let operands := op.getOperands! ctx.raw
-  let successors := op.getSuccessors! ctx.raw
-  let (ctx', branch) ← if opType = OpCode.llvm .br then
-      WfRewriter.createOp! ctx GMIR.g_br #[] operands successors #[] () none
-    else
-      let props : LLVMCondBrProperties := op.getProperties! ctx.raw (OpCode.llvm .cond_br)
-      WfRewriter.createOp! ctx GMIR.g_brcond #[] operands successors #[]
-        (GMIRBrCondProperties.mk props.operandSegmentSizes) none
-  return (ctx', some (#[branch], #[]))
-
 /--
   The properties of the fixed RISC-V stack object for the `llvm.alloca` `op`, or `none` if it is
   not a constant-count allocation in the entry block of its function, or its size or alignment
@@ -317,6 +330,45 @@ private def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
 
 private def lowerStaticAlloca := lowerStaticAlloca_pattern.compile
 
+/--
+  The memory operand of the `g_load` for an `llvm.load` of `type`, if it is a naturally aligned load
+  of an `i8`, `i16`, `i32`, `i64` or pointer (see `memAccessWidth?`). A missing alignment is the
+  ABI one. Byte loads are not translated, since a `g_load` would lose their per-bit poison (LLVM
+  lowers them to `G_LOAD` anyway, see LangRef's byte type). They were not selected from our LLVM
+  dialect either.
+-/
+def loadMemOperand? (type : TypeAttr) (props : LoadProperties) : Option MachineMemOperand := do
+  let width ← memAccessWidth? type
+  -- Only atomic loads have a `syncscope`; we do not model them.
+  guard props.syncscope.isNone
+  let alignment ← if props.alignment.value = 0
+    then (DataLayout.riscv64.query type.val).map (·.abiAlignment)
+    else some props.alignment.value.toNat
+  guard (width ≤ alignment)
+  return { size := .ofNat 64 (8 * width), alignment := .ofNat 64 alignment,
+           volatile_ := props.volatile_, nontemporal := props.nontemporal,
+           invariant := props.invariant }
+
+/-- `llvm.load` -> `gmir.g_load`, for the loads `loadMemOperand?` accepts. -/
+def lowerLoad_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let addrType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let addr ← Puddle.MatchProg.value addrType
+      let root ← Puddle.MatchProg.root (.llvm .load) #[addr] #[resultType]
+      Puddle.MatchProg.matchNative (resultType, root.properties)
+          fun (type, props) => (loadMemOperand? type props).isSome
+      return (resultType, addr, root.properties))
+    (fun (resultType, addr, props) => do
+      let mmo ← Puddle.CreateProg.applyNative
+          (Outputs := Puddle.Handle OpCode (.prop (.gmir .g_load))) (resultType, props)
+          fun (type, props) => loadMemOperand? type props
+      Puddle.CreateProg.operation (.gmir .g_load) #[addr] #[resultType] mmo)
+    (fun load => load)
+
+def g_load := lowerLoad_pattern.compile
+
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -334,6 +386,21 @@ def lowerIntegerConstant : Puddle.Pattern OpCode :=
     (fun newOp => newOp)
 
 def g_constant := lowerIntegerConstant.compile
+
+/--
+  `llvm.mlir.poison` (integer or pointer) -> `gmir.g_poison`, as LLVM's IRTranslator turns poison
+  of any type into `G_IMPLICIT_DEF`. Byte poison is translated by `lowerBytePoison`.
+-/
+def lowerPoison : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
+      let _ ← Puddle.MatchProg.root (.llvm .mlir__poison) #[] #[resultType]
+      return resultType)
+    (fun resultType => Puddle.CreateProg.operation (.gmir .g_poison) #[] #[resultType])
+    (fun newOp => newOp)
+
+def g_poison := lowerPoison.compile
 
 /--
   The integer type with the same width as the byte type `type`.
@@ -371,6 +438,27 @@ def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[newOp.res[0]!]
           #[resultType])
     (fun castBackOp => castBackOp)
+
+/--
+  `llvm.mlir.poison` (byte) -> `gmir.g_poison` on the integer of the same width, cast back to the
+  byte type, as in `lowerUnaryByteOp`. An integer poison casts to a wholly poison byte
+  (see `LLVM.Byte.fromInt`).
+-/
+def lowerBytePoison : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let resultType ← Puddle.MatchProg.type (Attr := LLVM.ByteType)
+      let _ ← Puddle.MatchProg.root (.llvm .mlir__poison) #[] #[resultType]
+      return resultType)
+    (fun resultType => do
+      let intType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
+          resultType TypeAttr.intOfByte?
+      let poison ← Puddle.CreateProg.operation (.gmir .g_poison) #[] #[intType]
+      Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[poison.res[0]!]
+          #[resultType])
+    (fun castOp => castOp)
+
+def g_bytePoison := lowerBytePoison.compile
 
 def g_truncByte := (lowerUnaryByteOp .trunc .g_trunc).compile
 
@@ -446,17 +534,19 @@ def intToByteRoundTrip := (reconcilePairingCast isIntToByteRoundTrip).compile
 
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+  -- Branches are translated by a separate step, which is proved to refine the module.
+  let ctx ← ExceptT.mk (pure (convertLLVMBranches ctx))
   let pattern := RewritePattern.GreedyRewritePattern #[
     g_add.run, g_sub.run, g_icmp.run, g_select.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_bswap.run, g_bitreverse.run,
-    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run, g_fshl.run, g_fshr.run,
+    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_scmp.run, g_ucmp.run, g_abs.run, g_fshl.run, g_fshr.run,
     g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
-    g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
-    g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
-    .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
-    lowerStaticAlloca.run,
+    g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run,
+    g_constant.run, g_poison.run, g_bytePoison.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
+    .fromLocalRewrite normalizeGEPIndices,
+    lowerStaticAlloca.run, g_load.run,
     intToByteRoundTrip.run
   ]
   match RewritePattern.applyToFunctions pattern ctx op with
