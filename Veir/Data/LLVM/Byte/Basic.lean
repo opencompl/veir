@@ -128,11 +128,6 @@ def fromBitVec {w : Nat} (x : BitVec w) : Byte w :=
 def fromUInt64 (x : UInt64) : Byte 64 :=
   fromBitVec x.toBitVec
 
-/-- The byte of poison is all poison. -/
-@[simp]
-theorem fromPoison {w : Nat} : fromInt (.poison : Int w) = allPoison := by
-  simp [fromInt, allPoison]
-
 /--
   i is refined by i' if for each bit, either i is poison, or the bits are the same and i' is not poison.
 -/
