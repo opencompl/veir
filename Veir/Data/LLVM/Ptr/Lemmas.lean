@@ -28,6 +28,14 @@ theorem common_refinement {a b c : Pointer} (hc : a ⊒ c) (hd : b ⊒ c) : a = 
 theorem val_isRefinedBy_iff {p : Pointer} {q : Ptr} : Ptr.val p ⊒ q ↔ q = .val p := by
   cases q <;> simp
 
+@[simp]
+theorem toInt_val {p : Pointer} : toInt (.val p) = .val p.address.toBitVec := by
+  rw [toInt]
+
+@[simp]
+theorem toInt_poison : toInt .poison = .poison := by
+  rw [toInt]
+
 end
 
 end Veir.Data.LLVM.Ptr
