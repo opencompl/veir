@@ -644,15 +644,12 @@ private def Llvm.getSwitchSuccessorOperands?
 private def Llvm.getSwitchSuccessorIndexForOperands?
     (props : LLVMSwitchProperties) (operands : Array (Option RuntimeValue)) :
     Option Nat := do
-  let caseValues ← props.caseValues?
-  if caseValues.size ≠ props.case_operand_segments.values.size then
-    none
-  else
-    let some (.int bitwidth (.val value)) ← operands[0]? | none
-    for i in [0:caseValues.size] do
-      if value = BitVec.ofInt bitwidth caseValues[i]! then
-        return i + 1
-    some 0
+  let some (.int bitwidth (.val value)) ← operands[0]? | none
+  let caseValues ← props.caseValues? bitwidth
+  for i in [0:caseValues.size] do
+    if value = BitVec.ofInt bitwidth caseValues[i]! then
+      return i + 1
+  some 0
 
 def Llvm.unconditionalBranch? (op : Llvm) (props : Llvm.propertiesOf op) :
     Option (OpKind Llvm) :=
@@ -1231,6 +1228,27 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if base ≠ 1 + sizes[1]! + sizes[2]! then
       throw s!"llvm.switch: case_operand_segments describes {base - 1 - sizes[1]!} case \
         operands, but operandSegmentSizes reserves {sizes[2]!}"
+    let conditionType := (op.getOperandTypes! ctx.raw)[0]!
+    let .integerType intType := conditionType.val
+      | throw s!"llvm.switch: condition must be a signless integer, but got {conditionType}"
+    /- One value per case, of the condition's type. -/
+    let some caseValues := props.caseValues? intType.bitwidth
+      | match props.case_values with
+        | none => throw s!"llvm.switch: missing case_values for {caseSegments.size} case(s)"
+        | some attr => throw s!"llvm.switch: expected case_values to be a tensor or vector of \
+            {caseSegments.size} {intType} value(s), but got {attr}"
+    /- Case values must be distinct at the condition's width, as in LLVM IR. Upstream MLIR
+       accepts duplicates, but such a switch cannot be translated to LLVM IR. -/
+    let mut seen : Std.HashSet Int := {}
+    for v in caseValues do
+      let key := v % (2 ^ intType.bitwidth : Int)
+      if seen.contains key then
+        throw s!"llvm.switch: duplicate case value {v}"
+      seen := seen.insert key
+    if let some weights := props.branch_weights then
+      if weights.values.size ≠ caseSegments.size + 1 then
+        throw s!"llvm.switch: expected {caseSegments.size + 1} branch weight(s), one per \
+          successor, but got {weights.values.size}"
   | .cond_br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 2
@@ -1777,11 +1795,10 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let some (defaultSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
     let defaultSize := defaultSizeInt.toNat
     let caseSegments := properties.case_operand_segments.values
-    let some caseValues := properties.caseValues? | none
-    /- A case value per case, or the switch cannot be read. -/
-    if caseValues.size ≠ caseSegments.size then none else
     match value with
     | .int bw (.val v) =>
+      /- A case value per case, or the switch cannot be read. -/
+      let some caseValues := properties.caseValues? bw | none
       let mut base := 1 + defaultSize
       for i in [0:caseSegments.size] do
         let some (countInt : Int) := caseSegments[i]? | none

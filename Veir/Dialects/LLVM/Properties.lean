@@ -6,6 +6,7 @@ public import Veir.Data.LLVM.AtomicOrdering
 public import Veir.Data.LLVM.ComdatKind
 public import Std.Data.HashMap
 public import Veir.IR.Attribute
+public import Veir.IR.DenseElements
 
 import Veir.Dialects.Builtin.Properties
 
@@ -676,8 +677,8 @@ def LLVMCondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
   the value, the default destination's operands, and all case operands. The
   optional `case_values` and `branch_weights` are omitted again when absent.
 
-  `case_values` is a dense elements attribute VeIR keeps as text, so the number
-  of case values is not checked against the number of cases here.
+  `case_values` is a dense elements attribute VeIR keeps as text; the verifier
+  checks it against the condition and the cases, see `caseValues?`.
 -/
 structure LLVMSwitchProperties where
   case_values : Option DenseElementsAttr
@@ -714,24 +715,17 @@ def LLVMSwitchProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
            branch_weights := weights, operandSegmentSizes := sizesAttr }
 
 /--
-  The case values as integers, `#[]` when the attribute is absent.
-
-  `case_values` is a dense elements attribute VeIR keeps as text, so its body --
-  `5` for one case, `[13, 35]` for several -- is read back here. `none` if the
-  body is not a list of integer literals.
+  The case values, read for a `width`-bit condition, one per case operand segment. `#[]` when
+  `case_values` is absent and there are no cases. `none` when `case_values` is absent although
+  there are cases, or is not a one-dimensional tensor or vector of `width`-bit integers with one
+  element per case, or holds a value out of range for `width`.
 -/
-def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) : Option (Array Int) := do
-  let some attr := props.case_values | return #[]
-  /- Strip the brackets a multi-element body carries, and all whitespace. -/
-  let body := attr.value.foldl (init := "") fun acc c =>
-    if c = '[' || c = ']' || c = ' ' || c = '\t' || c = '\n' then acc else acc.push c
-  if body.isEmpty then
-    return #[]
-  let mut values : Array Int := #[]
-  for piece in body.splitOn "," do
-    let some value := piece.toInt? | none
-    values := values.push value
-  return values
+def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) (width : Nat) :
+    Option (Array Int) :=
+  let count := props.case_operand_segments.values.size
+  match props.case_values with
+  | none => if count = 0 then some #[] else none
+  | some attr => attr.integers? [count] width
 
 /--
   An optional array-valued property, absent when the attribute is not there.
