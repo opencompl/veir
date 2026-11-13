@@ -1175,6 +1175,27 @@ theorem twoPow_eq_shiftLeft_one_ofInt_natCast {w k : Nat} (hk : k < w) :
     BitVec.twoPow w k = 1#w <<< BitVec.ofInt w k := by
   rw [BitVec.shiftLeft_eq', toNat_ofInt_natCast_of_lt hk, BitVec.twoPow_eq]
 
+/-- `ofInt` of a difference, as `BitVec.ofInt_add` for a sum. -/
+theorem ofInt_sub' {n : Nat} (x y : _root_.Int) :
+    BitVec.ofInt n (x - y) = BitVec.ofInt n x - BitVec.ofInt n y := by
+  rw [Int.sub_eq_add_neg, BitVec.ofInt_add, BitVec.ofInt_neg, BitVec.sub_eq_add_neg]
+
+/-- The signed minimum of two bit-vectors, folded through their integer values. -/
+theorem ofInt_min_toInt {w : Nat} (x y : BitVec w) :
+    BitVec.ofInt w (min x.toInt y.toInt) = if x.sle y then x else y := by
+  by_cases h : x.sle y
+  · rw [ite_eq_left h, Int.min_eq_left (BitVec.sle_iff_toInt_le.1 h), BitVec.ofInt_toInt]
+  · have h' : ¬x.toInt ≤ y.toInt := fun hh => h (BitVec.sle_iff_toInt_le.2 hh)
+    rw [ite_eq_right h, Int.min_eq_right (by omega), BitVec.ofInt_toInt]
+
+/-- The signed maximum of two bit-vectors, folded through their integer values. -/
+theorem ofInt_max_toInt {w : Nat} (x y : BitVec w) :
+    BitVec.ofInt w (max x.toInt y.toInt) = if x.sle y then y else x := by
+  by_cases h : x.sle y
+  · rw [ite_eq_left h, Int.max_eq_right (BitVec.sle_iff_toInt_le.1 h), BitVec.ofInt_toInt]
+  · have h' : ¬x.toInt ≤ y.toInt := fun hh => h (BitVec.sle_iff_toInt_le.2 hh)
+    rw [ite_eq_right h, Int.max_eq_left (by omega), BitVec.ofInt_toInt]
+
 end BitVec
 
 namespace Rat
