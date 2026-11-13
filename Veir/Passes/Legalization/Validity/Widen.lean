@@ -619,15 +619,25 @@ theorem widen_poison_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_poison (.type 0) .g_anyext W) :=
   .proven (widen_poison_0_valid W)
 
-@[legalization_status]
-theorem widen_bswap_0_status (W : Nat) :
-    Status Unproven (widenReverse .g_bswap W) :=
-  .unproven .widthDependent
+/-- `widenReverse .g_bswap`: the byte swap of the any-extended operand holds the byte swap of the
+operand in its high `w` bits, which the shift down by `W - w` moves to the low bits. The byte swap
+is only that at 16, 32 and 64 bits (it is the identity elsewhere), so both widths must be among
+them; `w < W` then leaves 16 and 32 for the source. -/
+private theorem bswap_widening {w W : Nat} (hw : w = 16 ∨ w = 32)
+    (hW : W = 16 ∨ W = 32 ∨ W = 64) (h : w < W) (x : Data.LLVM.Int w) (m : BitVec (W - w)) :
+    x.bswap ⊒
+      ((x.ext W m h).bswap.lshr (shiftAmount W (.val (BitVec.ofInt W (↑W - ↑w))))).trunc w false false h := by
 
-/-- `widenReverse .g_bswap`, at the widths a `g_bswap` is defined at, is assumed valid: the legalizer
-only widens a `g_bswap` to these widths (`widenScalarPattern?`), and no proof is written. -/
-axiom widen_bswap_0_valid (W : Nat) (widths : W = 16 ∨ W = 32 ∨ W = 64) :
-    Puddle.CTree.Pattern.Valid (widenReverse .g_bswap W)
+  sorry
+
+theorem widen_bswap_0_valid (W : Nat) (widths : W = 16 ∨ W = 32 ∨ W = 64) :
+    Puddle.CTree.Pattern.Valid (widenReverse .g_bswap W fun w => w == 16 || w == 32) := by
+  proveLegalValid using bswap_widening
+
+@[legalization_status]
+theorem widen_bswap_0_status (W : Nat) (widths : W = 16 ∨ W = 32 ∨ W = 64) :
+    Status Unproven (widenReverse .g_bswap W fun w => w == 16 || w == 32) :=
+  .proven (widen_bswap_0_valid W widths)
 
 @[legalization_status]
 theorem widen_bitreverse_0_status (W : Nat) :

@@ -171,14 +171,17 @@ def widenCttzSrc (width : Nat) : Pattern OpCode :=
     (fun op => op)
 
 /--
-Widens `g_bswap` or `g_bitreverse` to `width` bits. The reversed operand ends up in the high
-bits, so it is shifted back down before it is truncated, as in LLVM's `LegalizerHelper::widenScalar`.
+Widens `g_bswap` or `g_bitreverse` to `width` bits, from a source width that `srcWidth` accepts.
+The reversed operand ends up in the high bits, so it is shifted back down before it is truncated,
+as in LLVM's `LegalizerHelper::widenScalar`.
 -/
-def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
+def widenReverse (opcode : GMIR) (width : Nat) (srcWidth : Nat → Bool := fun _ => true) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
       -- The verifier rejects `i0`, at which the shift down by the whole wide width is poison.
-      let type ← MatchProg.type (Attr := IntegerType) fun t => 0 < t.bitwidth && t.bitwidth < width
+      let type ← MatchProg.type (Attr := IntegerType) fun t =>
+        0 < t.bitwidth && t.bitwidth < width && srcWidth t.bitwidth
       let src ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[src] #[type]
       return (type, src))
@@ -669,10 +672,12 @@ def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → O
   | .g_cttz, .type 1, width => widenCttzSrc width
   -- Zero bits do not add to the count.
   | .g_ctpop, .type 1, width => widenTypeGroup .g_ctpop (.type 1) .g_zext width
-  -- `g_bswap` is only defined at the widths 16, 32 and 64, so it is only widened to those
-  -- (`widen_bswap_0_valid`).
+  -- `g_bswap` is the byte swap only at the widths 16, 32 and 64 (and the identity elsewhere, which
+  -- the verifier rejects), so it is only widened between those (`widen_bswap_0_valid`).
   | .g_bswap, .type 0, width =>
-    if width = 16 ∨ width = 32 ∨ width = 64 then some (widenReverse .g_bswap width) else none
+    if width = 16 ∨ width = 32 ∨ width = 64 then
+      some (widenReverse .g_bswap width fun w => w == 16 || w == 32)
+    else none
   | .g_bitreverse, .type 0, width => widenReverse .g_bitreverse width
   -- Sign extension preserves the signed order, and also the unsigned order. For `g_umin` and
   -- `g_umax`, LLVM only sign-extends where it is cheaper than zero-extending (from `i32` on

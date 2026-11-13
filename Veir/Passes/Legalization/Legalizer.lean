@@ -55,7 +55,7 @@ private def illegalReason (name : String) (types : Array TypeAttr) (action : Leg
 /-! ## Block arguments -/
 
 /-- The action for a block argument of type `type`, or `none` if it has no low-level type. -/
-private def blockArgumentAction? (info : LegalizerInfo) (type : TypeAttr) :
+def blockArgumentAction? (info : LegalizerInfo) (type : TypeAttr) :
     Option LegalizeAction :=
   (LegalityQuery.ofTypes? #[type] ()).map info.getBlockArgumentAction
 
@@ -72,17 +72,39 @@ private def phiBlocks (ctx : IRContext OpCode) (root : OperationPtr) : List Bloc
       block? := block.getNextBlock! ctx
   return blocks.reverse
 
+/-- Argument `i` of `block` is an integer narrower than `width` bits. -/
+def narrowerArgument (block : BlockPtr) (ctx : IRContext OpCode) (i width : Nat) : Bool :=
+  match (block.getArguments! ctx)[i]? with
+  | some arg =>
+    match (arg.getType! ctx).val with
+    | .integerType t => decide (t.bitwidth < width)
+    | _ => false
+  | none => false
+
+/-- Widens the arguments of the phi `block` as the block-argument rules ask. What the soundness of
+the widening needs (`widenBlockArguments_sound`) is checked here rather than derived from the rules
+and the traversal: the block is a phi block, each argument is widened once, from a narrower
+integer. -/
+def widenPhiBlock (info : LegalizerInfo) (ctx : WfIRContext OpCode) (block : BlockPtr) :
+    Except String (WfIRContext OpCode) :=
+  let args := (block.getArguments! ctx.raw).toList.zipIdx.filterMap fun (arg, i) => do
+    let .widenScalar (.type 0) width ← blockArgumentAction? info (arg.getType! ctx.raw) | none
+    return (i, width)
+  if args.isEmpty then .ok ctx
+  else if block.InBounds ctx.raw ∧ block.hasPredecessor! ctx.raw = true then
+    if (args.map Prod.fst).Nodup then
+      if args.all (fun (i, width) => narrowerArgument block ctx.raw i width) = true then
+        match widenBlockArguments block args ctx with
+        | some ctx => .ok ctx
+        | none => .error "unable to widen a block argument: a predecessor is not a branch"
+      else .error "unable to widen a block argument: it is not a narrower integer"
+    else .error "unable to widen a block argument: an argument is widened twice"
+  else .error "unable to widen a block argument: the block is not a phi block"
+
 /-- Widens the block arguments in the functions under `root` as the block-argument rules ask. -/
 def legalizeBlockArguments (info : LegalizerInfo) (ctx : WfIRContext OpCode)
     (root : OperationPtr) : Except String (WfIRContext OpCode) :=
-  (phiBlocks ctx.raw root).foldlM (init := ctx) fun ctx block => do
-    let args := (block.getArguments! ctx.raw).toList.zipIdx.filterMap fun (arg, i) => do
-      let .widenScalar (.type 0) width ← blockArgumentAction? info (arg.getType! ctx.raw) | none
-      return (i, width)
-    if args.isEmpty then return ctx
-    let some ctx := widenBlockArguments block args ctx
-      | throw "unable to widen a block argument: a predecessor is not a branch"
-    return ctx
+  (phiBlocks ctx.raw root).foldlM (widenPhiBlock info) ctx
 
 /-- Fails if a block argument that is a phi is not legal. -/
 private def checkBlockArguments (info : LegalizerInfo) (ctx : IRContext OpCode) :
