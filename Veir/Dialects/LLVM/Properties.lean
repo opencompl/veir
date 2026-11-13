@@ -721,8 +721,8 @@ def LLVMSwitchProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
   to the unsigned maximum.
 
   `case_values` is a dense elements attribute VeIR keeps as text, so its body -- `5` for one
-  case, `[13, 35]` for several -- is read back here. Other encodings, such as raw hex data, are
-  not read.
+  case, `[13, 35]` for several -- is read back here. MLIR prints `i1` elements as `true` and
+  `false`, which are read as 1 and 0. Other encodings, such as raw hex data, are not read.
 -/
 def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) (width : Nat) :
     Option (Array Int) := do
@@ -732,7 +732,11 @@ def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) (width : Nat
   guard (type == s!"vector<{count}xi{width}>" || type == s!"tensor<{count}xi{width}>")
   let body := String.ofList (attr.value.toList.filter fun c =>
     !c.isWhitespace && c != '[' && c != ']')
-  let values ← if body.isEmpty then pure #[] else (body.splitOn ",").toArray.mapM String.toInt?
+  let element (s : String) : Option Int :=
+    if width == 1 && s == "true" then some 1
+    else if width == 1 && s == "false" then some 0
+    else s.toInt?
+  let values ← if body.isEmpty then pure #[] else (body.splitOn ",").toArray.mapM element
   guard (values.size == count)
   guard (values.all fun v => -(2 ^ (width - 1) : Int) ≤ v && v < 2 ^ width)
   return values
