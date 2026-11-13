@@ -32,26 +32,29 @@ inductive CTree.Trans : label (@CTree.Obs _ E α) → CTree E C α → CTree E C
 def CTree.lts (EIn CIn : Type u) (E : EIn → Type u) (C : CIn → Type u) (α : Type u) : LTS :=
   ⟨@CTree.Obs _ E _, CTree E C α, CTree.Trans⟩
 
-inductive CTree.Robs (RR : α → β → Prop) : @Obs EIn E α → @Obs EIn E β → Prop where
-| eff i (e : E i) : Robs RR (Obs.eff i e) (Obs.eff i e)
-| effEmpty i : Robs RR (.effEmpty i) (.effEmpty i)
-| val (r : α) (r' : β) : RR r r' → Robs RR (.val r) (.val r')
+inductive CTree.Robs (RE : ∀ {i i'}, E i → E i' → Prop) (RR : α → β → Prop) : @Obs EIn E α → @Obs EIn E β → Prop where
+| eff i i' (x : E i) (y : E i') (hRE : RE x x') : Robs RE RR (Obs.eff i x) (Obs.eff i' y)
+| effEmpty i : Robs RE RR (.effEmpty i) (.effEmpty i)
+| val (r : α) (r' : β) : RR r r' → Robs RE RR (.val r) (.val r')
 
 @[refl]
-theorem CTree.Robs.refl (RR : α → α → Prop) [h : Std.Refl RR] :
-    ∀ a, Robs (E := E) RR a a := by
+theorem CTree.Robs.refl RE (RR : α → α → Prop) [h : ∀ i, Std.Refl (@RE i i)] [h' : Std.Refl RR] :
+    ∀ a, Robs (E := E) RE RR a a := by
   intros a
   cases a
-  case eff =>
+  case eff i x =>
     constructor
+    apply (@h i).refl
   case val =>
     constructor
-    apply h.refl
+    apply h'.refl
   case effEmpty i =>
     constructor
 
-instance (α : Type u) (RR : α → α → Prop) [h : Std.Refl RR] : Std.Refl (CTree.Robs (E := E) RR) where
-  refl := CTree.Robs.refl RR
+instance (α : Type u) RE (RR : α → α → Prop)
+  [h : ∀ i, Std.Refl (@RE i i)] [h' : Std.Refl RR] :
+    Std.Refl (CTree.Robs (E := E) RE RR) where
+  refl := CTree.Robs.refl RE RR
 
 @[expose]
 def CTree.as_state (t : CTree E C α) : (CTree.lts EIn CIn E C α).state := t
