@@ -1,4 +1,4 @@
-// RUN: veir-opt %s --print-op-generic -p=isel-abi-riscv64 | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p=call-lowering-riscv64 | filecheck %s
 
 // A variadic function is left entirely unlowered, even when its fixed
 // arguments are all passed in registers: its variadic arguments are not modeled.

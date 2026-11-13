@@ -137,6 +137,10 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
+    -- As in LLVM's RISCVLegalizerInfo, lower to comparisons and boolean arithmetic.
+    | .g_scmp | .g_ucmp => [
+      .lower,
+    ]
     -- LLVM is also legal for `s32` and for floating point.
     | .g_select => [
       .legalForTypePairs [(s64, s64), (p0, s64)],
@@ -261,6 +265,20 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_constant => [
       -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
       .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_poison => [
+      .legalFor [s64, p0],
+      .minScalar (.type 0) 64,
+    ]
+    -- Loads must be naturally aligned, as in LLVM without `+unaligned-scalar-mem`. LLVM also makes
+    -- `s16` and `s32` legal, for `flh`/`flw` We have no FPs, so we widen to `s64`.
+    -- TODO: Split odd-sized and misaligned loads, as LLVM's `lowerIfMemSizeNotByteSizePow2` and
+    -- `lower`.
+    | .g_load => [
+      .legalForTypesWithMemDesc [⟨s64, p0, 8, 8⟩, ⟨s64, p0, 16, 16⟩, ⟨s64, p0, 32, 32⟩,
+        ⟨s64, p0, 64, 64⟩, ⟨p0, p0, 64, 64⟩],
+      .widenScalarToNextPow2 (.type 0),
       .minScalar (.type 0) 64,
     ]
     | .g_br => [

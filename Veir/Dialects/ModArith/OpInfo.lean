@@ -23,7 +23,7 @@ inductive Mod_Arith where
 | sub
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Mod_Arith.propertiesOf (op : Mod_Arith) : Type :=
 match op with
 | .constant => ModArithConstantProperties

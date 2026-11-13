@@ -59,7 +59,7 @@ operations that have `PureOrErr` semantics.
 def CanInterpretTo (opCode : OpCode) (property : propertiesOf opCode)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (results : Interp (Array RuntimeValue)) : Prop :=
-  ∀ memory,
+  ∃ memory,
     PureOrErr.CanInterpretTo
       (Veir.CTree.interpretOp' opCode property resultTypes operands #[] memory)
       (results.map (·, memory, none))
@@ -77,23 +77,25 @@ def MatchDecl.Models (root : Handle OpCode .op) (decl : MatchDecl OpCode)
     ∀ type, matcher type → k (assignment.bindType handle type)
   | .value typeHandle handle =>
     match assignment.getType typeHandle with
-    | some ty => ∀ value, value.Conforms ty → k (assignment.bindValue handle value)
+    | some ty => ∀ value, value.Conforms ty → k (assignment.bindValue handle value ty)
     | none => False
   | .operation opCode operandHandles resultTypeHandles propertyMatcher propertyHandle opHandle
       resultHandles _ =>
     match assignment.getValues operandHandles.toList,
+      assignment.getValueTypes operandHandles.toList,
       assignment.getTypes resultTypeHandles.toList with
-    | some operands, some resultTypes =>
+    | some operands, some operandTypes, some resultTypes =>
       ∀ property, propertyMatcher property = true →
+        IsFromVerifiedOp opCode operandTypes.toArray resultTypes.toArray property →
         /- The root operation semantics is handled outside of the matching process, as we want to
         chose the root's outcome given the creation behavior. -/
         if opHandle = root then
           k (assignment.bindProperty propertyHandle property)
         else
-          assignment.ForallValues resultHandles.toList fun results assignment =>
+          assignment.ForallValues resultHandles.toList resultTypes fun results assignment =>
             CanInterpretTo opCode property resultTypes.toArray operands.toArray (.ok results.toArray) →
             k (assignment.bindProperty propertyHandle property)
-    | _, _ => False
+    | _, _, _ => False
   | @MatchDecl.inspectOperation _ _ _ outputBundle _ _ outputs =>
     /- Ignore contextual rejection and require validity for every derived metadata value. -/
     ∀ values, k (MetadataTuple.bindSemantic (self := outputBundle) assignment outputs values)
@@ -161,7 +163,9 @@ def CreateDecl.semantics (decl : CreateDecl OpCode) (assignment : SemanticAssign
     | some operands, some resultTypes, some actualProperty => do
       let (values, memory, _) ←
         Veir.CTree.interpretOp' opCode actualProperty resultTypes.toArray operands.toArray #[] memory
-      next (SemanticAssignment.bindValues values assignment resultHandles.toList) memory
+      let some assignment :=
+        SemanticAssignment.bindValues values assignment resultHandles.toList resultTypes | fail
+      next assignment memory
     | _, _, _ => fail
   | @CreateDecl.applyNative _ _ _ _ inputBundle outputBundle inputs rewrite outputs =>
     match MetadataTuple.resolveSemantic (self := inputBundle) assignment inputs >>= rewrite with

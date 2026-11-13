@@ -20,7 +20,7 @@ inductive Riscv_Stack where
 | alloca
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Riscv_Stack.propertiesOf (op : Riscv_Stack) : Type :=
 match op with
 | .alloca => RISCVStackAllocaProperties

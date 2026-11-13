@@ -21,7 +21,7 @@ inductive Seq where
 | firmem__read_write_port
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Seq.propertiesOf (op : Seq) : Type :=
 match op with
 | .to_clock => Unit
