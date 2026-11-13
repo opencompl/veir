@@ -7,9 +7,6 @@
 // CHECK-NEXT: ^[[DEFAULT]](%{{.*}} : i64):
 // CHECK-NEXT: "llvm.return"
 
-// Cases are tested in signed ascending order, as LLVM's IRTranslator does at -O0, at the
-// original width. The cases that share a destination still forward their different arguments.
-// The last false edge is default.
 // CHECK: "sym_name" = "chain"
 // CHECK: ^{{.*}}(%[[KEY:[a-z0-9_]+]] : i8, %[[A:[a-z0-9_]+]] : i64, %[[B:[a-z0-9_]+]] : i64):
 // CHECK-NEXT: %[[K0:[a-z0-9_]+]] = "gmir.g_constant"() <{"value" = -1 : i8}>

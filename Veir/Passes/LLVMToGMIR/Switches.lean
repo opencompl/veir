@@ -8,19 +8,10 @@ namespace Veir
   Translate `llvm.switch` to a chain of `g_icmp` and `g_brcond`, as LLVM's
   `IRTranslator::translateSwitch` and `lowerSwitchWorkItem` do at `-O0`: the cases are sorted
   by signed value (`sortAndRangeify`) and then tested one at a time, without jump tables, bit
-  tests, binary trees or profile ordering. Comparisons keep the switch condition's type; the
-  target legalizer widens them later.
-
-  `sortAndRangeify` also merges adjacent cases with the same destination into ranges. That is
-  not done here: unlike an LLVM IR switch, an MLIR switch forwards operands per case, so two
-  cases with the same destination can still pass it different arguments. For the same reason,
-  and because VeIR's `g_brcond` carries both successors and their block arguments, each case
-  keeps its own forwarded operands.
-
-  This step is not yet proved to refine the module.
+  tests, binary trees, or profile ordering. These are all things we should implement
+  as optimizations!
 -/
 
-/-- Replace a switch by equality tests followed by a branch to its default destination. -/
 public def convertLLVMSwitch (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode) := do
   if op.getOpType! ctx.raw ≠ .llvm .switch then return ctx
@@ -30,7 +21,6 @@ public def convertLLVMSwitch (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType intType := type.val | none
   let defaultDest := op.getSuccessor! ctx.raw 0
   let defaultArgs := (← BranchOpInterface.getSuccessorOperands? op 0 ctx.raw).forwardedOperands
-  -- Pair each case value, read as signed at the condition's width, with its successor index.
   let cases := (← props.caseValues? intType.bitwidth).values.mapIdx fun i v =>
     ((BitVec.ofInt intType.bitwidth v).toInt, i + 1)
   let cases := cases.qsort (·.1 < ·.1)
@@ -41,7 +31,6 @@ public def convertLLVMSwitch (ctx : WfIRContext OpCode) (op : OperationPtr) :
 
   let block ← op.getParent! ctx.raw
   let region ← block.getParent! ctx.raw
-  -- Put the additional tests immediately after the original block, in chain order.
   let blockIP := match block.getNextBlock! ctx.raw with
     | some next => BlockInsertPoint.before next
     | none => BlockInsertPoint.atEnd region
@@ -70,7 +59,6 @@ public def convertLLVMSwitch (ctx : WfIRContext OpCode) (op : OperationPtr) :
     if !isLast then ip := .atEnd next
   return WfRewriter.eraseOp! ctx op
 
-/-- Visit the original operations once; the generated comparisons and branches are already gMIR. -/
 public def convertLLVMSwitches (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) :=
   match ctx.raw.operations.keys.foldlM convertLLVMSwitch ctx with
   | some ctx => .ok ctx
