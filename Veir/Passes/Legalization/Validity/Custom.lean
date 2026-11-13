@@ -248,11 +248,6 @@ theorem custom_udiv_status :
   .proven custom_udiv_valid
 
 @[legalization_status]
-theorem custom_urem_status :
-    Status Unproven (customLegalizeWordBinary .g_remuw) :=
-  .proven custom_urem_valid
-
-@[legalization_status]
 theorem custom_shl_status :
     Status Unproven (customLegalizeWordBinary .g_sllw) :=
   .proven custom_shl_valid
@@ -268,34 +263,9 @@ theorem custom_ashr_status :
   .proven custom_ashr_valid
 
 @[legalization_status]
-theorem custom_ctlz_status :
-    Status Unproven (customLegalizeWordUnary .g_clzw) :=
-  .proven custom_ctlz_valid
-
-@[legalization_status]
-theorem custom_cttz_status :
-    Status Unproven (customLegalizeWordUnary .g_ctzw) :=
-  .proven custom_cttz_valid
-
-@[legalization_status]
 theorem custom_bitreverse_status :
     Status Unproven (customLegalizeBitreverse8) :=
   .proven custom_bitreverse_valid
-
-@[legalization_status]
-theorem custom_abs_status :
-    Status Unproven (customLegalizeAbs) :=
-  .proven custom_abs_valid
-
-@[legalization_status]
-theorem custom_uaddsat_status :
-    Status Unproven (lowerAddSubSatToAddoSubo .g_uaddsat false true) :=
-  .proven custom_uaddsat_valid
-
-@[legalization_status]
-theorem custom_usubsat_status :
-    Status Unproven (lowerAddSubSatToAddoSubo .g_usubsat false false) :=
-  .proven custom_usubsat_valid
 
 @[legalization_status]
 theorem custom_saddsat_status :

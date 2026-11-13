@@ -885,32 +885,26 @@ theorem combine_redundant_and_select_constant_constant_valid :
     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .constant) := by
   proveConstValid using Data.LLVM.and_select_bool_odd
 
-@[combine_valid]
 theorem combine_select_into_shl_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_shl false) := by
   proveConstValid using select_into_shl'
 
-@[combine_valid]
 theorem combine_select_into_shl_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_shl true) := by
   proveConstValid using select_into_shl_swapped'
 
-@[combine_valid]
 theorem combine_select_into_lshr_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_lshr false) := by
   proveConstValid using select_into_lshr'
 
-@[combine_valid]
 theorem combine_select_into_lshr_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_lshr true) := by
   proveConstValid using select_into_lshr_swapped'
 
-@[combine_valid]
 theorem combine_select_into_ashr_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_ashr false) := by
   proveConstValid using select_into_ashr'
 
-@[combine_valid]
 theorem combine_select_into_ashr_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_ashr true) := by
   proveConstValid using select_into_ashr_swapped'
@@ -1343,36 +1337,6 @@ theorem combine_redundant_and_select_constant_icmp_status :
 theorem combine_redundant_and_select_constant_constant_status :
     Status Unproven (redundant_and_select_pattern .constant .constant) :=
   .proven (combine_redundant_and_select_constant_constant_valid)
-
-@[legalization_status]
-theorem combine_select_into_shl_status :
-    Status Unproven (select_into_binop_pattern .g_shl false) :=
-  .proven (combine_select_into_shl_valid)
-
-@[legalization_status]
-theorem combine_select_into_shl_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_shl true) :=
-  .proven (combine_select_into_shl_swapped_valid)
-
-@[legalization_status]
-theorem combine_select_into_lshr_status :
-    Status Unproven (select_into_binop_pattern .g_lshr false) :=
-  .proven (combine_select_into_lshr_valid)
-
-@[legalization_status]
-theorem combine_select_into_lshr_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_lshr true) :=
-  .proven (combine_select_into_lshr_swapped_valid)
-
-@[legalization_status]
-theorem combine_select_into_ashr_status :
-    Status Unproven (select_into_binop_pattern .g_ashr false) :=
-  .proven (combine_select_into_ashr_valid)
-
-@[legalization_status]
-theorem combine_select_into_ashr_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_ashr true) :=
-  .proven (combine_select_into_ashr_swapped_valid)
 
 @[legalization_status]
 theorem combine_select_one_zero_status :

@@ -132,11 +132,6 @@ theorem artifact_3_status :
   .unproven .rechoosesMatchedChoice
 
 @[legalization_status]
-theorem artifact_4_status :
-    Status Unproven (combineZExtOfTruncOfICmp) :=
-  .proven artifact_zext_trunc_icmp_valid
-
-@[legalization_status]
 theorem artifact_5_status :
     Status Unproven (combineExtOfTruncOfConstant false) :=
   .proven artifact_zext_trunc_constant_valid
@@ -145,11 +140,6 @@ theorem artifact_5_status :
 theorem artifact_6_status :
     Status Unproven (combineExtOfTruncOfConstant true) :=
   .proven artifact_sext_trunc_constant_valid
-
-@[legalization_status]
-theorem artifact_7_status :
-    Status Unproven (combineTruncOfTrunc) :=
-  .proven artifact_trunc_trunc_valid
 
 @[legalization_status]
 theorem artifact_8_status :

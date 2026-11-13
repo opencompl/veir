@@ -1,6 +1,7 @@
 module
 
 public import Veir.PatternRewriter.Puddle.Definitions
+import Veir.Passes.Legalization.LegalizerHelper
 import Veir.PatternRewriter.Puddle.Builders
 
 /-!
@@ -16,8 +17,6 @@ https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/CodeGen/GlobalI
 namespace Veir
 
 open Puddle
-
-abbrev widthBound := 64
 
 /--
 Matches `g_anyext (g_trunc x)` where the type of `x` and the result type satisfy `relation`.
@@ -78,12 +77,12 @@ def combineZExtOfTruncOfICmp : Pattern OpCode :=
       let operandType ← MatchProg.type (Attr := TypeAttr)
       let lhs ← MatchProg.value operandType
       let rhs ← MatchProg.value operandType
-      let wideType ← MatchProg.type (Attr := IntegerType)
+      let wideType ← matchLegalInt
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[wideType]
       -- The verifier rejects `i0`, to which the truncation would drop the bit of the `g_icmp`.
-      let narrowType ← MatchProg.type (Attr := IntegerType) (0 < ·.bitwidth)
+      let narrowType ← matchLegalInt (0 < ·.bitwidth)
       let trunc ← MatchProg.operation (.gmir .g_trunc) #[icmp.res[0]!] #[narrowType]
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       MatchProg.matchNative (wideType, type) fun (wideType, type) =>
         match wideType.val, type.val with
         | .integerType wideType, .integerType type => wideType = type
@@ -103,9 +102,9 @@ known zeros; both use known bits, which we do not have. The constant is the case
 def combineExtOfTruncOfConstant (signed : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
+      let type ← matchLegalInt
       let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      let narrowType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
+      let narrowType ← matchLegalInt
       let trunc ← MatchProg.operation (.gmir .g_trunc) #[constant.res[0]!] #[narrowType]
       MatchProg.matchNative (type, narrowType, constant.properties) fun (type, narrowType, c) =>
         match type.val, narrowType.val with
@@ -129,11 +128,11 @@ Combines `g_trunc (g_trunc x)` to `g_trunc x`. As in LLVM, the new `g_trunc` has
 def combineTruncOfTrunc : Pattern OpCode :=
   Pattern.Builder
     (do
-      let srcType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
+      let srcType ← matchLegalInt
       let x ← MatchProg.value srcType
-      let midType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
+      let midType ← matchLegalInt
       let inner ← MatchProg.operation (.gmir .g_trunc) #[x] #[midType]
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
+      let type ← matchLegalInt
       let _ ← MatchProg.root (.gmir .g_trunc) #[inner.res[0]!] #[type]
       return (x, type))
     (fun (x, type) => CreateProg.operation (.gmir .g_trunc) #[x] #[type])

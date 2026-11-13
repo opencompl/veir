@@ -275,11 +275,6 @@ theorem lower_sext_status :
   .proven lower_sext_valid
 
 @[legalization_status]
-theorem lower_zext_status :
-    Status Unproven (lowerZext) :=
-  .proven lower_zext_valid
-
-@[legalization_status]
 theorem lower_fshl_status :
     Status Unproven (lowerFunnelShift true) :=
   .unproven .widthDependent
@@ -288,66 +283,6 @@ theorem lower_fshl_status :
 theorem lower_fshr_status :
     Status Unproven (lowerFunnelShift false) :=
   .unproven .widthDependent
-
-@[legalization_status]
-theorem lower_ctlz_zero_poison_status :
-    Status Unproven (lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz) :=
-  .proven lower_ctlz_zero_poison_valid
-
-@[legalization_status]
-theorem lower_cttz_zero_poison_status :
-    Status Unproven (lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz) :=
-  .proven lower_cttz_zero_poison_valid
-
-@[legalization_status]
-theorem lower_uaddsat_status :
-    Status Unproven (lowerAddSubSatToMinMax .g_uaddsat false true) :=
-  .proven lower_uaddsat_valid
-
-@[legalization_status]
-theorem lower_usubsat_status :
-    Status Unproven (lowerAddSubSatToMinMax .g_usubsat false false) :=
-  .proven lower_usubsat_valid
-
-@[legalization_status]
-theorem lower_saddsat_status :
-    Status Unproven (lowerAddSubSatToMinMax .g_saddsat true true) :=
-  .proven lower_saddsat_valid
-
-@[legalization_status]
-theorem lower_ssubsat_status :
-    Status Unproven (lowerAddSubSatToMinMax .g_ssubsat true false) :=
-  .proven lower_ssubsat_valid
-
-@[legalization_status]
-theorem lower_sshlsat_status :
-    Status Unproven (lowerShlSat true) :=
-  .proven lower_sshlsat_valid
-
-@[legalization_status]
-theorem lower_ushlsat_status :
-    Status Unproven (lowerShlSat false) :=
-  .proven lower_ushlsat_valid
-
-@[legalization_status]
-theorem lower_uaddo_status :
-    Status Unproven (lowerUAddSubO true) :=
-  .proven lower_uaddo_valid
-
-@[legalization_status]
-theorem lower_usubo_status :
-    Status Unproven (lowerUAddSubO false) :=
-  .proven lower_usubo_valid
-
-@[legalization_status]
-theorem lower_saddo_status :
-    Status Unproven (lowerSAddSubO true) :=
-  .proven lower_saddo_valid
-
-@[legalization_status]
-theorem lower_ssubo_status :
-    Status Unproven (lowerSAddSubO false) :=
-  .proven lower_ssubo_valid
 
 @[legalization_status]
 theorem lower_uadde_status :

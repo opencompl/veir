@@ -22,12 +22,10 @@ meta import Veir.Meta.Tactic.PBVDecide
 /-!
 # CTree validity of the legalization artifact combines (`Validity/Artifact`) by `pbv_decide`
 
-Each rule is proven by `proveLegalValid with veir_pbv_decide` alone. Where the matcher leaves the
-widths unbounded, the side goals `w ≤ 64` are assumed with `sorry`, so such a theorem is proven
-up to 64 bits only. The rules `veir_pbv_decide` does not prove are commented out, with the reason it
+Each rule is proven by `proveLegalValid with veir_pbv_decide` alone, without `sorry`: the matchers
+bound every integer width by 64, which discharges the side goals `w ≤ 64` of `pbv_decide`. The rules `veir_pbv_decide` does not prove are commented out, with the reason it
 fails.
 -/
-set_option Elab.async false
 namespace Veir.Legalization.CTreeProofs.PBV
 
 open Puddle
@@ -60,17 +58,21 @@ attribute [local implicit_reducible] TypeAttr
 --     (combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)) := by
 --   proveLegalValid with veir_pbv_decide 64 (blastWidth := 64)
 
--- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
 theorem artifact_trunc_trunc_valid : Puddle.CTree.Pattern.Valid combineTruncOfTrunc := by
   proveLegalValid with (veir_pbv_decide 64)
 
--- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
-theorem artifact_zext_trunc_constant_valid :
-    Puddle.CTree.Pattern.Valid (combineExtOfTruncOfConstant false) := by
-  proveLegalValid with
-    -- trace_state
-    simp only [GMIRConstantProperties.bits] at *
-    veir_pbv_decide 64
+@[legalization_status]
+theorem artifact_7_status :
+    Status Unproven (combineTruncOfTrunc) :=
+  .proven artifact_trunc_trunc_valid
+
+-- spurious counterexample: the constant's value is abstracted from its width
+-- theorem artifact_zext_trunc_constant_valid :
+--     Puddle.CTree.Pattern.Valid (combineExtOfTruncOfConstant false) := by
+--   proveLegalValid with
+--     -- trace_state
+--     simp only [GMIRConstantProperties.bits] at *
+--     veir_pbv_decide 64
 
 -- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
 -- theorem artifact_sext_trunc_constant_valid :
@@ -81,9 +83,13 @@ theorem artifact_zext_trunc_constant_valid :
 -- theorem artifact_unmerge_merge_valid : Puddle.CTree.Pattern.Valid combineUnmergeOfMerge := by
 --   proveLegalValid with veir_pbv_decide 64 (blastWidth := 64)
 
--- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
 theorem artifact_zext_trunc_icmp_valid : Puddle.CTree.Pattern.Valid combineZExtOfTruncOfICmp := by
-  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64); all_goals sorry)
+  proveLegalValid with veir_pbv_decide 64
+
+@[legalization_status]
+theorem artifact_4_status :
+    Status Unproven (combineZExtOfTruncOfICmp) :=
+  .proven artifact_zext_trunc_icmp_valid
 
 -- rechooses the matched `anyext` choice (`.rechoosesMatchedChoice`); the goal is existential in it
 -- theorem artifact_anyext_anyext_valid :

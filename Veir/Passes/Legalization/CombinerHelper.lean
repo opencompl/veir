@@ -33,17 +33,6 @@ public section
 
 /-! ### Helpers -/
 
-/--
-Matches an integer type of at most 64 bits, with the further `matcher` if any. These are the
-integer types the RISC-V 64 legalizer leaves: its legal types are `s64` and the narrower types
-its extensions and truncations read and write. The combines that run after legalization match
-their types with it, so that their local correctness lemmas can be stated for widths up to 64 and
-decided by `pbv_decide`.
--/
-def matchLegalInt (matcher : IntegerType → Bool := fun _ => true) :
-    MatchProg.Builder (Handle OpCode .type) :=
-  MatchProg.type (Attr := IntegerType) fun type => type.bitwidth ≤ 64 && matcher type
-
 /-- Match a `g_constant` of `type` whose properties satisfy `pred`. The constant's attribute has
 `type`, as the verifier requires, so `pred` reads the constant at the width of its result. -/
 def matchConstant (type : Handle OpCode .type)
@@ -933,18 +922,18 @@ def funnel_shift_or_shift_pattern (fsh shift : GMIR) (left fshFirst : Bool) :
     Pattern OpCode :=
   Pattern.Builder
     (do
-      let xType ← MatchProg.type (Attr := TypeAttr)
+      let xType ← matchLegalInt
       let x ← MatchProg.value xType
-      let yType ← MatchProg.type (Attr := TypeAttr)
+      let yType ← matchLegalInt
       let y ← MatchProg.value yType
-      let zType ← MatchProg.type (Attr := TypeAttr)
+      let zType ← matchLegalInt
       let z ← MatchProg.value zType
-      let fshType ← MatchProg.type (Attr := TypeAttr)
+      let fshType ← matchLegalInt
       let fshOp ← MatchProg.operation (.gmir fsh)
         (if left then #[x, z, y] else #[z, x, y]) #[fshType]
-      let shiftType ← MatchProg.type (Attr := TypeAttr)
+      let shiftType ← matchLegalInt
       let shiftOp ← MatchProg.operation (.gmir shift) #[x, y] #[shiftType]
-      let orType ← MatchProg.type (Attr := TypeAttr)
+      let orType ← matchLegalInt
       let _ ← MatchProg.root (.gmir .g_or)
         (if fshFirst then #[fshOp.res[0]!, shiftOp.res[0]!] else #[shiftOp.res[0]!, fshOp.res[0]!])
         #[orType]
@@ -1204,7 +1193,7 @@ def select_of_constants_pattern
     (rewrite : SelectOfConstants → CreateProg.Builder CreatedOpHandle) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) fun t => 1 < t.bitwidth && t.bitwidth ≤ 64
+      let type ← matchLegalInt (1 < ·.bitwidth)
       let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let c ← MatchProg.value condType
       let t ← matchConstant type
@@ -1333,7 +1322,7 @@ also runs when it does not.
 def select_into_binop_pattern (opcode : GMIR) (swapped : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (0 < ·.bitwidth)
+      let type ← matchLegalInt (0 < ·.bitwidth)
       let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let c ← MatchProg.value condType
       let x ← MatchProg.value type

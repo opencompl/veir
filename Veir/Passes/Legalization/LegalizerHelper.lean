@@ -21,6 +21,17 @@ open Puddle
 
 public section
 
+/--
+Matches an integer type of at most 64 bits, with the further `matcher` if any. These are the
+integer types the RISC-V 64 legalizer leaves: its legal types are `s64` and the narrower types
+its extensions and truncations read and write. The combines and lowerings match their types with
+it, so that their local correctness lemmas can be stated for widths up to 64 and decided by
+`pbv_decide`.
+-/
+def matchLegalInt (matcher : IntegerType → Bool := fun _ => true) :
+    MatchProg.Builder (Handle OpCode .type) :=
+  MatchProg.type (Attr := IntegerType) fun type => type.bitwidth ≤ 64 && matcher type
+
 /-- Create a `g_constant` of `type` whose value `value` computes from the metadata `inputs`. -/
 def createConstantWith {Inputs : Type} [IsMetadataTuple OpCode Inputs]
     (type : Handle OpCode .type) (inputs : Inputs)
@@ -54,8 +65,9 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
   let info := opcode.genericOpInfo
   let matchType (group : TypeGroup) : MatchProg.Builder (Handle OpCode .type) :=
     -- The verifier rejects `i0`, at which `g_icmp` yields an `i1` that is not its result type.
+    -- The target is a legal width, at most 64 bits.
     if group = typeIdx then
-      MatchProg.type (Attr := IntegerType) fun t => 0 < t.bitwidth && t.bitwidth < width
+      MatchProg.type (Attr := IntegerType) fun t => 0 < t.bitwidth && t.bitwidth < width && width ≤ 64
     -- The other groups are integers no wider than the target, except those that may hold pointers.
     else if mayHoldPointer opcode group then MatchProg.type (Attr := TypeAttr)
     else MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ width)
@@ -144,7 +156,7 @@ ensure by widening it first.
 -/
 def widenCtlzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_ctlz (fun w => 0 < w && w < width) (· = width))
+    (matchUnary .g_ctlz (fun w => 0 < w && w < width && width ≤ 64) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_zext) #[src] #[resType]
       let ctlz ← CreateProg.operation (.gmir .g_ctlz) #[ext.res[0]!] #[resType]
@@ -162,7 +174,7 @@ must already be `width` bits wide, which the rules ensure by widening it first.
 -/
 def widenCttzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_cttz (fun w => 0 < w && w < width) (· = width))
+    (matchUnary .g_cttz (fun w => 0 < w && w < width && width ≤ 64) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let topBit ← widthConstant srcType resType (2 ^ ·)
@@ -181,7 +193,7 @@ def widenReverse (opcode : GMIR) (width : Nat) (srcWidth : Nat → Bool := fun _
     (do
       -- The verifier rejects `i0`, at which the shift down by the whole wide width is poison.
       let type ← MatchProg.type (Attr := IntegerType) fun t =>
-        0 < t.bitwidth && t.bitwidth < width && srcWidth t.bitwidth
+        0 < t.bitwidth && t.bitwidth < width && width ≤ 64 && srcWidth t.bitwidth
       let src ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[src] #[type]
       return (type, src))
@@ -263,8 +275,8 @@ def lowerFunnelShift (isLeft : Bool) : Pattern OpCode :=
   let opcode : GMIR := if isLeft then .g_fshl else .g_fshr
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
-      let amtType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let type ← matchLegalInt
+      let amtType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let z ← MatchProg.value amtType
@@ -305,7 +317,7 @@ def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpC
   let baseOp : GMIR := if isAdd then .g_add else .g_sub
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let type ← matchLegalInt
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
@@ -344,7 +356,7 @@ def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpC
 /-- Matches the overflowing `opcode`, returning its result type, overflow type and operands. -/
 private def matchOverflowing (opcode : GMIR) : MatchProg.Builder
     (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value × Handle OpCode .value) := do
-  let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+  let type ← matchLegalInt
   -- The overflow flag is an `i1`, as the verifier requires; the lowerings compute it with `g_icmp`.
   let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
   let lhs ← MatchProg.value type
@@ -424,7 +436,8 @@ def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
     | _ => (.g_sub, .g_zext)
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (fun t => 0 < t.bitwidth && t.bitwidth < width)
+      let type ← MatchProg.type (Attr := IntegerType)
+        (fun t => 0 < t.bitwidth && t.bitwidth < width && width ≤ 64)
       -- The overflow flag is an `i1`, as the verifier requires; it is recomputed with `g_icmp`.
       let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let lhs ← MatchProg.value type
@@ -539,7 +552,7 @@ def lowerAddSubSatToAddoSubo (opcode : GMIR) (isSigned isAdd : Bool) : Pattern O
     | true, false => .g_ssubo
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let type ← matchLegalInt
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
@@ -573,8 +586,8 @@ def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
   let shiftBack : GMIR := if isSigned then .g_ashr else .g_lshr
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
-      let amtType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let type ← matchLegalInt
+      let amtType ← matchLegalInt
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value amtType
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]

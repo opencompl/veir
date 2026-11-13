@@ -4,6 +4,7 @@ public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
 public import Veir.Passes.Legalization.Legalizer
 import Veir.Passes.Legalization.LegalizerHelper
+meta import Std.Tactic.BVDecide
 
 /-!
 # RISC-V 64 Legalization
@@ -15,6 +16,14 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 -/
 
 namespace Veir
+
+/- `bv_decide` realizes its helpers for an enum lazily, in whichever module first proves a goal
+mentioning it (here `GMIR.enumToBitVec`), and exports them from there. The legalization and the
+instruction-selection proofs each did so, so `Veir` could not import both ("environment already
+contains"). Realizing them here, upstream of both, gives every proof the same copy. -/
+public theorem GMIR.eq_of_eq_g_add_bv (a b : GMIR) (ha : a = .g_add) (hb : b = .g_add) :
+    a = b := by
+  bv_decide
 
 /--
   Custom legalization of an `i32` binary operation into the word operation `wordOpcode` (LLVM's
