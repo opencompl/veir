@@ -31,7 +31,7 @@ public def convertLLVMSwitch (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let defaultDest := op.getSuccessor! ctx.raw 0
   let defaultArgs := (← BranchOpInterface.getSuccessorOperands? op 0 ctx.raw).forwardedOperands
   -- Pair each case value, read as signed at the condition's width, with its successor index.
-  let cases := (← props.caseValues?).mapIdx fun i v =>
+  let cases := (← props.caseValues? intType.bitwidth).values.mapIdx fun i v =>
     ((BitVec.ofInt intType.bitwidth v).toInt, i + 1)
   let cases := cases.qsort (·.1 < ·.1)
   if cases.isEmpty then
