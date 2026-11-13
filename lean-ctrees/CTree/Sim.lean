@@ -202,7 +202,7 @@ The simulation is parameterized by a relation on return values.
 abbrev Sim (RE : (i i' : EIn) → E i → E i' → Prop) (RR : α → β → Prop) (t : CTree E C α) (u : CTree E C' β) : Prop :=
   LTS.Sim (S := CTree.lts EIn CIn E C _) (S' := CTree.lts EIn C'In E C' _) (CTree.Robs @RE RR) (CTree.UB (UB := UBE)) t u
 
-axiom MuSimF.bind {RE RR'} (t : CTree E C α') (u : CTree E C' β') (k : α' → CTree E C α) (k' : β' → CTree E C' β) :
+axiom MuSimF.bind {RR'} (t : CTree E C α') (u : CTree E C' β') (k : α' → CTree E C α) (k' : β' → CTree E C' β) :
     Sim RE RR' t u →
     (∀ x y, RR' x y → R.elem true (k x) (k' y)) →
     R.elem true (bind t k) (bind u k')
@@ -338,7 +338,9 @@ axiom bind {RR RR'} (t : CTree E C α) (u : CTree E C' α') (k : α → CTree E 
   Sim RE RR' (bind t k) (bind u k')
 
 /-- Simulations compose by relating their return values through an intermediate outcome. -/
-axiom trans_rel {R₁ R₂ R₃ : Type u} {RS : R₁ → R₂ → Prop} {RT : R₂ → R₃ → Prop}
+axiom trans_rel (hRE : ∀ i i' x y, RE i i' x y → UBE.isUB i → UBE.isUB i')
+    (hRF : ∀ i i' x y, RF i i' x y → UBE.isUB i → UBE.isUB i')
+    {R₁ R₂ R₃ : Type u} {RS : R₁ → R₂ → Prop} {RT : R₂ → R₃ → Prop}
     {t : CTree E C R₁} {u : CTree E C' R₂} {v : CTree E D R₃} :
     Sim RE RS t u → Sim RF RT u v →
     Sim (fun i i'' x z => ∃ (i' : EIn) (y : E i'), RE i i' x y ∧ RF i' i'' y z) (fun x z => ∃ y, RS x y ∧ RT y z) t v
