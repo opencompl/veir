@@ -155,15 +155,7 @@ theorem union_iff :
         block.InIteratedDominanceFrontier definingBlocks₂ region ctx := by
   constructor
   · intro iterated
-    apply iterated.least
-    · intro source target definition frontier
-      rcases definition with left | right
-      · exact .inl (.of_frontier left frontier)
-      · exact .inr (.of_frontier right frontier)
-    · intro source target membership frontier
-      rcases membership with left | right
-      · exact .inl (left.of_frontier_step frontier)
-      · exact .inr (right.of_frontier_step frontier)
+    apply iterated.least <;> grind [of_frontier, of_frontier_step]
   · rintro (left | right)
     · exact left.mono (fun _ definition => .inl definition)
     · exact right.mono (fun _ definition => .inr definition)
