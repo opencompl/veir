@@ -35,6 +35,19 @@ theorem toInt_val {p : Pointer} : toInt (.val p) = .val p.address.toBitVec := by
 @[simp]
 theorem toInt_poison : toInt .poison = .poison := by
   rw [toInt]
+/- # glb? -/
+
+/-- `glb?` is a lower bound: what it returns refines both pointer values. -/
+theorem glb?_isRefinedBy {p q m : Ptr} (h : p.glb? q = some m) : p ⊒ m ∧ q ⊒ m := by
+  grind [glb?, cases Ptr]
+
+/--
+`glb?` is the greatest lower bound: every pointer value that refines both refines what `glb?`
+returns.
+-/
+theorem glb?_greatest {p q e : Ptr} (hp : p ⊒ e) (hq : q ⊒ e) :
+    ∃ m, p.glb? q = some m ∧ m ⊒ e := by
+  grind [glb?, cases Ptr]
 
 end
 

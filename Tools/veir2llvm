@@ -635,6 +635,9 @@ SIMPLE_INTRINSICS = {
     "llvm.intr.usub.sat": ("usub.sat", 2),
     "llvm.intr.sshl.sat": ("sshl.sat", 2),
     "llvm.intr.ushl.sat": ("ushl.sat", 2),
+    # The high half of the double-width product, overloaded on the shared type.
+    "llvm.intr.smulh": ("smulh", 2),
+    "llvm.intr.umulh": ("umulh", 2),
 }
 
 # Three-way comparisons: two operands of one type, and a result of any width.
