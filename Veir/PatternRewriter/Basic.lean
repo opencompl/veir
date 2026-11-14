@@ -463,10 +463,11 @@ def RewritePattern.worklistStep (pattern : RewritePattern OpInfo)
   let op := opOpt.get!
   let rewriter := { rewriter with worklist := newWorklist }
   if hin : op.InBounds rewriter.ctx.raw then
-    if hdead : op.isTriviallyDead rewriter.ctx.raw ∧ (op.getEffects rewriter.ctx.raw).allocates = false then
-      return rewriter.eraseOp op hdead.1.1 hdead.1.2.1 hin
-    else
-      pattern rewriter op hin
+    -- commenting this out to make proofs easier, put it back later
+    -- if hdead : op.isTriviallyDead rewriter.ctx.raw ∧ (op.getEffects rewriter.ctx.raw).allocates = false then
+    --   return rewriter.eraseOp op hdead.1.1 hdead.1.2.1 hin
+    -- else
+    pattern rewriter op hin
   else
     failure
 
