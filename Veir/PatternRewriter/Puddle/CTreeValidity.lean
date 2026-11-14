@@ -50,9 +50,7 @@ remains in scope both in the updated assignment and in the final proposition.
 
 /--
 The predicate of possible outcomes of an operation matched below the root: it produced `results`
-when it ran in some memory, which it may have changed. A pure operation produces the same results in
-every memory, but an operation reading memory, such as a load, does not, and the pattern only reuses
-the results of the run it matched. This definition only makes sense for operations that have
+when it ran in some memory, which it may have changed. This definition only makes sense for operations that have
 `PureOrErr` semantics.
 -/
 @[expose]
