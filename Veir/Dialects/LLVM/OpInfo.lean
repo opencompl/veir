@@ -115,6 +115,8 @@ inductive Llvm where
 | intr__usub__sat
 | intr__sshl__sat
 | intr__ushl__sat
+| intr__smulh
+| intr__umulh
 | intr__sadd__with__overflow
 | intr__uadd__with__overflow
 | intr__ssub__with__overflow
@@ -493,6 +495,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
   | .intr__ssub__sat, _ | .intr__usub__sat, _
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
+  | .intr__smulh, _ | .intr__umulh, _
   | .intr__sadd__with__overflow, _ | .intr__uadd__with__overflow, _
   | .intr__ssub__with__overflow, _ | .intr__usub__with__overflow, _
   | .intr__smul__with__overflow, _ | .intr__umul__with__overflow, _
@@ -506,6 +509,7 @@ def Llvm.isCommutative : Llvm → Bool
   | .add | .mul | .and | .or | .xor
   | .intr__smax | .intr__smin | .intr__umax | .intr__umin
   | .intr__sadd__sat | .intr__uadd__sat
+  | .intr__smulh | .intr__umulh
   | .fadd | .fmul => true
   | _ => false
 
@@ -553,7 +557,8 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__scmp | .intr__ucmp
   | .intr__vector__reduce__or
   | .intr__sadd__sat | .intr__uadd__sat | .intr__ssub__sat | .intr__usub__sat
-  | .intr__sshl__sat | .intr__ushl__sat => true
+  | .intr__sshl__sat | .intr__ushl__sat
+  | .intr__smulh | .intr__umulh => true
   -- The floating-point arithmetic operations propagate poison too, but no
   -- `RuntimeValue` represents a poisoned float yet, so listing them here would
   -- claim a fold that cannot be materialized.
@@ -1138,7 +1143,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .and | .or | .xor | .intr__smax | .intr__smin
   | .intr__umax | .intr__umin | .add | .sub | .ashr | .mul | .sdiv | .udiv
   | .srem | .urem | .intr__sadd__sat | .intr__uadd__sat
-  | .intr__ssub__sat | .intr__usub__sat | .intr__sshl__sat | .intr__ushl__sat => do
+  | .intr__ssub__sat | .intr__usub__sat | .intr__sshl__sat | .intr__ushl__sat
+  | .intr__smulh | .intr__umulh => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerBinop ctx opIn
     pure ()
@@ -1734,6 +1740,16 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.ushlSat lhs rhs)], mem, none)
+  | .intr__smulh => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smulHigh lhs rhs)], mem, none)
+  | .intr__umulh => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umulHigh lhs rhs)], mem, none)
   | .trunc => do
     let [val] := operands.toList | none
     let some resType := resultTypes[0]? | none
