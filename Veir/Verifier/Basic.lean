@@ -67,6 +67,22 @@ def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext O
   op.verifyNonOperandCounts ctx opIn 0 0 successors
 
 /--
+  Check that a range of `op`'s operands matches the types in `expected`.
+  The operands `operandBase .. operandBase + block.numArguments` are
+  mapped positionally onto `expected`, which may be a successor block, the entry
+  block of one of `op`'s regions, or a block that `op` transfers control to implicitly.
+  Callers must have already verified that this operand range is in bounds.
+-/
+def OperationPtr.verifyOperandTypesMatchTypeArray
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (operandBase : Nat) (expected : Array Attribute) (errPrefix : String) :
+    Except String PUnit := do
+  for h : j in [0:expected.size] do
+    let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
+    if !Attribute.branchArgCompatible opTy.val expected[j] then
+      throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, expected {expected[j]}"
+
+/--
   Check that the operands forwarded to a successor block match the types of that
   block's arguments. `operandBase` is the index of the first forwarded operand;
   the forwarded operands are `operandBase .. operandBase + dest.numArguments`,
@@ -77,12 +93,8 @@ def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext O
 def OperationPtr.verifyBranchSuccessorArgTypes
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (operandBase : Nat) (dest : BlockPtr) (errPrefix : String) :
-    Except String PUnit := do
-  for j in [0:dest.getNumArguments! ctx.raw] do
-    let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
-    let argTy := (dest.getArgument j).getType! ctx.raw
-    if !Attribute.branchArgCompatible opTy.val argTy.val then
-      throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, block argument has type {argTy}"
+    Except String PUnit :=
+  op.verifyOperandTypesMatchTypeArray ctx operandBase ((dest.getArgumentTypes! ctx.raw).map (·.val)) errPrefix
 
 /--
   Verify an unconditional branch with a single successor: every operand is
@@ -207,6 +219,35 @@ def OperationPtr.getEnclosingFunctionOp (op : OperationPtr)
   | some funcOp => pure funcOp
   | none => throw s!"Expected {opName} to have an enclosing function operation"
 
+/--
+  Walk up from `op` to find the nearest enclosing ancestor matching `target`.
+  Walks up at most `maxDistance` times.
+-/
+def OperationPtr.getMatchingAncestorOp?
+    {OpInfo : Type} [IsOpCode OpInfo]
+    {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
+    (op : OperationPtr) (ctx : IRContext OpInfo) (target : Dialect) (maxDistance : Nat) : Option (OperationPtr × propertiesOf target) :=
+  match maxDistance with
+    | 0 => none
+    | dist + 1 => match op.getParentOp! ctx with
+      | none => none
+      | some parent =>
+        if parent.getOpType! ctx = target then
+          some (parent, parent.getProperties! ctx target)
+        else
+          parent.getMatchingAncestorOp? ctx target dist
+
+/--
+  Same as getMatchingAncestorOp, but without a traversal bound.
+-/
+def OperationPtr.getMatchingAncestorOpUnbounded?
+    {OpInfo : Type} [IsOpCode OpInfo]
+    {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
+    (op : OperationPtr) (ctx : IRContext OpInfo) (target : Dialect) : Option (OperationPtr × propertiesOf target) :=
+  -- In practice there can be no more than ctx.operations.size
+  -- operations to traverse, so we implicitly bound by that
+  op.getMatchingAncestorOp? ctx target ctx.operations.size
+
 def TypeAttr.verifyIntegerType
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
@@ -247,6 +288,12 @@ def TypeAttr.verifyI1
       throw errMsg
     else
       pure ()
+  | _ => throw errMsg
+
+def TypeAttr.verifyI32
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .integerType { bitwidth := 64, .. } => pure ()
   | _ => throw errMsg
 
 def TypeAttr.verifyI64
@@ -407,8 +454,8 @@ def OperationPtr.verifyIntegerUnop (op : OperationPtr)
     s!"{instrName}: Expected result type to match operand type"
   pure operandType
 
-def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+def OperationPtr.verifyCmpResultGeneric (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) (resultType : IntegerType) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
@@ -417,7 +464,12 @@ def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
     s!"{instrName}: Expected operand 1 to have integer type"
   let _ ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
-  ((op.getResult 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 result"
+  if resultType ≠ ((op.getResult 0).getType! ctx.raw) then
+    throw s!"{instrName}: Expected {resultType} result"
+
+def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyCmpResultGeneric ctx opIn (IntegerType.signless 1)
 
 def OperationPtr.verifySelectTypes (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
