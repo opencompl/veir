@@ -59,6 +59,8 @@ private def commuteGmirConstant : GMIR → Option (Puddle.CompiledPattern OpCode
   | .g_and => some (commuteGmirConstantPattern .g_and).compile
   | .g_or => some (commuteGmirConstantPattern .g_or).compile
   | .g_xor => some (commuteGmirConstantPattern .g_xor).compile
+  | .g_smulh => some (commuteGmirConstantPattern .g_smulh).compile
+  | .g_umulh => some (commuteGmirConstantPattern .g_umulh).compile
   | .g_smin => some (commuteGmirConstantPattern .g_smin).compile
   | .g_smax => some (commuteGmirConstantPattern .g_smax).compile
   | .g_umin => some (commuteGmirConstantPattern .g_umin).compile

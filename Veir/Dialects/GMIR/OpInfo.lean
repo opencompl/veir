@@ -958,6 +958,7 @@ def GMIR.getEffects (op : GMIR) (props : GMIR.propertiesOf op) : MemoryEffects :
 
 def GMIR.isCommutative : GMIR → Bool
   | .g_add | .g_mul | .g_and | .g_or | .g_xor
+  | .g_smulh | .g_umulh
   | .g_smin | .g_smax | .g_umin | .g_umax
   | .g_uaddsat | .g_saddsat | .g_uaddo | .g_saddo => true
   | _ => false
