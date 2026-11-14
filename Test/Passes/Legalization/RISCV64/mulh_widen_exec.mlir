@@ -21,10 +21,8 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i13, i13)}> ({
-    %a_c = "llvm.mlir.constant"() <{value = -4000 : i13}> : () -> i13
-    %a = "llvm.freeze"(%a_c) : (i13) -> i13
-    %b_c = "llvm.mlir.constant"() <{value = 3 : i13}> : () -> i13
-    %b = "llvm.freeze"(%b_c) : (i13) -> i13
+    %a = "llvm.mlir.constant"() <{value = -4000 : i13}> : () -> i13
+    %b = "llvm.mlir.constant"() <{value = 3 : i13}> : () -> i13
     // -4000 * 3 = -12000, whose high 13 bits are -2.
     %s = "llvm.intr.smulh"(%a, %b) : (i13, i13) -> i13
     // The same bits read unsigned are 4192, and 4192 * 3 = 12576 has high 13 bits 1.
