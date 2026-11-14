@@ -94,12 +94,7 @@ private def collectPredecessors
   let mut preds := #[]
   for block in reversePostOrder do
     let mut blockPreds := #[]
-    let mut currentUse := block.getFirstUse! irCtx.raw
-    while let some predUse := currentUse do
-      currentUse := predUse.getNextUse! irCtx.raw
-      let predOp := predUse.getOwner! irCtx.raw
-      let some predBlock := predOp.getParent! irCtx.raw
-        | continue
+    for predBlock in block.getPredecessors! irCtx.raw do
       if let some index := blockIndex.get? predBlock then
         blockPreds := blockPreds.push index
     preds := preds.push blockPreds

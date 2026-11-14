@@ -13,6 +13,7 @@ import UnitTest.RegisterAllocation
 import UnitTest.FP
 import UnitTest.Bitblasting.Bitblasting
 import UnitTest.Dominance
+import UnitTest.DataFlowFramework.DominanceFrontier
 import UnitTest.DataFlowFramework.DeadCodeAnalysis
 import UnitTest.DataFlowFramework.EntryState
 import UnitTest.DataFlowFramework.ModArithRangeAnalysis
