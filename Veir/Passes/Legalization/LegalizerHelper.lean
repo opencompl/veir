@@ -600,6 +600,39 @@ def lowerThreewayCompare (signed : Bool) : Pattern OpCode :=
       CreateProg.operation (.gmir .g_sub) #[isGT.res[0]!, isLT.res[0]!] #[resultType])
     (fun op => op)
 
+/--
+  Lower a multiply-high into a multiply of twice the width, as LLVM's
+  `LegalizerHelper::lowerSMULH_UMULH`: extend both operands to `2 * w` bits, where the product is
+  exact, shift its high half down by `w`, and truncate. `signed` picks sign extension and an
+  arithmetic shift, matching `g_smulh`; `g_umulh` zero-extends and shifts logically.
+-/
+def lowerMulh (signed : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir (if signed then .g_smulh else .g_umulh)) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let wideType ← CreateProg.applyNative (Outputs := Handle OpCode .type) type fun narrow => do
+        let .integerType narrow := narrow.val | none
+        return ((IntegerType.signless (2 * narrow.bitwidth) : IntegerType) : TypeAttr)
+      let extOp : GMIR := if signed then .g_sext else .g_zext
+      let lhsExt ← CreateProg.operation (.gmir extOp) #[lhs] #[wideType]
+      let rhsExt ← CreateProg.operation (.gmir extOp) #[rhs] #[wideType]
+      let product ← CreateProg.operation (.gmir .g_mul)
+        #[lhsExt.res[0]!, rhsExt.res[0]!] #[wideType]
+      -- The fallback width is unreachable: the root was matched at an `IntegerType`.
+      let amount ← createConstantWith wideType type fun narrow =>
+        match narrow.val with
+        | .integerType narrow => (narrow.bitwidth : Int)
+        | _ => 0
+      let shifted ← CreateProg.operation (.gmir (if signed then .g_ashr else .g_lshr))
+        #[product.res[0]!, amount.res[0]!] #[wideType]
+      CreateProg.operation (.gmir .g_trunc) #[shifted.res[0]!] #[type])
+    (fun trunc => trunc)
+
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
@@ -620,6 +653,8 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_ssubo => lowerSAddSubO false
   | .g_uadde => lowerAddSubE true
   | .g_usube => lowerAddSubE false
+  | .g_smulh => lowerMulh true
+  | .g_umulh => lowerMulh false
   | .g_scmp => lowerThreewayCompare true
   | .g_ucmp => lowerThreewayCompare false
   | _ => none
