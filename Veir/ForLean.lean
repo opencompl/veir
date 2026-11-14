@@ -1157,6 +1157,14 @@ theorem twoPow_eq_shiftLeft_one_ofInt_natCast {w k : Nat} (hk : k < w) :
     BitVec.twoPow w k = 1#w <<< BitVec.ofInt w k := by
   rw [BitVec.shiftLeft_eq', toNat_ofInt_natCast_of_lt hk, BitVec.twoPow_eq]
 
+
+@[veir_bv_normalize]
+theorem ofInt_two_pow_eq_setWidth_allones {v w : Nat} :
+    BitVec.ofInt v (2^w - 1) = (BitVec.allOnes w).setWidth v := by
+  apply BitVec.eq_of_toInt_eq
+  simp [Int.ofNat_sub (by exact Nat.one_le_two_pow (n := w))]
+
+
 end BitVec
 
 namespace Rat
