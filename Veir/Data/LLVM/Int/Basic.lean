@@ -893,7 +893,6 @@ def freeze {w : Nat} (x : Int w) : Int w := Id.run do
   | .val v => .val v
   | .poison => .val 0
 
-
 end Int
 end
 end Veir.Data.LLVM
