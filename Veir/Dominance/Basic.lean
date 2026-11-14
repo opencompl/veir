@@ -188,6 +188,46 @@ def BlockPtr.Dominates (dominator dominated : BlockPtr) (ctx : WfIRContext OpInf
   dominator = dominated ∨ dominator.ProperlyDominates dominated ctx true
 
 /-!
+## Dominance Frontiers
+
+Dominance frontiers and their iteration are restricted to the reachable CFG of one SSA region.
+-/
+
+/--
+`block` belongs to the dominance frontier of `dominator` in an SSA `region`.
+The frontier marks where the dominator's dominance stops: it dominates at least
+one incoming predecessor, without properly dominating the block itself. This
+is where control flow can merge values from different definitions, so frontier
+blocks are candidates for merge arguments when constructing SSA form.
+
+Both blocks and the witnessing predecessor are reachable in `region`. Dominance
+here is the reflexive closure of proper SSA dominance within this region; it does
+not include dominance through enclosing regions. Self-frontiers are permitted.
+-/
+def BlockPtr.InDominanceFrontier (block dominator : BlockPtr) (region : RegionPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  region.hasSSADominance ctx = true ∧
+  block.LocallyReachable region ctx ∧
+  ∃ predecessor : BlockPtr,
+    predecessor.LocallyReachable region ctx ∧
+    block ∈ predecessor.getSuccessors! ctx.raw ∧
+    (dominator = predecessor ∨
+      dominator.ProperlyDominatesInSSACFGRegion predecessor region ctx) ∧
+    ¬ dominator.ProperlyDominatesInSSACFGRegion block region ctx
+
+/--
+`block` belongs to the iterated dominance frontier of `definingBlocks` in one SSA
+region when a nonempty path of frontier steps reaches it from a defining block.
+The seed predicate may contain arbitrary blocks; every frontier step restricts
+its endpoints to the reachable CFG of `region`.
+-/
+def BlockPtr.InIteratedDominanceFrontier (block : BlockPtr)
+    (definingBlocks : BlockPtr → Prop) (region : RegionPtr) (ctx : WfIRContext OpInfo) : Prop :=
+  ∃ definingBlock, definingBlocks definingBlock ∧
+    Relation.TransGen (fun source target => target.InDominanceFrontier source region ctx)
+      definingBlock block
+
+/-!
 ## Operation Dominance
 
 Operation dominance is mostly defined in terms of block dominance.
