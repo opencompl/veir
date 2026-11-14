@@ -142,10 +142,7 @@ theorem mono
     (iterated : block.InIteratedDominanceFrontier definingBlocks₁ region ctx)
     (subset : ∀ seed, definingBlocks₁ seed → definingBlocks₂ seed) :
     block.InIteratedDominanceFrontier definingBlocks₂ region ctx := by
-  apply iterated.least
-  · intro source target definition frontier
-    exact .of_frontier (subset source definition) frontier
-  · exact fun membership frontier => membership.of_frontier_step frontier
+  apply iterated.least <;> grind [of_frontier, of_frontier_step]
 
 /-- Iterating the frontier of a union gives the union of the iterated frontiers. -/
 theorem union_iff :
@@ -156,9 +153,7 @@ theorem union_iff :
   constructor
   · intro iterated
     apply iterated.least <;> grind [of_frontier, of_frontier_step]
-  · rintro (left | right)
-    · exact left.mono (fun _ definition => .inl definition)
-    · exact right.mono (fun _ definition => .inr definition)
+  · grind [mono]
 
 /-- Adding seeds already in the iterated frontier leaves its membership unchanged. -/
 theorem union_iff_of_subset
@@ -171,10 +166,7 @@ theorem union_iff_of_subset
   constructor
   · rintro (original | extra)
     · exact original
-    · apply extra.least
-      · intro source target definition frontier
-        exact (additional source definition).of_frontier_step frontier
-      · exact fun membership frontier => membership.of_frontier_step frontier
+    · apply extra.least <;> grind [of_frontier_step]
   · exact Or.inl
 
 /-- Restricting the seeds to the reachable CFG of the region leaves the IDF unchanged. -/
@@ -184,13 +176,9 @@ theorem restrict_to_locallyReachable_iff :
         (fun seed => definingBlocks seed ∧ seed.LocallyReachable region ctx) region ctx ↔
       block.InIteratedDominanceFrontier definingBlocks region ctx := by
   constructor
+  · grind [mono]
   · intro iterated
-    exact iterated.mono (fun _ definition => definition.1)
-  · intro iterated
-    apply iterated.least
-    · intro source target definition frontier
-      exact .of_frontier ⟨definition, frontier.locallyReachable_dominator⟩ frontier
-    · exact fun membership frontier => membership.of_frontier_step frontier
+    apply iterated.least <;> grind [of_frontier, of_frontier_step]
 
 end BlockPtr.InIteratedDominanceFrontier
 
