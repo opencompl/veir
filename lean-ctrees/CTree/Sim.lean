@@ -106,6 +106,23 @@ def ProdRel {A B C D} (RR : A → B → Prop) (RS : C → D → Prop) :
     A × C → B × D → Prop :=
   fun (x, σ) (y, σ') => RR x y ∧ RS σ σ'
 
+/-- A simulation remains valid when its relation on return values is weakened. -/
+theorem mono {RR RS : R → R' → Prop} {t : CTree E C R} {u : CTree E C' R'}
+    (h : Sim RR t u) (hrel : ∀ x y, RR x y → RS x y) : Sim RS t u := by
+  have hbind := bind t u CTree.ret CTree.ret h
+    (fun x y hxy => (ret RS x y).mpr (hrel x y hxy))
+  change Sim RS (t >>= Pure.pure) (u >>= Pure.pure) at hbind
+  simpa only [_root_.bind_pure] using hbind
+
+/-- Compose simulations when the two return relations imply the desired relation. -/
+theorem trans {R₁ R₂ R₃ : Type u} {RS : R₁ → R₂ → Prop} {RT : R₂ → R₃ → Prop}
+    {RU : R₁ → R₃ → Prop} {t : CTree E C R₁} {u : CTree E C' R₂} {v : CTree E D R₃}
+    (htu : Sim RS t u) (huv : Sim RT u v)
+    (hrel : ∀ x y z, RS x y → RT y z → RU x z) : Sim RU t v := by
+  apply (trans_rel htu huv).mono
+  rintro x z ⟨y, hxy, hyz⟩
+  exact hrel x y z hxy hyz
+
 axiom interp_state {RR RR'} {RS : σ → σ → Prop}
     (h : (i : EIn) → StateT σ (CTree F C) (E i)) (t : CTree E C X) (u : CTree E C Y) :
   ProdRel RR RS ⊑ RR' →
