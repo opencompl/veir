@@ -84,7 +84,7 @@ end BlockPtr.InDominanceFrontier
 
 namespace BlockPtr.InIteratedDominanceFrontier
 
-variable {definingBlocks candidates : BlockPtr → Prop}
+variable {definingBlocks definingBlocks₁ definingBlocks₂ candidates : BlockPtr → Prop}
 
 /-- One frontier step from a defining block establishes iterated-frontier membership. -/
 theorem of_frontier (definition : definingBlocks dominator)
@@ -136,6 +136,69 @@ theorem not_empty :
     ¬ block.InIteratedDominanceFrontier (fun _ => False) region ctx := by
   apply not_of_forall_not_frontier
   exact fun _ _ impossible => impossible.elim
+
+/-- Enlarging the defining-block set preserves iterated-frontier membership. -/
+theorem mono
+    (iterated : block.InIteratedDominanceFrontier definingBlocks₁ region ctx)
+    (subset : ∀ seed, definingBlocks₁ seed → definingBlocks₂ seed) :
+    block.InIteratedDominanceFrontier definingBlocks₂ region ctx := by
+  apply iterated.least
+  · intro source target definition frontier
+    exact .of_frontier (subset source definition) frontier
+  · exact fun membership frontier => membership.of_frontier_step frontier
+
+/-- Iterating the frontier of a union gives the union of the iterated frontiers. -/
+theorem union_iff :
+    block.InIteratedDominanceFrontier (fun seed => definingBlocks₁ seed ∨ definingBlocks₂ seed)
+        region ctx ↔
+      block.InIteratedDominanceFrontier definingBlocks₁ region ctx ∨
+        block.InIteratedDominanceFrontier definingBlocks₂ region ctx := by
+  constructor
+  · intro iterated
+    apply iterated.least
+    · intro source target definition frontier
+      rcases definition with left | right
+      · exact .inl (.of_frontier left frontier)
+      · exact .inr (.of_frontier right frontier)
+    · intro source target membership frontier
+      rcases membership with left | right
+      · exact .inl (left.of_frontier_step frontier)
+      · exact .inr (right.of_frontier_step frontier)
+  · rintro (left | right)
+    · exact left.mono (fun _ definition => .inl definition)
+    · exact right.mono (fun _ definition => .inr definition)
+
+/-- Adding seeds already in the iterated frontier leaves its membership unchanged. -/
+theorem union_iff_of_subset
+    (additional : ∀ seed, definingBlocks₂ seed →
+      seed.InIteratedDominanceFrontier definingBlocks₁ region ctx) :
+    block.InIteratedDominanceFrontier (fun seed => definingBlocks₁ seed ∨ definingBlocks₂ seed)
+        region ctx ↔
+      block.InIteratedDominanceFrontier definingBlocks₁ region ctx := by
+  rw [union_iff]
+  constructor
+  · rintro (original | extra)
+    · exact original
+    · apply extra.least
+      · intro source target definition frontier
+        exact (additional source definition).of_frontier_step frontier
+      · exact fun membership frontier => membership.of_frontier_step frontier
+  · exact Or.inl
+
+/-- Restricting the seeds to the reachable CFG of the region leaves the IDF unchanged. -/
+@[simp]
+theorem restrict_to_locallyReachable_iff :
+    block.InIteratedDominanceFrontier
+        (fun seed => definingBlocks seed ∧ seed.LocallyReachable region ctx) region ctx ↔
+      block.InIteratedDominanceFrontier definingBlocks region ctx := by
+  constructor
+  · intro iterated
+    exact iterated.mono (fun _ definition => definition.1)
+  · intro iterated
+    apply iterated.least
+    · intro source target definition frontier
+      exact .of_frontier ⟨definition, frontier.locallyReachable_dominator⟩ frontier
+    · exact fun membership frontier => membership.of_frontier_step frontier
 
 end BlockPtr.InIteratedDominanceFrontier
 
