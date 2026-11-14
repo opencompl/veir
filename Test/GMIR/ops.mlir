@@ -3,6 +3,8 @@
 "builtin.module"() ({
 ^bb0(%a: i32, %b: i32, %c: i64, %d: i8, %p: !llvm.ptr):
   %mul = "gmir.g_mul"(%a, %b) <{overflowFlags = 3 : i32}> : (i32, i32) -> i32
+  %smulh = "gmir.g_smulh"(%a, %b) : (i32, i32) -> i32
+  %umulh = "gmir.g_umulh"(%a, %b) : (i32, i32) -> i32
   %and = "gmir.g_and"(%a, %b) : (i32, i32) -> i32
   %or = "gmir.g_or"(%a, %b) <{isDisjoint}> : (i32, i32) -> i32
   %xor = "gmir.g_xor"(%a, %b) : (i32, i32) -> i32
@@ -49,6 +51,8 @@
 }) : () -> ()
 
 // CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
+// CHECK: "gmir.g_smulh"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK: "gmir.g_umulh"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_and"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_or"(%{{.*}}, %{{.*}}) <{isDisjoint}> : (i32, i32) -> i32
 // CHECK: "gmir.g_xor"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
