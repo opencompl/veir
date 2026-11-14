@@ -28,6 +28,20 @@ theorem common_refinement {a b c : Pointer} (hc : a ⊒ c) (hd : b ⊒ c) : a = 
 theorem val_isRefinedBy_iff {p : Pointer} {q : Ptr} : Ptr.val p ⊒ q ↔ q = .val p := by
   cases q <;> simp
 
+/- # glb? -/
+
+/-- `glb?` is a lower bound: what it returns refines both pointer values. -/
+theorem glb?_isRefinedBy {p q m : Ptr} (h : p.glb? q = some m) : p ⊒ m ∧ q ⊒ m := by
+  grind [glb?, cases Ptr]
+
+/--
+`glb?` is the greatest lower bound: every pointer value that refines both refines what `glb?`
+returns.
+-/
+theorem glb?_greatest {p q e : Ptr} (hp : p ⊒ e) (hq : q ⊒ e) :
+    ∃ m, p.glb? q = some m ∧ m ⊒ e := by
+  grind [glb?, cases Ptr]
+
 end
 
 end Veir.Data.LLVM.Ptr

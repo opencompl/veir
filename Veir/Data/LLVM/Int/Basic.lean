@@ -935,6 +935,28 @@ theorem isRefinedBy_antisymm {w : Nat} {i j : Int w} (h₁ : i ⊒ j) (h₂ : j 
 theorem poison_isRefinedBy {w : Nat} (i : Int w) : poison ⊒ i := by
   simp [isRefinedBy]
 
+/--
+The greatest lower bound of two integers under refinement: the least defined value both refine
+to, or `none` if no value refines both (both are defined and their values differ).
+-/
+def glb? {w : Nat} (x y : Int w) : Option (Int w) :=
+  match x, y with
+  | .poison, y => some y
+  | x, .poison => some x
+  | .val a, .val b => if a = b then some (.val a) else none
+
+/-- `glb?` is a lower bound: what it returns refines both integers. -/
+theorem glb?_isRefinedBy {w : Nat} {x y m : Int w} (h : x.glb? y = some m) :
+    x ⊒ m ∧ y ⊒ m := by
+  grind [glb?, cases Int]
+
+/--
+`glb?` is the greatest lower bound: every integer that refines both refines what `glb?` returns.
+-/
+theorem glb?_greatest {w : Nat} {x y e : Int w} (hx : x ⊒ e) (hy : y ⊒ e) :
+    ∃ m, x.glb? y = some m ∧ m ⊒ e := by
+  grind [glb?, isRefinedBy, cases Int]
+
 end Int
 end
 end Veir.Data.LLVM
