@@ -509,6 +509,7 @@ def Llvm.isCommutative : Llvm → Bool
   | .add | .mul | .and | .or | .xor
   | .intr__smax | .intr__smin | .intr__umax | .intr__umin
   | .intr__sadd__sat | .intr__uadd__sat
+  | .intr__smulh | .intr__umulh
   | .fadd | .fmul => true
   | _ => false
 
