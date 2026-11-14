@@ -190,8 +190,6 @@ def riscv64LegalizerInfo : LegalizerInfo where
     -- operation, and `mulh`/`mulhu` compute only the `s64` case.
     | .g_smulh | .g_umulh => [
       .legalFor [s64],
-      -- As LLVM's `RISCVLegalizerInfo`: every other width goes through the generic lowering into
-      -- a double-width multiply.
       .lower,
     ]
     | .g_srem => [
