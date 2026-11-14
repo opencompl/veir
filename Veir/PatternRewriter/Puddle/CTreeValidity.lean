@@ -29,9 +29,7 @@ This section defines the predicate `Pattern.Supported` that specify what kind of
 allowed in a Puddle pattern.
 -/
 
-/-- No operation should be a terminator. Every operation may have memory effects: a pattern only
-reuses the results of the operations it matches below its root, so they keep running as before, and
-`CanInterpretTo` only assumes that they ran in some memory. -/
+/-- No operation should be a terminator. -/
 @[expose]
 def Pattern.Supported (rule : Pattern OpCode) : Prop :=
   (∀ decl ∈ rule.matcher.decls,
