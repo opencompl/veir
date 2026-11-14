@@ -185,6 +185,12 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [s32],
       .minScalar (.type 0) 64,
     ]
+    -- Multiply-high is legal at `s64` alone: the high half sits at a different
+    -- place in a wider product, so widening a narrower one is not the same
+    -- operation, and `mulh`/`mulhu` compute only the `s64` case.
+    | .g_smulh | .g_umulh => [
+      .legalFor [s64],
+    ]
     | .g_srem => [
       .legalFor [s64],
       .minScalar (.type 0) 64,
