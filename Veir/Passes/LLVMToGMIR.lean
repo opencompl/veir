@@ -86,6 +86,10 @@ def g_ashr := (lowerBinop .ashr .g_ashr).compile
 
 def g_mul := (lowerBinop .mul .g_mul).compile
 
+def g_smulh := (lowerBinop .intr__smulh .g_smulh).compile
+
+def g_umulh := (lowerBinop .intr__umulh .g_umulh).compile
+
 def g_sdiv := (lowerBinop .sdiv .g_sdiv).compile
 
 def g_udiv := (lowerBinop .udiv .g_udiv).compile
@@ -589,7 +593,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
   let pattern := RewritePattern.GreedyRewritePattern #[
     g_add.run, g_sub.run, g_icmp.run, g_select.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
-    g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
+    g_mul.run, g_smulh.run, g_umulh.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_bswap.run, g_bitreverse.run,
     g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_scmp.run, g_ucmp.run, g_abs.run, g_fshl.run, g_fshr.run,
     g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
