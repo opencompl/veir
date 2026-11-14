@@ -1717,6 +1717,14 @@ def gmirComposed : Array (Puddle.CompiledPattern OpCode) :=
 def gmirMul_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_mul) (·.bitwidth = 64) .mul () (guard := matchLegal .g_mul)
 
+/-- `gmir.g_smulh` (`i64`) -> `riscv.mulh`. -/
+def gmirSmulh_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_smulh) (·.bitwidth = 64) .mulh () (guard := matchLegal .g_smulh)
+
+/-- `gmir.g_umulh` (`i64`) -> `riscv.mulhu`. -/
+def gmirUmulh_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_umulh) (·.bitwidth = 64) .mulhu () (guard := matchLegal .g_umulh)
+
 /-- `gmir.g_sdiv` (`i64`) -> `riscv.div`. -/
 def gmirSdiv_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_sdiv) (·.bitwidth = 64) .div () (guard := matchLegal .g_sdiv)
@@ -1734,6 +1742,8 @@ def gmirUrem_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_urem) (·.bitwidth = 64) .remu () (guard := matchLegal .g_urem)
 
 def gmirMul : Puddle.CompiledPattern OpCode := gmirMul_pattern.compile
+def gmirSmulh : Puddle.CompiledPattern OpCode := gmirSmulh_pattern.compile
+def gmirUmulh : Puddle.CompiledPattern OpCode := gmirUmulh_pattern.compile
 def gmirSdiv : Puddle.CompiledPattern OpCode := gmirSdiv_pattern.compile
 def gmirUdiv : Puddle.CompiledPattern OpCode := gmirUdiv_pattern.compile
 def gmirSrem : Puddle.CompiledPattern OpCode := gmirSrem_pattern.compile
@@ -2118,7 +2128,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirPoison.run, zeroConst.run, gmirFreeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
-    gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
+    gmirMul.run, gmirSmulh.run, gmirUmulh.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirRiscvAddw.run, gmirRiscvSubw.run, gmirRiscvMulw.run,
     gmirRiscvDivw.run, gmirRiscvDivuw.run, gmirRiscvRemuw.run, gmirRiscvSllw.run, gmirRiscvSrlw.run,
     gmirRiscvSraw.run, gmirRiscvClzw.run, gmirRiscvCtzw.run,
