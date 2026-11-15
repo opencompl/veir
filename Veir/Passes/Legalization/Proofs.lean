@@ -8,10 +8,6 @@ public import Veir.Dialects.GMIR_RISCV.Semantics
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
 meta import Veir.Meta.Tactic.PBVDecide
-<<<<<<< HEAD
-meta import Lean
-=======
->>>>>>> origin
 
 import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
