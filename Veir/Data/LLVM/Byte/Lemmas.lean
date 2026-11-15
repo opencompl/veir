@@ -233,40 +233,39 @@ theorem lshr_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
     · case _ heq =>
       simp at heq
 
-/-- Converting a byte to an integer is monotone under refinement. -/
 theorem toInt_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') :
-    _root_.isRefinedBy x.toInt x'.toInt := by
-  by_cases hp : x.poison = 0
-  · have hp' : x'.poison = 0 := by
-      apply BitVec.eq_of_getLsbD_eq
-      intro m hm
-      rcases getLsbD_of_isRefinedBy' h hm with h₁ | ⟨_, h₃⟩
-      · simp [hp] at h₁
-      · simpa using h₃
-    have hv : x'.val = x.val := by
-      apply BitVec.eq_of_getLsbD_eq
-      intro m hm
-      rcases getLsbD_of_isRefinedBy' h hm with h₁ | ⟨h₂, _⟩
-      · simp [hp] at h₁
-      · exact h₂.symm
-    simp [toInt, hp, hp', hv, _root_.isRefinedBy]
-  · rw [toInt, ite_eq_right hp]; exact _root_.poison_isRefinedBy _
+    x.toInt ⊒ x'.toInt := by
+  have := isPoison_toInt (w := w) (x := x)
+  simp only [toInt, BitVec.ofNat_eq_ofNat, dite_eq_ite]
+  by_cases hp : x.toInt.isPoison
+  · suffices hsuff : ¬ x.poison = 0#w by simp only [hsuff, ↓reduceIte, poison_isRefinedBy]
+    simp only [this, BitVec.ofNat_eq_ofNat, bne_iff_ne, ne_eq] at hp
+    exact hp
+  · simp only [hp, BitVec.ofNat_eq_ofNat, Bool.false_eq, bne_eq_false_iff_eq] at this
+    simp only [isRefinedBy, this, BitVec.zero_or, BitVec.and_eq_allOnes_iff] at h
+    have hnp : x'.poison = 0#w := by
+      ext k hk
+      have ⟨_, h⟩ := h
+      have := congrArg (·.getLsbD k) h
+      simp [hk] at this
+      simp [this]
+    simp only [this, ↓reduceIte, hnp, isRefinedBy_eq]
+    ext k hk
+    have ⟨h, _⟩ := h
+    have := congrArg (·.getLsbD k) h
+    simp [hk] at this
+    simp [this]
 
 /-- Converting an integer to a byte is monotone under refinement. -/
-theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : _root_.isRefinedBy i i') :
+theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : i ⊒ i') :
     fromInt i ⊒ fromInt i' := by
-  cases i with
-  | poison => rw [fromInt_poison]; exact allPoison_isRefinedBy _
-  | val v =>
-    cases i' with
-    | poison => simp [_root_.isRefinedBy] at h
-    | val v' =>
-      simp only [_root_.isRefinedBy] at h
-      subst h
-      exact isRefinedBy_refl _
+  simp only [fromInt, BitVec.ofNat_eq_ofNat]
+  simp only [isRefinedBy_eq] at h
+  cases i <;> cases i'
+  · simp [h]
+  · simp at h
+  · simp [isRefinedBy]
+  · simp
 
-end
-
-end Veir.Data.LLVM.Byte
 
 end Veir.Data.LLVM.Byte

@@ -103,7 +103,7 @@ open LLVM.Int
   If any bit is poison, the integer type is also poison.
 -/
 def toInt {w : Nat} (x : Byte w) : Int w :=
-  if x.poison = 0 then
+  if _h : x.poison = 0 then
     .val x.val
   else
     .poison
