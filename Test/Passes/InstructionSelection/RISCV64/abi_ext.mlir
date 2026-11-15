@@ -1,9 +1,4 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s
-// RUN: RISCVTV ret_sext_i1 ret_zext_i1 ret_sext_i8 ret_zext_i8 ret_any_i8 \
-// RUN:   ret_sext_i16 ret_zext_i16 ret_any_i32 ret_zext_i32 arg_zext_i32
-
-// The caller currently fails backend-tv's call-attribute checks; validate the
-// standalone boundary functions here.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "ret_sext_i1", function_type = !llvm.func<i1 (i1)>, res_attrs = [{llvm.signext}]}> ({
