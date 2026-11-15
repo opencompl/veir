@@ -195,7 +195,10 @@ meta def reifyValues : ReifyM Unit := do
     let (vTm, reified) ← (Tm.reifyWidth v).run (← get)
     let atoms := vTm.atoms
     if !atoms.isEmpty && atoms.all widthAtoms.contains then
+      trace[pbv_decide] "value {v}: kept as a width"
       set { reified with widthTms := reified.widthTms.insert vTm }
+    else
+      trace[pbv_decide] "value {v}: dropped, its atoms are not all widths"
 
 /--
 Reify the goal: collect the widths of the `BitVec`s in the goal and in the
@@ -211,6 +214,11 @@ public meta def reifyWidths (g : MVarId) : ReifyM (HashMap FVarId LocalDecl) := 
   reifyPreconditions ldecls
   -- Reify the `Nat` values which are built from the widths
   reifyValues
+  let s ← get
+  trace[pbv_decide] m!"reified widths: {s.widthTms.toList.map (·.toExpr s.env)}\n\
+    `BitVec` variables: {s.bvs.keys.map mkFVar}\n\
+    preconditions: {s.props.toList.map (·.1.toExpr s.env)}\n\
+    reverted hypotheses: {ldecls.keys.map mkFVar}"
   return ldecls
 
 end Veir.Meta.Tactic.PBVDecide

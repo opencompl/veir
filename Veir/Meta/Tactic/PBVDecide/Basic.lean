@@ -11,6 +11,13 @@ open Lean Meta Std
 
 namespace Veir.Meta.Tactic.PBVDecide
 
+/--
+Trace how `pbv_decide` rewrites the goal: the goal seen by the reification, the
+reified widths, values and preconditions, and the goal after each translation step.
+Enable with `set_option trace.pbv_decide true`.
+-/
+initialize registerTraceClass `pbv_decide
+
 meta def mkNatLT (a b : Expr) : Expr :=
   mkApp2 (mkApp2 (mkConst ``LT.lt [0]) Nat.mkType Nat.mkInstLT) a b
 
