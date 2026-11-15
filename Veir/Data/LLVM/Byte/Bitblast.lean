@@ -369,17 +369,21 @@ theorem compatible_iff_getLsbD (x y : Byte w) :
   · intro h i
     have := congrArg (·.getLsbD i) h
     by_cases hlt : i < w
-    · simp only [hlt, BitVec.getLsbD_eq_getElem, BitVec.getElem_and, BitVec.getElem_xor,
-        BitVec.getElem_not, BitVec.ofNat_eq_ofNat, BitVec.getElem_zero, Bool.and_eq_false_imp,
-        Bool.and_eq_true, bne_iff_ne, ne_eq, Bool.not_eq_eq_eq_not, Bool.not_true, Bool.not_false] at this
-      by_cases hxp : x.poison.getLsbD i = true
+    · by_cases hxp : x.poison.getLsbD i = true
       · simp [hxp]
-      · simp [hxp]
-        simp [show x.poison[i] = false by simp [← BitVec.getLsbD_eq_getElem, hxp]] at this
-
-        sorry
+      · by_cases hbit : y.poison.getLsbD i = true
+        · simp [hbit, hxp]
+        · simp only [BitVec.getLsbD_and, BitVec.getLsbD_xor, BitVec.getLsbD_not, hlt,
+            decide_true, hbit, Bool.not_false, Bool.and_true, hxp,
+            BitVec.ofNat_eq_ofNat, BitVec.getLsbD_zero, bne_eq_false_iff_eq] at this
+          simp [this]
     · simp [BitVec.getLsbD_of_ge x.val i (by omega), BitVec.getLsbD_of_ge y.val i (by omega)]
-  · sorry
+  · intro h
+    ext k hk
+    specialize h k
+    rcases h with h | h | h
+    <;> simp [← BitVec.getLsbD_eq_getElem, h]
+
 
 /-! ## shl
 
