@@ -1,5 +1,6 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
+// RUN: RISCVTV
 
 // A stack cell holding two i64s. The argument is stored into both slots, both
 // slots are read back, and the sum is returned. After `-p=riscv` the cell is a

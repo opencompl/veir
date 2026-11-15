@@ -40,6 +40,19 @@ Our testing framework is split into two parts: unit tests written in Lean and
 command line tool `veir-opt`. The FileCheck tests require
 [uv](https://docs.astral.sh/uv/) to be installed.
 
+Add this line to an LLVM-dialect MLIR test to check that VeIR's RV64 assembly
+refines its LLVM IR using Alive2's `backend-tv`:
+```mlir
+// RUN: RISCVTV
+```
+`RISCVTV` proves every function definition; `RISCVTV foo bar` checks only the
+named functions. It runs during ordinary lit testing when `backend-tv`, `llc`,
+`llvm-extract`, `mlir-opt`, and `mlir-translate` are in `PATH`. Otherwise that
+RUN line is a no-op, and the test's other checks still run. An incorrect result,
+timeout, or failure to prove fails the test, even if backend-tv exits with
+status zero. Source IR, assembly, and proof logs remain in `%t.riscvtv` under
+the test's `Output/` directory. No QEMU or RISC-V sysroot is needed.
+
 Run a single benchmark with `lake exe run-benchmarks <name>` (see
 [`Veir/Benchmarks.lean`](Veir/Benchmarks.lean) for the available names).
 
