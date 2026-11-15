@@ -385,16 +385,7 @@ theorem compatible_iff_getLsbD (x y : Byte w) :
     <;> simp [← BitVec.getLsbD_eq_getElem, h]
 
 
-/-! ## shl
-
-`shl` is all-poison when the amount is poison, out of range, or (with `nuw`) shifts out a set
-value or poison bit; otherwise it shifts value and poison mask together. The bit lemmas are stated
-for the last case, with the `nuw` side condition as a hypothesis that is vacuous for `nuw = false`.
--/
-
-/-- The comparison `s ≥ w` used by `shl` and `lshr`, on `Nat`. -/
-private theorem ge_natCast_iff (s : BitVec w) : s ≥ (w : BitVec w) ↔ w ≤ s.toNat := by
-  simp [GE.ge, BitVec.le_def, Nat.mod_eq_of_lt Nat.lt_two_pow_self]
+/-! ## shl -/
 
 @[simp]
 theorem shl_poison (x : Byte w) (nuw : Bool) : x.shl .poison nuw = allPoison := by
@@ -402,7 +393,8 @@ theorem shl_poison (x : Byte w) (nuw : Bool) : x.shl .poison nuw = allPoison := 
 
 theorem shl_val_of_le (x : Byte w) {s : BitVec w} (h : w ≤ s.toNat) (nuw : Bool) :
     x.shl (.val s) nuw = allPoison := by
-  have hs : s ≥ (w : BitVec w) := (ge_natCast_iff s).mpr h
+  have hs : (w : BitVec w) ≤ s := by
+    simp [BitVec.le_def, Nat.mod_eq_of_lt Nat.lt_two_pow_self, h]
   rw [shl_eq]
   simp only [Int.isPoison_of_val, Int.getValueD_val, Bool.false_or, hs, decide_true, ↓reduceIte]
 
@@ -425,7 +417,8 @@ theorem shl_val_of_lt (x : Byte w) {s : BitVec w} (h : s.toNat < w) {nuw : Bool}
     x.shl (.val s) nuw =
       ⟨x.val <<< s, x.poison <<< s, by simp [← BitVec.shiftLeft_and_distrib, x.h]⟩ := by
   rw [shl_eq]
-  have h' : ¬ (s ≥ (w : BitVec w)) := by rw [ge_natCast_iff]; omega
+  have h' : ¬ ((w : BitVec w) ≤ s) := by
+    simp [BitVec.le_def, Nat.mod_eq_of_lt Nat.lt_two_pow_self, h]
   simp only [Int.isPoison_of_val, Int.getValueD_val, Bool.false_or, h', decide_false,
     Bool.false_eq_true, ↓reduceIte, ne_eq]
   cases nuw with
@@ -452,7 +445,6 @@ theorem getLsbD_poison_shl (x : Byte w) {s : BitVec w} (h : s.toNat < w) {nuw : 
   simp [BitVec.shiftLeft_eq']
 
 
-
 /-! ## lshr
 
 Same shape as `shl`, with `exact` in place of `nuw`. -/
@@ -463,7 +455,8 @@ theorem lshr_poison (x : Byte w) (exact : Bool) : x.lshr .poison exact = allPois
 
 theorem lshr_val_of_le (x : Byte w) {s : BitVec w} (h : w ≤ s.toNat) (exact : Bool) :
     x.lshr (.val s) exact = allPoison := by
-  have hs : s ≥ (w : BitVec w) := (ge_natCast_iff s).mpr h
+  have hs : (w : BitVec w) ≤ s := by
+    simp [BitVec.le_def, Nat.mod_eq_of_lt Nat.lt_two_pow_self, h]
   unfold lshr
   simp only [Int.isPoison_of_val, Int.getValueD_val, Bool.false_or, hs, decide_true, ↓reduceIte]
 
@@ -486,7 +479,8 @@ theorem lshr_val_of_lt (x : Byte w) {s : BitVec w} (h : s.toNat < w) {exact : Bo
     x.lshr (.val s) exact =
       ⟨x.val >>> s, x.poison >>> s, by simp [← BitVec.ushiftRight_and_distrib, x.h]⟩ := by
   unfold lshr
-  have h' : ¬ (s ≥ (w : BitVec w)) := by rw [ge_natCast_iff]; omega
+  have h' : ¬ ((w : BitVec w) ≤ s) := by
+    simp [BitVec.le_def, Nat.mod_eq_of_lt Nat.lt_two_pow_self, h]
   simp only [Int.isPoison_of_val, Int.getValueD_val, Bool.false_or, h', decide_false,
     Bool.false_eq_true, ↓reduceIte, ne_eq]
   cases exact with
