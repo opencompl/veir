@@ -173,6 +173,56 @@ theorem poison_shl {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool) :
   · simp [allPoison]
 
 
+/- # lshr -/
+
+@[veir_bv_normalize]
+theorem lshr_eq {w : Nat} (x : Byte w) (y : Int w) (exact : Bool) :
+    (x.lshr y exact) =
+      if y.isPoison || y.getValueD ≥ w then allPoison
+      else if exact ∧ (x.val >>> y.getValueD) <<< y.getValueD ≠ x.val then allPoison
+      else if exact ∧ (x.poison >>> y.getValueD) <<< y.getValueD ≠ x.poison then allPoison
+      else ⟨x.val >>> y.getValueD, x.poison >>> y.getValueD, by
+        simp [← BitVec.ushiftRight_and_distrib, x.h]⟩ := by
+  rfl
+
+@[veir_bv_normalize]
+theorem val_lshr {w : Nat} (x : Byte w) (y : Int w) (exact : Bool) :
+    (x.lshr y exact).val =
+      if y.isPoison || y.getValueD ≥ w then 0#w
+      else if exact ∧ (x.val >>> y.getValueD) <<< y.getValueD ≠ x.val then 0#w
+      else if exact ∧ (x.poison >>> y.getValueD) <<< y.getValueD ≠ x.poison then 0#w
+      else x.val >>> y.getValueD := by
+  simp only [lshr_eq, BitVec.natCast_eq_ofNat, ge_iff_le, Bool.or_eq_true, decide_eq_true_eq,
+    BitVec.shiftLeft_eq', BitVec.ushiftRight_eq', ne_eq]
+  rcases y with hy | hy
+  · simp only [Int.isPoison_of_val, Bool.false_eq_true, Int.getValueD_val, false_or, allPoison,
+    BitVec.ofNat_eq_ofNat]
+    split
+    · simp
+    · split
+      · simp
+      · split <;> simp
+  · simp [allPoison]
+
+@[veir_bv_normalize]
+theorem poison_lshr {w : Nat} (x : Byte w) (y : Int w) (exact : Bool) :
+    (x.lshr y exact).poison =
+      if y.isPoison || y.getValueD ≥ w then .allOnes w
+      else if exact ∧ (x.val >>> y.getValueD) <<< y.getValueD ≠ x.val then .allOnes w
+      else if exact ∧ (x.poison >>> y.getValueD) <<< y.getValueD ≠ x.poison then .allOnes w
+      else x.poison >>> y.getValueD := by
+  simp only [lshr_eq, BitVec.natCast_eq_ofNat, ge_iff_le, Bool.or_eq_true, decide_eq_true_eq,
+    BitVec.shiftLeft_eq', BitVec.ushiftRight_eq', ne_eq]
+  rcases y with hy | hy
+  · simp only [Int.isPoison_of_val, Bool.false_eq_true, Int.getValueD_val, false_or, allPoison,
+    BitVec.ofNat_eq_ofNat]
+    split
+    · simp
+    · split
+      · simp
+      · split <;> simp
+  · simp [allPoison]
+
 /- # getLsbD -/
 
 @[simp]

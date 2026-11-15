@@ -138,67 +138,100 @@ theorem trunc_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') (w' : Nat) :
 theorem shl_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
       (hx : x ⊒ x') (hy : y ⊒ y') :
     x.shl y nuw ⊒ x'.shl y' nuw := by
-  ext k hk
-  -- have hx' := congrArg (·.getLsbD k) hx
-  -- have hy' := congrArg (·.getLsbD k) hy
-  -- refine isRefinedBy_of_getLsbD ?_
-  -- intro m hm
-  -- sorry
-  sorry
+  cases y with
+  | poison => exact allPoison_isRefinedBy _
+  | val s =>
+    simp [Int.isRefinedBy_eq] at hy
+    split at hy
+    · case _ i i' v v' heq =>
+      simp [isRefinedBy] at hx
+      simp [isRefinedBy, heq, hy, poison_shl, val_shl]
+      subst hy
+      by_cases hs : BitVec.ofNat w w ≤ v
+      <;> by_cases hv : nuw = true ∧ ¬x.val <<< v.toNat >>> v.toNat = x.val
+      <;> by_cases hp : nuw = true ∧ ¬x.poison <<< v.toNat >>> v.toNat = x.poison
+      <;> simp only [hs, ↓reduceIte, BitVec.not_zero, BitVec.xor_allOnes, BitVec.not_allOnes,
+        BitVec.and_zero, BitVec.or_zero]
+      <;> simp only [hv, not_false_eq_true, and_self, ↓reduceIte, true_and, ite_not,
+        BitVec.zero_xor, BitVec.allOnes_or]
+      <;> simp only [hp, not_false_eq_true, and_self, ↓reduceIte, true_and, ite_not,
+        BitVec.zero_xor, BitVec.allOnes_or]
+      have hv' : ¬(nuw = true ∧ ¬x'.val <<< v.toNat >>> v.toNat = x'.val) := by
+        rintro ⟨hn, hne⟩
+        simp only [hn, true_and, Decidable.not_not, shiftLeft_ushiftRight_eq_iff] at hv hp hne
+        exact hne fun i hi hsi =>
+          val_false_of_isRefinedBy hx (fun i => i < w ∧ w ≤ v.toNat + i)
+            (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
+      have hp' : ¬(nuw = true ∧ ¬x'.poison <<< v.toNat >>> v.toNat = x'.poison) := by
+        rintro ⟨hn, hne⟩
+        simp only [hn, true_and, Decidable.not_not, shiftLeft_ushiftRight_eq_iff] at hv hp hne
+        exact hne fun i hi hsi =>
+          poison_false_of_isRefinedBy hx (fun i => i < w ∧ w ≤ v.toNat + i)
+            (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
+      simp only [hv', hp', ↓reduceIte]
+      ext i hi
+      have := congrArg (·.getLsbD (i - v.toNat)) hx
+      simp only [show i - v.toNat < w by omega, BitVec.getLsbD_eq_getElem, BitVec.getElem_or,
+        BitVec.getElem_and, BitVec.getElem_xor, BitVec.getElem_not, Bool.bne_not,
+        BitVec.getElem_allOnes, Bool.or_eq_true, Bool.and_eq_true, Bool.not_eq_eq_eq_not,
+        Bool.not_true, bne_eq_false_iff_eq, BitVec.getElem_shiftLeft, Bool.not_and, Bool.not_not,
+        decide_eq_false_iff_not, Nat.not_lt, bne_iff_ne, ne_eq, decide_eq_true_eq] at this ⊢
+      by_cases hiv : i < v.toNat
+      · simp [hiv]
+      · simp [hiv, decide_false, Bool.not_false, Bool.true_and, show v.toNat ≤ i by omega, this]
+    · simp at hy
+    · case _ heq =>
+      simp at heq
 
-
-/-- `lshr` by a non-poison amount, with the conditions stated on the shift amount itself. -/
-private theorem lshr_val {w : Nat} (x : Byte w) (s : BitVec w) (exact : Bool) :
-    x.lshr (.val s) exact =
-      if s ≥ ↑w then allPoison
-      else if exact = true ∧ (x.val >>> s) <<< s ≠ x.val then allPoison
-      else if exact = true ∧ (x.poison >>> s) <<< s ≠ x.poison then allPoison
-      else ⟨x.val >>> s, x.poison >>> s, by simp [← BitVec.ushiftRight_and_distrib, x.h]⟩ := by
-  unfold lshr; simp only [Int.isPoison, Bool.false_or, decide_eq_true_eq]; rfl
 
 /-- Logical right shift is monotone under refinement, also with `exact`. -/
-theorem lshr_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w} (hx : x ⊒ x')
-    (hy : _root_.isRefinedBy y y') (exact : Bool) :
+theorem lshr_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
+      (hx : x ⊒ x') (hy : y ⊒ y') :
     x.lshr y exact ⊒ x'.lshr y' exact := by
   cases y with
-  | poison =>
-    simp only [lshr, Int.isPoison, Bool.true_or, ↓reduceIte]
-    exact allPoison_isRefinedBy _
+  | poison => rw [lshr_poison]; exact allPoison_isRefinedBy _
   | val s =>
-    cases y' with
-    | poison => simp [_root_.isRefinedBy] at hy
-    | val s' =>
-      simp only [_root_.isRefinedBy] at hy
+    simp [Int.isRefinedBy_eq] at hy
+    split at hy
+    · case _ i i' v v' heq =>
+      simp [isRefinedBy] at hx
+      simp [isRefinedBy, heq, hy, poison_lshr, val_lshr]
       subst hy
-      rw [lshr_val, lshr_val]
-      by_cases hs : s ≥ ↑w
-      · rw [ite_eq_left hs]; exact allPoison_isRefinedBy _
-      rw [ite_eq_right hs, ite_eq_right hs]
-      by_cases hv : exact = true ∧ (x.val >>> s) <<< s ≠ x.val
-      · rw [ite_eq_left hv]; exact allPoison_isRefinedBy _
-      rw [ite_eq_right hv]
-      by_cases hp : exact = true ∧ (x.poison >>> s) <<< s ≠ x.poison
-      · rw [ite_eq_left hp]; exact allPoison_isRefinedBy _
-      rw [ite_eq_right hp]
-      have hv' : ¬(exact = true ∧ (x'.val >>> s) <<< s ≠ x'.val) := by
+      by_cases hs : BitVec.ofNat w w ≤ v
+      <;> by_cases hv : exact = true ∧ ¬x.val >>> v.toNat <<< v.toNat = x.val
+      <;> by_cases hp : exact = true ∧ ¬x.poison >>> v.toNat <<< v.toNat = x.poison
+      <;> simp only [hs, ↓reduceIte, BitVec.not_zero, BitVec.xor_allOnes, BitVec.not_allOnes,
+        BitVec.and_zero, BitVec.or_zero]
+      <;> simp only [hv, not_false_eq_true, and_self, ↓reduceIte, true_and, ite_not,
+        BitVec.zero_xor, BitVec.allOnes_or]
+      <;> simp only [hp, not_false_eq_true, and_self, ↓reduceIte, true_and, ite_not,
+        BitVec.zero_xor, BitVec.allOnes_or]
+      have hv' : ¬(exact = true ∧ ¬x'.val >>> v.toNat <<< v.toNat = x'.val) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, BitVec.shiftLeft_eq', BitVec.ushiftRight_eq',
-          ushiftRight_shiftLeft_eq_iff] at hv hp hne
-        exact hne ((ushiftRight_shiftLeft_eq_iff _ _).mpr
-          (bits_false_of_isRefinedBy hx _ hv hp).1)
-      have hp' : ¬(exact = true ∧ (x'.poison >>> s) <<< s ≠ x'.poison) := by
+        simp only [hn, true_and, Decidable.not_not, ushiftRight_shiftLeft_eq_iff] at hv hp hne
+        exact hne fun i hi hsi =>
+          val_false_of_isRefinedBy hx (fun i => i < w ∧ i < v.toNat)
+            (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
+      have hp' : ¬(exact = true ∧ ¬x'.poison >>> v.toNat <<< v.toNat = x'.poison) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, BitVec.shiftLeft_eq', BitVec.ushiftRight_eq',
-          ushiftRight_shiftLeft_eq_iff] at hv hp hne
-        exact hne ((ushiftRight_shiftLeft_eq_iff _ _).mpr
-          (bits_false_of_isRefinedBy hx _ hv hp).2)
-      rw [ite_eq_right hv', ite_eq_right hp']
-      apply isRefinedBy_of_getLsbD
-      intro m hm
-      simp only [BitVec.ushiftRight_eq', BitVec.getLsbD_ushiftRight]
-      by_cases hms : s.toNat + m < w
-      · exact getLsbD_of_isRefinedBy' hx hms
-      · simp [BitVec.getLsbD_of_ge _ _ (Nat.not_lt.mp hms)]
+        simp only [hn, true_and, Decidable.not_not, ushiftRight_shiftLeft_eq_iff] at hv hp hne
+        exact hne fun i hi hsi =>
+          poison_false_of_isRefinedBy hx (fun i => i < w ∧ i < v.toNat)
+            (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
+      simp only [hv', hp', ↓reduceIte]
+      ext i hi
+      have := congrArg (·.getLsbD (v.toNat + i)) hx
+      simp only [BitVec.getElem_or, BitVec.getElem_and, BitVec.getElem_xor, BitVec.getElem_not,
+        Bool.bne_not, BitVec.getElem_allOnes, BitVec.getElem_ushiftRight, BitVec.getLsbD_or,
+        BitVec.getLsbD_and, BitVec.getLsbD_xor, BitVec.getLsbD_not, BitVec.getLsbD_allOnes,
+        Bool.or_eq_true, Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
+        bne_eq_false_iff_eq] at this ⊢
+      by_cases hiv : v.toNat + i < w
+      · simpa [hiv] using this
+      · simp [BitVec.getLsbD_of_ge _ _ (Nat.not_lt.mp hiv)]
+    · simp at hy
+    · case _ heq =>
+      simp at heq
 
 /-- Converting a byte to an integer is monotone under refinement. -/
 theorem toInt_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') :
