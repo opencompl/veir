@@ -2,7 +2,7 @@ module
 
 public import Veir.Data.LLVM.Byte.Bitblast
 import all Veir.Data.LLVM.Byte.Basic
-meta import Veir.Meta.Tactic.BVDecide
+import all Veir.Data.LLVM.Byte.Bitblast
 
 namespace Veir.Data.LLVM.Byte
 
@@ -108,7 +108,6 @@ theorem val_false_of_isRefinedBy {w i: Nat} {x x' : Byte w} (h : x ⊒ x')
       refine BitVec.getLsbD_of_ge x'.val i (by omega)
   · simp [hp']
 
-
 theorem poison_false_of_isRefinedBy {w i: Nat} {x x' : Byte w} (h : x ⊒ x')
     (P : Nat → Prop)
     (hv : P i → x.val.getLsbD i = false)
@@ -136,44 +135,16 @@ theorem trunc_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') (w' : Nat) :
   exact getLsbD_of_isRefinedBy' h
 
 /-- Left shift is monotone under refinement, also with `nuw`. -/
-theorem shl_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w} (hx : x ⊒ x')
-      (hy : y ⊒ y') :
+theorem shl_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
+      (hx : x ⊒ x') (hy : y ⊒ y') :
     x.shl y nuw ⊒ x'.shl y' nuw := by
-  cases y with
-  | poison => exact allPoison_isRefinedBy _
-  | val s =>
-    simp [isRefinedBy] at ⊢ hx hy
-    ext k hk
-    simp
-    have hxbit := congrArg (·.getLsbD k) hx
-    simp [hk] at hxbit
-    rcases hxbit with h1 | h2
-    · unfold shl
-      simp
-      split
-      · simp [allPoison]
-      · split
-        · simp [allPoison]
-        · split
-          · simp [allPoison]
-
-          · simp [Id.run]
-            by_cases hlt : k < s.toNat
-            · simp [hlt, show ¬ s.toNat ≤ k by omega]
-              split
-              · split
-                · simp [allPoison, pure]
-
-
-
-                  sorry
-                · sorry
-              ·
-                sorry
-              sorry
-            sorry
-        sorry
-    · sorry
+  ext k hk
+  -- have hx' := congrArg (·.getLsbD k) hx
+  -- have hy' := congrArg (·.getLsbD k) hy
+  -- refine isRefinedBy_of_getLsbD ?_
+  -- intro m hm
+  -- sorry
+  sorry
 
 
 /-- `lshr` by a non-poison amount, with the conditions stated on the shift amount itself. -/
