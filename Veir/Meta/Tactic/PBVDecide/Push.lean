@@ -99,6 +99,7 @@ public meta def liftToBlastWidth (g : MVarId) : TranslateM MVarId := g.withConte
   -- lifted again.
   let eqThms ← addLiftThms g (← read).blastWidth <| ← addWidthBounds #[]
   let g ← applySimp g eqThms { decide := false, singlePass := true }
+  trace[pbv_decide] m!"after lifting to the blast width:{indentD g}"
   -- Create simp set to push the `setWidth`s in
   let thms := ← addPushTheorems g (← read).blastWidth
            <| ← addBvInfos g
@@ -106,6 +107,7 @@ public meta def liftToBlastWidth (g : MVarId) : TranslateM MVarId := g.withConte
            <| ← addWidthBounds #[]
   -- Run push simp
   let g ← applySimp g thms
+  trace[pbv_decide] m!"after pushing the `setWidth`s:{indentD g}"
   -- Mask any remaining setWidths
   let mut thms := ← addWidthBounds #[]
   thms ← thms.addTheorem (.decl ``Veir.Data.PBV.setWidth_toMask) (mkConst ``Veir.Data.PBV.setWidth_toMask)
