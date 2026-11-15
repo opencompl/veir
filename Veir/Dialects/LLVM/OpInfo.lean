@@ -1244,6 +1244,11 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         | none => throw s!"llvm.switch: missing case_values for {caseSegments.size} case(s)"
         | some attr => throw s!"llvm.switch: expected case_values to be a tensor or vector of \
             {caseSegments.size} {intType} value(s), but got {attr}"
+    /- The interpreter reads bit patterns, while lowering reads case values. These
+       representations must agree, including for programmatically constructed IR. -/
+    if caseValues.bits != caseValues.values.map (fun v =>
+        (BitVec.ofInt intType.bitwidth v).toNat) then
+      throw "llvm.switch: case bit patterns disagree with case values"
     /- Case values must be distinct at the condition's width, as in LLVM IR. Upstream MLIR
        accepts duplicates, but such a switch cannot be translated to LLVM IR. -/
     let mut seen : Std.HashSet Nat := {}
