@@ -4,7 +4,6 @@ public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.Ptr.Basic
 public import Veir.Data.Casting
-public import Veir.Data.Refinement
 public import Veir.Dialects.GMIR.Semantics
 
 meta import Std.Tactic.BVDecide
@@ -19,7 +18,6 @@ import all Veir.Data.LLVM.Int.Lemmas
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Data.Casting
-import all Veir.Data.Refinement
 
 public section
 
@@ -59,7 +57,7 @@ theorem gmirPoison_refinement :
 -/
 theorem gmirPoison_refinement_any_width {w : Nat} :
     (LLVM.Int.poison (w := w)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) w) :=
-  poison_isRefinedBy _
+  LLVM.Int.poison_isRefinedBy _
 
 /--
   Prove the correctness of the `gmirPoison` lowering pattern for a pointer: the pointer that
@@ -76,7 +74,7 @@ theorem gmirPoison_ptr_refinement (p : LLVM.Ptr) : LLVM.Ptr.poison ⊒ p := by
 theorem constant_refinement_le64 {w : Nat} (h : w ≤ 64) {v : Int} :
     (LLVM.Int.constant w v) ⊒
       (RISCV.Reg.toInt (Data.RISCV.li ((BitVec.ofInt w v).signExtend 64)) w) := by
-  simp only [isRefinedBy, LLVM.Int.constant, RISCV.Reg.toInt, RISCV.li]
+  simp only [LLVM.Int.isRefinedBy, LLVM.Int.constant, RISCV.Reg.toInt, RISCV.li]
   generalize BitVec.ofInt w v = x
   pbv_decide 64
 
@@ -1130,11 +1128,12 @@ theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
   veir_bv_decide
 
-/-- Freezing any integer that fits in a register is refined by its register round trip. -/
+/-- Prove `gmirFreeze`: freezing an integer that fits in a register is refined by its register
+  round trip. -/
 theorem freeze_refinement {w : Nat} (hw : w ≤ 64) {a : LLVM.Int w} :
     (Data.LLVM.Int.freeze a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) w) := by
-  cases a <;> simp [LLVM.Int.freeze, LLVM.Int.toReg, RISCV.Reg.toInt, isRefinedBy, Id.run,
+  cases a <;> simp [LLVM.Int.freeze, LLVM.Int.toReg, RISCV.Reg.toInt, LLVM.Int.isRefinedBy, Id.run,
     BitVec.setWidth_setWidth_of_le _ hw]
 
 /--

@@ -56,55 +56,63 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
   cases x <;> cases y <;>
   simp [BitVec.mul_comm, BitVec.smulOverflow_comm, BitVec.umulOverflow_comm]
 
-/- # IntPred.eval -/
+theorem IntPred.eq_cases (p : IntPred) :
+    p = .eq ∨ p = .ne ∨ p = .ugt ∨ p = .uge ∨ p = .ult ∨ p = .ule ∨
+      p = .sgt ∨ p = .sge ∨ p = .slt ∨ p = .sle := by
+  cases p <;> simp
+
+@[simp]
+theorem poison_ext {w₁ w₂ : Nat} {msb : BitVec (w₂-w₁)} {h : w₁ < w₂} :
+    (poison : Int w₁).ext w₂ msb h = poison := by
+  rfl
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_eq {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_eq {w : Nat} (x y : BitVec w) :
     IntPred.eq.eval x y = (x == y) := by
   simp only [IntPred.eval]
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_ne {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_ne {w : Nat} (x y : BitVec w) :
     IntPred.ne.eval x y = (x != y) := by
   simp only [IntPred.eval]
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_ugt {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_ugt {w : Nat} (x y : BitVec w) :
     IntPred.ugt.eval x y = (y.ult x) := by
   simp only [IntPred.eval]
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_uge {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_uge {w : Nat} (x y : BitVec w) :
     IntPred.uge.eval x y = (y.ule x) := by
   simp only [IntPred.eval]
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_ult {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_ult {w : Nat} (x y : BitVec w) :
     IntPred.ult.eval x y = (x.ult y) := by
   simp only [IntPred.eval]
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_ule {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_ule {w : Nat} (x y : BitVec w) :
     IntPred.ule.eval x y = (x.ule y) := by
   simp only [IntPred.eval]
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_sgt {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_sgt {w : Nat} (x y : BitVec w) :
     IntPred.sgt.eval x y = (y.slt x) := by
   simp only [IntPred.eval]
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_sge {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_sge {w : Nat} (x y : BitVec w) :
     IntPred.sge.eval x y = (y.sle x) := by
   simp only [IntPred.eval]
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_slt {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_slt {w : Nat} (x y : BitVec w) :
     IntPred.slt.eval x y = (x.slt y) := by
   simp only [IntPred.eval]
 
 @[simp, grind =]
-theorem _root_.Veir.Data.LLVM.IntPred.eval_sle {w : Nat} (x y : BitVec w) :
+theorem IntPred.eval_sle {w : Nat} (x y : BitVec w) :
     IntPred.sle.eval x y = (x.sle y) := by
   simp only [IntPred.eval]
 

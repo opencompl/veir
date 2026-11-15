@@ -9,6 +9,7 @@ import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.InstructionSelection.Common
 import Veir.Passes.LLVMToGMIR.Branches
+import Veir.Passes.LLVMToGMIR.Switches
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
@@ -33,9 +34,11 @@ namespace Veir
     or `unknown` in upstream's llvm/include/llvm/Target/GenericOpcodes.td.
   - GEP indices are normalized here, but GEP address arithmetic remains in the LLVM dialect
     until instruction selection. The currently supported pointer index width is 64 bits.
-  - Only naturally aligned loads of `i8`/`i16`/`i32`/`i64` and pointers become `g_load`; the
-    others stay in the LLVM dialect (see `loadMemOperand?`).
-    TODO: Translate the others once the legalizer can split them, as LLVM's `lowerLoad`.
+  - Only naturally aligned loads and stores of `i8`/`i16`/`i32`/`i64` and pointers become
+    `g_load` and `g_store`; the others stay in the LLVM dialect (see `memOperand?`). We do not
+    support misaligned loads and stores.
+    TODO: Translate odd-sized ones once the legalizer can split them, as LLVM's `lowerLoad` and
+    `lowerStore`.
   - A static alloca is lowered directly to `riscv_stack.alloca` rather than to a frame index,
     using the RISC-V 64 data layout; this is the one target-specific lowering here.
 -/
@@ -75,6 +78,14 @@ def lowerBinop (lOp : Llvm) (gOp : GMIR)
 
 
 
+<<<<<<< HEAD
+=======
+def g_smulh := (lowerBinop .intr__smulh .g_smulh).compile
+
+def g_umulh := (lowerBinop .intr__umulh .g_umulh).compile
+
+def g_sdiv := (lowerBinop .sdiv .g_sdiv).compile
+>>>>>>> origin
 
 
 
@@ -160,6 +171,27 @@ def lowerIcmp : Puddle.Pattern OpCode :=
 
 
 
+
+/--
+  `llvm.intr.scmp`/`llvm.intr.ucmp` -> `g_scmp`/`g_ucmp`, as LLVM's `IRTranslator`. Only operands
+  and results of at most 64 bits are translated; wider ones stay in the LLVM dialect.
+-/
+def lowerThreeWayCmp (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let resultType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let lhs ← Puddle.MatchProg.value operandType
+      let rhs ← Puddle.MatchProg.value operandType
+      let _ ← Puddle.MatchProg.root (.llvm lOp) #[lhs, rhs] #[resultType]
+      return (resultType, lhs, rhs))
+    (fun (resultType, lhs, rhs) =>
+      Puddle.CreateProg.operation (.gmir gOp) #[lhs, rhs] #[resultType])
+    (fun newOp => newOp)
+
+def g_scmp := (lowerThreeWayCmp .intr__scmp .g_scmp).compile
+
+def g_ucmp := (lowerThreeWayCmp .intr__ucmp .g_ucmp).compile
 
 /--
   `llvm.intr.fshl`/`llvm.intr.fshr` -> `g_fshl`/`g_fshr`, except for `i32` and `i64`: instruction
@@ -349,23 +381,33 @@ public def lowerStaticAllocaZero_pattern : Puddle.Pattern OpCode :=
   lowerStaticAllocaOf (.llvm .mlir__zero) fun _ => some 0
 
 /--
-  The memory operand of the `g_load` for an `llvm.load` of `type`, if it is a naturally aligned load
-  of an `i8`, `i16`, `i32`, `i64` or pointer (see `memAccessWidth?`). A missing alignment is the
-  ABI one. Byte loads are not translated, since a `g_load` would lose their per-bit poison (LLVM
-  lowers them to `G_LOAD` anyway, see LangRef's byte type). They were not selected from our LLVM
+  The memory operand of a load or store of `type`, if it is a naturally aligned access of an `i8`,
+  `i16`, `i32`, `i64` or pointer (see `memAccessWidth?`). A missing alignment is the ABI one. Byte
+  accesses are not translated, since gMIR would lose their per-bit poison (LLVM lowers them to
+  `G_LOAD` and `G_STORE` anyway, see LangRef's byte type). They were not selected from our LLVM
   dialect either.
 -/
-def loadMemOperand? (type : TypeAttr) (props : LoadProperties) : Option MachineMemOperand := do
+def memOperand? (type : TypeAttr) (alignment : IntegerAttr) (syncscope : Option StringAttr)
+    (volatile_ nontemporal invariant : Bool) : Option MachineMemOperand := do
   let width ← memAccessWidth? type
-  -- Only atomic loads have a `syncscope`; we do not model them.
-  guard props.syncscope.isNone
-  let alignment ← if props.alignment.value = 0
+  -- Only atomic accesses have a `syncscope`; we do not model them.
+  guard syncscope.isNone
+  let alignment ← if alignment.value = 0
     then (DataLayout.riscv64.query type.val).map (·.abiAlignment)
-    else some props.alignment.value.toNat
+    else some alignment.value.toNat
   guard (width ≤ alignment)
-  return { size := .ofNat 64 (8 * width), alignment := .ofNat 64 alignment,
-           volatile_ := props.volatile_, nontemporal := props.nontemporal,
-           invariant := props.invariant }
+  return { size := .ofNat 64 (8 * width), alignment := .ofNat 64 alignment, volatile_,
+           nontemporal, invariant }
+
+/-- The memory operand of the `g_load` for an `llvm.load` of `type` (see `memOperand?`). -/
+def loadMemOperand? (type : TypeAttr) (props : LoadProperties) : Option MachineMemOperand :=
+  memOperand? type props.alignment props.syncscope props.volatile_ props.nontemporal
+    props.invariant
+
+/-- The memory operand of the `g_store` for an `llvm.store` of a value of `type` (see
+  `memOperand?`). -/
+def storeMemOperand? (type : TypeAttr) (props : StoreProperties) : Option MachineMemOperand :=
+  memOperand? type props.alignment props.syncscope props.volatile_ props.nontemporal false
 
 /-- `llvm.load` -> `gmir.g_load`, for the loads `loadMemOperand?` accepts. -/
 def lowerLoad_pattern : Puddle.Pattern OpCode :=
@@ -385,6 +427,28 @@ def lowerLoad_pattern : Puddle.Pattern OpCode :=
       Puddle.CreateProg.operation (.gmir .g_load) #[addr] #[resultType] mmo)
     (fun load => load)
 
+
+/-- `llvm.store` -> `gmir.g_store`, for the stores `storeMemOperand?` accepts. -/
+def lowerStore_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let valueType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let addrType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let value ← Puddle.MatchProg.value valueType
+      let addr ← Puddle.MatchProg.value addrType
+      let root ← Puddle.MatchProg.root (.llvm .store) #[value, addr] #[]
+      Puddle.MatchProg.matchNative (valueType, root.properties)
+          fun (type, props) => (storeMemOperand? type props).isSome
+      return (valueType, value, addr, root.properties))
+    (fun (valueType, value, addr, props) => do
+      let mmo ← Puddle.CreateProg.applyNative
+          (Outputs := Puddle.Handle OpCode (.prop (.gmir .g_store))) (valueType, props)
+          fun (type, props) => storeMemOperand? type props
+      let _ ← Puddle.CreateProg.operation (.gmir .g_store) #[value, addr] #[] mmo
+      return ())
+    (fun () => ⟨#[]⟩)
+
+def g_store := lowerStore_pattern.compile
 
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
@@ -416,6 +480,19 @@ def lowerPoison : Puddle.Pattern OpCode :=
     (fun resultType => Puddle.CreateProg.operation (.gmir .g_poison) #[] #[resultType])
     (fun newOp => newOp)
 
+
+/-- `llvm.freeze` (integer) -> `gmir.g_freeze`. -/
+def lowerIntegerFreeze : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+      let x ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.llvm .freeze) #[x] #[type]
+      return (type, x))
+    (fun (type, x) => Puddle.CreateProg.operation (.gmir .g_freeze) #[x] #[type])
+    (fun newOp => newOp)
+
+def g_freeze := lowerIntegerFreeze.compile
 
 /--
   The integer type with the same width as the byte type `type`.
@@ -545,6 +622,7 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
 
 /-! ## Pass implementation -/
 
+<<<<<<< HEAD
 /--
   The Puddle patterns of the pass, in the order it tries them. `g_bswap` and `g_bitreverse`
   appear twice, as they always have.
@@ -593,6 +671,34 @@ public def LLVMToGMIRPass.run : PurePass := fun ctx moduleOp => do
 public def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
   ExceptT.mk (pure (LLVMToGMIRPass.run ctx op))
+=======
+def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+  -- Switches become chains of gMIR tests first.
+  let ctx ← ExceptT.mk (pure (convertLLVMSwitches ctx))
+  -- Branches are translated by a separate step, which is proved to refine the module.
+  let ctx ← ExceptT.mk (pure (convertLLVMBranches ctx))
+  let pattern := RewritePattern.GreedyRewritePattern #[
+    g_add.run, g_sub.run, g_icmp.run, g_select.run, g_sext.run, g_zext.run, g_trunc.run,
+    g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
+    g_mul.run, g_smulh.run, g_umulh.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
+    g_bswap.run, g_bitreverse.run,
+    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_scmp.run, g_ucmp.run, g_abs.run, g_fshl.run, g_fshr.run,
+    g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
+    g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run,
+    g_constant.run, g_poison.run, g_bytePoison.run, g_freeze.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
+    .fromLocalRewrite normalizeGEPIndices,
+    lowerStaticAlloca.run, g_load.run, g_store.run,
+    intToByteRoundTrip.run
+  ]
+  match RewritePattern.applyToFunctions pattern ctx op with
+  | none => throw "Error while applying llvm-to-gmir translation"
+  | some ctx =>
+    -- A local rewrite may only erase the matched cast, so the folded first cast is left dead.
+    match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx op with
+    | none => throw "Error while applying DCE after llvm-to-gmir translation"
+    | some ctx => pure ctx
+>>>>>>> origin
 
 public def LLVMToGMIRPass : Pass OpCode :=
   { name := "llvm-to-gmir"

@@ -598,6 +598,71 @@ def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
         #[ov.res[0]!, satVal.res[0]!, result.res[0]!] #[type])
     (fun op => op)
 
+/--
+Lowers `g_scmp` or `g_ucmp` as LLVM's `LegalizerHelper::lowerThreewayCompare`, using its
+arithmetic path for targets such as RISC-V whose booleans are zero or one:
+
+  cmp lhs rhs = zext (icmp gt lhs rhs) - zext (icmp lt lhs rhs)
+
+The comparisons produce `i1`; both are zero-extended to the independent result width before
+subtracting. Existing comparison legalization and artifact combines handle the intermediate casts.
+-/
+def lowerThreewayCompare (signed : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let operandType ← MatchProg.type (Attr := IntegerType)
+      let resultType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value operandType
+      let rhs ← MatchProg.value operandType
+      let _ ← MatchProg.root (.gmir (if signed then .g_scmp else .g_ucmp))
+        #[lhs, rhs] #[resultType]
+      return (resultType, lhs, rhs))
+    (fun (resultType, lhs, rhs) => do
+      let boolType ← CreateProg.type (IntegerType.signless 1)
+      let gtProps ← CreateProg.property (.gmir .g_icmp)
+        { predicate := if signed then .sgt else .ugt }
+      let ltProps ← CreateProg.property (.gmir .g_icmp)
+        { predicate := if signed then .slt else .ult }
+      let isGT ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[boolType] gtProps
+      let isLT ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[boolType] ltProps
+      let isGT ← CreateProg.operation (.gmir .g_zext) #[isGT.res[0]!] #[resultType]
+      let isLT ← CreateProg.operation (.gmir .g_zext) #[isLT.res[0]!] #[resultType]
+      CreateProg.operation (.gmir .g_sub) #[isGT.res[0]!, isLT.res[0]!] #[resultType])
+    (fun op => op)
+
+/--
+  Lower a multiply-high into a multiply of twice the width, as LLVM's
+  `LegalizerHelper::lowerSMULH_UMULH`: extend both operands to `2 * w` bits, where the product is
+  exact, shift its high half down by `w`, and truncate. `signed` picks sign extension and an
+  arithmetic shift, matching `g_smulh`; `g_umulh` zero-extends and shifts logically.
+-/
+def lowerMulh (signed : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir (if signed then .g_smulh else .g_umulh)) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let wideType ← CreateProg.applyNative (Outputs := Handle OpCode .type) type fun narrow => do
+        let .integerType narrow := narrow.val | none
+        return ((IntegerType.signless (2 * narrow.bitwidth) : IntegerType) : TypeAttr)
+      let extOp : GMIR := if signed then .g_sext else .g_zext
+      let lhsExt ← CreateProg.operation (.gmir extOp) #[lhs] #[wideType]
+      let rhsExt ← CreateProg.operation (.gmir extOp) #[rhs] #[wideType]
+      let product ← CreateProg.operation (.gmir .g_mul)
+        #[lhsExt.res[0]!, rhsExt.res[0]!] #[wideType]
+      -- The fallback width is unreachable: the root was matched at an `IntegerType`.
+      let amount ← createConstantWith wideType type fun narrow =>
+        match narrow.val with
+        | .integerType narrow => (narrow.bitwidth : Int)
+        | _ => 0
+      let shifted ← CreateProg.operation (.gmir (if signed then .g_ashr else .g_lshr))
+        #[product.res[0]!, amount.res[0]!] #[wideType]
+      CreateProg.operation (.gmir .g_trunc) #[shifted.res[0]!] #[type])
+    (fun trunc => trunc)
+
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
@@ -619,6 +684,10 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_ssubo => lowerSAddSubO false
   | .g_uadde => lowerAddSubE true
   | .g_usube => lowerAddSubE false
+  | .g_smulh => lowerMulh true
+  | .g_umulh => lowerMulh false
+  | .g_scmp => lowerThreewayCompare true
+  | .g_ucmp => lowerThreewayCompare false
   | _ => none
 
 /-- The Puddle pattern that widens type group `typeIdx` of `opcode` to `width` bits, if any. -/
@@ -660,8 +729,12 @@ def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → O
   | .g_constant, .type 0, width => widenConstant width
   -- A wide poison truncates to poison.
   | .g_poison, .type 0, width => widenTypeGroup .g_poison (.type 0) .g_anyext width
+  -- The frozen low bits are the frozen value, whatever the high bits are.
+  | .g_freeze, .type 0, width => widenTypeGroup .g_freeze (.type 0) .g_anyext width
   -- The memory size is kept, so the wide load is any-extended.
   | .g_load, .type 0, width => widenTypeGroup .g_load (.type 0) .g_anyext width
+  -- The store keeps its size, so it only writes the low bits of the wide value.
+  | .g_store, .type 0, width => widenTypeGroup .g_store (.type 0) .g_anyext width
   -- `g_sext_inreg` only reads the low `sz` bits, so any extension is fine.
   | .g_sext_inreg, .type 0, width => widenTypeGroup .g_sext_inreg (.type 0) .g_anyext width
   -- The count fits in the wide result, so the result is just truncated back.

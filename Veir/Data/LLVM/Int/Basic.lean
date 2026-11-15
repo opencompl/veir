@@ -767,6 +767,26 @@ def umin {w : Nat} (x y : Int w) : Int w := Id.run do
   val (if x'.ule y' then x' else y')
 
 /--
+The `scmp` intrinsic is a three-way signed comparison: it returns `-1` if `x` is signed less than
+`y`, `0` if they are equal, and `1` if `x` is signed greater than `y`. The result width `w₂` is
+independent of the operand width. If either operand is poison, the result is poison.
+-/
+def scmp {w₁ : Nat} (x y : Int w₁) (w₂ : Nat) : Int w₂ := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.slt y' then -1#w₂ else if x' = y' then 0#w₂ else 1#w₂)
+
+/--
+The `ucmp` intrinsic is a three-way unsigned comparison: it returns `-1` if `x` is unsigned less
+than `y`, `0` if they are equal, and `1` if `x` is unsigned greater than `y`. The result width `w₂`
+is independent of the operand width. If either operand is poison, the result is poison.
+-/
+def ucmp {w₁ : Nat} (x y : Int w₁) (w₂ : Nat) : Int w₂ := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.ult y' then -1#w₂ else if x' = y' then 0#w₂ else 1#w₂)
+
+/--
 The `abs` intrinsic returns the magnitude (always non-negative) of its argument.
 Because `-intMin` is not representable, when the argument is `intMin` the result
 is `intMin` if `is_int_min_poison` is false and poison if it is true. If the
@@ -890,6 +910,70 @@ def freeze {w : Nat} (x : Int w) : Int w := Id.run do
   match x with
   | .val v => .val v
   | .poison => .val 0
+
+/-!
+  ## Refinement
+-/
+
+/--
+  `LLVM.Int` is refined by `LLVM.Int`.
+  `i'` refines `i` if its behaviour are a subset of the behaviours allowed by `i`.
+  In particular, any concrete `i'` refines a poison `i`, but a poison `i'` does *not* refine
+  any `i`.
+-/
+def isRefinedBy {w : Nat} (i i' : Int w) : Prop :=
+  match i, i' with
+  | .val v, .val v' => v = v'
+  | .val _, .poison => False
+  | .poison, _ => True
+
+@[inherit_doc] infix:50 " ⊒ " => LLVM.Int.isRefinedBy
+
+theorem isRefinedBy_eq {w : Nat} (i i' : Int w) :
+  i ⊒ i' ↔ (match i, i' with
+            | .val v, .val v' => v = v'
+            | .val _, .poison => False
+            | .poison, _ => True) := by rfl
+
+@[simp, grind .]
+theorem isRefinedBy_refl {w : Nat} (i : Int w) : i ⊒ i := by
+  grind [isRefinedBy, cases Int]
+
+theorem isRefinedBy_trans {w : Nat} {i j k : Int w}
+    (h₁ : i ⊒ j) (h₂ : j ⊒ k) : i ⊒ k := by
+  grind [isRefinedBy, cases Int]
+
+/-- Two integers that refine each other are equal. -/
+theorem isRefinedBy_antisymm {w : Nat} {i j : Int w} (h₁ : i ⊒ j) (h₂ : j ⊒ i) :
+    i = j := by
+  grind [isRefinedBy, cases Int]
+
+/-- Poison is refined by any value. -/
+@[simp, grind .]
+theorem poison_isRefinedBy {w : Nat} (i : Int w) : poison ⊒ i := by
+  simp [isRefinedBy]
+
+/--
+The greatest lower bound of two integers under refinement: the least defined value both refine
+to, or `none` if no value refines both (both are defined and their values differ).
+-/
+def glb? {w : Nat} (x y : Int w) : Option (Int w) :=
+  match x, y with
+  | .poison, y => some y
+  | x, .poison => some x
+  | .val a, .val b => if a = b then some (.val a) else none
+
+/-- `glb?` is a lower bound: what it returns refines both integers. -/
+theorem glb?_isRefinedBy {w : Nat} {x y m : Int w} (h : x.glb? y = some m) :
+    x ⊒ m ∧ y ⊒ m := by
+  grind [glb?, cases Int]
+
+/--
+`glb?` is the greatest lower bound: every integer that refines both refines what `glb?` returns.
+-/
+theorem glb?_greatest {w : Nat} {x y e : Int w} (hx : x ⊒ e) (hy : y ⊒ e) :
+    ∃ m, x.glb? y = some m ∧ m ⊒ e := by
+  grind [glb?, isRefinedBy, cases Int]
 
 end Int
 end
