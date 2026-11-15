@@ -622,56 +622,6 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
 
 /-! ## Pass implementation -/
 
-<<<<<<< HEAD
-/--
-  The Puddle patterns of the pass, in the order it tries them. `g_bswap` and `g_bitreverse`
-  appear twice, as they always have.
--/
-public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
-  lowerBinop .add .g_add, lowerBinop .sub .g_sub, lowerIcmp, lowerSelect,
-  lowerIntegerCast .sext .g_sext, lowerIntegerCast .zext .g_zext, lowerIntegerCast .trunc .g_trunc,
-  lowerBinop .and .g_and, lowerBinop .or .g_or, lowerBinop .xor .g_xor,
-  lowerBinop .shl .g_shl, lowerBinop .lshr .g_lshr, lowerBinop .ashr .g_ashr,
-  lowerBinop .mul .g_mul, lowerBinop .sdiv .g_sdiv, lowerBinop .udiv .g_udiv,
-  lowerBinop .srem .g_srem, lowerBinop .urem .g_urem,
-  lowerUnop .intr__bswap .g_bswap id, lowerUnop .intr__bitreverse .g_bitreverse id,
-  lowerBinop .intr__smax .g_smax, lowerBinop .intr__smin .g_smin,
-  lowerBinop .intr__umax .g_umax, lowerBinop .intr__umin .g_umin,
-  lowerUnop .intr__abs .g_abs (fun _ => ()),
-  lowerFunnelShiftIntrinsic .intr__fshl .g_fshl, lowerFunnelShiftIntrinsic .intr__fshr .g_fshr,
-  lowerBinop .intr__sadd__sat .g_saddsat, lowerBinop .intr__uadd__sat .g_uaddsat,
-  lowerBinop .intr__ssub__sat .g_ssubsat, lowerBinop .intr__usub__sat .g_usubsat,
-  lowerBinop .intr__sshl__sat .g_sshlsat, lowerBinop .intr__ushl__sat .g_ushlsat,
-  lowerCount .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison),
-  lowerCount .intr__cttz .g_cttz (fun _ => ()) (!·.is_zero_poison),
-  lowerCount .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison),
-  lowerCount .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison),
-  lowerCount .intr__ctpop .g_ctpop id,
-  lowerIntegerConstant, lowerPoison, lowerBytePoison,
-  lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩),
-  -- Unproven (`allPoisonByte`), so not run:
-  -- lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr,
-  lowerByteIntBitcast,
-  lowerStaticAlloca_pattern, lowerStaticAllocaGMIR_pattern, lowerStaticAllocaArith_pattern,
-  lowerStaticAllocaZero_pattern, lowerLoad_pattern, reconcilePairingCast isIntToByteRoundTrip]
-
-/-- The pass: the branch step (`LLVMToGMIRBranches.run`, which checks what its refinement proof
-assumes), then the patterns of `llvmToGMIRPatternList`, all proved valid
-(`Veir.Passes.LLVMToGMIR.Validity`), through the module-filtered driver, then the erasure by the
-driver of the dead casts a pattern leaves behind. `normalizeGEPIndices` and `eliminateDeadOp` are
-unproven, so not run. Its soundness is `LLVMToGMIRPass.run_sound`. -/
-public def LLVMToGMIRPass.run : PurePass := fun ctx moduleOp => do
-  let ctx ← LLVMToGMIRBranches.run true ctx moduleOp
-  checkModuleRoot "llvm-to-gmir" ctx moduleOp
-  let ctx ← applyToFunctionsChecked "llvm-to-gmir"
-    (RewritePattern.GreedyRewritePattern
-      (llvmToGMIRPatternList.map fun rule => rule.compile.run).toArray) ctx moduleOp
-  applyInContextChecked "llvm-to-gmir" (RewritePattern.GreedyRewritePattern #[]) ctx moduleOp
-
-public def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
-  ExceptT.mk (pure (LLVMToGMIRPass.run ctx op))
-=======
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   -- Switches become chains of gMIR tests first.
@@ -698,7 +648,6 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx op with
     | none => throw "Error while applying DCE after llvm-to-gmir translation"
     | some ctx => pure ctx
->>>>>>> origin
 
 public def LLVMToGMIRPass : Pass OpCode :=
   { name := "llvm-to-gmir"
