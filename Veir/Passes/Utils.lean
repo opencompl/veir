@@ -7,18 +7,13 @@ import all Veir.Dialects.Builtin.Interpreter
 import all Veir.Data.Casting
 public import Veir.IR.Simp
 
-/-! # Semantic lemmas for CTree validity proofs
-
-The `ctree_semantics` simp set (registered in `Veir.IR.Simp`) and the generic lemmas that belong
-to it, imported from the `InstructionSelection/Proofs/Utils.lean` of
-`math-fehr/puddle-ctree-wip` (PR #2082). Each lemma rewrites a `CTree.Sim` goal whose left tree
-starts with a cast or a lifted `Interp` computation into a goal about the continuation. -/
+/-! # Semantic lemmas for CTree validity proofs -/
 
 namespace Veir
 
 open _root_.CTree
 
-@[simp, ctree_semantics]
+@[ctree_semantics]
 theorem TypeAttr.forall_of_eq_imp_iff {T : Type} [IsTypeAttr T] {P : TypeAttr → T → Prop} :
   (∀ (type : TypeAttr) (x : T),
     TypeAttr.of T x = type → P type x) ↔
@@ -26,7 +21,7 @@ theorem TypeAttr.forall_of_eq_imp_iff {T : Type} [IsTypeAttr T] {P : TypeAttr �
     := by
   grind
 
-@[simp, ctree_semantics]
+@[ctree_semantics]
 theorem IntegerType.forall_bitwidth_eq_implies_iff (P : IntegerType → Prop) :
     (∀ (x : IntegerType), x.bitwidth = y → P x) ↔
     ∀ signedness, P (IntegerType.mk y signedness) := by
@@ -34,7 +29,7 @@ theorem IntegerType.forall_bitwidth_eq_implies_iff (P : IntegerType → Prop) :
 
 /-- A pure tree is simulated by a choice followed by `after` exactly when one
 choice result makes `after` simulate that pure tree. -/
-@[simp, ctree_semantics]
+@[ctree_semantics]
 theorem CTree.Sim.pure_bind_choose_iff
   {EIn CIn C'In SubCIn : Type} {E : EIn → Type} [HasUB EIn]
   {C : CIn → Type} {C' : C'In → Type} {SubC : SubCIn → Type} [SubC -< C']
