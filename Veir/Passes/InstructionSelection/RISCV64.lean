@@ -1782,8 +1782,6 @@ def gmirSrem_pattern : Pattern OpCode :=
 def gmirUrem_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_urem) (·.bitwidth = 64) .remu () (guard := matchLegal .g_urem)
 
-<<<<<<< HEAD
-=======
 def gmirMul : Puddle.CompiledPattern OpCode := gmirMul_pattern.compile
 def gmirSmulh : Puddle.CompiledPattern OpCode := gmirSmulh_pattern.compile
 def gmirUmulh : Puddle.CompiledPattern OpCode := gmirUmulh_pattern.compile
@@ -1792,7 +1790,6 @@ def gmirUdiv : Puddle.CompiledPattern OpCode := gmirUdiv_pattern.compile
 def gmirSrem : Puddle.CompiledPattern OpCode := gmirSrem_pattern.compile
 def gmirUrem : Puddle.CompiledPattern OpCode := gmirUrem_pattern.compile
 
->>>>>>> origin
 /-- `gmir_riscv.g_addw` (`i64`) -> `riscv.addw`. -/
 def gmirRiscvAddw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_addw) (·.bitwidth = 64) .addw ()
@@ -2110,67 +2107,6 @@ def gmirSltiPatterns : Array (Pattern OpCode) :=
 
 /-! # Pass implementation
 
-<<<<<<< HEAD
-The pass runs, through the module-filtered driver, three selection loops whose patterns are all
-proved to refine the module (`Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass`). The
-memory-intrinsic lowerings (the libcall fallback has no semantics, the inline expansion no proof
-yet), the split loads and stores and the general `getelementptr` lowering, whose address lemmas are
-not written, are unproven and no loop runs them: an input that needs one of those keeps the
-operation unselected. -/
-
-/-- The composed loop: select expressions of several gMIR operations into one instruction, before
-the later loops select their inner operations. -/
-public def iselComposedPatterns : Array (Pattern OpCode) := gmirComposedPatterns
-
-/-- The early loop: fold composed intrinsics and inspect constants before the per-op lowerings
-consume them. -/
-public def iselEarlyPatterns : Array (Pattern OpCode) :=
-  #[lowerLifetime .intr__lifetime__start, lowerLifetime .intr__lifetime__end] ++
-  loadPatterns ++ gmirLoadPatterns ++ storePatterns ++ gmirSelectZeroOfSetccPatterns ++
-  gmirSelectZeroPatterns ++ #[
-    lowerFshConst true 64, lowerFshConst true 32, lowerFshConst false 64, lowerFshConst false 32,
-    lowerFshConst true 32 true, lowerFshConst false 32 true,
-    gmirAddi_pattern, gmirAndi_pattern, gmirOri_pattern, gmirXori_pattern, gmirSlli_pattern,
-    gmirSrli_pattern, gmirSrai_pattern,
-    gmirRiscvAddiw_pattern, gmirRiscvSlliw_pattern, gmirRiscvSrliw_pattern, gmirRiscvSraiw_pattern,
-    gmirCpopw_pattern, gmirBseti_pattern, gmirBinvi_pattern, gmirBclri_pattern] ++
-  gmirSltiPatterns
-
-/-- The main loop: the per-op lowerings. -/
-public def iselMainPatterns : Array (Pattern OpCode) :=
-  #[gmirSelect_pattern, constant_pattern, addressof_pattern,
-    sext32_pattern, sext16_pattern, sextInRegExt_pattern 8 .sextb (),
-    sextInRegExt_pattern 16 .sexth (), sextInRegExt_pattern 32 .sextw (), sextInRegShift_pattern,
-    zext32_pattern, zext16_pattern, trunc_pattern, bitcast_pattern] ++
-  loadPatterns ++ gmirLoadPatterns ++ storePatterns ++ #[
-    fshl64_pattern, fshl32_pattern, fshr64_pattern, fshr32_pattern, lowerFshlGeneral 64,
-    lowerFshlGeneral 32, lowerFshrGeneral 64, lowerFshrGeneral 32,
-    gmirPoison_pattern, zeroConst_pattern, freeze_pattern,
-    gmirAdd_pattern, gmirSub_pattern, gmirTrunc_pattern, gmirAnyextOfReg_pattern,
-    gmirAnyext_pattern, gmirShl_pattern, gmirLshr_pattern, gmirAshr_pattern,
-    gmirAnd_pattern, gmirOr_pattern, gmirXor_pattern,
-    gmirMul_pattern, gmirSdiv_pattern, gmirUdiv_pattern, gmirSrem_pattern, gmirUrem_pattern,
-    gmirRiscvAddw_pattern, gmirRiscvSubw_pattern, gmirRiscvMulw_pattern,
-    gmirRiscvDivw_pattern, gmirRiscvDivuw_pattern, gmirRiscvRemuw_pattern, gmirRiscvSllw_pattern,
-    gmirRiscvSrlw_pattern, gmirRiscvSraw_pattern, gmirRiscvClzw_pattern, gmirRiscvCtzw_pattern,
-    gmirConstant_pattern,
-    gmirCtlz_pattern, gmirCttz_pattern, gmirCtpop_pattern, gmirBswap_pattern, gmirBrev8_pattern,
-    gmirBitreverse_pattern,
-    gmirSmax_pattern, gmirSmin_pattern, gmirUmax_pattern, gmirUmin_pattern] ++
-  gmirIcmpPatterns
-
-/-- The pass: the three loops, through the module-filtered driver. Its soundness is
-`ISelPass.run_sound`. -/
-public def ISelPass.run : PurePass :=
-  checkedFunctionsPasses "isel-riscv64" [
-    RewritePattern.GreedyRewritePattern (iselComposedPatterns.map fun rule => rule.compile.run),
-    RewritePattern.GreedyRewritePattern (iselEarlyPatterns.map fun rule => rule.compile.run),
-    RewritePattern.GreedyRewritePattern (iselMainPatterns.map fun rule => rule.compile.run)]
-
-public def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
-    ExceptT String IO (WfIRContext OpCode) :=
-  ExceptT.mk (pure (ISelPass.run ctx op))
-=======
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   /- Composed loop: select expressions of several gMIR operations into one instruction, before
@@ -2219,7 +2155,6 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   match RewritePattern.applyToFunctions pattern ctx op with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
->>>>>>> origin
 
 public def IselRISCV64 : Pass OpCode :=
   { name := "isel-riscv64"
