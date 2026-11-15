@@ -110,33 +110,32 @@ theorem shl_eq {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool) :
 
 /-! # Refinement -/
 
-theorem getLsbD_of_isRefinedBy' {w : Nat} {b b' : Byte w} (h : b ⊒ b') {m : Nat}
-    (hm : m < w) :
+theorem getLsbD_of_isRefinedBy' {w m : Nat} {b b' : Byte w} (h : b ⊒ b') :
     b.poison.getLsbD m = true ∨
       (b.val.getLsbD m = b'.val.getLsbD m ∧ b'.poison.getLsbD m = false) := by
   have h' := congrArg (·.getLsbD m) h
   by_cases htrue : b.poison.getLsbD m = true
   · simp [htrue]
-  · simp only [BitVec.getLsbD_or, htrue, BitVec.getLsbD_and, BitVec.getLsbD_xor,
-      BitVec.getLsbD_not, Bool.false_or, BitVec.getLsbD_allOnes, Bool.false_eq_true, false_or] at ⊢ h'
-    simp only [hm, decide_true, Bool.true_and, Bool.bne_not, Bool.and_eq_true,
-      Bool.not_eq_eq_eq_not, Bool.not_true, bne_eq_false_iff_eq] at h'
-    exact h'
+  · by_cases hlt : m < w
+    · simp only [BitVec.getLsbD_or, htrue, BitVec.getLsbD_and, BitVec.getLsbD_xor,
+        BitVec.getLsbD_not, hlt, decide_true, Bool.true_and, Bool.bne_not, Bool.false_or,
+        BitVec.getLsbD_allOnes, Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
+        bne_eq_false_iff_eq] at h'
+      simp [htrue, h']
+    · simp_all
 
-/-- Byte refinement from its per-bit form. -/
-private theorem isRefinedBy_of_getLsbD {w : Nat} {b b' : Byte w}
+theorem isRefinedBy_of_getLsbD {w : Nat} {b b' : Byte w}
     (h : ∀ m < w, b.poison.getLsbD m = true ∨
       (b.val.getLsbD m = b'.val.getLsbD m ∧ b'.poison.getLsbD m = false)) : b ⊒ b' := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro m hm
-  simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_xor,
-    BitVec.getLsbD_not, BitVec.getLsbD_allOnes, hm, decide_true, Bool.true_and]
-  rcases h m hm with h₁ | ⟨h₂, h₃⟩
-  · simp [h₁]
-  · simp [h₂, h₃]
+  ext k hk
+  specialize h k hk
+  simp only [BitVec.getElem_or, BitVec.getElem_and, BitVec.getElem_xor, BitVec.getElem_not,
+    Bool.bne_not, BitVec.getElem_allOnes, Bool.or_eq_true, Bool.and_eq_true, Bool.not_eq_eq_eq_not,
+    Bool.not_true, bne_eq_false_iff_eq]
+  simp [← BitVec.getLsbD_eq_getElem, h]
 
 /-- Shifting left and back right keeps `a` iff its top `s` bits are zero. -/
-private theorem shiftLeft_ushiftRight_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
+theorem shiftLeft_ushiftRight_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
     (a <<< s) >>> s = a ↔ ∀ i < w, w ≤ s + i → a.getLsbD i = false := by
   constructor
   · intro h i hi hs
@@ -153,7 +152,7 @@ private theorem shiftLeft_ushiftRight_eq_iff {w : Nat} (a : BitVec w) (s : Nat) 
     · simp [hs, h i hi (Nat.not_lt.mp hs)]
 
 /-- Shifting right and back left keeps `a` iff its low `s` bits are zero. -/
-private theorem ushiftRight_shiftLeft_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
+theorem ushiftRight_shiftLeft_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
     (a >>> s) <<< s = a ↔ ∀ i < w, i < s → a.getLsbD i = false := by
   constructor
   · intro h i hi hs
@@ -172,18 +171,26 @@ private theorem ushiftRight_shiftLeft_eq_iff {w : Nat} (a : BitVec w) (s : Nat) 
 /--
 If the bits of `x` selected by `P` are neither poison nor set, the same holds in a refinement.
 -/
-private theorem bits_false_of_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x')
+theorem bits_false_of_isRefinedBy {w i: Nat} {x x' : Byte w} (h : x ⊒ x')
     (P : Nat → Prop)
-    (hv : ∀ i < w, P i → x.val.getLsbD i = false)
-    (hp : ∀ i < w, P i → x.poison.getLsbD i = false) :
-    (∀ i < w, P i → x'.val.getLsbD i = false) ∧
-      (∀ i < w, P i → x'.poison.getLsbD i = false) := by
-  constructor
-  all_goals
-    intro i hi hP
-    rcases getLsbD_of_isRefinedBy' h hi with h₁ | ⟨h₂, h₃⟩
-    · simp [hp i hi hP] at h₁
-    · first | exact h₃ | rw [← h₂]; exact hv i hi hP
+    (hv : P i → x.val.getLsbD i = false)
+    (hp : P i → x.poison.getLsbD i = false) :
+    (P i → x'.val.getLsbD i = false) ∧ (P i → x'.poison.getLsbD i = false) := by
+  have := congrArg (·.getLsbD i) h
+  and_intros
+  ·
+    by_cases hp : P i
+    · simp [hp] at *
+      by_cases hlt : i < w
+      · simp [hlt] at *
+        simp [hp, hv] at this
+        simp [this]
+      · simp [show ¬ i < w by omega] at *
+        sorry
+    · sorry
+
+  ·
+    sorry
 
 /-- Truncation is monotone under refinement. -/
 theorem trunc_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') (w' : Nat) :
