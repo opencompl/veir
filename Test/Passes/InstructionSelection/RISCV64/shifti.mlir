@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
+// RUN: RISCVTV
 
 // Shifts by a constant in [0, 63] select to their immediate form
 // (PatGprUimmLog2XLen<{shl,srl,sra}, ...>).

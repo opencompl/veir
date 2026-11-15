@@ -1,5 +1,6 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
+// RUN: RISCVTV
 
 // `llvm.call` and `llvm.return` go through the `riscv` pipeline to LLVM's call
 // and return sequences. The `i32` argument is sign-extended (`ADDIW 0`) before
@@ -10,7 +11,7 @@
   }) : () -> ()
   "llvm.func"() <{sym_name = "caller", function_type = !llvm.func<i64 (i64, i32)>}> ({
   ^bb0(%a: i64, %b: i32):
-    %r = "llvm.call"(%a, %b) <{callee = @ext}> : (i64, i32) -> i64
+    %r = "llvm.call"(%a, %b) <{callee = @ext, op_bundle_sizes = array<i32>, operandSegmentSizes = array<i32: 2, 0>}> : (i64, i32) -> i64
     %s = "llvm.add"(%r, %a) : (i64, i64) -> i64
     "llvm.return"(%s) : (i64) -> ()
   }) : () -> ()
