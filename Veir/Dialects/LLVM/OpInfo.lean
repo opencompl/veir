@@ -1244,8 +1244,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         | none => throw s!"llvm.switch: missing case_values for {caseSegments.size} case(s)"
         | some attr => throw s!"llvm.switch: expected case_values to be a tensor or vector of \
             {caseSegments.size} {intType} value(s), but got {attr}"
-    /- The interpreter reads bit patterns, while lowering reads case values. These
-       representations must agree, including for programmatically constructed IR. -/
+    /- We store two representations of the switch case values, and they must agree. -/
     if caseValues.bits != caseValues.values.map (fun v =>
         (BitVec.ofInt intType.bitwidth v).toNat) then
       throw "llvm.switch: case bit patterns disagree with case values"
