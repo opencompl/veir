@@ -1,4 +1,4 @@
-// RUN: veir-interpret --ctree %s | filecheck %s
+// RUN: CTREE
 // RUN: LLUBI
 
 // Undefined behavior in a callee is undefined behavior of the whole program, not just of the call.

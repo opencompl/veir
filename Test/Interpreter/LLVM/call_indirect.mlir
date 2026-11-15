@@ -1,4 +1,4 @@
-// RUN: veir-interpret --ctree %s | filecheck %s
+// RUN: CTREE
 // RUN: LLUBI
 
 // `main` calls a function through a pointer it loads, so the call stays indirect in LLVM IR.

@@ -94,7 +94,7 @@ def MemoryState.pointerToGlobal (mem : MemoryState) (symbol : String) : Option P
   let obj ← mem.objects[i]?
   return ⟨obj.base⟩
 
-/-- The global whose object starts at `p`, if any; the inverse of `pointerToGlobal`. -/
+/-- The global whose object starts at `p`, if the memory has one. -/
 def MemoryState.globalAt? (mem : MemoryState) (p : Pointer) : Option String :=
   mem.globals.keys.find? (mem.pointerToGlobal · = some p)
 

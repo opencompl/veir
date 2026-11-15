@@ -1,4 +1,4 @@
-// RUN: veir-interpret --ctree %s | filecheck %s
+// RUN: CTREE
 // RUN: LLUBI
 
 // Calling a pointer to an object that is not a function is undefined behavior.

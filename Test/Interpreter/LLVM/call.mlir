@@ -1,4 +1,4 @@
-// RUN: veir-interpret --ctree %s | filecheck %s
+// RUN: CTREE
 // RUN: LLUBI
 
 // The callee writes through a pointer from `main`, which then reads the store.

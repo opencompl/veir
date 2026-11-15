@@ -1,4 +1,4 @@
-// RUN: veir-interpret --ctree %s | filecheck %s
+// RUN: CTREE
 // RUN: LLUBI
 
 // Calling a pointer past the start of a function is undefined behavior.
