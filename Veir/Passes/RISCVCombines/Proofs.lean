@@ -123,12 +123,6 @@ theorem add_li_to_addi_commuted {x : Reg} {p : RISCVImmediateProperties}
     RISCV.add x (RISCV.li p.value) = RISCV.addi (p.immField 12) x := by
   guarded_bv_decide
 
-<<<<<<< HEAD
-/-- `riscv.li 0 -> rv64.get_register x0` (`li_zero_to_x0`): `x0` reads as the zero register
-    value, which is what `li 0` materializes. -/
-theorem li_zero_to_x0 : RISCV.li 0#64 = ⟨0#64⟩ := by
-  simp [RISCV.li]
-=======
 /-- Both sides retain bits 31:0 and clear bits 63:32. -/
 theorem and_li_to_zextw {x : Reg} :
     RISCV.and (RISCV.li 0xffffffff#64) x = RISCV.zextw x := by
@@ -142,7 +136,6 @@ theorem and_li_to_zextw_commuted {x : Reg} :
 /-! Shift-amount combines (R1). Register semantics take `(amount, data)`,
     the reverse of the SSA operand order. The mask hypotheses use the exact
     64-bit immediate-property predicate from the Puddle matcher. -/
->>>>>>> origin
 
 /-! Shift-amount combines. The amount is SSA operand 1, i.e. the first argument of the
     register operation. The mask hypotheses are the guard of `drop_shift_amount_mask_pattern`. -/
@@ -1041,8 +1034,6 @@ theorem drop_sextw_zextw {rs1 : Reg} :
 end Veir.Data.RISCV
 
 end
-<<<<<<< HEAD
-=======
 
 namespace Veir.RISCV
 
@@ -1169,4 +1160,3 @@ theorem drop_sraw_amount_zextw_valid (h : ReadsLowWord .sraw 2) :
   proveShiftAmountZextValid Data.RISCV.sraw_amount_zextw
 
 end Veir.RISCV
->>>>>>> origin
