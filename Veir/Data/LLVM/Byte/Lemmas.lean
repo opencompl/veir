@@ -256,7 +256,6 @@ theorem toInt_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') :
     simp [hk] at this
     simp [this]
 
-/-- Converting an integer to a byte is monotone under refinement. -/
 theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : i ⊒ i') :
     fromInt i ⊒ fromInt i' := by
   simp only [fromInt, BitVec.ofNat_eq_ofNat]
