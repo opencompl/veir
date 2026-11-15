@@ -29,13 +29,7 @@ This section defines the predicate `Pattern.Supported` that specify what kind of
 allowed in a Puddle pattern.
 -/
 
-<<<<<<< HEAD
-/-- No operation should be a terminator. Every operation may have memory effects: a pattern only
-reuses the results of the operations it matches below its root, so they keep running as before, and
-`CanInterpretTo` only assumes that they ran in some memory. -/
-=======
 /-- No operation should be a terminator. -/
->>>>>>> origin
 @[expose]
 def Pattern.Supported (rule : Pattern OpCode) : Prop :=
   (∀ decl ∈ rule.matcher.decls,
@@ -56,13 +50,7 @@ remains in scope both in the updated assignment and in the final proposition.
 
 /--
 The predicate of possible outcomes of an operation matched below the root: it produced `results`
-<<<<<<< HEAD
-when it ran in some memory, which it may have changed. A pure operation produces the same results in
-every memory, but an operation reading memory, such as a load, does not, and the pattern only reuses
-the results of the run it matched. This definition only makes sense for operations that have
-=======
 when it ran in some memory, which it may have changed. This definition only makes sense for operations that have
->>>>>>> origin
 `PureOrErr` semantics.
 -/
 @[expose]
@@ -73,10 +61,6 @@ def CanInterpretTo (opCode : OpCode) (property : propertiesOf opCode)
     PureOrErr.CanInterpretTo
       (Veir.CTree.interpretOp' opCode property resultTypes operands #[] memory)
       (results.map (·, memory', none))
-<<<<<<< HEAD
-
-=======
->>>>>>> origin
 /--
 Collect the constraints of a matching declaration on the given assignment,
 and call the continuation with the updated assignment.
