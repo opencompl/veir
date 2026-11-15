@@ -106,6 +106,8 @@ def spillOp (ctx : WfIRContext OpCode) (state : SpillState)
   let numberToEvict := (state.loadedValues.union operands).size - numRegisters
   let evictable := state.loadedValues.toArray.filter (!operands.contains ·)
 
+  if evictable.size < numberToEvict then
+    throw s!"register spilling: operation needs more than {numRegisters} registers"
   -- Future work: use sensible heuristic for choosing which values to evict
   let chosen := evictable.take numberToEvict
   for valueToEvict in chosen do
@@ -191,6 +193,10 @@ def spillBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
   let (ctx, state) ← spillOps ctx {} lastUses numRegisters (block.getFirstOp! ctx.raw)
   return (ctx, state.slots)
 
+end RegisterSpilling
+/-- RV64 has 32 registers, but we don't allocate x0 (zero), x1 (ra), x3 (gp) and x4 (tp)
+TODO: As spilling is integrated with the register allocation pass and calling convention/ control flow is supported, this will become a dynamic value  -/
+def rv64NumRegisters : Nat := 28
 
 /-- The pass entry point: `spillModule`, lifted into the pass monad. -/
 def RegisterSpillingPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
@@ -198,11 +204,11 @@ def RegisterSpillingPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     let entries ← allocatableBlocks ctx op
     let mut ctx := ctx
     for entry in entries do
-        (ctx, _) ← spillBlock ctx entry 20
+        (ctx, _) ← RegisterSpilling.spillBlock ctx entry rv64NumRegisters
     return ctx
 
 public def RegisterSpillingPass : Pass OpCode :=
   { name := "register-spilling-riscv64"
     description := "Spill values to the stack so that single-block riscv functions never \
-                    have more live values than RV64 allocatable registers."
+                    have more live values than RV64 has registers."
     run := fun _ => RegisterSpillingPass.impl }
