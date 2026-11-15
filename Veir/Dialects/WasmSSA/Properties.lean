@@ -9,22 +9,40 @@ public section
 
 /-! ## Properties -/
 
+structure WasmSSABranchIfProperties where
+  exitLevel : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def WasmSSABranchIfProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String WasmSSABranchIfProperties := do
+  let exitLevel ← match attrDict["exitLevel".toUTF8]? with
+    | some (.integerAttr n) => pure n
+    | some attr => throw s!"wasmssa.branch_if: expected 'exitLevel' to be an integer, but got {attr}"
+    | none => throw "wasmssa.branch_if: missing 'exitLevel' property"
+  return { exitLevel }
+
+def WasmSSABranchIfProperties.toAttrDict (props : WasmSSABranchIfProperties) : Std.HashMap ByteArray Attribute :=
+  Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    dict := dict.insert "exitLevel".toUTF8 (.integerAttr props.exitLevel)
+    dict
+
 structure WasmSSACallProperties where
-  callee : StringAttr
+  callee : FlatSymbolRefAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def WasmSSACallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String WasmSSACallProperties := do
-  let value ← match attrDict["callee".toUTF8]? with
-    | some (.stringAttr a) => pure a
+  let callee ← match attrDict["callee".toUTF8]? with
+    | some (.flatSymbolRefAttr a) => pure a
     | some attr => throw s!"wasmssa.call: expected 'callee' to be a symbol name, but got {attr}"
-    | none => throw "wasmssa.call: missing callee property"
-  return { callee := value }
+    | none => throw "wasmssa.call: missing 'callee' property"
+  return { callee }
 
 def WasmSSACallProperties.toAttrDict (props : WasmSSACallProperties) : Std.HashMap ByteArray Attribute :=
   Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
-    dict := dict.insert "callee".toUTF8 (.stringAttr props.callee)
+    dict := dict.insert "callee".toUTF8 (.flatSymbolRefAttr props.callee)
     dict
 
 structure WasmSSAConstProperties where
@@ -37,12 +55,32 @@ def WasmSSAConstProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     | some (.integerAttr a) => pure a
     | some attr => throw s!"wasmssa.const: expected 'value' to be a typed attribute, but got {attr}"
     | none => throw "wasmssa.const: missing 'value' property"
-  return { value := value }
+  return { value }
 
 def WasmSSAConstProperties.toAttrDict (props : WasmSSAConstProperties) : Std.HashMap ByteArray Attribute :=
   Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     dict := dict.insert "value".toUTF8 (.integerAttr props.value)
+    dict
+
+structure WasmSSAExtendProperties where
+  bitsToTake : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def WasmSSAExtendProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String WasmSSAExtendProperties := do
+  let bitsToTake ← match attrDict["bitsToTake".toUTF8]? with
+    | some (.integerAttr n) => pure n
+    | some attr => throw s!"wasmssa.extend: Expected 'bitsToTake' to be an integer, but got {attr}"
+    | none => throw "wasmssa.extend: missing 'bitstoTake' property"
+  if bitsToTake.value < 0 then
+    throw "wasmssa.extend: Expected positive value for 'bitsToTake'"
+  return { bitsToTake }
+
+def WasmSSAExtendProperties.toAttrDict (props : WasmSSAExtendProperties) : Std.HashMap ByteArray Attribute :=
+  Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    dict := dict.insert "bitsToTake".toUTF8 (.integerAttr props.bitsToTake)
     dict
 
 /--
@@ -65,10 +103,10 @@ def WasmSSAFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribu
   let funcType ← match attrDict["functionType".toUTF8]? with
     | some (.functionType ft) => pure ft
     | some attr =>
-      throw s!"cir.func: expected 'functionType' to be a MLIR functionType, but got {attr}"
+      throw s!"wasmssa.func: expected 'functionType' to be a MLIR functionType, but got {attr}"
     | none => throw "wasmssa.func: missing functionType property"
   let extra := DictionaryAttr.fromArray
-    (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
+    (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "functionType".toUTF8)
   return { sym_name := symName, function_type := funcType, extra }
 
 /-! ## Attribute dictionaries -/

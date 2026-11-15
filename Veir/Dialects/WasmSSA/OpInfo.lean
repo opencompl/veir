@@ -18,7 +18,7 @@ inductive WasmSSA where
 | and
 | block
 | block_return
--- | branch_if
+| branch_if
 | call
 -- | ceil
 | clz
@@ -33,9 +33,9 @@ inductive WasmSSA where
 | div_ui
 | eq
 | eqz
--- | extend
--- | extend_i32_s
--- | extend_i32_u
+| extend
+| extend_i32_s
+| extend_i32_u
 -- | floor
 | func
 -- | ge
@@ -77,12 +77,12 @@ inductive WasmSSA where
 | rem_si
 | rem_ui
 | return
--- | rotl
--- | rotr
+| rotl
+| rotr
 -- | select
--- | shl
--- | shr_s
--- | shr_u
+| shl
+| shr_s
+| shr_u
 -- | sqrt
 | sub
 -- | table
@@ -98,8 +98,10 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 @[expose, properties_of]
 def WasmSSA.propertiesOf (op : WasmSSA) : Type :=
   match op with
+  | .branch_if => WasmSSABranchIfProperties
   | .call => WasmSSACallProperties
   | .const => WasmSSAConstProperties
+  | .extend => WasmSSAExtendProperties
   | .func => WasmSSAFuncProperties
   | _ => Unit
 
@@ -107,8 +109,10 @@ def WasmSSA.fromAttrDict
     (op : WasmSSA) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (WasmSSA.propertiesOf op) :=
   match op with
+  | .branch_if => WasmSSABranchIfProperties.fromAttrDict attrDict
   | .call => WasmSSACallProperties.fromAttrDict attrDict
   | .const => WasmSSAConstProperties.fromAttrDict attrDict
+  | .extend => WasmSSAExtendProperties.fromAttrDict attrDict
   | .func => WasmSSAFuncProperties.fromAttrDict attrDict
   | .add
   | .and
@@ -120,6 +124,8 @@ def WasmSSA.fromAttrDict
   | .div_ui
   | .eq
   | .eqz
+  | .extend_i32_s
+  | .extend_i32_u
   | .ge_si
   | .ge_ui
   | .gt_si
@@ -135,6 +141,11 @@ def WasmSSA.fromAttrDict
   | .rem_si
   | .rem_ui
   | .return
+  | .rotl
+  | .rotr
+  | .shl
+  | .shr_s
+  | .shr_u
   | .sub
   | .xor => .ok ()
 
@@ -142,7 +153,7 @@ def WasmSSA.toAttrDict
     (op : WasmSSA) (props : WasmSSA.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
-  | .call | .const | .func => props.toAttrDict
+  | .call | .const | .extend | .func => props.toAttrDict
   | _ => Std.HashMap.emptyWithCapacity 0
 
 #generate_dialect WasmSSA
@@ -162,21 +173,23 @@ containing the `wasmssa` dialect.
 def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo WasmSSA] (opType : WasmSSA) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let ty := op.getOpType ctx.raw opIn
+  dbg_trace s!"Op `{(String.fromUTF8? opType.name).or ("unknown")}` with {(op.getOperands ctx.raw opIn).size} \
+    operands, {(op.getResults ctx.raw opIn).size} results, \
+    {(IsOpCode.toAttrDict ty (op.getProperties ctx.raw ty)).size} properties, \
+    {(op.getAttributes ctx.raw opIn).entries.size} attributes, \
+    {(op.getRegions ctx.raw opIn).size} regions, \
+    {(op.getSuccessors ctx.raw opIn).size} successors"
   match opType with
   | .add | .sub | .mul -- <-- TODO: split out and account for float ops when support added
-  | .and | .or | .xor | .div_si | .div_ui | .rem_si | .rem_ui => do
+  | .and | .or | .xor | .div_si | .div_ui | .rem_si | .rem_ui
+  | .shl | .shr_s | .shr_u | .rotl | .rotr => do
     op.verifyIntegerBinop ctx opIn
-  | .clz | .ctz | .popcnt => do
+  | .clz | .ctz | .popcnt | .extend => do
     let _ ← op.verifyIntegerUnop ctx opIn
   | .eq | .ne -- <-- TODO: split out and add float checks when support added
   | .lt_si | .lt_ui | .le_si | .le_ui | .gt_si | .gt_ui | .ge_si | .ge_ui => do
       op.verifyCmpResultGeneric ctx opIn (IntegerType.signless 32)
-  | .eqz => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    let operand := op.getOperand! ctx.raw 1
-    let bitness_error_msg := "wasmssa.eqz: Expected i32 or i64 operand type"
-    ((operand.getType! ctx.raw).verifyI32 bitness_error_msg) <|> ((operand.getType! ctx.raw).verifyI64 bitness_error_msg)
-    op.verifyResultTypeMatches ctx (IntegerType.signless 32) "wasmssa.eqz: Expected i32 result type"
   | .block => do
     -- `block` is a terminator of the enclosing block that owns a body region.
     -- Its `inputs` seed the body's entry-block arguments, and `target` is
@@ -208,12 +221,23 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"wasmssa.block_return: Expected {target.getNumArguments! ctx.raw} operand(s) \
         to match the target's block arguments, got {op.getNumOperands ctx.raw opIn}"
     op.verifyOperandTypesMatchTypeArray ctx 0 ((target.getArgumentTypes! ctx.raw).map (·.val)) "wasmssa.block_return: target"
+  | .branch_if => do
+    op.verifyTerminatorCounts ctx opIn 1
+    let some parent := op.getParentOp! ctx.raw
+      | throw "wasmssa.block_return: Expected to be nested in a 'wasmssa.block'"
+    if toDialect? WasmSSA (parent.getOpType! ctx.raw) ≠ some WasmSSA.block then
+      throw "wasmssa.block_return: Expected to be nested in a 'wasmssa.block'"
+    if parent.getNumSuccessors! ctx.raw ≠ 1 then
+      throw "wasmssa.block_return: Expected the enclosing 'wasmssa.block' to have 1 successor"
+    let target := parent.getSuccessor! ctx.raw 0
+    if op.getNumOperands ctx.raw opIn ≠ target.getNumArguments! ctx.raw then
+      throw s!"wasmssa.block_return: Expected {target.getNumArguments! ctx.raw} operand(s) \
+        to match the target's block arguments, got {op.getNumOperands ctx.raw opIn}"
+    op.verifyOperandTypesMatchTypeArray ctx 0 ((target.getArgumentTypes! ctx.raw).map (·.val)) "wasmssa.block_return: target"
   | .call => do
     -- Upstream wasmssa doesn't seem to bother checking whether calls
     -- match callee signatures, and it's non-obvious how to do that
     -- efficiently in VeIR, so skipping for now.
-    if op.getNumOperands ctx.raw opIn = 0 then
-      throw "wasmssa.call: Expected calle name"
     if op.getNumRegions ctx.raw opIn != 0 then
       throw "wasmssa.call: Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn != 0 then
@@ -230,6 +254,19 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let result_type := (op.getResult 0).getType! ctx.raw
     if result_type.val != .integerType const_type then
       throw s!"wasmssa.const: Expected value and result types to match ({const_type} ≠ {result_type})"
+  | .eqz => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    let operand := op.getOperand! ctx.raw 1
+    let bitness_error_msg := "wasmssa.eqz: Expected i32 or i64 operand type"
+    ((operand.getType! ctx.raw).verifyI32 bitness_error_msg) <|> ((operand.getType! ctx.raw).verifyI64 bitness_error_msg)
+    op.verifyResultTypeMatches ctx (IntegerType.signless 32) "wasmssa.eqz: Expected i32 result type"
+  | .extend_i32_s | .extend_i32_u => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    let name := String.fromUTF8! opType.name
+    let in_type := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    if in_type ≠ IntegerType.signless 32 then
+      throw s!"{name}: Exected 32-bit signless integer operand"
+    op.verifyResultTypeMatches ctx (IntegerType.signless 64) s!"{name}: Expected 64-bit signless integer result type"
   | .func => do
     if op.getNumRegions ctx.raw opIn ≠ 1 then
       throw "wasmssa.func: Expected 1 region"
@@ -256,6 +293,11 @@ def WasmSSA.getEffects
 
 def WasmSSA.isConstantLike (op : WasmSSA) : Bool :=
   match op with
+  | .const => true
+  | _ => false
+
+def WasmSSA.isCommutative (op : WasmSSA) : Bool :=
+  match op with
   | _ => false
 
 def WasmSSA.symbolInterface? (op : WasmSSA) : Option (SymbolOpInterface (WasmSSA.propertiesOf op)) :=
@@ -273,7 +315,20 @@ def WasmSSA.functionInterface? (op : WasmSSA) : Option (FunctionOpInterface (Was
     }
   | _ => none
 
+def WasmSSA.callOpInterface? (op : WasmSSA) : Option (CallOpInterface (WasmSSA.propertiesOf op)) :=
+  match op with
+  | .call =>
+    some {
+        getCallableForCallee? := fun props _ => some (CallInterfaceCallable.symbol props.callee)
+        getArgOperands := fun _ args => args
+    }
+  | _ => none
+
 def WasmSSA.branchOpInterface? (op : WasmSSA) : Option (BranchOpInterface (WasmSSA.propertiesOf op)) :=
+  match op with
+  | _ => none
+
+def WasmSSA.unconditionalBranch? (op : WasmSSA) (props : WasmSSA.propertiesOf op) : Option (OpKind WasmSSA) :=
   match op with
   | _ => none
 
@@ -283,21 +338,24 @@ def WasmSSA.hasSSADominance (_op : WasmSSA) (_index : Nat) : Bool :=
 @[is_terminator]
 def WasmSSA.isTerminator (op : WasmSSA) : Bool :=
   match op with
-  | .block | .block_return | .return => true
+  | .block | .block_return | .branch_if | .return => true
   | _ => false
 
 def WasmSSA.isIsolatedFromAbove (op : WasmSSA) : Bool :=
   match op with
+  | .func => true
   | _ => false
-
 
 instance : HasOpInfo WasmSSA where
   verifyLocalInvariants := WasmSSA.verifyLocalInvariants
   getEffects := WasmSSA.getEffects
   isConstantLike := WasmSSA.isConstantLike
+  isCommutative := WasmSSA.isCommutative
   symbolInterface? := WasmSSA.symbolInterface?
   functionInterface? := WasmSSA.functionInterface?
+  callOpInterface? := WasmSSA.callOpInterface?
   branchOpInterface? := WasmSSA.branchOpInterface?
+  unconditionalBranch? := WasmSSA.unconditionalBranch?
   hasSSADominance := WasmSSA.hasSSADominance
   isTerminator := WasmSSA.isTerminator
   isIsolatedFromAbove := WasmSSA.isIsolatedFromAbove

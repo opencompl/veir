@@ -630,6 +630,7 @@ def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) 
   | .seq op, props => lift op props
   | .tensor op, props => lift op props
   | .smt op, props => lift op props
+  | .wasmssa op, props => lift op props
 where
   lift {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode Dialect]
       (op : Dialect) (props : propertiesOf op) : Option (OpKind OpCode) := do
