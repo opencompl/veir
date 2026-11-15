@@ -2,6 +2,9 @@ module
 
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.RISCV.Reg.Lemmas
+public import Veir.ForLean
+public import Veir.Dialects.RISCV.Properties
+public import Veir.Passes.RISCVCombines.Combine
 
 import Veir.Meta.Tactic.BVDecide
 import Std.Tactic.BVDecide
@@ -12,7 +15,6 @@ meta import Std.Tactic.BVDecide.Reflect
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Lemmas
 import all Veir.Passes.RISCVCombines.Combine
-import all Veir.PatternRewriter.Puddle.Validity
 import all Veir.Dialects.RISCV.OpInfo
 import all Veir.Dialects.RISCV.Properties
 import all Veir.GlobalOpInfo

@@ -71,4 +71,18 @@ def Builtin.interpretOpCTree {EIn : Type} {E : EIn → Type}
     Builtin.interpretUnrealizedConversionCastCTree resultTypes operands mem
   | _ => fail
 
+theorem Builtin.interpretUnrealizedConversionCastCTree_reg_int
+    {EIn : Type} {E : EIn → Type} [ErrorE -< E] [UBE -< E]
+    {bw : Nat} (value : Data.LLVM.Int bw) (mem : MemoryState) :
+  Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
+    #[RuntimeValue.int bw value] mem =
+  match value with
+  | .val value => return (#[.reg ⟨value.zeroExtend 64⟩], mem, none)
+  | .poison => (do
+    let bits : FreezeC (.mk 64) ← CTree.choose (FreezeCIn.mk 64)
+    return (#[.reg ⟨bits⟩], mem, none)) := by
+  cases value <;>
+    simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
+      -Attribute.registerType_eq_of]
+
 end Veir
