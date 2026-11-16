@@ -1240,6 +1240,39 @@ theorem ofInt_two_pow_eq_setWidth_allones {v w : Nat} :
   apply BitVec.eq_of_toInt_eq
   simp [Int.ofNat_sub (by exact Nat.one_le_two_pow (n := w))]
 
+/-- Shifting left and back right keeps `a` iff its top `s` bits are zero. -/
+theorem shiftLeft_ushiftRight_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
+    (a <<< s) >>> s = a ↔ ∀ i < w, w ≤ s + i → a.getLsbD i = false := by
+  constructor
+  · intro h i hi hs
+    have := congrArg (·.getLsbD i) h
+    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft] at this
+    rw [← this]
+    simp [Nat.not_lt.mpr hs]
+  · intro h
+    apply BitVec.eq_of_getLsbD_eq
+    intro i hi
+    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft]
+    by_cases hs : s + i < w
+    · simp [hs, Nat.add_sub_cancel_left]
+    · simp [hs, h i hi (Nat.not_lt.mp hs)]
+
+/-- Shifting right and back left keeps `a` iff its low `s` bits are zero. -/
+theorem ushiftRight_shiftLeft_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
+    (a >>> s) <<< s = a ↔ ∀ i < w, i < s → a.getLsbD i = false := by
+  constructor
+  · intro h i hi hs
+    have := congrArg (·.getLsbD i) h
+    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft] at this
+    rw [← this]
+    simp [hs]
+  · intro h
+    apply BitVec.eq_of_getLsbD_eq
+    intro i hi
+    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft]
+    by_cases hs : i < s
+    · simp [hs, h i hi hs]
+    · simp [hs, hi, Nat.add_sub_cancel' (Nat.not_lt.mp hs)]
 
 end BitVec
 
