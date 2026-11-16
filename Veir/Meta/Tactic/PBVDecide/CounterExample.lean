@@ -34,6 +34,8 @@ meta structure BitVecCex where
   width : WidthMaskCex
   /-- User facing variable name. -/
   name : Name
+  /-- The original parametric-width variable, in the goal before the translation. -/
+  origVar : FVarId
 
 /-- Concrete value in terms of the concrete width. -/
 meta def BitVecCex.assignedVal (self : BitVecCex) : BitVec self.width.val :=
@@ -90,7 +92,7 @@ meta def getBitVecCounterExamples (bvInfos : BitVecInfos) (widthCexs: WidthMaskC
     | some (eq, bv) => do
       let some widthCex := widthCexs[bvinfo.bvWidthTm]?
         | throwError m!"Width ({← bvinfo.bvWidthTm.toName}) of BitVec {name} is missing from the generated counterexamples."
-      return {counterExample := (eq, bv), width := widthCex, name}
+      return {counterExample := (eq, bv), width := widthCex, name, origVar := bvinfo.origVar}
     | none =>
       throwError m!"No counterexample generated for BitVec {name}"
   )
@@ -106,13 +108,98 @@ meta def leafCounterExample? (translated : Translated) (widthCexs : WidthMaskCex
   let some widthCex := widthCexs[widthTm]? | return none
   return some m!"{t} = {bv.bv.setWidth widthCex.val}"
 
+/-- The outcome of checking a decoded counterexample against the original goal. -/
+meta inductive CexCheck where
+  /-- The assignment satisfies every hypothesis and falsifies the goal. -/
+  | confirmed
+  /-- The assignment does not falsify the original goal. -/
+  | spurious (reason : MessageData)
+  /-- The assignment could not be evaluated on the original goal. -/
+  | unchecked (reason : MessageData)
+
+/--
+Decide a closed proposition by evaluating its `Decidable` instance. Returns
+`none` if `p` is not closed, has no instance, or does not reduce to a literal.
+-/
+meta def evalDecide? (p : Expr) : MetaM (Option Bool) := do
+  if p.hasFVar || p.hasMVar then return none
+  try
+    let r ← withAtLeastTransparency .default <| whnf (← mkDecide p)
+    if r.isConstOf ``true then return some true
+    if r.isConstOf ``false then return some false
+    return none
+  catch _ => return none
+
+/--
+Check a decoded counterexample against the original, untranslated goal
+`origGoal`. Width variables are replaced by their decoded values and `BitVec`
+variables by literals, and each hypothesis and the goal are then decided by
+evaluation. A hypothesis that holds is replaced by its `decide` proof, so that
+later hypotheses and the goal that mention it become closed.
+
+The counterexample is confirmed only if every hypothesis holds and the goal is
+false; any other free variable (e.g. one that is neither a width nor a
+`BitVec`) leaves it unchecked.
+-/
+meta def checkCounterExample (origGoal : MVarId) (widthCexs : WidthMaskCexs)
+    (bitvecCexs : BitVecCexs) (counterExample : CounterExample) : MetaM CexCheck :=
+  origGoal.withContext do
+  let mut fvars : Array Expr := #[]
+  let mut vals : Array Expr := #[]
+  -- Width variables take their decoded values
+  for (widthTm, cex) in widthCexs do
+    if let .widthFVar _ fid := widthTm then
+      fvars := fvars.push (.fvar fid)
+      vals := vals.push (mkNatLit cex.val)
+  let widthFVars := fvars
+  let widthVals := vals
+  -- `BitVec` variables become literals at their (instantiated) width
+  for cex in bitvecCexs do
+    let some w := getBitvecType? (← instantiateMVars (← cex.origVar.getType)) | continue
+    let w := w.replaceFVars widthFVars widthVals
+    fvars := fvars.push (.fvar cex.origVar)
+    vals := vals.push <| mkApp2 (mkConst ``BitVec.ofNat) w (mkNatLit cex.assignedVal.toNat)
+  -- Concrete-width `BitVec` variables of the original goal take their value directly
+  for (e, bv) in counterExample.equations do
+    let some fid := e.fvarId? | continue
+    unless (← getLCtx).contains fid && !fvars.contains e do continue
+    let some w := getBitvecType? (← instantiateMVars (← fid.getType)) | continue
+    let some n := w.nat? | continue
+    unless n == bv.w do continue
+    fvars := fvars.push e
+    vals := vals.push <| mkApp2 (mkConst ``BitVec.ofNat) w (mkNatLit bv.bv.toNat)
+  -- Every hypothesis must hold
+  let mut undecided : Option MessageData := none
+  for ldecl in ← getLCtx do
+    if ldecl.isImplementationDetail || ldecl.isLet then continue
+    unless ← isProp ldecl.type do continue
+    let ty := (← zetaReduce (← instantiateMVars ldecl.type)).replaceFVars fvars vals
+    match ← evalDecide? ty with
+    | some true =>
+      fvars := fvars.push ldecl.toExpr
+      vals := vals.push (← mkDecideProof ty)
+    | some false =>
+      return .spurious m!"it violates the hypothesis {ldecl.userName} : {ty}"
+    | none =>
+      if undecided.isNone then
+        undecided := some m!"the hypothesis {ldecl.userName} : {ty} could not be decided"
+  -- The goal must be false
+  let target := (← zetaReduce (← instantiateMVars (← origGoal.getType))).replaceFVars fvars vals
+  match ← evalDecide? target with
+  | some false => return match undecided with
+    | some reason => .unchecked reason
+    | none => .confirmed
+  | some true => return .spurious m!"the goal holds for it: {target}"
+  | none => return .unchecked (undecided.getD m!"the goal {target} could not be decided")
+
 /--
 Convert a `bv_decide` counterexample into a message, mapping concrete mask `BitVec`
 values to concrete width `Nat` values, and keeping track if any counterexamples
 belong to expressions which have been abstracted as opaque variables, or if any
 widths were abstracted as atoms independent of the other widths.
 -/
-meta def prettyPrintCounterExample (counterExample : CounterExample) (translated : Translated) : MetaM MessageData := do
+meta def prettyPrintCounterExample (counterExample : CounterExample) (translated : Translated)
+    (origGoal : MVarId) : MetaM MessageData := do
   let widthCexs ← getWidthCounterExamples translated counterExample
   let bitvecCexs ← getBitVecCounterExamples translated.bitvecInfos widthCexs counterExample
 
@@ -135,10 +222,13 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (translated
     translated.widthInfos.keys.filterMap (fun | .widthAtom id => some id | _ => none)
       |>.toArray.qsort (· < ·) |>.map (translated.env[·]!)
 
+  let check ← checkCounterExample origGoal widthCexs bitvecCexs counterExample
+
   let mut err := m!""
-  if opaqueVariables.isEmpty && opaqueWidths.isEmpty then
+  match check with
+  | .confirmed =>
     err := err ++ "`pbv_decide` found a counterexample, consider the following assignment:\n"
-  else
+  | .spurious reason | .unchecked reason =>
     err := err ++ "`pbv_decide` found a potentially spurious counterexample.\n"
     unless opaqueWidths.isEmpty do
       err := err ++ "  The following widths were abstracted as independent variables:\n"
@@ -146,6 +236,10 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (translated
     unless opaqueVariables.isEmpty do
       err := err ++ "  The following expressions were abstracted as opaque variables:\n"
       err := opaqueVariables.foldl (init := err) (fun acc e => acc ++ m!"    - " ++ e ++ "\n")
+    if check matches .spurious _ then
+      err := err ++ m!"  The assignment does not falsify the original goal: {reason}.\n"
+    else
+      err := err ++ m!"  The assignment could not be checked against the original goal: {reason}.\n"
     err := err ++ "Consider the following assignment:\n"
 
   -- Sort the counterexamples by name
@@ -155,6 +249,8 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (translated
 
   err := widthCexsA.foldl (init := err) (fun acc cex => acc ++ m!"  {cex}\n")
   err := bitvecCexs.foldl (init := err) (fun acc cex => acc ++ m!"  {cex}\n")
+  if check matches .confirmed then
+    err := err ++ "The assignment satisfies the hypotheses and falsifies the original goal."
 
   return err
 
@@ -162,7 +258,8 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (translated
 Run `bv_decide` on a goal, throws with a pretty printed message if a
 counterexample was found.
 -/
-public meta def closeWithBvDecide (goal : MVarId) (translated : Translated) : TacticM Unit :=
+public meta def closeWithBvDecide (goal : MVarId) (translated : Translated) (origGoal : MVarId) :
+    TacticM Unit :=
   IO.FS.withTempFile fun _ lratFile => do
     let ctx ← TacticContext.new lratFile {}
     let params ← Grind.mkDefaultParams {}
@@ -171,7 +268,7 @@ public meta def closeWithBvDecide (goal : MVarId) (translated : Translated) : Ta
             <| bvDecide' (.mvarIdTarget goal) ctx with
     | .ok _ => return
     | .error counterExample => counterExample.goal.withContext do
-        let error ← prettyPrintCounterExample counterExample translated
+        let error ← prettyPrintCounterExample counterExample translated origGoal
         throwError (← addMessageContextFull error)
 
 end Veir.Meta.Tactic.PBVDecide

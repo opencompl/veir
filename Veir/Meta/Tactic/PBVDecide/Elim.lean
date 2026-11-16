@@ -215,7 +215,7 @@ meta def introBitvecFVarUnchecked (g : MVarId) (bvFVarId : FVarId) (widthTm : Wi
     | throwError m!"Expecting two intros from {g}"
 
   modifyGet fun s =>
-    (g, { s with bitvecInfos := s.bitvecInfos.push { bvVar, bvHyp, bvWidthTm := widthTm } })
+    (g, { s with bitvecInfos := s.bitvecInfos.push { bvVar, bvHyp, bvWidthTm := widthTm, origVar := bvFVarId } })
 
 /--
 Eliminate the bitvector variables to introduce the masked versions.

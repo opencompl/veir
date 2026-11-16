@@ -9,7 +9,7 @@ namespace Veir.Meta.Tactic.PBVDecide
 
 meta def Expr.isNat (e : Expr) : Bool := e.isConstOf ``Nat
 
-meta def getBitvecType? (e : Expr) : Option Expr :=
+public meta def getBitvecType? (e : Expr) : Option Expr :=
   match_expr e with
   | BitVec w => some w
   | _ => none
