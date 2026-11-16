@@ -1,6 +1,7 @@
 module
 
 public import Veir.Meta.Tactic.BVNormalizeSimp
+public import Veir.Meta.Tactic.ProofMarkers
 
 /-! ## Veir Bitblasting Tactic -/
 
@@ -16,10 +17,10 @@ better with the non-dependent `Int.getValueD`. Thus, `veir_bv_normalize_post`
 contains `Int.getValue_eq_getValueD`, which rewrites the former into the latter.
 -/
 @[expose] macro "veir_bv_normalize" : tactic =>
-  `(tactic| ((
+  `(tactic| veir_mark_normalized (((
       simp -failIfUnchanged only [veir_bv_normalize] <;>
       simp +contextual -failIfUnchanged
-        only [veir_bv_normalize_post, reduceIte])))
+        only [veir_bv_normalize_post, reduceIte]))))
 /-
 The lack of `only` is copied from the previous version of this tactic, and indeed
 some of the tests seem to rely on certain simp-lemmas from the default simp-set.
