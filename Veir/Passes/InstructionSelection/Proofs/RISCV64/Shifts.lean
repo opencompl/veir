@@ -3,6 +3,7 @@ module
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.Dialects.GMIR_RISCV.Semantics
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs: Integer shifts, including word and immediate forms. -/
 
@@ -20,6 +21,7 @@ attribute [local ctree_semantics]
 
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_bv]
 theorem gmirShl_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirShl_pattern := by
   unfold gmirShl_pattern
@@ -30,6 +32,7 @@ theorem gmirShl_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy, shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirLshr_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirLshr_pattern := by
   unfold gmirLshr_pattern
@@ -40,6 +43,7 @@ theorem gmirLshr_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy, shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirAshr_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAshr_pattern := by
   unfold gmirAshr_pattern
@@ -50,6 +54,7 @@ theorem gmirAshr_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy, shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirSlli_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSlli_pattern := by
   unfold gmirSlli_pattern
@@ -69,6 +74,7 @@ theorem gmirSlli_pattern_valid :
   cases a <;> simp_all [shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirSrli_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSrli_pattern := by
   unfold gmirSrli_pattern
@@ -88,6 +94,7 @@ theorem gmirSrli_pattern_valid :
   cases a <;> simp_all [shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirSrai_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSrai_pattern := by
   unfold gmirSrai_pattern
@@ -107,6 +114,7 @@ theorem gmirSrai_pattern_valid :
   cases a <;> simp_all [shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvSlliw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSlliw_pattern := by
   unfold gmirRiscvSlliw_pattern
@@ -126,6 +134,7 @@ theorem gmirRiscvSlliw_pattern_valid :
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
   all_goals (repeat' split) <;> simp_all -failIfUnchanged only [BitVec.ofNat_toNat] <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvSrliw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSrliw_pattern := by
   unfold gmirRiscvSrliw_pattern
@@ -145,6 +154,7 @@ theorem gmirRiscvSrliw_pattern_valid :
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
   all_goals (repeat' split) <;> simp_all -failIfUnchanged only [BitVec.ofNat_toNat] <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvSraiw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSraiw_pattern := by
   unfold gmirRiscvSraiw_pattern
@@ -164,6 +174,7 @@ theorem gmirRiscvSraiw_pattern_valid :
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
   all_goals (repeat' split) <;> simp_all -failIfUnchanged only [BitVec.ofNat_toNat] <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirSlliuw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSlliuw_pattern := by
   unfold gmirSlliuw_pattern
@@ -183,6 +194,7 @@ theorem gmirSlliuw_pattern_valid :
   cases a <;> simp_all [shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvSllw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSllw_pattern := by
   unfold gmirRiscvSllw_pattern
@@ -194,6 +206,7 @@ theorem gmirRiscvSllw_pattern_valid :
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
   all_goals (repeat' split) <;> simp_all -failIfUnchanged only [BitVec.ofNat_toNat] <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvSrlw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSrlw_pattern := by
   unfold gmirRiscvSrlw_pattern
@@ -205,6 +218,7 @@ theorem gmirRiscvSrlw_pattern_valid :
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
   all_goals (repeat' split) <;> simp_all -failIfUnchanged only [BitVec.ofNat_toNat] <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvSraw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSraw_pattern := by
   unfold gmirRiscvSraw_pattern

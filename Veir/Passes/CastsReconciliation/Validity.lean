@@ -20,6 +20,7 @@ import all Veir.Data.LLVM.Ptr.Basic
 import all Veir.Data.Casting
 import all Veir.Interpreter.Memory
 import all Init.Data.Array.Basic
+meta import Veir.Meta.ProofKind
 
 /-!
 # CTree validity of the cast reconciliation
@@ -209,18 +210,21 @@ theorem srli_slli_eq {w : Nat} (h0 : w ≠ 0) (h : w < 64) (r : Data.RISCV.Reg) 
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
+@[proof_manual]
 theorem reg_i64_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRegToI64RoundTrip) := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
+@[proof_manual]
 theorem reg_ptr_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRiscvRegToPtrCast) := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
+@[proof_manual]
 theorem mod_arith_int_valid :
     Puddle.CTree.Pattern.Valid (reconcilePairingCast isPreservingModArithToIntCast) := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
@@ -228,16 +232,20 @@ theorem mod_arith_int_valid :
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
+@[proof_manual]
 theorem cir_int_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isCirToIntRoundTrip) := by
   proveLegalValid with
     obtain ⟨_, h, _⟩ | ⟨_, _, h⟩ := ‹_ ∨ _› <;> simp [h] at *
 
+@[proof_bv]
 theorem reg_i8_valid : Puddle.CTree.Pattern.Valid (reconcileRegIntExt 8 .zextb ()) := by
   proveLegalValid with exact zextb_eq _
 
+@[proof_bv]
 theorem reg_i16_valid : Puddle.CTree.Pattern.Valid (reconcileRegIntExt 16 .zexth ()) := by
   proveLegalValid with exact zexth_eq _
 
+@[proof_bv]
 theorem reg_i32_valid : Puddle.CTree.Pattern.Valid (reconcileRegIntExt 32 .zextw ()) := by
   proveLegalValid with exact zextw_eq _
 

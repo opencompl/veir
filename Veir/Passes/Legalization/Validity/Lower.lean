@@ -13,6 +13,7 @@ import all Veir.Data.LLVM.Int.Basic
 import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.ProofKind
 
 /-! CTree validity of the lowerings of `lower?` and the narrowings of `narrowScalar?`.
 
@@ -139,6 +140,7 @@ private theorem ushlSat_lowering {w v : Nat} (x : Data.LLVM.Int w) (a : Data.LLV
 theorem lower_zext_valid : Puddle.CTree.Pattern.Valid lowerZext := by
   proveLegalValid using Data.LLVM.zext_and_anyext
 
+@[proof_manual]
 theorem lower_sext_valid : Puddle.CTree.Pattern.Valid lowerSext := by
   proveLegalValid with
   (
@@ -193,9 +195,11 @@ theorem lower_cttz_zero_poison_valid :
     Puddle.CTree.Pattern.Valid (lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz) := by
   proveLegalValid using cttz_zero_poison
 
+@[proof_manual]
 theorem lower_uadde_valid : Puddle.CTree.Pattern.Valid (lowerAddSubE true) := by
   proveLegalValid with simp_all [uadde_lowering, Data.LLVM.Int.constant, IntegerAttr.ofInt_zero_value]
 
+@[proof_manual]
 theorem lower_usube_valid : Puddle.CTree.Pattern.Valid (lowerAddSubE false) := by
   proveLegalValid with simp_all [usube_lowering, Data.LLVM.Int.constant, IntegerAttr.ofInt_zero_value]
 

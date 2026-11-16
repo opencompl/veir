@@ -10,6 +10,7 @@ import all Veir.Interpreter.CTree
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
 import all Veir.Passes.Legalization.LegalizerInfo
 import all Veir.Passes.InstructionSelection.Proofs
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs: Truncation, bitcasts, and integer extensions. -/
 
@@ -385,6 +386,7 @@ theorem gmirAnyextOfReg_pattern_valid :
     grind
 
 
+@[proof_bv]
 theorem sext16_pattern_valid :
     Puddle.CTree.Pattern.Valid sext16_pattern := by
   unfold sext16_pattern
@@ -401,6 +403,7 @@ theorem sext16_pattern_valid :
     simp [ctree_semantics, ←Attribute.integerType_eq_of, RuntimeValue.isRefinedBy] <;>
     intros <;> cases a <;> simp_all <;> veir_bv_decide
 
+@[proof_bv]
 theorem sext32_pattern_valid :
     Puddle.CTree.Pattern.Valid sext32_pattern := by
   unfold sext32_pattern
@@ -417,6 +420,7 @@ theorem sext32_pattern_valid :
     simp [ctree_semantics, ←Attribute.integerType_eq_of, RuntimeValue.isRefinedBy] <;>
     intros <;> cases a <;> simp_all <;> veir_bv_decide
 
+@[proof_bv]
 theorem sextInReg8_valid :
     Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 8 .sextb ()) := by
   dsimp only [sextInRegExt_pattern, matchSextInReg, matchLegal]
@@ -434,6 +438,7 @@ theorem sextInReg8_valid :
   intro r hr
   cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run] <;> veir_bv_decide
 
+@[proof_bv]
 theorem sextInReg16_valid :
     Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 16 .sexth ()) := by
   dsimp only [sextInRegExt_pattern, matchSextInReg, matchLegal]
@@ -451,6 +456,7 @@ theorem sextInReg16_valid :
   intro r hr
   cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run] <;> veir_bv_decide
 
+@[proof_bv]
 theorem sextInReg32_valid :
     Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 32 .sextw ()) := by
   dsimp only [sextInRegExt_pattern, matchSextInReg, matchLegal]
@@ -474,6 +480,7 @@ private theorem sext_low_shift (x : BitVec 64) (w : Nat) (hpos : 0 < w) (hle : w
   simp [BitVec.getElem_signExtend, BitVec.getElem_sshiftRight, BitVec.getElem_shiftLeft]
   grind
 
+@[proof_bv]
 theorem sextInRegShift_pattern_valid :
     Puddle.CTree.Pattern.Valid sextInRegShift_pattern := by
   unfold sextInRegShift_pattern
@@ -506,6 +513,7 @@ theorem sextInRegShift_pattern_valid :
   all_goals simp [Data.RISCV.srai, Data.RISCV.slli, hamount, hr]
 
 
+@[proof_bv]
 theorem zext16_pattern_valid :
     Puddle.CTree.Pattern.Valid zext16_pattern := by
   unfold zext16_pattern
@@ -522,6 +530,7 @@ theorem zext16_pattern_valid :
     simp [ctree_semantics, ←Attribute.integerType_eq_of, RuntimeValue.isRefinedBy] <;>
     intros <;> cases a <;> simp_all <;> veir_bv_decide
 
+@[proof_bv]
 theorem zext32_pattern_valid :
     Puddle.CTree.Pattern.Valid zext32_pattern := by
   unfold zext32_pattern

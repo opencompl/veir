@@ -15,6 +15,7 @@ import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.PBVDecide
+meta import Veir.Meta.ProofKind
 
 /-! CTree validity of the gMIR combines of `Veir.Passes.Legalization.CombinerHelper`. The combines
 that test or compute the value of a matched `g_constant` are in
@@ -181,7 +182,7 @@ theorem combine_zext_of_zext_valid : Puddle.CTree.Pattern.Valid (ext_of_ext_patt
 theorem combine_sext_of_sext_valid : Puddle.CTree.Pattern.Valid (ext_of_ext_pattern .g_sext) := by
   proveLegalValid using Data.LLVM.sext_of_sext
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_canonicalize_icmp_valid : Puddle.CTree.Pattern.Valid canonicalize_icmp_pattern := by
   proveLegalValid using icmp_swap
 
@@ -316,14 +317,14 @@ private theorem and_select_zext_icmp_odd {wc v₁ v₂ W : Nat} (c : Data.LLVM.I
 
 set_option maxHeartbeats 8000000 in
 /-- The two comparisons and the constant make this the slowest combine to normalize. -/
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_redundant_and_select_icmp_icmp_valid :
     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .icmp .icmp) := by
   proveLegalValid with first
     | (apply and_select_zext_icmp_odd <;> assumption)
     | (apply and_select_icmp_odd <;> assumption)
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_redundant_and_valid : Puddle.CTree.Pattern.Valid redundant_and_pattern := by
   proveLegalValid with first
     | (apply and_zext_icmp_odd <;> assumption)
@@ -438,12 +439,12 @@ private theorem fshr_or_lshr {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.
   rw [or_comm']
   exact lshr_or_fshr x z y e d
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_funnel_shift_fshl_or_shl_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshl .g_shl true true) := by
   proveLegalValid using fshl_or_shl
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_funnel_shift_shl_or_fshl_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshl .g_shl true false) := by
   proveLegalValid using shl_or_fshl

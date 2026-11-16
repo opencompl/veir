@@ -33,6 +33,7 @@ import all Veir.Data.Casting
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.ProofKind
 
 /-!
 # CTree validity of the RISC-V 64 instruction selection
@@ -310,6 +311,7 @@ theorem toInt_trunc_toInt (r : Data.RISCV.Reg) (tb : Nat) (h : 64 > tb) :
 
 /-- The argument lowering reduces to `toInt_trunc_toInt`: the matcher bounds the narrow width
 by 64, which the remaining width guard contradicts. -/
+@[proof_manual]
 theorem formal_argument_valid : Puddle.CTree.Pattern.Valid lowerFormalArgument_pattern := by
   unfold lowerFormalArgument_pattern
   simpPuddleValid

@@ -16,6 +16,7 @@ import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.PBVDecide
+meta import Veir.Meta.ProofKind
 
 /-!
 # CTree validity of the legalization rules by `pbv_decide`
@@ -46,6 +47,7 @@ attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_pbv]
 theorem widen_icmp_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_icmp (.type 1) .g_sext W) := by
   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -55,6 +57,7 @@ theorem widen_icmp_1_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_icmp (.type 1) .g_sext W) :=
   .proven (widen_icmp_1_valid W)
 
+@[proof_pbv]
 theorem widen_ctlz_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenCtlzSrc W) := by
   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -64,6 +67,7 @@ theorem widen_ctlz_1_status (W : Nat) :
     Status Unproven (widenCtlzSrc W) :=
   .proven (widen_ctlz_1_valid W)
 
+@[proof_pbv]
 theorem widen_cttz_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenCttzSrc W) := by
   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -73,6 +77,7 @@ theorem widen_cttz_1_status (W : Nat) :
     Status Unproven (widenCttzSrc W) :=
   .proven (widen_cttz_1_valid W)
 
+@[proof_pbv]
 theorem widen_shl_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_shl (.type 1) .g_zext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -90,6 +95,7 @@ theorem widen_shl_1_status (W : Nat) :
 
 /-! ## All widenings, up to 64 bits -/
 
+@[proof_pbv]
 theorem widen_add_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_add (.type 0) .g_anyext W clearNswNuwProperties) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -99,6 +105,7 @@ theorem widen_add_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_add (.type 0) .g_anyext W clearNswNuwProperties) :=
   .proven (widen_add_0_valid W)
 
+@[proof_pbv]
 theorem widen_sub_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_sub (.type 0) .g_anyext W clearNswNuwProperties) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -114,6 +121,7 @@ theorem widen_sub_0_status (W : Nat) :
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 --   all_goals sorry
 
+@[proof_pbv]
 theorem widen_select_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_select (.type 0) .g_anyext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -123,6 +131,7 @@ theorem widen_select_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_select (.type 0) .g_anyext W) :=
   .proven (widen_select_0_valid W)
 
+@[proof_pbv]
 theorem widen_shl_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_shl (.type 0) .g_anyext W clearNswNuwProperties) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -132,6 +141,7 @@ theorem widen_shl_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_shl (.type 0) .g_anyext W clearNswNuwProperties) :=
   .proven (widen_shl_0_valid W)
 
+@[proof_pbv]
 theorem widen_ashr_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_ashr (.type 0) .g_sext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -141,6 +151,7 @@ theorem widen_ashr_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_ashr (.type 0) .g_sext W) :=
   .proven (widen_ashr_0_valid W)
 
+@[proof_pbv]
 theorem widen_lshr_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_lshr (.type 0) .g_zext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -150,6 +161,7 @@ theorem widen_lshr_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_lshr (.type 0) .g_zext W) :=
   .proven (widen_lshr_0_valid W)
 
+@[proof_pbv]
 theorem widen_ashr_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_ashr (.type 1) .g_zext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -159,6 +171,7 @@ theorem widen_ashr_1_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_ashr (.type 1) .g_zext W) :=
   .proven (widen_ashr_1_valid W)
 
+@[proof_pbv]
 theorem widen_lshr_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_lshr (.type 1) .g_zext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -168,6 +181,7 @@ theorem widen_lshr_1_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_lshr (.type 1) .g_zext W) :=
   .proven (widen_lshr_1_valid W)
 
+@[proof_pbv]
 theorem widen_and_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_and (.type 0) .g_anyext W) := by
   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -177,6 +191,7 @@ theorem widen_and_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_and (.type 0) .g_anyext W) :=
   .proven (widen_and_0_valid W)
 
+@[proof_pbv]
 theorem widen_or_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_or (.type 0) .g_anyext W clearDisjointProperties) := by
   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -186,6 +201,7 @@ theorem widen_or_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_or (.type 0) .g_anyext W clearDisjointProperties) :=
   .proven (widen_or_0_valid W)
 
+@[proof_pbv]
 theorem widen_xor_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_xor (.type 0) .g_anyext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -271,6 +287,7 @@ theorem widen_mul_0_valid (W : Nat) (hW : W ≤ 8) :
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 --   all_goals sorry
 
+@[proof_pbv]
 theorem widen_sext_inreg_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_sext_inreg (.type 0) .g_anyext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -280,6 +297,7 @@ theorem widen_sext_inreg_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_sext_inreg (.type 0) .g_anyext W) :=
   .proven (widen_sext_inreg_0_valid W)
 
+@[proof_pbv]
 theorem widen_ctlz_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_ctlz (.type 0) .g_anyext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -289,6 +307,7 @@ theorem widen_ctlz_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_ctlz (.type 0) .g_anyext W) :=
   .proven (widen_ctlz_0_valid W)
 
+@[proof_pbv]
 theorem widen_cttz_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_cttz (.type 0) .g_anyext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -298,6 +317,7 @@ theorem widen_cttz_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_cttz (.type 0) .g_anyext W) :=
   .proven (widen_cttz_0_valid W)
 
+@[proof_pbv]
 theorem widen_ctpop_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_ctpop (.type 0) .g_anyext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -307,6 +327,7 @@ theorem widen_ctpop_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_ctpop (.type 0) .g_anyext W) :=
   .proven (widen_ctpop_0_valid W)
 
+@[proof_pbv]
 theorem widen_ctpop_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_ctpop (.type 1) .g_zext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -323,6 +344,7 @@ theorem widen_ctpop_1_status (W : Nat) :
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 --   all_goals sorry
 
+@[proof_pbv]
 theorem widen_bitreverse_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenReverse .g_bitreverse W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -332,6 +354,7 @@ theorem widen_bitreverse_0_status (W : Nat) :
     Status Unproven (widenReverse .g_bitreverse W) :=
   .proven (widen_bitreverse_0_valid W)
 
+@[proof_pbv]
 theorem widen_smin_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_smin (.type 0) .g_sext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -341,6 +364,7 @@ theorem widen_smin_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_smin (.type 0) .g_sext W) :=
   .proven (widen_smin_0_valid W)
 
+@[proof_pbv]
 theorem widen_smax_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_smax (.type 0) .g_sext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -350,6 +374,7 @@ theorem widen_smax_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_smax (.type 0) .g_sext W) :=
   .proven (widen_smax_0_valid W)
 
+@[proof_pbv]
 theorem widen_umin_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_umin (.type 0) .g_sext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -359,6 +384,7 @@ theorem widen_umin_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_umin (.type 0) .g_sext W) :=
   .proven (widen_umin_0_valid W)
 
+@[proof_pbv]
 theorem widen_umax_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_umax (.type 0) .g_sext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -368,6 +394,7 @@ theorem widen_umax_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_umax (.type 0) .g_sext W) :=
   .proven (widen_umax_0_valid W)
 
+@[proof_pbv]
 theorem widen_abs_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_abs (.type 0) .g_sext W) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -387,6 +414,7 @@ theorem widen_fshr_1_valid (W : Nat) (hW : W ≤ 16) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_fshr (.type 1) .g_zext W) := by
   proveLegalValid with (veir_pbv_decide 16 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
+@[proof_pbv]
 theorem widen_uaddo_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenScalarAddSubOverflow .g_uaddo W) := by
   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -396,6 +424,7 @@ theorem widen_uaddo_0_status (W : Nat) :
     Status Unproven (widenScalarAddSubOverflow .g_uaddo W) :=
   .proven (widen_uaddo_0_valid W)
 
+@[proof_pbv]
 theorem widen_usubo_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenScalarAddSubOverflow .g_usubo W) := by
   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -405,6 +434,7 @@ theorem widen_usubo_0_status (W : Nat) :
     Status Unproven (widenScalarAddSubOverflow .g_usubo W) :=
   .proven (widen_usubo_0_valid W)
 
+@[proof_pbv]
 theorem widen_saddo_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenScalarAddSubOverflow .g_saddo W) := by
   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -414,6 +444,7 @@ theorem widen_saddo_0_status (W : Nat) :
     Status Unproven (widenScalarAddSubOverflow .g_saddo W) :=
   .proven (widen_saddo_0_valid W)
 
+@[proof_pbv]
 theorem widen_ssubo_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenScalarAddSubOverflow .g_ssubo W) := by
   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))

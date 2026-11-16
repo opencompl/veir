@@ -4,6 +4,7 @@ import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR.Properties
+meta import Veir.Meta.ProofKind
 
 /-! Validity of selecting zero-arm selects directly from equality comparisons. -/
 
@@ -110,34 +111,42 @@ theorem gmirSelectZeroOfSetcc_valid (zeroFalse neq zeroRhs : Bool) :
         change Attribute.integerType ty = Attribute.llvmPointerType ptr at impossible
         cases impossible
 
+@[proof_bv]
 theorem gmirSelectZeroOfSetcc_false_eq_false_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern false .eq false) :=
   gmirSelectZeroOfSetcc_valid false false false
 
+@[proof_bv]
 theorem gmirSelectZeroOfSetcc_false_eq_true_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern false .eq true) :=
   gmirSelectZeroOfSetcc_valid false false true
 
+@[proof_bv]
 theorem gmirSelectZeroOfSetcc_false_ne_false_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern false .ne false) :=
   gmirSelectZeroOfSetcc_valid false true false
 
+@[proof_bv]
 theorem gmirSelectZeroOfSetcc_false_ne_true_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern false .ne true) :=
   gmirSelectZeroOfSetcc_valid false true true
 
+@[proof_bv]
 theorem gmirSelectZeroOfSetcc_true_eq_false_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern true .eq false) :=
   gmirSelectZeroOfSetcc_valid true false false
 
+@[proof_bv]
 theorem gmirSelectZeroOfSetcc_true_eq_true_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern true .eq true) :=
   gmirSelectZeroOfSetcc_valid true false true
 
+@[proof_bv]
 theorem gmirSelectZeroOfSetcc_true_ne_false_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern true .ne false) :=
   gmirSelectZeroOfSetcc_valid true true false
 
+@[proof_bv]
 theorem gmirSelectZeroOfSetcc_true_ne_true_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern true .ne true) :=
   gmirSelectZeroOfSetcc_valid true true true

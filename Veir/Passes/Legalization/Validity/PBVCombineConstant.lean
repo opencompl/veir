@@ -17,6 +17,7 @@ import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.PBVDecide
+meta import Veir.Meta.ProofKind
 
 /-!
 # CTree validity of the gMIR combines that match constants (`Validity/CombineConstant`) by `pbv_decide`
@@ -61,7 +62,8 @@ local macro "normalizeConstants" : tactic => `(tactic| (
   all_goals (try subst_vars)
   all_goals (try simpConstantPreds)))
 
-@[combine_valid]
+
+@[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_sub_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_sub) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -71,7 +73,7 @@ theorem combine_right_identity_zero_sub_status :
     Status Unproven (right_identity_zero_pattern .g_sub) :=
   .proven (combine_right_identity_zero_sub_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_add_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_add) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -81,7 +83,7 @@ theorem combine_right_identity_zero_add_status :
     Status Unproven (right_identity_zero_pattern .g_add) :=
   .proven (combine_right_identity_zero_add_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_or_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_or) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -91,7 +93,7 @@ theorem combine_right_identity_zero_or_status :
     Status Unproven (right_identity_zero_pattern .g_or) :=
   .proven (combine_right_identity_zero_or_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_xor_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_xor) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -101,7 +103,7 @@ theorem combine_right_identity_zero_xor_status :
     Status Unproven (right_identity_zero_pattern .g_xor) :=
   .proven (combine_right_identity_zero_xor_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_shl_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_shl) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -111,7 +113,7 @@ theorem combine_right_identity_zero_shl_status :
     Status Unproven (right_identity_zero_pattern .g_shl) :=
   .proven (combine_right_identity_zero_shl_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_ashr_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_ashr) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -121,7 +123,7 @@ theorem combine_right_identity_zero_ashr_status :
     Status Unproven (right_identity_zero_pattern .g_ashr) :=
   .proven (combine_right_identity_zero_ashr_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_lshr_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_lshr) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -136,7 +138,7 @@ theorem combine_right_identity_zero_lshr_status :
 --     Puddle.CTree.Pattern.Valid (right_identity_one_int_pattern) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_binop_right_to_zero_valid :
     Puddle.CTree.Pattern.Valid (binop_right_to_zero_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -146,7 +148,7 @@ theorem combine_binop_right_to_zero_status :
     Status Unproven (binop_right_to_zero_pattern) :=
   .proven (combine_binop_right_to_zero_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_binop_left_to_zero_shl_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_shl) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -156,7 +158,7 @@ theorem combine_binop_left_to_zero_shl_status :
     Status Unproven (binop_left_to_zero_pattern .g_shl) :=
   .proven (combine_binop_left_to_zero_shl_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_binop_left_to_zero_lshr_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_lshr) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -166,7 +168,7 @@ theorem combine_binop_left_to_zero_lshr_status :
     Status Unproven (binop_left_to_zero_pattern .g_lshr) :=
   .proven (combine_binop_left_to_zero_lshr_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_binop_left_to_zero_ashr_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_ashr) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -176,7 +178,7 @@ theorem combine_binop_left_to_zero_ashr_status :
     Status Unproven (binop_left_to_zero_pattern .g_ashr) :=
   .proven (combine_binop_left_to_zero_ashr_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_binop_left_to_zero_mul_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_mul) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -186,7 +188,7 @@ theorem combine_binop_left_to_zero_mul_status :
     Status Unproven (binop_left_to_zero_pattern .g_mul) :=
   .proven (combine_binop_left_to_zero_mul_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_sub_minus_one_valid :
     Puddle.CTree.Pattern.Valid (sub_minus_one_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -196,7 +198,7 @@ theorem combine_sub_minus_one_status :
     Status Unproven (sub_minus_one_pattern) :=
   .proven (combine_sub_minus_one_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_ZeroMinusAPlusB_valid :
     Puddle.CTree.Pattern.Valid (ZeroMinusAPlusB_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -206,7 +208,7 @@ theorem combine_ZeroMinusAPlusB_status :
     Status Unproven (ZeroMinusAPlusB_pattern) :=
   .proven (combine_ZeroMinusAPlusB_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_APlusZeroMinusB_valid :
     Puddle.CTree.Pattern.Valid (APlusZeroMinusB_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -216,7 +218,7 @@ theorem combine_APlusZeroMinusB_status :
     Status Unproven (APlusZeroMinusB_pattern) :=
   .proven (combine_APlusZeroMinusB_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_AMinusZeroMinusB_valid :
     Puddle.CTree.Pattern.Valid (AMinusZeroMinusB_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -231,7 +233,7 @@ theorem combine_AMinusZeroMinusB_status :
 --     Puddle.CTree.Pattern.Valid (sub_one_from_sub_pattern) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_APlusC1MinusC2_valid :
     Puddle.CTree.Pattern.Valid (APlusC1MinusC2_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -241,7 +243,7 @@ theorem combine_APlusC1MinusC2_status :
     Status Unproven (APlusC1MinusC2_pattern) :=
   .proven (combine_APlusC1MinusC2_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_C2MinusAPlusC1_valid :
     Puddle.CTree.Pattern.Valid (C2MinusAPlusC1_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -251,7 +253,7 @@ theorem combine_C2MinusAPlusC1_status :
     Status Unproven (C2MinusAPlusC1_pattern) :=
   .proven (combine_C2MinusAPlusC1_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_AMinusC1MinusC2_valid :
     Puddle.CTree.Pattern.Valid (AMinusC1MinusC2_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -261,7 +263,7 @@ theorem combine_AMinusC1MinusC2_status :
     Status Unproven (AMinusC1MinusC2_pattern) :=
   .proven (combine_AMinusC1MinusC2_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_C1MinusAMinusC2_valid :
     Puddle.CTree.Pattern.Valid (C1MinusAMinusC2_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -271,7 +273,7 @@ theorem combine_C1MinusAMinusC2_status :
     Status Unproven (C1MinusAMinusC2_pattern) :=
   .proven (combine_C1MinusAMinusC2_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_AMinusC1PlusC2_valid :
     Puddle.CTree.Pattern.Valid (AMinusC1PlusC2_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -296,7 +298,7 @@ theorem combine_AMinusC1PlusC2_status :
 --     Puddle.CTree.Pattern.Valid (mulo_by_2_pattern) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_NotAPlusNegOne_valid :
     Puddle.CTree.Pattern.Valid (NotAPlusNegOne_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -306,7 +308,7 @@ theorem combine_NotAPlusNegOne_status :
     Status Unproven (NotAPlusNegOne_pattern) :=
   .proven (combine_NotAPlusNegOne_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_add_shift_valid :
     Puddle.CTree.Pattern.Valid (add_shift_pattern false) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -316,7 +318,7 @@ theorem combine_add_shift_status :
     Status Unproven (add_shift_pattern false) :=
   .proven (combine_add_shift_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_add_shift_swapped_valid :
     Puddle.CTree.Pattern.Valid (add_shift_pattern true) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -326,7 +328,7 @@ theorem combine_add_shift_swapped_status :
     Status Unproven (add_shift_pattern true) :=
   .proven (combine_add_shift_swapped_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_or_and_xor_to_or_or_and_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_or_pattern .g_or .g_and) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -336,7 +338,7 @@ theorem combine_or_and_xor_to_or_or_and_status :
     Status Unproven (or_and_xor_to_or_pattern .g_or .g_and) :=
   .proven (combine_or_and_xor_to_or_or_and_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_or_and_xor_to_or_and_or_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_or_pattern .g_and .g_or) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -346,7 +348,7 @@ theorem combine_or_and_xor_to_or_and_or_status :
     Status Unproven (or_and_xor_to_or_pattern .g_and .g_or) :=
   .proven (combine_or_and_xor_to_or_and_or_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_or_and_xor_to_xor_or_or_and_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_xor_or_pattern .g_or .g_and) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -356,7 +358,7 @@ theorem combine_or_and_xor_to_xor_or_or_and_status :
     Status Unproven (or_and_xor_to_xor_or_pattern .g_or .g_and) :=
   .proven (combine_or_and_xor_to_xor_or_or_and_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_or_and_xor_to_xor_or_and_or_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_xor_or_pattern .g_and .g_or) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -366,7 +368,7 @@ theorem combine_or_and_xor_to_xor_or_and_or_status :
     Status Unproven (or_and_xor_to_xor_or_pattern .g_and .g_or) :=
   .proven (combine_or_and_xor_to_xor_or_and_or_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_simplify_neg_smax_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_smax .g_smin) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -376,7 +378,7 @@ theorem combine_simplify_neg_smax_status :
     Status Unproven (simplify_neg_minmax_pattern .g_smax .g_smin) :=
   .proven (combine_simplify_neg_smax_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_simplify_neg_umax_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_umax .g_umin) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -386,7 +388,7 @@ theorem combine_simplify_neg_umax_status :
     Status Unproven (simplify_neg_minmax_pattern .g_umax .g_umin) :=
   .proven (combine_simplify_neg_umax_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_simplify_neg_smin_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_smin .g_smax) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -396,7 +398,7 @@ theorem combine_simplify_neg_smin_status :
     Status Unproven (simplify_neg_minmax_pattern .g_smin .g_smax) :=
   .proven (combine_simplify_neg_smin_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_simplify_neg_umin_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_umin .g_umax) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -456,7 +458,7 @@ theorem combine_simplify_neg_umin_status :
 --     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sle .sgt) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_double_icmp_zero_and_valid :
     Puddle.CTree.Pattern.Valid (double_icmp_zero_pattern .g_and .eq) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -466,7 +468,7 @@ theorem combine_double_icmp_zero_and_status :
     Status Unproven (double_icmp_zero_pattern .g_and .eq) :=
   .proven (combine_double_icmp_zero_and_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_double_icmp_zero_or_valid :
     Puddle.CTree.Pattern.Valid (double_icmp_zero_pattern .g_or .ne) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -511,7 +513,7 @@ theorem combine_double_icmp_zero_or_status :
 --     Puddle.CTree.Pattern.Valid (urem_pow2_to_mask_pattern) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid]
+@[combine_valid, proof_norm]
 theorem combine_constant_fold_add_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_add (fun a b => a + b)) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -521,7 +523,7 @@ theorem combine_constant_fold_add_status :
     Status Unproven (constant_fold_binop_pattern .g_add (fun a b => a + b)) :=
   .proven (combine_constant_fold_add_valid)
 
-@[combine_valid]
+@[combine_valid, proof_norm]
 theorem combine_constant_fold_sub_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_sub ((· - ·))) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -536,7 +538,7 @@ theorem combine_constant_fold_sub_status :
 --     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_mul ((· * ·))) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid]
+@[combine_valid, proof_norm]
 theorem combine_constant_fold_smin_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smin (min)) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -546,7 +548,7 @@ theorem combine_constant_fold_smin_status :
     Status Unproven (constant_fold_binop_pattern .g_smin (min)) :=
   .proven (combine_constant_fold_smin_valid)
 
-@[combine_valid]
+@[combine_valid, proof_norm]
 theorem combine_constant_fold_smax_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smax (max)) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -556,7 +558,7 @@ theorem combine_constant_fold_smax_status :
     Status Unproven (constant_fold_binop_pattern .g_smax (max)) :=
   .proven (combine_constant_fold_smax_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_constant_cmp_nonzero_valid :
     Puddle.CTree.Pattern.Valid (select_constant_cmp_pattern true) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -566,7 +568,7 @@ theorem combine_select_constant_cmp_nonzero_status :
     Status Unproven (select_constant_cmp_pattern true) :=
   .proven (combine_select_constant_cmp_nonzero_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_constant_cmp_zero_valid :
     Puddle.CTree.Pattern.Valid (select_constant_cmp_pattern false) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -576,7 +578,7 @@ theorem combine_select_constant_cmp_zero_status :
     Status Unproven (select_constant_cmp_pattern false) :=
   .proven (combine_select_constant_cmp_zero_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_sub_to_add_valid (info : LegalizerInfo) :
     Puddle.CTree.Pattern.Valid (sub_to_add_pattern info) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -601,7 +603,7 @@ theorem combine_sub_to_add_status (info : LegalizerInfo) :
 --     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .constant) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_into_shl_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_shl false) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -611,7 +613,7 @@ theorem combine_select_into_shl_status :
     Status Unproven (select_into_binop_pattern .g_shl false) :=
   .proven (combine_select_into_shl_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_into_shl_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_shl true) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -621,7 +623,7 @@ theorem combine_select_into_shl_swapped_status :
     Status Unproven (select_into_binop_pattern .g_shl true) :=
   .proven (combine_select_into_shl_swapped_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_into_lshr_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_lshr false) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -631,7 +633,7 @@ theorem combine_select_into_lshr_status :
     Status Unproven (select_into_binop_pattern .g_lshr false) :=
   .proven (combine_select_into_lshr_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_into_lshr_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_lshr true) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -641,7 +643,7 @@ theorem combine_select_into_lshr_swapped_status :
     Status Unproven (select_into_binop_pattern .g_lshr true) :=
   .proven (combine_select_into_lshr_swapped_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_into_ashr_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_ashr false) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -651,7 +653,7 @@ theorem combine_select_into_ashr_status :
     Status Unproven (select_into_binop_pattern .g_ashr false) :=
   .proven (combine_select_into_ashr_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_into_ashr_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_ashr true) := by
   proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
@@ -661,7 +663,7 @@ theorem combine_select_into_ashr_swapped_status :
     Status Unproven (select_into_binop_pattern .g_ashr true) :=
   .proven (combine_select_into_ashr_swapped_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_one_zero_valid :
     Puddle.CTree.Pattern.Valid (select_one_zero_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -671,7 +673,7 @@ theorem combine_select_one_zero_status :
     Status Unproven (select_one_zero_pattern) :=
   .proven (combine_select_one_zero_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_allOnes_zero_valid :
     Puddle.CTree.Pattern.Valid (select_allOnes_zero_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -681,7 +683,7 @@ theorem combine_select_allOnes_zero_status :
     Status Unproven (select_allOnes_zero_pattern) :=
   .proven (combine_select_allOnes_zero_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_zero_one_valid :
     Puddle.CTree.Pattern.Valid (select_zero_one_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -691,7 +693,7 @@ theorem combine_select_zero_one_status :
     Status Unproven (select_zero_one_pattern) :=
   .proven (combine_select_zero_one_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_zero_allOnes_valid :
     Puddle.CTree.Pattern.Valid (select_zero_allOnes_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -701,7 +703,7 @@ theorem combine_select_zero_allOnes_status :
     Status Unproven (select_zero_allOnes_pattern) :=
   .proven (combine_select_zero_allOnes_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_succ_valid :
     Puddle.CTree.Pattern.Valid (select_succ_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -711,7 +713,7 @@ theorem combine_select_succ_status :
     Status Unproven (select_succ_pattern) :=
   .proven (combine_select_succ_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_pred_valid :
     Puddle.CTree.Pattern.Valid (select_pred_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -731,7 +733,7 @@ theorem combine_select_pred_status :
 --     Puddle.CTree.Pattern.Valid (select_zero_pow2_pattern) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_allOnes_const_valid :
     Puddle.CTree.Pattern.Valid (select_allOnes_const_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -741,7 +743,7 @@ theorem combine_select_allOnes_const_status :
     Status Unproven (select_allOnes_const_pattern) :=
   .proven (combine_select_allOnes_const_valid)
 
-@[combine_valid]
+@[combine_valid, proof_pbv]
 theorem combine_select_const_allOnes_valid :
     Puddle.CTree.Pattern.Valid (select_const_allOnes_pattern) := by
   proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))

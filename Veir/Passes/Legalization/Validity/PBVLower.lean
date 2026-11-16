@@ -16,6 +16,7 @@ import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.PBVDecide
+meta import Veir.Meta.ProofKind
 
 /-!
 # CTree validity of the lowerings of `lower?` and the narrowings of `narrowScalar?` (`Validity/Lower`) by `pbv_decide`
@@ -42,6 +43,7 @@ attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 attribute [local implicit_reducible] TypeAttr
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_zext_valid : Puddle.CTree.Pattern.Valid lowerZext := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -57,6 +59,7 @@ theorem lower_zext_status :
 --     pbv_decide 64
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_uaddsat_valid : Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_uaddsat false true) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -66,6 +69,7 @@ theorem lower_uaddsat_status :
   .proven lower_uaddsat_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_usubsat_valid :
     Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_usubsat false false) := by
   proveLegalValid with veir_pbv_decide 64
@@ -76,6 +80,7 @@ theorem lower_usubsat_status :
   .proven lower_usubsat_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_saddsat_valid : Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_saddsat true true) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -85,6 +90,7 @@ theorem lower_saddsat_status :
   .proven lower_saddsat_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_ssubsat_valid :
     Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_ssubsat true false) := by
   proveLegalValid with veir_pbv_decide 64
@@ -95,6 +101,7 @@ theorem lower_ssubsat_status :
   .proven lower_ssubsat_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_sshlsat_valid : Puddle.CTree.Pattern.Valid (lowerShlSat true) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -104,6 +111,7 @@ theorem lower_sshlsat_status :
   .proven lower_sshlsat_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_ushlsat_valid : Puddle.CTree.Pattern.Valid (lowerShlSat false) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -113,6 +121,7 @@ theorem lower_ushlsat_status :
   .proven lower_ushlsat_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_ctlz_zero_poison_valid :
     Puddle.CTree.Pattern.Valid (lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz) := by
   proveLegalValid with veir_pbv_decide 64
@@ -123,6 +132,7 @@ theorem lower_ctlz_zero_poison_status :
   .proven lower_ctlz_zero_poison_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_cttz_zero_poison_valid :
     Puddle.CTree.Pattern.Valid (lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz) := by
   proveLegalValid with veir_pbv_decide 64
@@ -141,6 +151,7 @@ theorem lower_cttz_zero_poison_status :
 --   proveLegalValid with veir_pbv_decide 64
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_uaddo_valid : Puddle.CTree.Pattern.Valid (lowerUAddSubO true) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -150,6 +161,7 @@ theorem lower_uaddo_status :
   .proven lower_uaddo_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_usubo_valid : Puddle.CTree.Pattern.Valid (lowerUAddSubO false) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -159,6 +171,7 @@ theorem lower_usubo_status :
   .proven lower_usubo_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_saddo_valid : Puddle.CTree.Pattern.Valid (lowerSAddSubO true) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -168,6 +181,7 @@ theorem lower_saddo_status :
   .proven lower_saddo_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem lower_ssubo_valid : Puddle.CTree.Pattern.Valid (lowerSAddSubO false) := by
   proveLegalValid with veir_pbv_decide 64
 

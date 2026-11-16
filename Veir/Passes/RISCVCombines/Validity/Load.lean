@@ -1,6 +1,7 @@
 module
 
 import all Veir.Passes.RISCVCombines.Validity.Common
+meta import Veir.Meta.ProofKind
 
 /-! CTree validity proofs for the RISC-V combines that match a load below their root. -/
 
@@ -42,49 +43,63 @@ memory unchanged. -/
   · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
     exact ⟨b, hb, ⟨bits, by cases ext <;> simp⟩, rfl⟩
 
+@[proof_bv]
 theorem zextb_lbu_valid : Puddle.CTree.Pattern.Valid (zextb_lbu_pattern) := by
   proveCombineValid using Data.RISCV.zextb_lbu
 
+@[proof_bv]
 theorem andi_255_lbu_valid : Puddle.CTree.Pattern.Valid (andi_255_lbu_pattern) := by
   proveCombineValid using Data.RISCV.andi_255_lbu
 
+@[proof_bv]
 theorem zextw_slliw_lbu_8_valid : Puddle.CTree.Pattern.Valid (zextw_slliw_lbu_pattern 8) := by
   proveCombineValid using Data.RISCV.zextw_slliw_lbu_8
 
+@[proof_bv]
 theorem zextw_slliw_lbu_16_valid : Puddle.CTree.Pattern.Valid (zextw_slliw_lbu_pattern 16) := by
   proveCombineValid using Data.RISCV.zextw_slliw_lbu_16
 
+@[proof_bv]
 theorem zextw_slliw_lbu_24_valid : Puddle.CTree.Pattern.Valid (zextw_slliw_lbu_pattern 24) := by
   proveCombineValid using Data.RISCV.zextw_slliw_lbu_24
 
+@[proof_bv]
 theorem packh_low_bytes_valid : Puddle.CTree.Pattern.Valid (packh_low_bytes_pattern false) := by
   proveCombineValid using Data.RISCV.packh_low_bytes
 
+@[proof_bv]
 theorem packh_low_bytes_commuted_valid : Puddle.CTree.Pattern.Valid (packh_low_bytes_pattern true) := by
   proveCombineValid using Data.RISCV.packh_low_bytes_commuted
 
+@[proof_bv]
 theorem packh_high_bytes_valid : Puddle.CTree.Pattern.Valid (packh_high_bytes_pattern false) := by
   proveCombineValid using Data.RISCV.packh_high_bytes
 
+@[proof_bv]
 theorem packh_high_bytes_commuted_valid : Puddle.CTree.Pattern.Valid (packh_high_bytes_pattern true) := by
   proveCombineValid using Data.RISCV.packh_high_bytes_commuted
 
+@[proof_bv]
 theorem sextw_lw_valid (h : IsSignExtendingOpW .lw 1 fun _ => true) :
     Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lw 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lw
 
+@[proof_bv]
 theorem sextw_lh_valid (h : IsSignExtendingOpW .lh 1 fun _ => true) :
     Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lh 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lh
 
+@[proof_bv]
 theorem sextw_lb_valid (h : IsSignExtendingOpW .lb 1 fun _ => true) :
     Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lb 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lb
 
+@[proof_bv]
 theorem sextw_lhu_valid (h : IsSignExtendingOpW .lhu 1 fun _ => true) :
     Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lhu 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lhu
 
+@[proof_bv]
 theorem sextw_lbu_valid (h : IsSignExtendingOpW .lbu 1 fun _ => true) :
     Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lbu 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lbu

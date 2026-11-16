@@ -16,6 +16,7 @@ import all Init.Data.Nat.Power2.Basic
 
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.ProofKind
 
 /-! CTree validity of the gMIR combines that test or compute the value of a matched `g_constant`.
 
@@ -575,7 +576,7 @@ theorem combine_right_identity_zero_lshr_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_lshr) := by
   proveConstValid using right_identity_zero_lshr
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_right_identity_one_int_valid :
     Puddle.CTree.Pattern.Valid (right_identity_one_int_pattern) := by
   proveConstValid using Data.LLVM.right_identity_one_mul
@@ -616,7 +617,7 @@ theorem combine_AMinusZeroMinusB_valid :
     Puddle.CTree.Pattern.Valid (AMinusZeroMinusB_pattern) := by
   proveConstValid using Data.LLVM.AMinusZeroMinusB
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_sub_one_from_sub_valid :
     Puddle.CTree.Pattern.Valid (sub_one_from_sub_pattern) := by
   proveConstValid using Data.LLVM.sub_one_from_sub
@@ -641,17 +642,17 @@ theorem combine_AMinusC1PlusC2_valid :
     Puddle.CTree.Pattern.Valid (AMinusC1PlusC2_pattern) := by
   proveConstValid using Data.LLVM.AMinusC1PlusC2
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_sub_of_mul_const_valid :
     Puddle.CTree.Pattern.Valid (sub_of_mul_const_pattern) := by
   proveConstValid using Data.LLVM.sub_of_mul_const
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_mul_by_neg_one_valid :
     Puddle.CTree.Pattern.Valid (mul_by_neg_one_pattern) := by
   proveConstValid using Data.LLVM.mul_by_neg_one
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_mulo_by_2_valid :
     Puddle.CTree.Pattern.Valid (mulo_by_2_pattern) := by
   proveConstValid using Data.LLVM.mulo_by_2
@@ -700,52 +701,52 @@ theorem combine_simplify_neg_umin_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_umin .g_umax) := by
   proveConstValid using Data.LLVM.simplify_neg_umin
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_eq_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .eq .ne) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_ne_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ne .eq) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_ugt_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ugt .ule) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_uge_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .uge .ult) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_ult_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ult .uge) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_ule_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ule .ugt) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_sgt_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sgt .sle) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_sge_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sge .slt) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_slt_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .slt .sge) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_not_cmp_fold_sle_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sle .sgt) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
@@ -758,37 +759,37 @@ theorem combine_double_icmp_zero_or_valid :
     Puddle.CTree.Pattern.Valid (double_icmp_zero_pattern .g_or .ne) := by
   proveConstValid using Data.LLVM.double_icmp_zero_or_zext, Data.LLVM.double_icmp_zero_or
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_udiv_by_pow2_valid :
     Puddle.CTree.Pattern.Valid (udiv_by_pow2_pattern) := by
   proveConstValid using udiv_pow2
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_sdiv_exact_by_pow2_pos_valid :
     Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern false) := by
   proveConstValid using sdiv_exact_pow2_pos
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_sdiv_exact_by_pow2_neg_valid :
     Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern true) := by
   proveConstValid using sdiv_exact_pow2_neg
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_sdiv_by_pow2_pos_valid :
     Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern false) := by
   proveConstValid using sdiv_pow2_pos
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_sdiv_by_pow2_neg_valid :
     Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern true) := by
   proveConstValid using sdiv_pow2_neg
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_mul_to_shl_valid :
     Puddle.CTree.Pattern.Valid (mul_to_shl_pattern) := by
   proveConstValid using mul_pow2
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_urem_pow2_to_mask_valid :
     Puddle.CTree.Pattern.Valid (urem_pow2_to_mask_pattern) := by
   proveConstValid using urem_pow2
@@ -801,7 +802,7 @@ theorem combine_constant_fold_sub_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_sub ((· - ·))) := by
   proveConstValid using Data.LLVM.constant_fold_sub
 
-@[combine_valid]
+@[combine_valid, proof_norm]
 theorem combine_constant_fold_mul_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_mul ((· * ·))) := by
   proveConstValid using Data.LLVM.constant_fold_mul
@@ -827,19 +828,19 @@ theorem combine_sub_to_add_valid (info : LegalizerInfo) :
   proveConstValid using Data.LLVM.sub_to_add
 
 set_option maxHeartbeats 4000000 in
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_redundant_and_select_icmp_constant_valid :
     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .icmp .constant) := by
   proveConstValid using Data.LLVM.and_select_bool_odd
 
 set_option maxHeartbeats 4000000 in
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_redundant_and_select_constant_icmp_valid :
     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .icmp) := by
   proveConstValid using Data.LLVM.and_select_bool_odd
 
 set_option maxHeartbeats 4000000 in
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_redundant_and_select_constant_constant_valid :
     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .constant) := by
   proveConstValid using Data.LLVM.and_select_bool_odd
@@ -892,12 +893,12 @@ theorem combine_select_pred_valid :
     Puddle.CTree.Pattern.Valid (select_pred_pattern) := by
   proveConstValid using soc_pred
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_select_pow2_zero_valid :
     Puddle.CTree.Pattern.Valid (select_pow2_zero_pattern) := by
   proveConstValid using soc_pow2_zero
 
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_select_zero_pow2_valid :
     Puddle.CTree.Pattern.Valid (select_zero_pow2_pattern) := by
   proveConstValid using soc_zero_pow2
@@ -911,21 +912,21 @@ theorem combine_select_const_allOnes_valid :
   proveConstValid using soc_const_allOnes
 
 set_option maxHeartbeats 4000000 in
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_funnel_shift_right_zero_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshr true) := by
   normalizeTypedConstants
   all_goals closeConstWith fshr_zero
 
 set_option maxHeartbeats 4000000 in
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_funnel_shift_left_zero_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshl false) := by
   normalizeTypedConstants
   all_goals closeConstWith fshl_zero
 
 set_option maxHeartbeats 4000000 in
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_funnel_shift_overshift_l_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_overshift_pattern .g_fshl) := by
   normalizeTypedConstants
@@ -939,7 +940,7 @@ theorem combine_funnel_shift_overshift_l_valid :
   all_goals (simp only [funnelShiftAmount_overshift']; exact Data.LLVM.Int.isRefinedBy_refl _)
 
 set_option maxHeartbeats 4000000 in
-@[combine_valid]
+@[combine_valid, proof_manual]
 theorem combine_funnel_shift_overshift_r_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_overshift_pattern .g_fshr) := by
   normalizeTypedConstants

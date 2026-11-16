@@ -1,6 +1,7 @@
 module
 
 import all Veir.Passes.RISCVCombines.Validity.Common
+meta import Veir.Meta.ProofKind
 
 /-! CTree validity proofs for the RISC-V combines: extensions of a stored value. -/
 
@@ -17,34 +18,42 @@ attribute [local ctree_semantics]
 
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_bv]
 theorem drop_zextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sw) := by
   proveStoreValid Data.RISCV.drop_zextw_sw
 
+@[proof_bv]
 theorem drop_sextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sw) := by
   proveStoreValid Data.RISCV.drop_sextw_sw
 
+@[proof_bv]
 theorem drop_zexth_sh_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zexth .sh) := by
   proveStoreValid Data.RISCV.drop_zexth_sh
 
+@[proof_bv]
 theorem drop_sexth_sh_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sexth .sh) := by
   proveStoreValid Data.RISCV.drop_sexth_sh
 
+@[proof_bv]
 theorem drop_zextb_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextb .sb) := by
   proveStoreValid Data.RISCV.drop_zextb_sb
 
+@[proof_bv]
 theorem drop_sextb_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextb .sb) := by
   proveStoreValid Data.RISCV.drop_sextb_sb
 
+@[proof_bv]
 theorem drop_zextw_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sb) := by
   proveStoreValid Data.RISCV.drop_zextw_sb
 
+@[proof_bv]
 theorem drop_sextw_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sb) := by
   proveStoreValid Data.RISCV.drop_sextw_sb

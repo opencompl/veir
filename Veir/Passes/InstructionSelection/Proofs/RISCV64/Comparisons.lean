@@ -4,6 +4,7 @@ import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR.Properties
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs: Integer comparisons and conditional selects. -/
 
@@ -21,6 +22,7 @@ attribute [local ctree_semantics]
 
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_bv]
 theorem gmirSelectZeroFalse_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZero_pattern true) := by
   dsimp only [gmirSelectZero_pattern, matchLegal]
@@ -50,6 +52,7 @@ theorem gmirSelectZeroFalse_pattern_valid :
     change Attribute.integerType ty = Attribute.llvmPointerType ptr at impossible
     cases impossible
 
+@[proof_bv]
 theorem gmirSelectZeroTrue_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZero_pattern false) := by
   dsimp only [gmirSelectZero_pattern, matchLegal]
@@ -79,6 +82,7 @@ theorem gmirSelectZeroTrue_pattern_valid :
     change Attribute.integerType ty = Attribute.llvmPointerType ptr at impossible
     cases impossible
 
+@[proof_bv]
 theorem gmirSelect_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSelect_pattern := by
   unfold gmirSelect_pattern
@@ -102,6 +106,7 @@ theorem gmirSelect_pattern_valid :
     all_goals veir_bv_decide
   · cases t <;> cases f <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_eq_zero_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .eq true) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -124,6 +129,7 @@ theorem gmirIcmp_eq_zero_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_eq_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .eq false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -140,6 +146,7 @@ theorem gmirIcmp_eq_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_ne_zero_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ne true) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -162,6 +169,7 @@ theorem gmirIcmp_ne_zero_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_ne_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ne false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -178,6 +186,7 @@ theorem gmirIcmp_ne_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_slt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .slt false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -194,6 +203,7 @@ theorem gmirIcmp_slt_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_sgt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .sgt false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -210,6 +220,7 @@ theorem gmirIcmp_sgt_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_ult_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ult false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -226,6 +237,7 @@ theorem gmirIcmp_ult_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_ugt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ugt false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -242,6 +254,7 @@ theorem gmirIcmp_ugt_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_sge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .sge false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -258,6 +271,7 @@ theorem gmirIcmp_sge_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_sle_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .sle false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -274,6 +288,7 @@ theorem gmirIcmp_sle_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_uge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .uge false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -290,6 +305,7 @@ theorem gmirIcmp_uge_pattern_valid :
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
+@[proof_bv]
 theorem gmirIcmp_ule_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ule false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
@@ -320,6 +336,7 @@ private theorem sltiImm_field {pred : Data.LLVM.IntPred} {c imm : Int}
   · simpa [wrap] using range.1
   · simpa [wrap] using range.2
 
+@[proof_bv]
 theorem gmirSlti_slt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .slt) := by
   dsimp only [gmirSlti_pattern, matchLegal]
@@ -338,6 +355,7 @@ theorem gmirSlti_slt_pattern_valid :
   all_goals simp -failIfUnchanged only []
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirSlti_ult_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .ult) := by
   dsimp only [gmirSlti_pattern, matchLegal]
@@ -356,6 +374,7 @@ theorem gmirSlti_ult_pattern_valid :
   all_goals simp -failIfUnchanged only []
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirSlti_sge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .sge) := by
   dsimp only [gmirSlti_pattern, matchLegal]
@@ -374,6 +393,7 @@ theorem gmirSlti_sge_pattern_valid :
   all_goals simp -failIfUnchanged only [mkRISCVImm, RISCVImmediateProperties.immField]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirSlti_uge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .uge) := by
   dsimp only [gmirSlti_pattern, matchLegal]
@@ -392,6 +412,7 @@ theorem gmirSlti_uge_pattern_valid :
   all_goals simp -failIfUnchanged only [mkRISCVImm, RISCVImmediateProperties.immField]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirSlti_sle_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .sle) := by
   dsimp only [gmirSlti_pattern, matchLegal]
@@ -419,6 +440,7 @@ theorem gmirSlti_sle_pattern_valid :
     rw [←himm.1, BitVec.ofInt_add, BitVec.ofInt_toInt]
     veir_bv_decide
 
+@[proof_bv]
 theorem gmirSlti_ule_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .ule) := by
   dsimp only [gmirSlti_pattern, matchLegal]

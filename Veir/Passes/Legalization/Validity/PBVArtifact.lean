@@ -17,6 +17,7 @@ import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.PBVDecide
+meta import Veir.Meta.ProofKind
 
 /-!
 # CTree validity of the legalization artifact combines (`Validity/Artifact`) by `pbv_decide`
@@ -57,6 +58,7 @@ attribute [local implicit_reducible] TypeAttr
 --     (combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)) := by
 --   proveLegalValid with veir_pbv_decide 64 (blastWidth := 64)
 
+@[proof_pbv]
 theorem artifact_trunc_trunc_valid : Puddle.CTree.Pattern.Valid combineTruncOfTrunc := by
   proveLegalValid with (veir_pbv_decide 64)
 
@@ -82,6 +84,7 @@ theorem artifact_7_status :
 -- theorem artifact_unmerge_merge_valid : Puddle.CTree.Pattern.Valid combineUnmergeOfMerge := by
 --   proveLegalValid with veir_pbv_decide 64 (blastWidth := 64)
 
+@[proof_pbv]
 theorem artifact_zext_trunc_icmp_valid : Puddle.CTree.Pattern.Valid combineZExtOfTruncOfICmp := by
   proveLegalValid with veir_pbv_decide 64
 

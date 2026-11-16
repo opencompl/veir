@@ -13,6 +13,7 @@ import all Veir.Data.LLVM.Int.Basic
 import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.ProofKind
 
 /-! CTree validity of the RISC-V custom legalizations of `riscv64LegalizerInfo.legalizeCustom`. The
 word rules work at the concrete widths 32 and 64, so their local lemmas are decided. -/
@@ -34,12 +35,15 @@ attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_bv]
 theorem custom_add_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_addw) := by
   proveLegalValid using Data.LLVM.add_drop_flags
 
+@[proof_bv]
 theorem custom_sub_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_subw) := by
   proveLegalValid using Data.LLVM.sub_drop_flags
 
+@[proof_bv]
 theorem custom_mul_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_mulw) := by
   proveLegalValid using Data.LLVM.mul_drop_flags
 
@@ -94,18 +98,23 @@ private theorem ashr_word (x y : Data.LLVM.Int 32) (exact : Bool) :
   · simp only [shiftAmount, GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.and, Id.run]
     veir_bv_decide
 
+@[proof_bv]
 theorem custom_shl_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_sllw) := by
   proveLegalValid using shl_word
 
+@[proof_bv]
 theorem custom_lshr_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_srlw) := by
   proveLegalValid using lshr_word
 
+@[proof_bv]
 theorem custom_ashr_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_sraw) := by
   proveLegalValid using ashr_word
 
+@[proof_bv]
 theorem custom_sdiv_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_divw) := by
   proveLegalValid using Data.LLVM.sdiv_drop_exact
 
+@[proof_bv]
 theorem custom_udiv_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_divuw) := by
   proveLegalValid using Data.LLVM.udiv_drop_exact
 
@@ -145,6 +154,7 @@ private theorem bitreverse_brev8 (x : Data.LLVM.Int 8) (m : BitVec 56) (h : 8 < 
       bv_decide
   · simp [Data.LLVM.Int.bitreverse, Id.run, Data.LLVM.Int.isRefinedBy_eq]
 
+@[proof_bv]
 theorem custom_bitreverse_valid : Puddle.CTree.Pattern.Valid customLegalizeBitreverse8 := by
   proveLegalValid using bitreverse_brev8
 

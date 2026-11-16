@@ -7,6 +7,7 @@ import all Veir.Data.LLVM.Ptr.Basic
 import all Veir.Data.Pointer.Basic
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
 import all Veir.Passes.Legalization.LegalizerInfo
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs: Constant materialization and freeze. -/
 
@@ -32,6 +33,7 @@ private theorem forall_gmirConstantProperties (P : propertiesOf (OpCode.gmir GMI
 
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_manual]
 theorem constant_pattern_valid :
     Puddle.CTree.Pattern.Valid constant_pattern := by
   unfold constant_pattern
@@ -45,6 +47,7 @@ theorem constant_pattern_valid :
   ext i hi
   simp [BitVec.getElem_signExtend, hi, Nat.lt_of_lt_of_le hi xBw]
 
+@[proof_manual]
 theorem gmirPoison_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirPoison_pattern := by
   unfold gmirPoison_pattern
@@ -55,6 +58,7 @@ theorem gmirPoison_pattern_valid :
     Data.RISCV.val_li, MemoryState.ptrFromInt,
     MemoryState.decode, Data.LLVM.Ptr.isRefinedBy]
 
+@[proof_manual]
 theorem zeroConst_pattern_valid :
     Puddle.CTree.Pattern.Valid zeroConst_pattern := by
   unfold zeroConst_pattern
@@ -84,6 +88,7 @@ theorem freeze_pattern_valid :
   all_goals simp_all [ctree_semantics, RISCV.Reg.toInt, BitVec.setWidth_eq, ←Attribute.integerType_eq_of,
     ←Attribute.registerType_eq_of, Functor.map, CTree.choose_def, CTree.tau_def, Bind.bind]
 
+@[proof_manual]
 theorem gmirConstant_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirConstant_pattern := by
   unfold gmirConstant_pattern

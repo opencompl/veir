@@ -6,6 +6,7 @@ import all Veir.Interpreter.CTree
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.MemoryAddressLemmas
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.LoadLegality
+meta import Veir.Meta.ProofKind
 
 namespace Veir
 open Puddle
@@ -17,6 +18,7 @@ attribute [local ctree_semantics]
   Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_bv]
 theorem gmirLoad_gepConst_lbu_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .gepConst 1 .lbu) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -61,6 +63,7 @@ theorem gmirLoad_gepConst_lbu_valid :
       rw [gmirLoad_target_expanded, heffective]
       exact gmirLoad_sim memory addr resultType argType props 1 (.inl rfl) legal size .zeroExt
 
+@[proof_bv]
 theorem gmirLoad_gepConst_lh_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .gepConst 2 .lh) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -105,6 +108,7 @@ theorem gmirLoad_gepConst_lh_valid :
       rw [gmirLoad_target_expanded, heffective]
       exact gmirLoad_sim memory addr resultType argType props 2 (by simp) legal size .signExt
 
+@[proof_bv]
 theorem gmirLoad_gepConst_lw_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .gepConst 4 .lw) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -149,6 +153,7 @@ theorem gmirLoad_gepConst_lw_valid :
       rw [gmirLoad_target_expanded, heffective]
       exact gmirLoad_sim memory addr resultType argType props 4 (by simp) legal size .signExt
 
+@[proof_bv]
 theorem gmirLoad_gepConst_ld_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .gepConst 8 .ld) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -193,6 +198,7 @@ theorem gmirLoad_gepConst_ld_valid :
       rw [gmirLoad_target_expanded, heffective]
       exact gmirLoad_sim memory addr resultType argType props 8 (by simp) legal size .zeroExt
 
+@[proof_bv]
 theorem gmirLoad_gepIndex_lbu_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .gepIndex 1 .lbu) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -237,6 +243,7 @@ theorem gmirLoad_gepIndex_lbu_valid :
       rw [gmirLoad_target_expanded, heffective]
       exact gmirLoad_sim memory addr resultType argType props 1 (by simp) legal size .zeroExt
 
+@[proof_bv]
 theorem gmirLoad_gepIndex_lh_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .gepIndex 2 .lh) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -281,6 +288,7 @@ theorem gmirLoad_gepIndex_lh_valid :
       rw [gmirLoad_target_expanded, heffective]
       exact gmirLoad_sim memory addr resultType argType props 2 (by simp) legal size .signExt
 
+@[proof_bv]
 theorem gmirLoad_gepIndex_lw_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .gepIndex 4 .lw) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -325,6 +333,7 @@ theorem gmirLoad_gepIndex_lw_valid :
       rw [gmirLoad_target_expanded, heffective]
       exact gmirLoad_sim memory addr resultType argType props 4 (by simp) legal size .signExt
 
+@[proof_bv]
 theorem gmirLoad_gepIndex_ld_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .gepIndex 8 .ld) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]

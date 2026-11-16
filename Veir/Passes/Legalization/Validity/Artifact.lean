@@ -14,6 +14,7 @@ import all Veir.Data.LLVM.Int.Basic
 import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.ProofKind
 
 /-! CTree validity of the legalization artifact combines of `tryCombineInstruction`.
 
@@ -37,14 +38,17 @@ attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_manual]
 theorem artifact_anyext_trunc_same_valid :
     Puddle.CTree.Pattern.Valid combineAnyExtOfTruncSame := by
   proveLegalValid using Data.LLVM.anyext_trunc_same
 
+@[proof_manual]
 theorem artifact_anyext_trunc_narrower_valid : Puddle.CTree.Pattern.Valid
     (combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth)) := by
   proveLegalValid using Data.LLVM.anyext_trunc_narrower
 
+@[proof_manual]
 theorem artifact_anyext_trunc_wider_valid : Puddle.CTree.Pattern.Valid
     (combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)) := by
   proveLegalValid using Data.LLVM.anyext_trunc_wider
@@ -54,12 +58,14 @@ theorem artifact_trunc_trunc_valid : Puddle.CTree.Pattern.Valid combineTruncOfTr
 
 /-- The constant combines match the bits of the constant at the width of its attribute, which the
 matcher ties to the width of the constant, so they are the constant's value. -/
+@[proof_manual]
 theorem artifact_zext_trunc_constant_valid :
     Puddle.CTree.Pattern.Valid (combineExtOfTruncOfConstant false) := by
   proveLegalValid with
     simp only [GMIRConstantProperties.bits] at *
     apply Data.LLVM.zext_trunc_constant <;> simp_all
 
+@[proof_manual]
 theorem artifact_sext_trunc_constant_valid :
     Puddle.CTree.Pattern.Valid (combineExtOfTruncOfConstant true) := by
   proveLegalValid with
@@ -78,6 +84,7 @@ private theorem int_unmerge_merge {w k : Nat} (hk : k = w) (h : w + w = k + k) (
 /-- The interpreter of `g_unmerge_values` halves the width `w + w` of its operand, which `simp`
 cannot rewrite under the dependent result values, so this proof substitutes the merged value by
 hand and closes the refinement with `int_unmerge_merge`. -/
+@[proof_manual]
 theorem artifact_unmerge_merge_valid : Puddle.CTree.Pattern.Valid combineUnmergeOfMerge := by
   conv => arg 1; cbv
   simpPuddleValid

@@ -8,6 +8,7 @@ import all Veir.Passes.Legalization.LegalizerInfo
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR_RISCV.OpInfo
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs: Single-bit operations, byte combining, bit counting, and bit reversal. -/
 
@@ -53,6 +54,7 @@ private theorem singleBitImm_mask {complement : Bool} {c imm : Int}
   · simp only [BitVec.ofInt_toInt] at h
     exact singleSetBit_mask h
 
+@[proof_bv]
 theorem gmirBseti_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBseti_pattern := by
   unfold gmirBseti_pattern
@@ -68,6 +70,7 @@ theorem gmirBseti_pattern_valid :
   cases a <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirBinvi_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBinvi_pattern := by
   unfold gmirBinvi_pattern
@@ -83,6 +86,7 @@ theorem gmirBinvi_pattern_valid :
   cases a <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirBclri_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBclri_pattern := by
   unfold gmirBclri_pattern
@@ -98,6 +102,7 @@ theorem gmirBclri_pattern_valid :
   cases a <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrcb_0_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 0) := by
   dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
@@ -114,6 +119,7 @@ theorem gmirOrcb_0_pattern_valid :
   all_goals simp_all -failIfUnchanged [Data.RISCV.val_orcb]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrcb_1_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 1) := by
   dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
@@ -131,6 +137,7 @@ theorem gmirOrcb_1_pattern_valid :
   all_goals simp_all -failIfUnchanged [Data.RISCV.val_orcb]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrcb_2_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 2) := by
   dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
@@ -148,6 +155,7 @@ theorem gmirOrcb_2_pattern_valid :
   all_goals simp_all -failIfUnchanged [Data.RISCV.val_orcb]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrcb_3_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 3) := by
   dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
@@ -165,6 +173,7 @@ theorem gmirOrcb_3_pattern_valid :
   all_goals simp_all -failIfUnchanged [Data.RISCV.val_orcb]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrcb_4_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 4) := by
   dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
@@ -182,6 +191,7 @@ theorem gmirOrcb_4_pattern_valid :
   all_goals simp_all -failIfUnchanged [Data.RISCV.val_orcb]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrcb_5_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 5) := by
   dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
@@ -199,6 +209,7 @@ theorem gmirOrcb_5_pattern_valid :
   all_goals simp_all -failIfUnchanged [Data.RISCV.val_orcb]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrcb_6_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 6) := by
   dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
@@ -216,6 +227,7 @@ theorem gmirOrcb_6_pattern_valid :
   all_goals simp_all -failIfUnchanged [Data.RISCV.val_orcb]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrcb_7_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 7) := by
   dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
@@ -233,6 +245,7 @@ theorem gmirOrcb_7_pattern_valid :
   all_goals simp_all -failIfUnchanged [Data.RISCV.val_orcb]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirBexti_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBexti_pattern := by
   unfold gmirBexti_pattern
@@ -256,6 +269,7 @@ theorem gmirBexti_pattern_valid :
   cases a <;> simp_all -failIfUnchanged [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvClzw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvClzw_pattern := by
   unfold gmirRiscvClzw_pattern
@@ -274,6 +288,7 @@ theorem gmirRiscvClzw_pattern_valid :
   all_goals simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvCtzw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvCtzw_pattern := by
   unfold gmirRiscvCtzw_pattern
@@ -292,6 +307,7 @@ theorem gmirRiscvCtzw_pattern_valid :
   all_goals simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_manual]
 theorem gmirCtlz_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirCtlz_pattern := by
   unfold gmirCtlz_pattern
@@ -302,6 +318,7 @@ theorem gmirCtlz_pattern_valid :
   cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.ctlz, Data.RISCV.val_clz]
   all_goals simp_all -failIfUnchanged [Id.run]
 
+@[proof_manual]
 theorem gmirCttz_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirCttz_pattern := by
   unfold gmirCttz_pattern
@@ -312,6 +329,7 @@ theorem gmirCttz_pattern_valid :
   cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.cttz, Data.RISCV.val_ctz]
   all_goals simp_all -failIfUnchanged [Id.run]
 
+@[proof_manual]
 theorem gmirCtpop_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirCtpop_pattern := by
   unfold gmirCtpop_pattern
@@ -322,6 +340,7 @@ theorem gmirCtpop_pattern_valid :
   cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.ctpop, Data.RISCV.val_cpop]
   all_goals simp_all -failIfUnchanged [Id.run]
 
+@[proof_bv]
 theorem gmirCpopw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirCpopw_pattern := by
   unfold gmirCpopw_pattern
@@ -341,6 +360,7 @@ theorem gmirCpopw_pattern_valid :
           Data.LLVM.Int.ctpop, Data.LLVM.Int.isRefinedBy, Id.run, pure] <;>
         veir_bv_decide
 
+@[proof_bv]
 theorem gmirBswap_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBswap_pattern := by
   unfold gmirBswap_pattern
@@ -360,6 +380,7 @@ theorem gmirBswap_pattern_valid :
   cases width
   cases a <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirBrev8_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBrev8_pattern := by
   unfold gmirBrev8_pattern
@@ -379,6 +400,7 @@ theorem gmirBrev8_pattern_valid :
   simp only [Nat.reduceEqDiff, ↓reduceIte]
   cases a <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
 
+@[proof_bv]
 theorem gmirBitreverse_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBitreverse_pattern := by
   unfold gmirBitreverse_pattern

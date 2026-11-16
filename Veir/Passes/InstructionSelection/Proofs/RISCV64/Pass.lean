@@ -18,6 +18,7 @@ import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Selects
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Shifts
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.StorePatterns
 import all Veir.Passes.InstructionSelection.Validity
+meta import Veir.Meta.ProofKind
 
 /-!
 # Soundness of the `isel-riscv64` pass
@@ -150,6 +151,7 @@ theorem gmirIcmpPatterns_valid : ∀ pattern ∈ gmirIcmpPatterns, Pattern.Valid
     · exact gmirIcmp_ule_pattern_valid
 
 /-- The `orc.b` selections at each of the eight byte positions. -/
+@[proof_bv]
 theorem gmirOrcb_valid (y : Nat) (bound : y < 8) : Pattern.Valid (gmirOrcb_pattern y) :=
   match y, bound with
   | 0, _ => gmirOrcb_0_pattern_valid

@@ -16,6 +16,7 @@ import all Veir.Passes.Legalization.Validity.PBVNormalize
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
 meta import Std.Tactic.BVDecide
+meta import Veir.Meta.ProofKind
 
 /-! CTree validity of the widening rules of `widenScalarPattern?`, at every target width.
 
@@ -262,6 +263,7 @@ theorem widen_icmp_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_icmp (.type 1) .g_sext W) := by
   proveLegalValid using Data.LLVM.icmp_sext
 
+@[proof_manual]
 theorem widen_select_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_select (.type 1) .g_zext W) := by
   proveLegalValid using Data.LLVM.selectNonzero_zext
@@ -290,10 +292,12 @@ theorem widen_ctpop_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_ctpop (.type 0) .g_anyext W) := by
   proveLegalValid using resizeCount_trunc
 
+@[proof_manual]
 theorem widen_fshl_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_fshl (.type 1) .g_zext W) := by
   proveLegalValid using Data.LLVM.funnelShiftAmount_zext
 
+@[proof_manual]
 theorem widen_fshr_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_fshr (.type 1) .g_zext W) := by
   proveLegalValid using Data.LLVM.funnelShiftAmount_zext
@@ -322,6 +326,7 @@ theorem widen_sub_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_sub (.type 0) .g_anyext W clearNswNuwProperties) := by
   proveLegalValid using Data.LLVM.sub_widening
 
+@[proof_manual]
 theorem widen_mul_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_mul (.type 0) .g_anyext W clearNswNuwProperties) := by
   proveLegalValid using Data.LLVM.mul_widening
@@ -354,24 +359,28 @@ theorem widen_lshr_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_lshr (.type 0) .g_zext W) := by
   proveLegalValid using lshr_widening
 
+@[proof_manual]
 theorem widen_sdiv_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_sdiv (.type 0) .g_sext W) := by
   proveLegalValid with first
     | (exfalso; have := Data.LLVM.isSignedDivisionUB_sext (by assumption) _ _ (by assumption); simp_all; done)
     | (apply Data.LLVM.sdiv_widening <;> simp_all; done)
 
+@[proof_manual]
 theorem widen_srem_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_srem (.type 0) .g_sext W) := by
   proveLegalValid with first
     | (exfalso; have := Data.LLVM.isSignedDivisionUB_sext (by assumption) _ _ (by assumption); simp_all; done)
     | (apply Data.LLVM.srem_widening <;> simp_all; done)
 
+@[proof_manual]
 theorem widen_udiv_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_udiv (.type 0) .g_zext W) := by
   proveLegalValid with first
     | (exfalso; simp_all [Data.LLVM.isUnsignedDivisionUB_zext]; done)
     | (apply Data.LLVM.udiv_widening <;> simp_all; done)
 
+@[proof_manual]
 theorem widen_urem_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_urem (.type 0) .g_zext W) := by
   proveLegalValid with first
@@ -420,6 +429,7 @@ theorem widen_ssubo_0_valid (W : Nat) :
 
 /-- `widenConstant` creates the wide constant from the matched properties, which are split into
 their value and type by hand, so that the value it is created with reduces. -/
+@[proof_manual]
 theorem widen_constant_0_valid (W : Nat) : Puddle.CTree.Pattern.Valid (widenConstant W) := by
   conv => arg 1; cbv
   simpPuddleValid
@@ -432,6 +442,7 @@ theorem widen_constant_0_valid (W : Nat) : Puddle.CTree.Pattern.Valid (widenCons
   exact Data.LLVM.trunc_ofInt_of_bmod_eq _ (by simpa using Data.LLVM.widenConstant_value_bmod w value)
 
 /-- `widenTypeGroup .g_poison`: a wide poison truncates to poison, which any value refines. -/
+@[proof_manual]
 theorem widen_poison_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_poison (.type 0) .g_anyext W) := by
   proveLegalValid with
@@ -443,6 +454,7 @@ theorem widen_poison_0_valid (W : Nat) :
 the high bits of its result unspecified as the narrow one does, so the source chooses the low
 `w - size` of the high bits the target chose. The proof follows the interpreter's alignment check
 and memory access step by step, which `simp` cannot traverse. -/
+@[proof_manual]
 theorem widen_load_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_load (.type 0) .g_anyext W) := by
   conv => arg 1; cbv
@@ -470,6 +482,7 @@ theorem widen_bitreverse_0_valid (W : Nat) :
 
 /-- The result of a `g_icmp` is an `i1`, which the interpreter zero-extends to a wider result
 type; the matcher excludes `i0`, so the narrow result is the `i1` or its zero extension. -/
+@[proof_manual]
 theorem widen_icmp_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_icmp (.type 0) .g_anyext W) := by
   proveLegalValid with first
@@ -534,6 +547,7 @@ private theorem bswap_widening {w W : Nat} (hw : w = 16 ∨ w = 32)
   rcases hw with rfl | rfl <;> rcases hW with rfl | rfl | rfl <;> (try omega) <;>
     veir_bv_normalize <;> bv_decide (config := { timeout := 300 })
 
+@[proof_bv]
 theorem widen_bswap_0_valid (W : Nat) (widths : W = 16 ∨ W = 32 ∨ W = 64) :
     Puddle.CTree.Pattern.Valid (widenReverse .g_bswap W fun w => w == 16 || w == 32) := by
   proveLegalValid using bswap_widening

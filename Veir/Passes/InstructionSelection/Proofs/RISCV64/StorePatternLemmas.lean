@@ -5,6 +5,7 @@ import all Veir.Passes.InstructionSelection.Proofs.RISCV64.MemoryLemmas
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.MemoryAddressLemmas
 
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.StoreValueLemmas
+meta import Veir.Meta.ProofKind
 
 namespace Veir
 
@@ -18,6 +19,7 @@ attribute [local ctree_semantics]
   Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_manual]
 theorem lowerStore_reg_sb_of (store_refines : StorePrimitiveRefines 1) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 1 .sb) := by
   dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
@@ -46,6 +48,7 @@ theorem lowerStore_reg_sb_of (store_refines : StorePrimitiveRefines 1) :
         rawStore_sim memory _ p ((UInt64.ofBitVec rv.val).toByteArrayLE.extract 0 1) href
   · contradiction
 
+@[proof_manual]
 theorem lowerStore_reg_sh_of (store_refines : StorePrimitiveRefines 2) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 2 .sh) := by
   dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
@@ -74,6 +77,7 @@ theorem lowerStore_reg_sh_of (store_refines : StorePrimitiveRefines 2) :
         rawStore_sim memory _ p ((UInt64.ofBitVec rv.val).toByteArrayLE.extract 0 2) href
   · contradiction
 
+@[proof_manual]
 theorem lowerStore_reg_sw_of (store_refines : StorePrimitiveRefines 4) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 4 .sw) := by
   dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
@@ -103,6 +107,7 @@ theorem lowerStore_reg_sw_of (store_refines : StorePrimitiveRefines 4) :
   · contradiction
 
 set_option maxHeartbeats 800000 in
+@[proof_manual]
 theorem lowerStore_reg_sd_of (store_refines : StorePrimitiveRefines 8) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 8 .sd) := by
   dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]

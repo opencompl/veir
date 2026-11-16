@@ -16,6 +16,7 @@ import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.PBVDecide
+meta import Veir.Meta.ProofKind
 
 /-!
 # CTree validity of the custom legalizations (`Validity/Custom`) by `pbv_decide`
@@ -51,6 +52,7 @@ to `BitVec.ofNat n w - 1`, a width placed in a value, which `pbv_decide` transla
 local macro "widthNorm" : tactic => `(tactic|
   (try simp only [ofInt_sub', BitVec.ofInt_natCast, BitVec.ofInt_ofNat] at *))
 
+@[proof_manual]
 theorem custom_urem_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_remuw) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -59,6 +61,7 @@ theorem custom_urem_status :
     Status Unproven (customLegalizeWordBinary .g_remuw) :=
   .proven custom_urem_valid
 
+@[proof_manual]
 theorem custom_ctlz_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordUnary .g_clzw) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -67,6 +70,7 @@ theorem custom_ctlz_status :
     Status Unproven (customLegalizeWordUnary .g_clzw) :=
   .proven custom_ctlz_valid
 
+@[proof_manual]
 theorem custom_cttz_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordUnary .g_ctzw) := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -75,6 +79,7 @@ theorem custom_cttz_status :
     Status Unproven (customLegalizeWordUnary .g_ctzw) :=
   .proven custom_cttz_valid
 
+@[proof_pbv]
 theorem custom_abs_valid : Puddle.CTree.Pattern.Valid customLegalizeAbs := by
   proveLegalValid with veir_pbv_decide 64
 
@@ -120,6 +125,7 @@ theorem custom_abs_status :
 --   proveLegalValid with veir_pbv_decide 64
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem custom_uaddsat_valid :
     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_uaddsat false true) := by
   proveLegalValid with veir_pbv_decide 64
@@ -130,6 +136,7 @@ theorem custom_uaddsat_status :
   .proven custom_uaddsat_valid
 
 -- Up to 64 bits only: the matcher leaves the widths unbounded, so the side goals `w ≤ 64` are assumed.
+@[proof_pbv]
 theorem custom_usubsat_valid :
     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_usubsat false false) := by
   proveLegalValid with veir_pbv_decide 64
@@ -139,6 +146,7 @@ theorem custom_usubsat_status :
     Status Unproven (lowerAddSubSatToAddoSubo .g_usubsat false false) :=
   .proven custom_usubsat_valid
 
+@[proof_pbv]
 theorem custom_saddsat_valid :
     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_saddsat true true) := by
   proveLegalValid with (all_goals widthNorm; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
@@ -148,6 +156,7 @@ theorem custom_saddsat_status :
     Status Unproven (lowerAddSubSatToAddoSubo .g_saddsat true true) :=
   .proven custom_saddsat_valid
 
+@[proof_pbv]
 theorem custom_ssubsat_valid :
     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_ssubsat true false) := by
   proveLegalValid with (all_goals widthNorm; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))

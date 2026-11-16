@@ -2,6 +2,7 @@ module
 
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
 import all Veir.Dialects.RISCV.Interpreter
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs: Integer arithmetic and min/max operations. -/
 
@@ -19,6 +20,7 @@ attribute [local ctree_semantics]
 
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_bv]
 theorem gmirAdd_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAdd_pattern := by
   unfold gmirAdd_pattern
@@ -29,6 +31,7 @@ theorem gmirAdd_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirSub_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSub_pattern := by
   unfold gmirSub_pattern
@@ -39,6 +42,7 @@ theorem gmirSub_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirAddi_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAddi_pattern := by
   unfold gmirAddi_pattern
@@ -53,6 +57,7 @@ theorem gmirAddi_pattern_valid :
   all_goals rw [mkRISCVImm_signExtend_12 property.value lo hi]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvAddiw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvAddiw_pattern := by
   unfold gmirRiscvAddiw_pattern
@@ -68,6 +73,7 @@ theorem gmirRiscvAddiw_pattern_valid :
   all_goals have bridge := BitVec.setWidth_ofInt_32_64 property.value
   all_goals veir_bv_decide
 
+@[proof_manual]
 theorem gmirMul_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirMul_pattern := by
   unfold gmirMul_pattern
@@ -79,6 +85,7 @@ theorem gmirMul_pattern_valid :
   all_goals veir_bv_normalize
   all_goals simp_all only [BitVec.mul_comm, implies_true, not_false_eq_true, not_true_eq_false, false_implies]
 
+@[proof_manual]
 theorem gmirSdiv_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSdiv_pattern := by
   unfold gmirSdiv_pattern
@@ -92,6 +99,7 @@ theorem gmirSdiv_pattern_valid :
   all_goals first | solve | veir_bv_normalize; simp_all
                   | veir_bv_decide
 
+@[proof_manual]
 theorem gmirUdiv_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirUdiv_pattern := by
   unfold gmirUdiv_pattern
@@ -105,6 +113,7 @@ theorem gmirUdiv_pattern_valid :
   all_goals first | solve | veir_bv_normalize; simp_all
                   | veir_bv_decide
 
+@[proof_manual]
 theorem gmirSrem_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSrem_pattern := by
   unfold gmirSrem_pattern
@@ -118,6 +127,7 @@ theorem gmirSrem_pattern_valid :
   all_goals first | solve | veir_bv_normalize; simp_all
                   | veir_bv_decide
 
+@[proof_manual]
 theorem gmirUrem_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirUrem_pattern := by
   unfold gmirUrem_pattern
@@ -131,6 +141,7 @@ theorem gmirUrem_pattern_valid :
   all_goals first | solve | veir_bv_normalize; simp_all
                   | veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvAddw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvAddw_pattern := by
   unfold gmirRiscvAddw_pattern
@@ -142,6 +153,7 @@ theorem gmirRiscvAddw_pattern_valid :
   all_goals first | solve | veir_bv_normalize; simp_all
                   | veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvSubw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSubw_pattern := by
   unfold gmirRiscvSubw_pattern
@@ -153,6 +165,7 @@ theorem gmirRiscvSubw_pattern_valid :
   all_goals first | solve | veir_bv_normalize; simp_all
                   | veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvMulw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvMulw_pattern := by
   unfold gmirRiscvMulw_pattern
@@ -165,6 +178,7 @@ theorem gmirRiscvMulw_pattern_valid :
   all_goals simp -failIfUnchanged only [*]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvDivw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvDivw_pattern := by
   unfold gmirRiscvDivw_pattern
@@ -179,6 +193,7 @@ theorem gmirRiscvDivw_pattern_valid :
   all_goals simp -failIfUnchanged only [*]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvDivuw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvDivuw_pattern := by
   unfold gmirRiscvDivuw_pattern
@@ -193,6 +208,7 @@ theorem gmirRiscvDivuw_pattern_valid :
   all_goals simp -failIfUnchanged only [*]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirRiscvRemuw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvRemuw_pattern := by
   unfold gmirRiscvRemuw_pattern
@@ -207,6 +223,7 @@ theorem gmirRiscvRemuw_pattern_valid :
   all_goals simp -failIfUnchanged only [*]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirSmax_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSmax_pattern := by
   unfold gmirSmax_pattern
@@ -217,6 +234,7 @@ theorem gmirSmax_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirSmin_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSmin_pattern := by
   unfold gmirSmin_pattern
@@ -227,6 +245,7 @@ theorem gmirSmin_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirUmax_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirUmax_pattern := by
   unfold gmirUmax_pattern
@@ -237,6 +256,7 @@ theorem gmirUmax_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirUmin_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirUmin_pattern := by
   unfold gmirUmin_pattern

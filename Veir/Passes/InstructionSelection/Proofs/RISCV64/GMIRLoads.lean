@@ -12,6 +12,7 @@ import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
 import all Veir.Passes.Legalization.LegalizerInfo
+meta import Veir.Meta.ProofKind
 
 namespace Veir
 open Puddle
@@ -155,6 +156,7 @@ theorem gmirLoad_target_expanded (memory : MemoryState) (imm : BitVec 12) (reg :
   rfl
 
 
+@[proof_manual]
 theorem gmirLoad_reg_lbu_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .reg 1 .lbu) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -180,6 +182,7 @@ theorem gmirLoad_reg_lbu_valid :
       rw [gmirLoad_target_expanded]
       simpa [ctree_semantics, riscvEffectiveAddr] using hs
 
+@[proof_manual]
 theorem gmirLoad_reg_lh_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .reg 2 .lh) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -205,6 +208,7 @@ theorem gmirLoad_reg_lh_valid :
       rw [gmirLoad_target_expanded]
       simpa [ctree_semantics, riscvEffectiveAddr] using hs
 
+@[proof_manual]
 theorem gmirLoad_reg_lw_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .reg 4 .lw) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
@@ -230,6 +234,7 @@ theorem gmirLoad_reg_lw_valid :
       rw [gmirLoad_target_expanded]
       simpa [ctree_semantics, riscvEffectiveAddr] using hs
 
+@[proof_manual]
 theorem gmirLoad_reg_ld_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .reg 8 .ld) := by
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]

@@ -9,6 +9,7 @@ import all Veir.Data.Pointer.Basic
 import all Veir.Data.LLVM.Ptr.Basic
 import all Veir.Data.Casting
 import all Veir.ForLean
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs for LLVM loads. -/
 
@@ -22,6 +23,7 @@ attribute [local ctree_semantics]
   Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_bv]
 theorem lowerLoad_reg_lbu_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .reg 1 .lbu) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -49,6 +51,7 @@ theorem lowerLoad_reg_lbu_valid :
         exact href
   · contradiction
 
+@[proof_bv]
 theorem lowerLoad_reg_lh_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .reg 2 .lh) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -76,6 +79,7 @@ theorem lowerLoad_reg_lh_valid :
         exact href
   · contradiction
 
+@[proof_bv]
 theorem lowerLoad_reg_lw_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .reg 4 .lw) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -103,6 +107,7 @@ theorem lowerLoad_reg_lw_valid :
         exact href
   · contradiction
 
+@[proof_bv]
 theorem lowerLoad_reg_ld_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .reg 8 .ld) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -146,6 +151,7 @@ theorem lowerLoad_reg_ld_valid :
           , RuntimeValue.arrayIsRefinedBy]
         exact href
 
+@[proof_bv]
 theorem lowerLoad_gepConst_lbu_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepConst 1 .lbu) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -202,6 +208,7 @@ theorem lowerLoad_gepConst_lbu_valid :
         exact href
       · contradiction
 
+@[proof_bv]
 theorem lowerLoad_gepConst_lh_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepConst 2 .lh) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -258,6 +265,7 @@ theorem lowerLoad_gepConst_lh_valid :
         exact href
       · contradiction
 
+@[proof_bv]
 theorem lowerLoad_gepConst_lw_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepConst 4 .lw) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -314,6 +322,7 @@ theorem lowerLoad_gepConst_lw_valid :
         exact href
       · contradiction
 
+@[proof_bv]
 theorem lowerLoad_gepConst_ld_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepConst 8 .ld) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -389,6 +398,7 @@ theorem lowerLoad_gepConst_ld_valid :
           RuntimeValue.arrayIsRefinedBy]
         exact href
 
+@[proof_bv]
 theorem lowerLoad_gepIndex_lbu_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepIndex 1 .lbu) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -446,6 +456,7 @@ theorem lowerLoad_gepIndex_lbu_valid :
       · contradiction
 
 
+@[proof_bv]
 theorem lowerLoad_gepIndex_lh_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepIndex 2 .lh) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -503,6 +514,7 @@ theorem lowerLoad_gepIndex_lh_valid :
       · contradiction
 
 
+@[proof_bv]
 theorem lowerLoad_gepIndex_lw_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepIndex 4 .lw) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
@@ -561,6 +573,7 @@ theorem lowerLoad_gepIndex_lw_valid :
       · contradiction
 
 
+@[proof_bv]
 theorem lowerLoad_gepIndex_ld_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepIndex 8 .ld) := by
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]

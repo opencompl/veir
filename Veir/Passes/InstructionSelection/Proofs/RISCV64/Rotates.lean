@@ -2,6 +2,7 @@ module
 
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
 import all Veir.Dialects.RISCV.Interpreter
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs: Rotates and funnel shifts. -/
 
@@ -58,6 +59,7 @@ theorem lowerFsh_constant_match_counterexample (memory : MemoryState) :
   · rfl
   · rfl
 
+@[proof_bv]
 theorem fshl64_pattern_valid :
     Puddle.CTree.Pattern.Valid fshl64_pattern := by
   unfold fshl64_pattern
@@ -67,6 +69,7 @@ theorem fshl64_pattern_valid :
   intro sign a b p _hVerified v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
 
+@[proof_bv]
 theorem fshl32_pattern_valid :
     Puddle.CTree.Pattern.Valid fshl32_pattern := by
   unfold fshl32_pattern
@@ -76,6 +79,7 @@ theorem fshl32_pattern_valid :
   intro sign a b p _hVerified v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
 
+@[proof_bv]
 theorem fshr64_pattern_valid :
     Puddle.CTree.Pattern.Valid fshr64_pattern := by
   unfold fshr64_pattern
@@ -85,6 +89,7 @@ theorem fshr64_pattern_valid :
   intro sign a b p _hVerified v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
 
+@[proof_bv]
 theorem fshr32_pattern_valid :
     Puddle.CTree.Pattern.Valid fshr32_pattern := by
   unfold fshr32_pattern
@@ -134,6 +139,7 @@ private theorem ternaryOperandTypes (tx ty tz : TypeAttr) (out : IntegerType)
     by simpa using congrArg (fun a : Array TypeAttr => a[1]!) ho,
     by simpa using congrArg (fun a : Array TypeAttr => a[2]!) ho⟩
 
+@[proof_bv]
 theorem fshrConst64_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst false 64) := by
   dsimp only [lowerFshConst]
@@ -158,6 +164,7 @@ theorem fshrConst64_valid :
   all_goals simp -failIfUnchanged only [*]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem fshrConst32_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst false 32) := by
   dsimp only [lowerFshConst]
@@ -182,6 +189,7 @@ theorem fshrConst32_valid :
   all_goals simp -failIfUnchanged only [*]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem fshrConst32Trunc_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst false 32 true) := by
   dsimp only [lowerFshConst]
@@ -217,6 +225,7 @@ theorem fshrConst32Trunc_valid :
       simp -failIfUnchanged only [*]
       veir_bv_decide
 
+@[proof_bv]
 theorem fshlConst64_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst true 64) := by
   dsimp only [lowerFshConst]
@@ -241,6 +250,7 @@ theorem fshlConst64_valid :
   all_goals simp -failIfUnchanged only [*]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem fshlConst32_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst true 32) := by
   dsimp only [lowerFshConst]
@@ -265,6 +275,7 @@ theorem fshlConst32_valid :
   all_goals simp -failIfUnchanged only [*]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem fshlConst32Trunc_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst true 32 true) := by
   dsimp only [lowerFshConst]
@@ -300,6 +311,7 @@ theorem fshlConst32Trunc_valid :
       simp -failIfUnchanged only [*]
       veir_bv_decide
 
+@[proof_bv]
 theorem fshlGeneral64_valid :
     Puddle.CTree.Pattern.Valid (lowerFshlGeneral 64) := by
   dsimp only [lowerFshlGeneral]
@@ -318,6 +330,7 @@ theorem fshlGeneral64_valid :
   all_goals simp -failIfUnchanged only [RISCVImmediateProperties.immField]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem fshlGeneral32_valid :
     Puddle.CTree.Pattern.Valid (lowerFshlGeneral 32) := by
   dsimp only [lowerFshlGeneral]
@@ -336,6 +349,7 @@ theorem fshlGeneral32_valid :
   all_goals simp -failIfUnchanged only [RISCVImmediateProperties.immField]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem fshrGeneral64_valid :
     Puddle.CTree.Pattern.Valid (lowerFshrGeneral 64) := by
   dsimp only [lowerFshrGeneral]
@@ -354,6 +368,7 @@ theorem fshrGeneral64_valid :
   all_goals simp -failIfUnchanged only [RISCVImmediateProperties.immField]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem fshrGeneral32_valid :
     Puddle.CTree.Pattern.Valid (lowerFshrGeneral 32) := by
   dsimp only [lowerFshrGeneral]

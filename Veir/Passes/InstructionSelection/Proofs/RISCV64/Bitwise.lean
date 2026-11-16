@@ -2,6 +2,7 @@ module
 
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
 import all Veir.Dialects.RISCV.Interpreter
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs: Boolean bitwise operations, including immediate and inverted operands. -/
 
@@ -19,6 +20,7 @@ attribute [local ctree_semantics]
 
 attribute [local implicit_reducible] TypeAttr
 
+@[proof_bv]
 theorem gmirAnd_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAnd_pattern := by
   unfold gmirAnd_pattern
@@ -29,6 +31,7 @@ theorem gmirAnd_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOr_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirOr_pattern := by
   unfold gmirOr_pattern
@@ -39,6 +42,7 @@ theorem gmirOr_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirXor_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirXor_pattern := by
   unfold gmirXor_pattern
@@ -49,6 +53,7 @@ theorem gmirXor_pattern_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirAndi_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAndi_pattern := by
   unfold gmirAndi_pattern
@@ -64,6 +69,7 @@ theorem gmirAndi_pattern_valid :
   all_goals rw [mkRISCVImm_signExtend_12 c.value range.1 range.2]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOri_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirOri_pattern := by
   unfold gmirOri_pattern
@@ -79,6 +85,7 @@ theorem gmirOri_pattern_valid :
   all_goals rw [mkRISCVImm_signExtend_12 c.value range.1 range.2]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirXori_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirXori_pattern := by
   unfold gmirXori_pattern
@@ -94,6 +101,7 @@ theorem gmirXori_pattern_valid :
   all_goals rw [mkRISCVImm_signExtend_12 c.value range.1 range.2]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirAndn_rhs_valid :
     Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_and .andn () false) := by
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
@@ -104,6 +112,7 @@ theorem gmirAndn_rhs_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrn_rhs_valid :
     Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_or .orn () false) := by
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
@@ -114,6 +123,7 @@ theorem gmirOrn_rhs_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirXnor_rhs_valid :
     Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_xor .xnor () false) := by
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
@@ -124,6 +134,7 @@ theorem gmirXnor_rhs_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirAndn_lhs_valid :
     Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_and .andn () true) := by
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
@@ -134,6 +145,7 @@ theorem gmirAndn_lhs_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirOrn_lhs_valid :
     Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_or .orn () true) := by
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
@@ -144,6 +156,7 @@ theorem gmirOrn_lhs_valid :
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
+@[proof_bv]
 theorem gmirXnor_lhs_valid :
     Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_xor .xnor () true) := by
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]

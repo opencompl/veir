@@ -8,6 +8,7 @@ import all Veir.Data.LLVM.Ptr
 import all Veir.Data.LLVM.Ptr.Basic
 import all Veir.Data.Pointer.Basic
 import all Veir.Data.Casting
+meta import Veir.Meta.ProofKind
 
 /-! Instruction-selection validity proofs: Address materialization, lifetime, and memory intrinsics. -/
 
@@ -59,6 +60,7 @@ theorem lifetimeEnd_valid :
   simpPuddleValid
   simp [ctree_semantics]
 
+@[proof_manual]
 theorem addressof_pattern_valid :
     Puddle.CTree.Pattern.Valid addressof_pattern := by
   unfold addressof_pattern
