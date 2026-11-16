@@ -15,7 +15,6 @@ import Veir.GlobalOpInfo
 import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.PatternRewriter.CTreeDeadCode
-import Veir.PatternRewriter.CtreeSemanticsProofs
 import Veir.PatternRewriter.Puddle
 import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.ControlFlowInterfaces
