@@ -260,6 +260,99 @@ theorem gmirAnyext_pattern_valid :
           (Eq.mpr_not (Eq.refl (dstType.bitwidth ≤ srcType.bitwidth)) (of_eq_false (eq_false hle))))
         x reg hr
 
+/-! ## Pointer casts
+
+`gmirPtrIntCast_pattern` lowers `g_ptrtoint` and `g_inttoptr` to a round trip through a register.
+The legalizer accepts only the pointer and the 64-bit integer, which the register holds exactly:
+a defined address is the register's bits, and a poison one may become any register. -/
+
+/-- The type whose low-level type is a pointer. -/
+private theorem pointer_type (type : TypeAttr) (n : Nat)
+    (h : LLT.ofType? type = some (.pointer n)) :
+      ∃ p, type = TypeAttr.of LLVM.PointerType p := by
+  rcases type with ⟨attr, hattr⟩
+  cases attr <;> simp only [LLT.ofType?, Option.some.injEq, reduceCtorEq, LLT.pointer.injEq] at h
+  exact ⟨_, rfl⟩
+
+/-- The types `riscv64LegalizerInfo` accepts for `g_ptrtoint`: an `i64` from a pointer. -/
+private theorem isLegal_ptrtoint_types (dst src : TypeAttr) (props : GMIR.propertiesOf .g_ptrtoint)
+    (h : riscv64LegalizerInfo.isLegal .g_ptrtoint #[dst, src] props = true) :
+    (∃ s, dst = TypeAttr.of IntegerType ⟨64, s⟩) ∧ ∃ p, src = TypeAttr.of LLVM.PointerType p := by
+  unfold LegalizerInfo.isLegal at h
+  cases hq : LegalityQuery.ofTypes? #[dst, src] props with
+  | none => simp [hq] at h
+  | some q =>
+    simp only [hq] at h
+    have hlegal : riscv64LegalizerInfo.getActionFor .g_ptrtoint q = .legal := by
+      split at h <;> simp_all
+    unfold LegalizerInfo.getActionFor at hlegal
+    dsimp only [riscv64LegalizerInfo] at hlegal
+    simp only [List.findSome?_cons, List.findSome?_nil, LegalizeRule.legalForTypePairs,
+      LegalizeRule.legalIf, List.contains_cons, List.contains_nil, Bool.or_false, s64, p0] at hlegal
+    cases hd : LLT.ofType? dst <;> cases hs : LLT.ofType? src <;>
+      simp [LegalityQuery.ofTypes?, Array.mapM, ↓Array.mapM.map, hd, hs] at hq
+    subst hq
+    rename_i a b
+    simp only [LegalityQuery.getLLT!, show (#[a, b] : Array LLT)[0]! = a from rfl,
+      show (#[a, b] : Array LLT)[1]! = b from rfl, beq_iff_eq, Prod.mk.injEq] at hlegal
+    by_cases hpair : a = .scalar 64 ∧ b = .pointer 0
+    · obtain ⟨rfl, rfl⟩ := hpair
+      exact ⟨ext_scalar_type dst 64 hd, pointer_type src 0 hs⟩
+    · simp [hpair] at hlegal
+
+theorem gmirPtrToInt_pattern_valid :
+    Puddle.CTree.Pattern.Valid (gmirPtrIntCast_pattern .g_ptrtoint) := by
+  unfold gmirPtrIntCast_pattern lowerRegCast
+  simpPuddleValid
+  simp [ctree_semantics]
+  intro src dst value hc props hv hlegal
+  obtain ⟨⟨s, rfl⟩, ⟨p, rfl⟩⟩ := isLegal_ptrtoint_types dst src props hlegal
+  simp only [RuntimeValue.Conforms.llvmPointerType] at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  intro reg hr
+  cases x <;> simp_all [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.toInt, Data.LLVM.Int.isRefinedBy]
+
+/-- The types `riscv64LegalizerInfo` accepts for `g_inttoptr`: a pointer from an `i64`. -/
+private theorem isLegal_inttoptr_types (dst src : TypeAttr) (props : GMIR.propertiesOf .g_inttoptr)
+    (h : riscv64LegalizerInfo.isLegal .g_inttoptr #[dst, src] props = true) :
+    (∃ p, dst = TypeAttr.of LLVM.PointerType p) ∧ ∃ s, src = TypeAttr.of IntegerType ⟨64, s⟩ := by
+  unfold LegalizerInfo.isLegal at h
+  cases hq : LegalityQuery.ofTypes? #[dst, src] props with
+  | none => simp [hq] at h
+  | some q =>
+    simp only [hq] at h
+    have hlegal : riscv64LegalizerInfo.getActionFor .g_inttoptr q = .legal := by
+      split at h <;> simp_all
+    unfold LegalizerInfo.getActionFor at hlegal
+    dsimp only [riscv64LegalizerInfo] at hlegal
+    simp only [List.findSome?_cons, List.findSome?_nil, LegalizeRule.legalForTypePairs,
+      LegalizeRule.legalIf, List.contains_cons, List.contains_nil, Bool.or_false, s64, p0] at hlegal
+    cases hd : LLT.ofType? dst <;> cases hs : LLT.ofType? src <;>
+      simp [LegalityQuery.ofTypes?, Array.mapM, ↓Array.mapM.map, hd, hs] at hq
+    subst hq
+    rename_i a b
+    simp only [LegalityQuery.getLLT!, show (#[a, b] : Array LLT)[0]! = a from rfl,
+      show (#[a, b] : Array LLT)[1]! = b from rfl, beq_iff_eq, Prod.mk.injEq] at hlegal
+    by_cases hpair : a = .pointer 0 ∧ b = .scalar 64
+    · obtain ⟨rfl, rfl⟩ := hpair
+      exact ⟨pointer_type dst 0 hd, ext_scalar_type src 64 hs⟩
+    · simp [hpair] at hlegal
+
+theorem gmirIntToPtr_pattern_valid :
+    Puddle.CTree.Pattern.Valid (gmirPtrIntCast_pattern .g_inttoptr) := by
+  unfold gmirPtrIntCast_pattern lowerRegCast
+  simpPuddleValid
+  simp [ctree_semantics]
+  intro src dst value hc props hv hlegal
+  obtain ⟨⟨p, rfl⟩, ⟨s, rfl⟩⟩ := isLegal_inttoptr_types dst src props hlegal
+  simp only [RuntimeValue.Conforms.integerType] at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics]
+  intro mem reg hr
+  cases x <;> simp_all [RuntimeValue.isRefinedBy, MemoryState.ptrFromInt, MemoryState.decode,
+    Data.LLVM.Ptr.isRefinedBy]
+
 /- The checked wide witnesses below document failures of the unguarded register
    round trips. The selector guards exclude precisely the widths that lose defined bits. -/
 

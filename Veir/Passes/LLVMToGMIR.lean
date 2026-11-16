@@ -447,6 +447,32 @@ def lowerIntegerFreeze : Puddle.Pattern OpCode :=
 
 def g_freeze := lowerIntegerFreeze.compile
 
+/-- `llvm.ptrtoint` (pointer to `i64`) -> `gmir.g_ptrtoint`. Other widths stay in LLVM. -/
+def lowerPtrToInt : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := LLVM.PointerType)
+      let resultType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let operand ← Puddle.MatchProg.value operandType
+      let _ ← Puddle.MatchProg.root (.llvm .ptrtoint) #[operand] #[resultType]
+      return (resultType, operand))
+    (fun (resultType, operand) =>
+      Puddle.CreateProg.operation (.gmir .g_ptrtoint) #[operand] #[resultType])
+    (fun newOp => newOp)
+
+/-- `llvm.inttoptr` (`i64` to pointer) -> `gmir.g_inttoptr`. Other widths stay in LLVM. -/
+def lowerIntToPtr : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let resultType ← Puddle.MatchProg.type (Attr := LLVM.PointerType)
+      let operand ← Puddle.MatchProg.value operandType
+      let _ ← Puddle.MatchProg.root (.llvm .inttoptr) #[operand] #[resultType]
+      return (resultType, operand))
+    (fun (resultType, operand) =>
+      Puddle.CreateProg.operation (.gmir .g_inttoptr) #[operand] #[resultType])
+    (fun newOp => newOp)
+
 /--
   The integer type with the same width as the byte type `type`.
   Returns `none` if `type` is not a byte type.
@@ -600,7 +626,8 @@ public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
   -- lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr,
   lowerByteIntBitcast,
   lowerStaticAlloca_pattern, lowerStaticAllocaGMIR_pattern, lowerStaticAllocaArith_pattern,
-  lowerStaticAllocaZero_pattern, lowerLoad_pattern, reconcilePairingCast isIntToByteRoundTrip]
+  lowerStaticAllocaZero_pattern, lowerLoad_pattern, lowerPtrToInt, lowerIntToPtr,
+  reconcilePairingCast isIntToByteRoundTrip]
 
 /-- The pass: the branch step (`LLVMToGMIRBranches.run`, which checks what its refinement proof
 assumes), then the patterns of `llvmToGMIRPatternList`, all proved valid

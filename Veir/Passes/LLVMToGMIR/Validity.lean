@@ -686,6 +686,31 @@ theorem freeze_valid : Puddle.CTree.Pattern.Valid lowerIntegerFreeze := by
       RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy_refl]
     exact fun bits => ⟨bits, Data.LLVM.Int.isRefinedBy_refl _⟩
 
+/-! ## Pointer casts
+
+Both sides cast between a pointer and its 64-bit address (`Data.LLVM.Ptr.toInt` and
+`MemoryState.ptrFromInt`); the matchers fix the widths the interpreters check. -/
+
+set_option maxRecDepth 10000 in
+theorem ptrtoint_valid : Puddle.CTree.Pattern.Valid lowerPtrToInt := by
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+
+set_option maxRecDepth 10000 in
+theorem inttoptr_valid : Puddle.CTree.Pattern.Valid lowerIntToPtr := by
+  conv => arg 1; cbv
+  simpPuddleValid
+  simp only [ctree_semantics]
+  intro x hx a value hc props _ mem
+  rcases x with ⟨bw, sg⟩
+  dsimp only at hx
+  subst hx
+  simp only [RuntimeValue.Conforms.integerType] at hc
+  obtain ⟨v, rfl⟩ := hc
+  dsimp only
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, dite_true]
+  simp only [Sim.bind_monadLift_right_iff]
+  cases v <;> simp [RuntimeValue.isRefinedBy, MemoryState.ptrFromInt, Data.LLVM.Ptr.isRefinedBy]
+
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/
 public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMIRPatternList :=
@@ -743,6 +768,8 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .proven static_alloca_arith_valid <|
   .proven static_alloca_zero_valid <|
   .proven load_valid <|
+  .proven ptrtoint_valid <|
+  .proven inttoptr_valid <|
   .proven round_trip_valid <|
   .nil
 

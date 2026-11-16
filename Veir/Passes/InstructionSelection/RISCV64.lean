@@ -1381,6 +1381,11 @@ def gmirTrunc_pattern : Pattern OpCode :=
         riscv64LegalizerInfo.isLegal .g_trunc #[resType, opType] properties
     | _, _ => false
 
+/-- `gmir.g_ptrtoint`/`g_inttoptr` (`i64`) -> a cast through `!riscv.reg`. -/
+def gmirPtrIntCast_pattern (opcode : GMIR) : Pattern OpCode :=
+  lowerRegCast (.gmir opcode) fun opType resType properties =>
+    riscv64LegalizerInfo.isLegal opcode #[resType, opType] properties
+
 /-- `gmir.g_anyext` -> a cast through `!riscv.reg` when the operand fits in a register.
 The result may be wider: the additional bits may all be chosen as zero. -/
 def gmirAnyext_pattern : Pattern OpCode :=
@@ -2160,7 +2165,8 @@ public def iselMainPatterns : Array (Pattern OpCode) :=
     lowerFshlGeneral 32, lowerFshrGeneral 64, lowerFshrGeneral 32,
     gmirPoison_pattern, zeroConst_pattern, gmirFreeze_pattern,
     gmirAdd_pattern, gmirSub_pattern, gmirTrunc_pattern, gmirAnyextOfReg_pattern,
-    gmirAnyext_pattern, gmirShl_pattern, gmirLshr_pattern, gmirAshr_pattern,
+    gmirAnyext_pattern, gmirPtrIntCast_pattern .g_ptrtoint, gmirPtrIntCast_pattern .g_inttoptr,
+    gmirShl_pattern, gmirLshr_pattern, gmirAshr_pattern,
     gmirAnd_pattern, gmirOr_pattern, gmirXor_pattern,
     gmirMul_pattern, gmirSdiv_pattern, gmirUdiv_pattern, gmirSrem_pattern, gmirUrem_pattern,
     gmirRiscvAddw_pattern, gmirRiscvSubw_pattern, gmirRiscvMulw_pattern,

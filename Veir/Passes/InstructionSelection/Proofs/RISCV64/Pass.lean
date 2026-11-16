@@ -237,7 +237,7 @@ theorem iselMainPatterns_valid : ∀ pattern ∈ iselMainPatterns, Pattern.Valid
       (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
         rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
         rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-        rfl | rfl | rfl | rfl | rfl | rfl)) | icmp
+        rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl)) | icmp
   · exact gmirSelect_pattern_valid
   · exact constant_pattern_valid
   · exact addressof_pattern_valid
@@ -270,6 +270,8 @@ theorem iselMainPatterns_valid : ∀ pattern ∈ iselMainPatterns, Pattern.Valid
   · exact gmirTrunc_pattern_valid
   · exact gmirAnyextOfReg_pattern_valid
   · exact gmirAnyext_pattern_valid
+  · exact gmirPtrToInt_pattern_valid
+  · exact gmirIntToPtr_pattern_valid
   · exact gmirShl_pattern_valid
   · exact gmirLshr_pattern_valid
   · exact gmirAshr_pattern_valid
