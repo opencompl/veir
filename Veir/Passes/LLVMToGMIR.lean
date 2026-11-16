@@ -471,6 +471,36 @@ def lowerIntegerFreeze : Puddle.Pattern OpCode :=
 
 def g_freeze := lowerIntegerFreeze.compile
 
+/-- `llvm.ptrtoint` (pointer to `i64`) -> `gmir.g_ptrtoint`. Other widths stay in LLVM. -/
+def lowerPtrToInt : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := LLVM.PointerType)
+      let resultType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let operand ← Puddle.MatchProg.value operandType
+      let _ ← Puddle.MatchProg.root (.llvm .ptrtoint) #[operand] #[resultType]
+      return (resultType, operand))
+    (fun (resultType, operand) =>
+      Puddle.CreateProg.operation (.gmir .g_ptrtoint) #[operand] #[resultType])
+    (fun newOp => newOp)
+
+def g_ptrtoint := lowerPtrToInt.compile
+
+/-- `llvm.inttoptr` (`i64` to pointer) -> `gmir.g_inttoptr`. Other widths stay in LLVM. -/
+def lowerIntToPtr : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let resultType ← Puddle.MatchProg.type (Attr := LLVM.PointerType)
+      let operand ← Puddle.MatchProg.value operandType
+      let _ ← Puddle.MatchProg.root (.llvm .inttoptr) #[operand] #[resultType]
+      return (resultType, operand))
+    (fun (resultType, operand) =>
+      Puddle.CreateProg.operation (.gmir .g_inttoptr) #[operand] #[resultType])
+    (fun newOp => newOp)
+
+def g_inttoptr := lowerIntToPtr.compile
+
 /--
   The integer type with the same width as the byte type `type`.
   Returns `none` if `type` is not a byte type.
@@ -618,6 +648,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_constant.run, g_zero.run, g_poison.run, g_bytePoison.run, g_freeze.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices,
     lowerStaticAlloca.run, g_load.run, g_store.run,
+    g_ptrtoint.run, g_inttoptr.run,
     intToByteRoundTrip.run
   ]
   match RewritePattern.applyToFunctions pattern ctx op with

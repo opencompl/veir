@@ -282,6 +282,12 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
+    | .g_ptrtoint => [
+      .legalForTypePairs [(s64, p0)],
+    ]
+    | .g_inttoptr => [
+      .legalForTypePairs [(p0, s64)],
+    ]
     -- Loads and stores must be naturally aligned, as in LLVM without `+unaligned-scalar-mem`. LLVM
     -- also makes `s16` and `s32` legal, for `flh`/`flw` and `fsh`/`fsw`. We have no FPs, so we widen
     -- to `s64`. A store only writes the low `size` bits of the value.
