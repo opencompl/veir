@@ -19,6 +19,24 @@ def Builtin.byteToIntCTree {EIn : Type} {E : EIn → Type} {width : Nat}
     let bits : FreezeC (.mk width) ← CTree.choose (FreezeCIn.mk width)
     pure (.val (value.val ||| (value.poison &&& bits)))
 
+/-- Cast an integer to a register. Poison is cast to a non-deterministic register value. -/
+def Builtin.intToRegCTree {EIn : Type} {E : EIn → Type} {width : Nat}
+    (value : Data.LLVM.Int width) : CTree E FreezeC (Data.RISCV.Reg) :=
+  match value with
+  | .val bits => return ⟨bits.setWidth 64⟩
+  | .poison => do
+    let bits : FreezeC (.mk 64) ← CTree.choose (FreezeCIn.mk 64)
+    return ⟨bits⟩
+
+/-- Cast a byte to a register. Poison bits are chosen non-deterministically. -/
+def Builtin.byteToRegCTree {EIn : Type} {E : EIn → Type} {width : Nat}
+    (value : Data.LLVM.Byte width) : CTree E FreezeC (Data.RISCV.Reg) :=
+  if value.poison = 0#width then
+    return ⟨value.val.setWidth 64⟩
+  else do
+    let bits : FreezeC (.mk width) ← CTree.choose (FreezeCIn.mk width)
+    return ⟨(value.val ||| (value.poison &&& bits)).setWidth 64⟩
+
 /-- Interpret an unrealized conversion cast using CTrees. -/
 def Builtin.interpretUnrealizedConversionCastCTree {EIn : Type} {E : EIn → Type}
     [ErrorE -< E] [UBE -< E]
@@ -27,19 +45,10 @@ def Builtin.interpretUnrealizedConversionCastCTree {EIn : Type} {E : EIn → Typ
     : CTree E FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction) := do
   let some resType := resultTypes[0]? | fail
   match resType.val, operands.toList with
-  | .registerType _, [.int _ (.val value)] =>
-    return (#[.reg ⟨value.zeroExtend 64⟩], mem, none)
-  | .registerType _, [.int _ .poison] =>
-    -- Registers cannot carry poison, so any register value is possible.
-    let bits : FreezeC (.mk 64) ← CTree.choose (FreezeCIn.mk 64)
-    return (#[.reg ⟨bits⟩], mem, none)
-  | .registerType _, [.byte width value] =>
-    if value.poison = 0 then
-      return (#[.reg (LLVM.Byte.toReg value)], mem, none)
-    else
-      -- Resolve only poisoned bits before resizing to the register width.
-      let bits : FreezeC (.mk width) ← CTree.choose (FreezeCIn.mk width)
-      return (#[.reg ⟨(value.val ||| (value.poison &&& bits)).zeroExtend 64⟩], mem, none)
+  | .registerType _, [.int _ value] =>
+    return (#[.reg (← Builtin.intToRegCTree value)], mem, none)
+  | .registerType _, [.byte _ value] =>
+    return (#[.reg (← Builtin.byteToRegCTree value)], mem, none)
   | .registerType _, [.addr value] =>
     match value.toInt with
     | .val bits => return (#[.reg ⟨bits⟩], mem, none)
@@ -70,19 +79,5 @@ def Builtin.interpretOpCTree {EIn : Type} {E : EIn → Type}
   | .unrealized_conversion_cast =>
     Builtin.interpretUnrealizedConversionCastCTree resultTypes operands mem
   | _ => fail
-
-theorem Builtin.interpretUnrealizedConversionCastCTree_reg_int
-    {EIn : Type} {E : EIn → Type} [ErrorE -< E] [UBE -< E]
-    {bw : Nat} (value : Data.LLVM.Int bw) (mem : MemoryState) :
-  Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
-    #[RuntimeValue.int bw value] mem =
-  match value with
-  | .val value => return (#[.reg ⟨value.zeroExtend 64⟩], mem, none)
-  | .poison => (do
-    let bits : FreezeC (.mk 64) ← CTree.choose (FreezeCIn.mk 64)
-    return (#[.reg ⟨bits⟩], mem, none)) := by
-  cases value <;>
-    simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
-      -Attribute.registerType_eq_of]
 
 end Veir

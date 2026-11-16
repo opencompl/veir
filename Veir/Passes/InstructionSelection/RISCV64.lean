@@ -1275,6 +1275,11 @@ def gmirTrunc_pattern : Pattern OpCode :=
         riscv64LegalizerInfo.isLegal .g_trunc #[resType, opType] properties
     | _, _ => false
 
+/-- `gmir.g_ptrtoint`/`g_inttoptr` (`i64`) -> a cast through `!riscv.reg`. -/
+def gmirPtrIntCast_pattern (opcode : GMIR) : Pattern OpCode :=
+  lowerRegCast (.gmir opcode) fun opType resType properties =>
+    riscv64LegalizerInfo.isLegal opcode #[resType, opType] properties
+
 /-- `gmir.g_anyext` -> a cast through `!riscv.reg` when the operand fits in a register.
 The result may be wider: the additional bits may all be chosen as zero. -/
 def gmirAnyext_pattern : Pattern OpCode :=
@@ -1312,6 +1317,8 @@ def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
 def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
 def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
+def gmirPtrToInt : Puddle.CompiledPattern OpCode := (gmirPtrIntCast_pattern .g_ptrtoint).compile
+def gmirIntToPtr : Puddle.CompiledPattern OpCode := (gmirPtrIntCast_pattern .g_inttoptr).compile
 def gmirAnyextOfReg : Puddle.CompiledPattern OpCode := gmirAnyextOfReg_pattern.compile
 def gmirShl : Puddle.CompiledPattern OpCode := gmirShl_pattern.compile
 def gmirLshr : Puddle.CompiledPattern OpCode := gmirLshr_pattern.compile
@@ -2126,7 +2133,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirStore.map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     gmirPoison.run, zeroConst.run, gmirFreeze.run,
-    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
+    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirPtrToInt.run, gmirIntToPtr.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSmulh.run, gmirUmulh.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirRiscvAddw.run, gmirRiscvSubw.run, gmirRiscvMulw.run,

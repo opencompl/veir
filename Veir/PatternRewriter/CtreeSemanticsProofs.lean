@@ -1,6 +1,6 @@
 module
 
-public import Veir.Dialects.Builtin.Interpreter
+public import Veir.Dialects.Builtin.InterpreterLemmas
 public import Veir.Data.Casting
 import all Veir.Dialects.Builtin.Interpreter
 import all Veir.Data.Casting
@@ -94,180 +94,13 @@ theorem CTree.Sim.bind_monadLift_right_iff {EIn : Type} {E : EIn → Type}
     | .fail _ => CTree.Sim relation other (fail : CTree E C' β) := by
   cases func <;> rfl
 
-/-- Casting an integer to a register preserves defined bits; poison permits any register value. -/
-@[ctree_semantics]
-theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_int_iff {EIn : Type} {E : EIn → Type}
-  [HasUB EIn] [ErrorE -< E] [UBE -< E]
-  {C'In : Type} {C' : C'In → Type}
-  {bitwidth : Nat} (a : Data.LLVM.Int bitwidth) (memory : MemoryState)
-  (after : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
-    CTree E FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-  (other : CTree E C' (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
-  (CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-    (CTree.bind
-      (Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
-        #[RuntimeValue.int bitwidth a] memory) after)
-    other) ↔
-  (∀ (value : Data.RISCV.Reg),
-    (∀ bits, a = .val bits → value.val = bits.setWidth 64) →
-    CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-      (after (#[.reg value], memory, none)) other) := by
-  rw [Builtin.interpretUnrealizedConversionCastCTree_reg_int]
-  cases a with
-  | val bits =>
-    simp only [BitVec.truncate_eq_setWidth, CTree.bind_pure, Data.LLVM.Int.val.injEq, forall_eq']
-    constructor
-    · rintro h ⟨value⟩ rfl
-      exact h
-    · intro h
-      exact h ⟨bits.setWidth 64⟩ rfl
-  | poison =>
-    simp only [CTree.choose_def, CTree.tau_def, Bind.bind,
-      _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret, bind_pure, Sim.tau_l,
-      Subeffect.mapEff_eq_self, SumE.eq_inr, Subeffect.mapCont, Subeffect.map_eq_self,
-      id_eq, reduceCtorEq, false_implies, implies_true, forall_const]
-    constructor
-    · rintro h ⟨value⟩
-      exact h value
-    · intro h value
-      exact h ⟨value⟩
-
-/-- Casting a byte to a register preserves defined bits and resolves poisoned bits before resizing. -/
-@[ctree_semantics]
-theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_byte_iff
-  {EIn : Type} {E : EIn → Type}
-  [HasUB EIn] [ErrorE -< E] [UBE -< E]
-  {C'In : Type} {C' : C'In → Type}
-  {bitwidth : Nat} (a : Data.LLVM.Byte bitwidth) (memory : MemoryState)
-  (after : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
-    CTree E FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-  (other : CTree E C' (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
-  CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-    (CTree.bind
-      (Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
-        #[RuntimeValue.byte bitwidth a] memory) after)
-    other ↔
-  ∀ (value : Data.RISCV.Reg),
-    (∃ bits : BitVec bitwidth,
-      value.val = (a.val ||| (a.poison &&& bits)).setWidth 64) →
-    CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-      (after (#[.reg value], memory, none)) other := by
-  by_cases h : a.poison = 0#bitwidth
-  · simp only [Builtin.interpretUnrealizedConversionCastCTree, List.size_toArray, List.length_cons,
-      List.length_nil, Nat.zero_add, Nat.lt_add_one, getElem?_pos, List.getElem_toArray,
-      List.getElem_cons_zero, TypeAttr.of_val, Attribute.of_def, IsAttr.inject, h,
-      BitVec.ofNat_eq_ofNat, ↓reduceIte, LLVM.Byte.toReg, BitVec.truncate_eq_setWidth,
-      CTree.bind_pure, BitVec.zero_and, BitVec.or_zero, exists_const]
-    constructor
-    · rintro hsim ⟨value⟩ rfl
-      exact hsim
-    · intro hsim
-      exact hsim ⟨a.val.setWidth 64⟩ rfl
-  · simp only [Builtin.interpretUnrealizedConversionCastCTree, List.size_toArray, List.length_cons,
-      List.length_nil, Nat.zero_add, Nat.lt_add_one, getElem?_pos, List.getElem_toArray,
-      List.getElem_cons_zero, TypeAttr.of_val, Attribute.of_def, IsAttr.inject, BitVec.ofNat_eq_ofNat,
-      h, ↓reduceIte, Bind.bind, CTree.choose_def, Subeffect.mapEff_eq_self, Subeffect.mapCont,
-      Subeffect.map_eq_self, id_eq, CTree.tau_def, BitVec.truncate_eq_setWidth, BitVec.setWidth_or,
-      BitVec.setWidth_and, CTree.CTree.bind_tau, SumE.eq_inr, CTree.bind_ret, CTree.bind_pure,
-      Sim.tau_l, forall_exists_index]
-    constructor
-    · rintro hsim ⟨value⟩ bits rfl
-      exact hsim bits
-    · intro hsim bits
-      exact hsim ⟨a.val.setWidth 64 ||| (a.poison.setWidth 64 &&& bits.setWidth 64)⟩ bits rfl
-
-/-- Casting a register to an integer deterministically resizes its bits. -/
-@[ctree_semantics]
-theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_int_reg_iff
-  {EIn : Type} {E : EIn → Type}
-  [HasUB EIn] [ErrorE -< E] [UBE -< E]
-  {C'In : Type} {C' : C'In → Type}
-  (type : IntegerType) (a : Data.RISCV.Reg) (memory : MemoryState)
-  (after : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
-    CTree E FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-  (other : CTree E C' (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
-  CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-    (CTree.bind
-      (Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of IntegerType type]
-        #[RuntimeValue.reg a] memory) after)
-    other ↔
-  CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-    (after (#[.int type.bitwidth (.val (a.val.setWidth type.bitwidth))], memory, none))
-    other := by
-  simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
-    RISCV.Reg.toInt, -Attribute.integerType_eq_of]
-
-/-- Casting a register to a byte deterministically resizes its bits and produces no poison. -/
-@[ctree_semantics]
-theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_byte_reg_iff
-  {EIn : Type} {E : EIn → Type}
-  [HasUB EIn] [ErrorE -< E] [UBE -< E]
-  {C'In : Type} {C' : C'In → Type}
-  (type : LLVM.ByteType) (a : Data.RISCV.Reg) (memory : MemoryState)
-  (after : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
-    CTree E FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-  (other : CTree E C' (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
-  CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-    (CTree.bind
-      (Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of LLVM.ByteType type]
-        #[RuntimeValue.reg a] memory) after)
-    other ↔
-  CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-    (after (#[.byte type.bitwidth ⟨a.val.setWidth type.bitwidth, 0, by simp⟩], memory, none))
-    other := by
-  simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
-    RISCV.Reg.toByte, -Attribute.byteType_eq_of]
-
-/-- Casting an address to a register preserves its bits; poison permits any register value. -/
-@[ctree_semantics]
-theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_addr_iff
-  {EIn : Type} {E : EIn → Type}
-  [HasUB EIn] [ErrorE -< E] [UBE -< E]
-  {C'In : Type} {C' : C'In → Type}
-  (a : Data.LLVM.Ptr) (memory : MemoryState)
-  (after : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
-    CTree E FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-  (other : CTree E C' (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
-  CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-    (CTree.bind
-      (Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
-        #[RuntimeValue.addr a] memory) after)
-    other ↔
-  ∀ (value : Data.RISCV.Reg),
-    (∀ bits, a.toInt = .val bits → value.val = bits) →
-    CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-      (after (#[.reg value], memory, none)) other := by
-  have hcast :
-      Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
-        #[RuntimeValue.addr a] memory =
-      Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
-        #[RuntimeValue.int 64 a.toInt] memory := by
-    cases h : a.toInt <;>
-      simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
-        -Attribute.registerType_eq_of, h]
-  rw [hcast, CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_int_iff]
-  simp
-
-/-- Casting a register to an address decodes its bits using the current memory state. -/
-@[ctree_semantics]
-theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_addr_reg_iff
-  {EIn : Type} {E : EIn → Type}
-  [HasUB EIn] [ErrorE -< E] [UBE -< E]
-  {C'In : Type} {C' : C'In → Type}
-  (type : LLVM.PointerType) (a : Data.RISCV.Reg) (memory : MemoryState)
-  (after : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
-    CTree E FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-  (other : CTree E C' (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
-  CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-    (CTree.bind
-      (Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of LLVM.PointerType type]
-        #[RuntimeValue.reg a] memory) after)
-    other ↔
-  CTree.Sim (E := E) (C := FreezeC) (C' := C') f
-    (after (#[.addr (memory.ptrFromInt (.val a.val))], memory, none)) other := by
-  simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
-    -Attribute.llvmPointerType_eq_of]
-
+attribute [ctree_semantics]
+  CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_int_iff
+  CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_byte_iff
+  CTree.Sim.bind_interpretUnrealizedConversionCastCTree_int_reg_iff
+  CTree.Sim.bind_interpretUnrealizedConversionCastCTree_byte_reg_iff
+  CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_addr_iff
+  CTree.Sim.bind_interpretUnrealizedConversionCastCTree_addr_reg_iff
 
 end
 
