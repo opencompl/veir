@@ -236,7 +236,7 @@ theorem lshr_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
 theorem toInt_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') :
     x.toInt ⊒ x'.toInt := by
   have := isPoison_toInt (w := w) (x := x)
-  simp only [toInt, BitVec.ofNat_eq_ofNat, dite_eq_ite]
+  simp only [toInt, BitVec.ofNat_eq_ofNat]
   by_cases hp : x.toInt.isPoison
   · suffices hsuff : ¬ x.poison = 0#w by simp only [hsuff, ↓reduceIte, poison_isRefinedBy]
     simp only [this, BitVec.ofNat_eq_ofNat, bne_iff_ne, ne_eq] at hp
