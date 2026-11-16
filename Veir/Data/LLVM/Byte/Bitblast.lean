@@ -338,10 +338,12 @@ theorem getLsbD_poison_xor (x y : Byte w) (i : Nat) :
 
 /-! ## trunc -/
 
-@[simp] theorem val_trunc (x : Byte w) (w' : Nat) : (x.trunc w').val = x.val.setWidth w' := by
+@[simp]
+theorem val_trunc (x : Byte w) (w' : Nat) : (x.trunc w').val = x.val.setWidth w' := by
   simp [Byte.trunc]
 
-@[simp] theorem poison_trunc (x : Byte w) (w' : Nat) :
+@[simp]
+theorem poison_trunc (x : Byte w) (w' : Nat) :
     (x.trunc w').poison = x.poison.setWidth w' := by simp [Byte.trunc]
 
 theorem getLsbD_val_trunc (x : Byte w) (w' i : Nat) :
