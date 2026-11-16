@@ -11,6 +11,11 @@ import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Data.LLVM.Int.Basic
 import all Init.Data.Array.Basic
+import all Veir.Data.LLVM.Int.Bitblast
+import all Veir.Passes.Legalization.Validity.PBVNormalize
+import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.Tactic.BVDecide
+meta import Std.Tactic.BVDecide
 
 /-! CTree validity of the widening rules of `widenScalarPattern?`, at every target width.
 
@@ -522,16 +527,12 @@ theorem widen_poison_0_status (W : Nat) :
 operand in its high `w` bits, which the shift down by `W - w` moves to the low bits. The byte swap
 is only that at 16, 32 and 64 bits (it is the identity elsewhere), so both widths must be among
 them; `w < W` then leaves 16 and 32 for the source. -/
--- private theorem bswap_widening {w W : Nat} (hw : w = 16 ∨ w = 32)
---     (hW : W = 16 ∨ W = 32 ∨ W = 64) (h : w < W) (x : Data.LLVM.Int w) (m : BitVec (W - w)) :
---     x.bswap ⊒
---       ((x.ext W m h).bswap.lshr (shiftAmount W (.val (BitVec.ofInt W (↑W - ↑w))))).trunc w false false h := by
-
---   sorry
-
-axiom bswap_widening  {w W : Nat} (hw : w = 16 ∨ w = 32)
-    (hW : W = 16 ∨ W = 32 ∨ W = 64) (h : w < W) (x : Data.LLVM.Int w) (m : BitVec (W - w)) :  x.bswap ⊒
-      ((x.ext W m h).bswap.lshr (shiftAmount W (.val (BitVec.ofInt W (↑W - ↑w))))).trunc w false false h
+private theorem bswap_widening {w W : Nat} (hw : w = 16 ∨ w = 32)
+    (hW : W = 16 ∨ W = 32 ∨ W = 64) (h : w < W) (x : Data.LLVM.Int w) (m : BitVec (W - w)) :
+    x.bswap ⊒
+      ((x.ext W m h).bswap.lshr (shiftAmount W (.val (BitVec.ofInt W (↑W - ↑w))))).trunc w false false h := by
+  rcases hw with rfl | rfl <;> rcases hW with rfl | rfl | rfl <;> (try omega) <;>
+    veir_bv_normalize <;> bv_decide (config := { timeout := 300 })
 
 theorem widen_bswap_0_valid (W : Nat) (widths : W = 16 ∨ W = 32 ∨ W = 64) :
     Puddle.CTree.Pattern.Valid (widenReverse .g_bswap W fun w => w == 16 || w == 32) := by
@@ -556,7 +557,6 @@ theorem widen_fshr_1_status (W : Nat) :
 theorem widen_load_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_load (.type 0) .g_anyext W) :=
   .proven (widen_load_0_valid W)
-
 
 /-- `widenTypeGroup .g_store`: the wide store writes the low bytes of the extended value, which are
 the value's. -/
