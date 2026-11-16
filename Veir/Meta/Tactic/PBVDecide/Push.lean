@@ -73,6 +73,23 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray)
   return g
 
 /--
+Unfold the operations defined in terms of other `BitVec` operations (the `pbv_unfold` set)
+in the goal and in the `Prop` hypotheses, before reification. Returns `none` if this closes
+the goal.
+-/
+public meta def unfoldDerivedOps (g : MVarId) : MetaM (Option MVarId) := g.withContext do
+  let some unfoldExt ← getSimpExtension? `pbv_unfold
+    | throwError "Failed to obtain `pbv_unfold simp set."
+  let simpCtx ← Simp.mkContext (config := { decide := false, failIfUnchanged := false })
+    (simpTheorems := #[← unfoldExt.getTheorems])
+  let hyps ← (← getLCtx).foldlM (init := #[]) fun hyps ldecl => do
+    if !ldecl.isImplementationDetail && (← isProp ldecl.type) then
+      return hyps.push ldecl.fvarId
+    return hyps
+  let (result, _) ← simpGoal g simpCtx (fvarIdsToSimp := hyps)
+  return result.map (·.2)
+
+/--
 Lift the goal to the blast width, then push the resulting `setWidth`s in so
 that `bv_decide` can decide it.
 -/
@@ -82,6 +99,7 @@ public meta def liftToBlastWidth (g : MVarId) : TranslateM MVarId := g.withConte
   -- lifted again.
   let eqThms ← addLiftThms g (← read).blastWidth <| ← addWidthBounds #[]
   let g ← applySimp g eqThms { decide := false, singlePass := true }
+  trace[pbv_decide] m!"after lifting to the blast width:{indentD g}"
   -- Create simp set to push the `setWidth`s in
   let thms := ← addPushTheorems g (← read).blastWidth
            <| ← addBvInfos g
@@ -89,6 +107,7 @@ public meta def liftToBlastWidth (g : MVarId) : TranslateM MVarId := g.withConte
            <| ← addWidthBounds #[]
   -- Run push simp
   let g ← applySimp g thms
+  trace[pbv_decide] m!"after pushing the `setWidth`s:{indentD g}"
   -- Mask any remaining setWidths
   let mut thms := ← addWidthBounds #[]
   thms ← thms.addTheorem (.decl ``Veir.Data.PBV.setWidth_toMask) (mkConst ``Veir.Data.PBV.setWidth_toMask)

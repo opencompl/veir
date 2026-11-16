@@ -122,13 +122,25 @@ meta partial def visitExprRec (e : Expr) : ReifyM Unit := do
     visitExprRec e'
   if e.isApp then
     let (f, args) := (e.getAppFn, e.getAppArgs)
-    -- ExtractLsb takes a width expression as input which does not appear as a
-    -- `w` in a `BitVec w` type, hence it needs to be reified separately.
-    match f, args with
-    | .const ``BitVec.extractLsb' _, #[_, start, _, _] =>
-      let startTm ← Tm.reifyWidth start
-      modify fun s => { s with widthTms := s.widthTms.insert startTm }
-    | _, _ => pure ()
+    -- `Nat` values that may be built from widths without appearing as the `w`
+    -- of a `BitVec w`. They are reified separately by `reifyValues`.
+    -- `Nat` shift amounts and bit indices are pushed as shifts by
+    -- `BitVec.ofNatClamp o n`, which is translated like `BitVec.ofNat o n`.
+    let isBvNatShift (α β : Expr) := (getBitvecType? α).isSome && Expr.isNat β
+    let value? := match f, args with
+      | .const ``BitVec.extractLsb' _, #[_, start, _, _] => some start
+      | .const ``BitVec.ofNat _, #[_, n] => some n
+      | .const ``BitVec.twoPow _, #[_, n] => some n
+      | .const ``HShiftLeft.hShiftLeft _, #[α, β, _, _, _, n]
+      | .const ``HShiftRight.hShiftRight _, #[α, β, _, _, _, n] =>
+        if isBvNatShift α β then some n else none
+      | .const ``BitVec.shiftLeft _, #[_, _, n]
+      | .const ``BitVec.ushiftRight _, #[_, _, n]
+      | .const ``BitVec.sshiftRight _, #[_, _, n]
+      | .const ``BitVec.getLsbD _, #[_, _, n] => some n
+      | _, _ => none
+    if let some v := value? then
+      modify fun s => { s with valueCands := s.valueCands.insert v }
     args.forM fun arg =>
       visitExprRec arg
     visitExprRec f
@@ -154,12 +166,8 @@ meta partial def getBvLocalDecls (visited : HashMap FVarId LocalDecl := {}) : Re
       else
         -- Run reification on the local decl to extract width terms
         let (_, reified) ← (visitExprRec (ldecl.type)).run { (← get) with widthTms := {} }
-        let rec atoms : WidthTm → Std.HashSet WidthTm
-          | .widthLit _ => {}
-          | t@(.widthAtom _) | t@(.widthFVar _ _) => {t}
-          | .widthAdd a b | .widthSub a b => (atoms a).union (atoms b)
-        let newAtoms := reified.widthTms.fold (init := {}) fun (acc : HashSet WidthTm) t => acc.union (atoms t)
-        let oldAtoms := (← get).widthTms.fold (init := {}) fun (acc : HashSet WidthTm) t => acc.union (atoms t)
+        let newAtoms := reified.widthTms.atoms
+        let oldAtoms := (← get).widthTms.atoms
         -- Only if the term contains widths variables which also exist in the main goal
         -- then it should be reverted into the goal and translated
         if (newAtoms.inter oldAtoms).size > 0 then
@@ -170,6 +178,27 @@ meta partial def getBvLocalDecls (visited : HashMap FVarId LocalDecl := {}) : Re
   if oldState.bvs.size != (← get).bvs.size || oldState.widthTms.size != (← get).widthTms.size then
     return ← getBvLocalDecls visited
   return visited
+
+/--
+Reify the `Nat` values collected in `valueCands` as width terms, keeping only
+those built from the widths of the `BitVec`s (and at least one of them). A kept
+value is given a mask like any other width, so that `BitVec.ofNat o v` can be
+translated into the `cpop` of its mask. The others are left untouched: they are
+not given a mask, and hence do not need to be bounded by the blast width.
+-/
+meta def reifyValues : ReifyM Unit := do
+  -- The atoms of the widths, and of the preconditions, which are given masks too
+  let widthAtoms := (← get).props.fold (init := (← get).widthTms.atoms)
+    fun acc p _ => acc.union p.propAtoms
+  for v in (← get).valueCands do
+    -- Reify on a copy of the state, discarding the new atoms of rejected values.
+    let (vTm, reified) ← (Tm.reifyWidth v).run (← get)
+    let atoms := vTm.atoms
+    if !atoms.isEmpty && atoms.all widthAtoms.contains then
+      trace[pbv_decide] "value {v}: kept as a width"
+      set { reified with widthTms := reified.widthTms.insert vTm }
+    else
+      trace[pbv_decide] "value {v}: dropped, its atoms are not all widths"
 
 /--
 Reify the goal: collect the widths of the `BitVec`s in the goal and in the
@@ -183,6 +212,13 @@ public meta def reifyWidths (g : MVarId) : ReifyM (HashMap FVarId LocalDecl) := 
   let ldecls ← getBvLocalDecls
   -- Traverse the context to find props on widths (preconditions)
   reifyPreconditions ldecls
+  -- Reify the `Nat` values which are built from the widths
+  reifyValues
+  let s ← get
+  trace[pbv_decide] m!"reified widths: {s.widthTms.toList.map (·.toExpr s.env)}\n\
+    `BitVec` variables: {s.bvs.keys.map mkFVar}\n\
+    preconditions: {s.props.toList.map (·.1.toExpr s.env)}\n\
+    reverted hypotheses: {ldecls.keys.map mkFVar}"
   return ldecls
 
 end Veir.Meta.Tactic.PBVDecide

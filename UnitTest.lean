@@ -32,6 +32,7 @@ import UnitTest.BoundedBitblasting.BoundedBitblasting
 import UnitTest.BoundedBitblasting.Elab
 import UnitTest.BoundedBitblasting.CounterExamples
 import UnitTest.BoundedBitblasting.SpuriousCex
+import UnitTest.BoundedBitblasting.OfNatWidth
 import UnitTest.DataFlowFramework.SparseConstantPropagation
 import UnitTest.MemoryLayout
 import UnitTest.DataLayout
