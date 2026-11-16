@@ -1,4 +1,4 @@
-import Veir
+import Veir.Benchmarks
 import Veir.Panic
 
 def count := 50_000
