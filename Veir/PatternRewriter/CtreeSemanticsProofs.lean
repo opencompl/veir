@@ -22,29 +22,25 @@ open _root_.CTree
 
 public section
 
-/-! ## Quantifier normalizations -/
-
 /-- Bind a type equation introduced by a `TypeAttr` matcher. -/
 @[simp, ctree_semantics]
 theorem TypeAttr.forall_of_eq_imp_iff {T : Type} [IsTypeAttr T] {P : TypeAttr → T → Prop} :
-  (∀ (type : TypeAttr) (x : T),
-    TypeAttr.of T x = type → P type x) ↔
-  (∀ (x : T), P (TypeAttr.of T x) x)
-    := by
+    (∀ (type : TypeAttr) (x : T), TypeAttr.of T x = type → P type x) ↔
+      (∀ (x : T), P (TypeAttr.of T x) x) := by
   grind
 
 /-- Bind the bitwidth equation of an integer type, leaving its signedness free. -/
 @[simp, ctree_semantics]
 theorem IntegerType.forall_bitwidth_eq_implies_iff (P : IntegerType → Prop) :
     (∀ (x : IntegerType), x.bitwidth = y → P x) ↔
-    ∀ signedness, P (IntegerType.mk y signedness) := by
+      ∀ signedness, P (IntegerType.mk y signedness) := by
   grind [cases IntegerType]
 
 /-- Bind the properties of a `g_constant` to its integer attribute. -/
 @[simp, ctree_semantics]
 theorem forall_gmirConstantProperties (P : propertiesOf (OpCode.gmir GMIR.g_constant) → Prop) :
     (∀ (property : propertiesOf (OpCode.gmir GMIR.g_constant)), P property) ↔
-    (∀ (value : IntegerAttr), P { value := value }) := by
+      (∀ (value : IntegerAttr), P { value := value }) := by
   constructor
   · grind
   · intro h ⟨prop⟩
@@ -58,9 +54,9 @@ theorem CTree.Sim.pure_bind_choose_iff
   {C : CIn → Type} {C' : C'In → Type} {SubC : SubCIn → Type} [SubC -< C']
   {α β : Type} (relation : α → β → Prop) (value : α) (choice : SubCIn)
   (after : SubC choice → CTree E C' β) :
-  CTree.Sim relation (pure value : CTree E C α)
-      (CTree.bind (CTree.choose choice) after) ↔
-    ∃ chosen, CTree.Sim relation (pure value : CTree E C α) (after chosen) := by
+    CTree.Sim relation (pure value : CTree E C α)
+        (CTree.bind (CTree.choose choice) after) ↔
+      ∃ chosen, CTree.Sim relation (pure value : CTree E C α) (after chosen) := by
   simp only [CTree.choose_def, CTree.tau_def, _root_.CTree.CTree.bind_tau,
     _root_.CTree.CTree.bind_ret, Sim.pure_tau]
   constructor
@@ -98,8 +94,6 @@ theorem CTree.Sim.bind_monadLift_right_iff {EIn : Type} {E : EIn → Type}
     | .fail _ => CTree.Sim relation other (fail : CTree E C' β) := by
   cases func <;> rfl
 
-/-! ## Simulation of the casts between values and registers -/
-
 /-- Casting an integer to a register preserves defined bits; poison permits any register value. -/
 @[ctree_semantics]
 theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_int_iff {EIn : Type} {E : EIn → Type}
@@ -121,7 +115,7 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_int_iff {EIn :
   rw [Builtin.interpretUnrealizedConversionCastCTree_reg_int]
   cases a with
   | val bits =>
-    simp
+    simp only [BitVec.truncate_eq_setWidth, CTree.bind_pure, Data.LLVM.Int.val.injEq, forall_eq']
     constructor
     · rintro h ⟨value⟩ rfl
       exact h
@@ -129,8 +123,9 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_int_iff {EIn :
       exact h ⟨bits.setWidth 64⟩ rfl
   | poison =>
     simp only [CTree.choose_def, CTree.tau_def, Bind.bind,
-      _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret, bind_pure, Sim.tau_l]
-    simp
+      _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret, bind_pure, Sim.tau_l,
+      Subeffect.mapEff_eq_self, SumE.eq_inr, Subeffect.mapCont, Subeffect.map_eq_self,
+      id_eq, reduceCtorEq, false_implies, implies_true, forall_const]
     constructor
     · rintro h ⟨value⟩
       exact h value
@@ -158,18 +153,23 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_byte_iff
     CTree.Sim (E := E) (C := FreezeC) (C' := C') f
       (after (#[.reg value], memory, none)) other := by
   by_cases h : a.poison = 0#bitwidth
-  · simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
-      -Attribute.registerType_eq_of, h, LLVM.Byte.toReg]
+  · simp only [Builtin.interpretUnrealizedConversionCastCTree, List.size_toArray, List.length_cons,
+      List.length_nil, Nat.zero_add, Nat.lt_add_one, getElem?_pos, List.getElem_toArray,
+      List.getElem_cons_zero, TypeAttr.of_val, Attribute.of_def, IsAttr.inject, h,
+      BitVec.ofNat_eq_ofNat, ↓reduceIte, LLVM.Byte.toReg, BitVec.truncate_eq_setWidth,
+      CTree.bind_pure, BitVec.zero_and, BitVec.or_zero, exists_const]
     constructor
     · rintro hsim ⟨value⟩ rfl
       exact hsim
     · intro hsim
       exact hsim ⟨a.val.setWidth 64⟩ rfl
-  · simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
-      -Attribute.registerType_eq_of, h]
-    simp only [map_eq_pure_bind, CTree.choose_def, CTree.tau_def, Bind.bind,
-      _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret, CTree.bind_pure, Sim.tau_l]
-    simp
+  · simp only [Builtin.interpretUnrealizedConversionCastCTree, List.size_toArray, List.length_cons,
+      List.length_nil, Nat.zero_add, Nat.lt_add_one, getElem?_pos, List.getElem_toArray,
+      List.getElem_cons_zero, TypeAttr.of_val, Attribute.of_def, IsAttr.inject, BitVec.ofNat_eq_ofNat,
+      h, ↓reduceIte, Bind.bind, CTree.choose_def, Subeffect.mapEff_eq_self, Subeffect.mapCont,
+      Subeffect.map_eq_self, id_eq, CTree.tau_def, BitVec.truncate_eq_setWidth, BitVec.setWidth_or,
+      BitVec.setWidth_and, CTree.CTree.bind_tau, SumE.eq_inr, CTree.bind_ret, CTree.bind_pure,
+      Sim.tau_l, forall_exists_index]
     constructor
     · rintro hsim ⟨value⟩ bits rfl
       exact hsim bits
