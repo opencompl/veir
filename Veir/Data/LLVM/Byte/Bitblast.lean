@@ -33,7 +33,7 @@ theorem val_fromInt (x : Int w) :
 
 @[veir_bv_normalize]
 theorem poison_fromInt (x : Int w) :
-    (fromInt x).poison = if _h : x.isPoison then .allOnes _ else 0 := by
+    (fromInt x).poison = if x.isPoison then .allOnes _ else 0 := by
   cases x <;> simp [fromInt]
 
 @[veir_bv_normalize]
@@ -51,7 +51,6 @@ theorem isPoison_toInt (x : Byte w) :
 
 /- # and -/
 
-@[veir_bv_normalize]
 theorem and_eq {w : Nat} (x y : Byte w) :
     (x &&& y) =
     let poison := x.poison ||| y.poison
@@ -71,7 +70,6 @@ theorem poison_and {w : Nat} (x y : Byte w) :
 
 /- # or -/
 
-@[veir_bv_normalize]
 theorem or_eq {w : Nat} (x y : Byte w) :
     (x ||| y) =
     let poison := x.poison ||| y.poison
@@ -91,7 +89,6 @@ theorem poison_or {w : Nat} (x y : Byte w) :
 
 /- # xor -/
 
-@[veir_bv_normalize]
 theorem xor_eq {w : Nat} (x y : Byte w) :
     (x ^^^ y) =
     let poison := x.poison ||| y.poison
@@ -111,7 +108,6 @@ theorem poison_xor {w : Nat} (x y : Byte w) :
 
 /- # shl -/
 
-@[veir_bv_normalize]
 theorem shl_eq {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool) :
     (x.shl y nuw) =
       if y.isPoison || y.getValueD ≥ w then allPoison
@@ -166,7 +162,6 @@ theorem poison_shl {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool) :
 
 /- # lshr -/
 
-@[veir_bv_normalize]
 theorem lshr_eq {w : Nat} (x : Byte w) (y : Int w) (exact : Bool) :
     (x.lshr y exact) =
       if y.isPoison || y.getValueD ≥ w then allPoison
