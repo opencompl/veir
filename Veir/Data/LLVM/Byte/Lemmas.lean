@@ -7,6 +7,8 @@ import Veir.ForLean
 
 namespace Veir.Data.LLVM.Byte
 
+public section
+
 open Veir.Data.LLVM.Int
 attribute [local grind cases] Int
 
@@ -239,5 +241,7 @@ theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : i ⊒ i') :
   · simp [isRefinedBy]
   · simp
 
+
+end
 
 end Veir.Data.LLVM.Byte

@@ -4,7 +4,7 @@ public import Veir.Interpreter.Lemmas
 public import Veir.Interpreter.Refinement.MonoTactic
 public import Veir.Dialects.LLVM.MemoryMonotonicity
 import Veir.Interpreter.Refinement.Memory
-import Veir.Data.LLVM.Byte.Refinement
+import Veir.Data.LLVM.Byte.Lemmas
 
 import all Veir.Interpreter.Basic
 import all Veir.Interpreter.Memory
@@ -25,7 +25,7 @@ An LLVM opcode is monotone in its operands when refining its operands refines it
 
 Every LLVM opcode but `llvm.freeze` is monotone in its operands. The arithmetic is strict in
 poison, `select` and the branches pick operands without looking at them, byte operations refine
-bitwise (`Veir.Data.LLVM.Byte.Refinement`), and a `getelementptr` with a poison pointer or index
+bitwise (`Veir.Data.LLVM.Byte.Lemmas`), and a `getelementptr` with a poison pointer or index
 is poison. `llvm.freeze` chooses what poison becomes, which only its CTree semantics can.
 
 With refined memory (`InterpretOp'ContextuallyMonotone`), the opcodes that do not touch memory
@@ -447,9 +447,9 @@ instance llvm_monotone_shl : InterpretOp'Monotone (.llvm .shl) where
         · split
           · simp [Interp.isRefinedBy]
           · refine result_isRefinedBy ?_ _
-            exact RuntimeValue.byte_isRefinedBy_byte.mpr (LLVM.Byte.shl_isRefinedBy hb
+            exact RuntimeValue.byte_isRefinedBy_byte.mpr (LLVM.Byte.shl_isRefinedBy_of_isRefinedBy hb
               (int_cast_isRefinedBy (by rcases hrhs with rfl | ⟨_, rfl, rfl⟩ <;> simp [Data.LLVM.Int.isRefinedBy])
-              _) _)
+              _))
       | _ => simp [Interp.isRefinedBy]
     · simp [Interp.isRefinedBy]
 
@@ -476,8 +476,8 @@ instance llvm_monotone_lshr : InterpretOp'Monotone (.llvm .lshr) where
         split
         · simp [Interp.isRefinedBy]
         · exact result_isRefinedBy (RuntimeValue.byte_isRefinedBy_byte.mpr
-            (LLVM.Byte.lshr_isRefinedBy hb (int_cast_isRefinedBy
-              (by rcases hrhs with rfl | ⟨_, rfl, rfl⟩ <;> simp [Data.LLVM.Int.isRefinedBy]) _) _)) _
+            (LLVM.Byte.lshr_isRefinedBy_of_isRefinedBy hb (int_cast_isRefinedBy
+              (by rcases hrhs with rfl | ⟨_, rfl, rfl⟩ <;> simp [Data.LLVM.Int.isRefinedBy]) _))) _
       | _ => simp [Interp.isRefinedBy]
     · simp [Interp.isRefinedBy]
 

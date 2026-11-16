@@ -163,6 +163,13 @@ private theorem getElem_ofInt_two_pow_sub_one {m n i : Nat} (hi : i < m) :
     simp [Int.natCast_sub Nat.one_le_two_pow]]
   simp [← BitVec.getLsbD_eq_getElem, BitVec.getLsbD_ofNat, hi]
 
+/-- Bit `i` of the mask `2 ^ n - 1`, as `veir_bv_normalize` writes it, is set exactly when
+`i < n`. -/
+private theorem getElem_twoPow_sub_one {m n i : Nat} (hi : i < m) :
+    (BitVec.twoPow m n - 1#m)[i] = decide (i < n) := by
+  rw [← BitVec.ofInt_two_pow_sub_one]
+  exact getElem_ofInt_two_pow_sub_one hi
+
 /--
 Prove the correctness of lowering `g_zext` to a `g_and` of a `g_anyext` with the mask of the source
 width, at every width.
@@ -172,7 +179,7 @@ theorem zext_and_anyext (n m : Nat) (h : n < m) (x : LLVM.Int n) (nneg : Bool)
     LLVM.Int.zext x m nneg h ⊒
       LLVM.Int.and (LLVM.Int.ext x m ext h) (LLVM.Int.constant m (2 ^ n - 1)) := by
   veir_bv_normalize
-  simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
+  simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append, getElem_twoPow_sub_one]
   grind
 
 /-- `x` is refined by its low bits after any extension. -/

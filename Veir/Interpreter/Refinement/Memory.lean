@@ -9,7 +9,7 @@ import all Veir.Data.LLVM.Ptr.Basic
 import Veir.Data.LLVM.Ptr.Lemmas
 import all Std.Data.ByteSlice
 import Veir.Data.Casting
-import Veir.Data.LLVM.Byte.Refinement
+import Veir.Data.LLVM.Byte.Lemmas
 
 public section
 

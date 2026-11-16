@@ -2,6 +2,7 @@ module
 
 public meta import Veir.Meta.Tactic.BVDecide
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
 
 open Veir.Data.LLVM
@@ -964,19 +965,10 @@ theorem getValue_freeze {w : Nat} (x : Int w) :
 theorem neg_twoPow_sub_eq_intMin {w : Nat} :
     LLVM.Int.constant w (-2 ^ (w - 1)) = LLVM.Int.constant w ((BitVec.intMin w).toInt) := by
   simp [veir_bv_normalize]
-  rcases Nat.eq_zero_or_pos w with rfl | hw
-  · decide
-  · rw [← BitVec.ofInt_toInt (x := BitVec.intMin w), BitVec.toInt_intMin,
-      Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by lia) (by lia))]
-    norm_cast
+  rfl
 
 @[veir_bv_normalize]
 theorem twoPow_sub_one_eq_intMin {w : Nat} :
     LLVM.Int.constant w (2 ^ (w - 1) - 1) = LLVM.Int.constant w ((BitVec.intMax w).toInt) := by
   simp [veir_bv_normalize]
 
-@[veir_bv_normalize]
-theorem ofInt_two_pow_eq_setWidth_allones {v w : Nat} :
-    BitVec.ofInt v (2^w - 1) = (BitVec.allOnes w).setWidth v := by
-  apply BitVec.eq_of_toInt_eq
-  simp [Int.ofNat_sub (by grind : 1 ≤ 2^w)]
