@@ -455,7 +455,7 @@ def lowerIntegerFreeze : Puddle.Pattern OpCode :=
 def g_freeze := lowerIntegerFreeze.compile
 
 /-- `llvm.ptrtoint` (pointer to `i64`) -> `gmir.g_ptrtoint`. Other widths stay in LLVM. -/
-def lowerPtrtoint : Puddle.Pattern OpCode :=
+def lowerPtrToInt : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let operandType ← Puddle.MatchProg.type (Attr := LLVM.PointerType)
@@ -467,10 +467,10 @@ def lowerPtrtoint : Puddle.Pattern OpCode :=
       Puddle.CreateProg.operation (.gmir .g_ptrtoint) #[operand] #[resultType])
     (fun newOp => newOp)
 
-def g_ptrtoint := lowerPtrtoint.compile
+def g_ptrtoint := lowerPtrToInt.compile
 
 /-- `llvm.inttoptr` (`i64` to pointer) -> `gmir.g_inttoptr`. Other widths stay in LLVM. -/
-def lowerInttoptr : Puddle.Pattern OpCode :=
+def lowerIntToPtr : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let operandType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
@@ -482,7 +482,7 @@ def lowerInttoptr : Puddle.Pattern OpCode :=
       Puddle.CreateProg.operation (.gmir .g_inttoptr) #[operand] #[resultType])
     (fun newOp => newOp)
 
-def g_inttoptr := lowerInttoptr.compile
+def g_inttoptr := lowerIntToPtr.compile
 
 /--
   The integer type with the same width as the byte type `type`.

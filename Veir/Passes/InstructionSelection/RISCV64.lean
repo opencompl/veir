@@ -1317,8 +1317,8 @@ def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
 def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
 def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
-def gmirPtrtoint : Puddle.CompiledPattern OpCode := (gmirPtrIntCast_pattern .g_ptrtoint).compile
-def gmirInttoptr : Puddle.CompiledPattern OpCode := (gmirPtrIntCast_pattern .g_inttoptr).compile
+def gmirPtrToInt : Puddle.CompiledPattern OpCode := (gmirPtrIntCast_pattern .g_ptrtoint).compile
+def gmirIntToPtr : Puddle.CompiledPattern OpCode := (gmirPtrIntCast_pattern .g_inttoptr).compile
 def gmirAnyextOfReg : Puddle.CompiledPattern OpCode := gmirAnyextOfReg_pattern.compile
 def gmirShl : Puddle.CompiledPattern OpCode := gmirShl_pattern.compile
 def gmirLshr : Puddle.CompiledPattern OpCode := gmirLshr_pattern.compile
@@ -2133,7 +2133,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirStore.map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     gmirPoison.run, zeroConst.run, gmirFreeze.run,
-    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirPtrtoint.run, gmirInttoptr.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
+    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirPtrToInt.run, gmirIntToPtr.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSmulh.run, gmirUmulh.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirRiscvAddw.run, gmirRiscvSubw.run, gmirRiscvMulw.run,
