@@ -399,10 +399,12 @@ theorem val_merge (x y : Byte w) : (merge x y).val = x.val ||| y.val := rfl
 theorem poison_merge (x y : Byte w) : (merge x y).poison = x.poison &&& y.poison := rfl
 
 theorem getLsbD_val_merge (x y : Byte w) (i : Nat) :
-    (merge x y).val.getLsbD i = (x.val.getLsbD i || y.val.getLsbD i) := by simp
+    (merge x y).val.getLsbD i = (x.val.getLsbD i || y.val.getLsbD i) := by
+  simp
 
 theorem getLsbD_poison_merge (x y : Byte w) (i : Nat) :
-    (merge x y).poison.getLsbD i = (x.poison.getLsbD i && y.poison.getLsbD i) := by simp
+    (merge x y).poison.getLsbD i = (x.poison.getLsbD i && y.poison.getLsbD i) := by
+  simp
 
 /-- Two bytes are compatible iff on every bit, one of them is poison or they agree. -/
 theorem compatible_iff_getLsbD (x y : Byte w) :
