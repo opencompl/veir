@@ -358,10 +358,12 @@ theorem getLsbD_poison_trunc (x : Byte w) (w' i : Nat) :
 /-! ## freeze -/
 
 @[simp]
-theorem val_freeze (x : Byte w) : x.freeze.val = x.val := by simp [Byte.freeze]
+theorem val_freeze (x : Byte w) : x.freeze.val = x.val := by
+  simp [Byte.freeze]
 
 @[simp]
-theorem poison_freeze (x : Byte w) : x.freeze.poison = 0#w := by simp [Byte.freeze]
+theorem poison_freeze (x : Byte w) : x.freeze.poison = 0#w := by
+  simp [Byte.freeze]
 
 theorem getLsbD_val_freeze (x : Byte w) (i : Nat) :
     x.freeze.val.getLsbD i = x.val.getLsbD i := by
