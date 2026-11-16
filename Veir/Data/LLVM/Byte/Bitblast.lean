@@ -246,11 +246,13 @@ theorem val_allPoison : (allPoison : Byte w).val = 0#w := by
 theorem poison_allPoison : (allPoison : Byte w).poison = .allOnes w := by
   simp [Byte.allPoison]
 
+@[simp]
 theorem getLsbD_val_allPoison (i : Nat) :
     (allPoison : Byte w).val.getLsbD i = false := by
   veir_bv_normalize
   simp
 
+@[simp]
 theorem getLsbD_poison_allPoison (i : Nat) :
     (allPoison : Byte w).poison.getLsbD i = decide (i < w) := by
   simp [poison_allPoison]
@@ -266,10 +268,12 @@ theorem poison_cast {w₁ w₂ : Nat} (x : Byte w₁) (h : w₁ = w₂) :
     (x.cast h).poison = x.poison.cast h := by
   simp [Byte.cast]
 
+@[simp]
 theorem getLsbD_val_cast {w₁ w₂ : Nat} (x : Byte w₁) (h : w₁ = w₂) (i : Nat) :
     (x.cast h).val.getLsbD i = x.val.getLsbD i := by
   simp [val_cast]
 
+@[simp]
 theorem getLsbD_poison_cast {w₁ w₂ : Nat} (x : Byte w₁) (h : w₁ = w₂) (i : Nat) :
     (x.cast h).poison.getLsbD i = x.poison.getLsbD i := by
   simp [poison_cast]
@@ -296,7 +300,6 @@ theorem getLsbD_poison_and (x y : Byte w) (i : Nat) :
 
 /-! ## or -/
 
-@[simp]
 theorem getLsbD_val_or (x y : Byte w) (i : Nat) :
     (x ||| y).val.getLsbD i =
       ((x.val.getLsbD i || y.val.getLsbD i) && !x.poison.getLsbD i && !y.poison.getLsbD i) := by
@@ -309,7 +312,6 @@ theorem getLsbD_val_or (x y : Byte w) (i : Nat) :
     cases a <;> cases b <;> cases c <;> cases d <;> simp
   · simp [BitVec.getLsbD_of_ge _ _ (Nat.not_lt.mp hi)]
 
-@[simp]
 theorem getLsbD_poison_or (x y : Byte w) (i : Nat) :
     (x ||| y).poison.getLsbD i = (x.poison.getLsbD i || y.poison.getLsbD i) := by
   simp [poison_or]
@@ -317,7 +319,6 @@ theorem getLsbD_poison_or (x y : Byte w) (i : Nat) :
 
 /-! ## xor -/
 
-@[simp]
 theorem getLsbD_val_xor (x y : Byte w) (i : Nat) :
     (x ^^^ y).val.getLsbD i =
       ((x.val.getLsbD i ^^ y.val.getLsbD i) && !x.poison.getLsbD i && !y.poison.getLsbD i) := by
@@ -330,7 +331,6 @@ theorem getLsbD_val_xor (x y : Byte w) (i : Nat) :
     cases a <;> cases b <;> cases c <;> cases d <;> simp
   · simp [BitVec.getLsbD_of_ge _ _ (Nat.not_lt.mp hi)]
 
-@[simp]
 theorem getLsbD_poison_xor (x y : Byte w) (i : Nat) :
     (x ^^^ y).poison.getLsbD i = (x.poison.getLsbD i || y.poison.getLsbD i) := by
   simp [poison_xor]
@@ -388,9 +388,11 @@ theorem getLsbD_poison_fromInt (y : Int w) (i : Nat) :
     (fromInt y).poison.getLsbD i = (y.isPoison && decide (i < w)) := by
   rw [poison_fromInt]; split <;> simp_all
 
+@[simp]
 theorem getLsbD_val_fromBitVec (v : BitVec w) (i : Nat) :
     (fromBitVec v).val.getLsbD i = v.getLsbD i := by simp
 
+@[simp]
 theorem getLsbD_poison_fromBitVec (v : BitVec w) (i : Nat) :
     (fromBitVec v).poison.getLsbD i = false := by simp
 
