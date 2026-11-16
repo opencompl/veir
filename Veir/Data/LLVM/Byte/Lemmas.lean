@@ -3,6 +3,7 @@ module
 public import Veir.Data.LLVM.Byte.Bitblast
 import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Byte.Bitblast
+import Veir.ForLean
 
 namespace Veir.Data.LLVM.Byte
 
@@ -56,40 +57,6 @@ theorem isRefinedBy_of_getLsbD {w : Nat} {b b' : Byte w}
     Bool.bne_not, BitVec.getElem_allOnes, Bool.or_eq_true, Bool.and_eq_true, Bool.not_eq_eq_eq_not,
     Bool.not_true, bne_eq_false_iff_eq]
   simp [← BitVec.getLsbD_eq_getElem, h]
-
-/-- Shifting left and back right keeps `a` iff its top `s` bits are zero. -/
-theorem shiftLeft_ushiftRight_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
-    (a <<< s) >>> s = a ↔ ∀ i < w, w ≤ s + i → a.getLsbD i = false := by
-  constructor
-  · intro h i hi hs
-    have := congrArg (·.getLsbD i) h
-    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft] at this
-    rw [← this]
-    simp [Nat.not_lt.mpr hs]
-  · intro h
-    apply BitVec.eq_of_getLsbD_eq
-    intro i hi
-    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft]
-    by_cases hs : s + i < w
-    · simp [hs, Nat.add_sub_cancel_left]
-    · simp [hs, h i hi (Nat.not_lt.mp hs)]
-
-/-- Shifting right and back left keeps `a` iff its low `s` bits are zero. -/
-theorem ushiftRight_shiftLeft_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
-    (a >>> s) <<< s = a ↔ ∀ i < w, i < s → a.getLsbD i = false := by
-  constructor
-  · intro h i hi hs
-    have := congrArg (·.getLsbD i) h
-    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft] at this
-    rw [← this]
-    simp [hs]
-  · intro h
-    apply BitVec.eq_of_getLsbD_eq
-    intro i hi
-    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft]
-    by_cases hs : i < s
-    · simp [hs, h i hi hs]
-    · simp [hs, hi, Nat.add_sub_cancel' (Nat.not_lt.mp hs)]
 
 theorem val_false_of_isRefinedBy {w i: Nat} {x x' : Byte w} (h : x ⊒ x')
     (P : Nat → Prop)
@@ -158,13 +125,13 @@ theorem shl_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
         BitVec.zero_xor, BitVec.allOnes_or]
       have hv' : ¬(nuw = true ∧ ¬x'.val <<< v.toNat >>> v.toNat = x'.val) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, shiftLeft_ushiftRight_eq_iff] at hv hp hne
+        simp only [hn, true_and, Decidable.not_not, BitVec.shiftLeft_ushiftRight_eq_iff] at hv hp hne
         exact hne fun i hi hsi =>
           val_false_of_isRefinedBy hx (fun i => i < w ∧ w ≤ v.toNat + i)
             (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
       have hp' : ¬(nuw = true ∧ ¬x'.poison <<< v.toNat >>> v.toNat = x'.poison) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, shiftLeft_ushiftRight_eq_iff] at hv hp hne
+        simp only [hn, true_and, Decidable.not_not, BitVec.shiftLeft_ushiftRight_eq_iff] at hv hp hne
         exact hne fun i hi hsi =>
           poison_false_of_isRefinedBy hx (fun i => i < w ∧ w ≤ v.toNat + i)
             (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
@@ -208,13 +175,13 @@ theorem lshr_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
         BitVec.zero_xor, BitVec.allOnes_or]
       have hv' : ¬(exact = true ∧ ¬x'.val >>> v.toNat <<< v.toNat = x'.val) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, ushiftRight_shiftLeft_eq_iff] at hv hp hne
+        simp only [hn, true_and, Decidable.not_not, BitVec.ushiftRight_shiftLeft_eq_iff] at hv hp hne
         exact hne fun i hi hsi =>
           val_false_of_isRefinedBy hx (fun i => i < w ∧ i < v.toNat)
             (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
       have hp' : ¬(exact = true ∧ ¬x'.poison >>> v.toNat <<< v.toNat = x'.poison) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, ushiftRight_shiftLeft_eq_iff] at hv hp hne
+        simp only [hn, true_and, Decidable.not_not, BitVec.ushiftRight_shiftLeft_eq_iff] at hv hp hne
         exact hne fun i hi hsi =>
           poison_false_of_isRefinedBy hx (fun i => i < w ∧ i < v.toNat)
             (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
