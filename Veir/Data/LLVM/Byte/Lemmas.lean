@@ -3,6 +3,7 @@ module
 public import Veir.Data.LLVM.Byte.Bitblast
 import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Byte.Bitblast
+import Veir.ForLean
 
 namespace Veir.Data.LLVM.Byte
 
@@ -57,40 +58,6 @@ theorem isRefinedBy_of_getLsbD {w : Nat} {b b' : Byte w}
     Bool.not_true, bne_eq_false_iff_eq]
   simp [← BitVec.getLsbD_eq_getElem, h]
 
-/-- Shifting left and back right keeps `a` iff its top `s` bits are zero. -/
-theorem shiftLeft_ushiftRight_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
-    (a <<< s) >>> s = a ↔ ∀ i < w, w ≤ s + i → a.getLsbD i = false := by
-  constructor
-  · intro h i hi hs
-    have := congrArg (·.getLsbD i) h
-    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft] at this
-    rw [← this]
-    simp [Nat.not_lt.mpr hs]
-  · intro h
-    apply BitVec.eq_of_getLsbD_eq
-    intro i hi
-    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft]
-    by_cases hs : s + i < w
-    · simp [hs, Nat.add_sub_cancel_left]
-    · simp [hs, h i hi (Nat.not_lt.mp hs)]
-
-/-- Shifting right and back left keeps `a` iff its low `s` bits are zero. -/
-theorem ushiftRight_shiftLeft_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
-    (a >>> s) <<< s = a ↔ ∀ i < w, i < s → a.getLsbD i = false := by
-  constructor
-  · intro h i hi hs
-    have := congrArg (·.getLsbD i) h
-    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft] at this
-    rw [← this]
-    simp [hs]
-  · intro h
-    apply BitVec.eq_of_getLsbD_eq
-    intro i hi
-    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft]
-    by_cases hs : i < s
-    · simp [hs, h i hi hs]
-    · simp [hs, hi, Nat.add_sub_cancel' (Nat.not_lt.mp hs)]
-
 theorem val_false_of_isRefinedBy {w i: Nat} {x x' : Byte w} (h : x ⊒ x')
     (P : Nat → Prop)
     (hv : P i → x.val.getLsbD i = false)
@@ -141,11 +108,13 @@ theorem shl_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
   cases y with
   | poison => exact allPoison_isRefinedBy _
   | val s =>
-    simp [Int.isRefinedBy_eq] at hy
+    simp only [Int.isRefinedBy_eq] at hy
     split at hy
     · case _ i i' v v' heq =>
-      simp [isRefinedBy] at hx
-      simp [isRefinedBy, heq, hy, poison_shl, val_shl]
+      simp only [isRefinedBy] at hx
+      simp only [isRefinedBy, heq, hy, poison_shl, isPoison_of_val, getValueD_val,
+        BitVec.natCast_eq_ofNat, ge_iff_le, Bool.false_or, decide_eq_true_eq, BitVec.shiftLeft_eq',
+        BitVec.ushiftRight_eq', ne_eq, val_shl]
       subst hy
       by_cases hs : BitVec.ofNat w w ≤ v
       <;> by_cases hv : nuw = true ∧ ¬x.val <<< v.toNat >>> v.toNat = x.val
@@ -158,13 +127,13 @@ theorem shl_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
         BitVec.zero_xor, BitVec.allOnes_or]
       have hv' : ¬(nuw = true ∧ ¬x'.val <<< v.toNat >>> v.toNat = x'.val) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, shiftLeft_ushiftRight_eq_iff] at hv hp hne
+        simp only [hn, true_and, Decidable.not_not, BitVec.shiftLeft_ushiftRight_eq_iff] at hv hp hne
         exact hne fun i hi hsi =>
           val_false_of_isRefinedBy hx (fun i => i < w ∧ w ≤ v.toNat + i)
             (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
       have hp' : ¬(nuw = true ∧ ¬x'.poison <<< v.toNat >>> v.toNat = x'.poison) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, shiftLeft_ushiftRight_eq_iff] at hv hp hne
+        simp only [hn, true_and, Decidable.not_not, BitVec.shiftLeft_ushiftRight_eq_iff] at hv hp hne
         exact hne fun i hi hsi =>
           poison_false_of_isRefinedBy hx (fun i => i < w ∧ w ≤ v.toNat + i)
             (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
@@ -191,11 +160,13 @@ theorem lshr_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
   cases y with
   | poison => rw [lshr_poison]; exact allPoison_isRefinedBy _
   | val s =>
-    simp [Int.isRefinedBy_eq] at hy
+    simp only [Int.isRefinedBy_eq] at hy
     split at hy
     · case _ i i' v v' heq =>
-      simp [isRefinedBy] at hx
-      simp [isRefinedBy, heq, hy, poison_lshr, val_lshr]
+      simp only [isRefinedBy] at hx
+      simp only [isRefinedBy, heq, hy, poison_lshr, isPoison_of_val, getValueD_val,
+        BitVec.natCast_eq_ofNat, ge_iff_le, Bool.false_or, decide_eq_true_eq,
+        BitVec.ushiftRight_eq', BitVec.shiftLeft_eq', ne_eq, val_lshr]
       subst hy
       by_cases hs : BitVec.ofNat w w ≤ v
       <;> by_cases hv : exact = true ∧ ¬x.val >>> v.toNat <<< v.toNat = x.val
@@ -208,13 +179,13 @@ theorem lshr_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
         BitVec.zero_xor, BitVec.allOnes_or]
       have hv' : ¬(exact = true ∧ ¬x'.val >>> v.toNat <<< v.toNat = x'.val) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, ushiftRight_shiftLeft_eq_iff] at hv hp hne
+        simp only [hn, true_and, Decidable.not_not, BitVec.ushiftRight_shiftLeft_eq_iff] at hv hp hne
         exact hne fun i hi hsi =>
           val_false_of_isRefinedBy hx (fun i => i < w ∧ i < v.toNat)
             (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
       have hp' : ¬(exact = true ∧ ¬x'.poison >>> v.toNat <<< v.toNat = x'.poison) := by
         rintro ⟨hn, hne⟩
-        simp only [hn, true_and, Decidable.not_not, ushiftRight_shiftLeft_eq_iff] at hv hp hne
+        simp only [hn, true_and, Decidable.not_not, BitVec.ushiftRight_shiftLeft_eq_iff] at hv hp hne
         exact hne fun i hi hsi =>
           poison_false_of_isRefinedBy hx (fun i => i < w ∧ i < v.toNat)
             (fun h => hv i h.1 h.2) (fun h => hp i h.1 h.2) ⟨hi, hsi⟩
@@ -236,7 +207,7 @@ theorem lshr_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
 theorem toInt_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') :
     x.toInt ⊒ x'.toInt := by
   have := isPoison_toInt (w := w) (x := x)
-  simp only [toInt, BitVec.ofNat_eq_ofNat, dite_eq_ite]
+  simp only [toInt, BitVec.ofNat_eq_ofNat]
   by_cases hp : x.toInt.isPoison
   · suffices hsuff : ¬ x.poison = 0#w by simp only [hsuff, ↓reduceIte, poison_isRefinedBy]
     simp only [this, BitVec.ofNat_eq_ofNat, bne_iff_ne, ne_eq] at hp
@@ -247,13 +218,15 @@ theorem toInt_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') :
       ext k hk
       have ⟨_, h⟩ := h
       have := congrArg (·.getLsbD k) h
-      simp [hk] at this
+      simp only [hk, BitVec.getLsbD_eq_getElem, BitVec.getElem_not, BitVec.getElem_allOnes,
+        Bool.not_eq_eq_eq_not, Bool.not_true] at this
       simp [this]
     simp only [this, ↓reduceIte, hnp, isRefinedBy_eq]
     ext k hk
     have ⟨h, _⟩ := h
     have := congrArg (·.getLsbD k) h
-    simp [hk] at this
+    simp only [hk, BitVec.getLsbD_eq_getElem, BitVec.getElem_xor, BitVec.getElem_not, Bool.bne_not,
+      BitVec.getElem_allOnes, Bool.not_eq_eq_eq_not, Bool.not_true, bne_eq_false_iff_eq] at this
     simp [this]
 
 theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : i ⊒ i') :
