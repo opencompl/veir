@@ -91,7 +91,7 @@ theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P (.
       exact this ▸ Lean.Order.PartialOrder.rel_refl
     rcases Interp.rel_iff.mp hbelow with heq | heq <;> exact heq ▸ hub
 
-@[simp, grind =] theorem Interp.pure_eq (a : α) : (pure a : Interp α) = .ok a := rfl
+@[simp, grind norm] theorem Interp.pure_eq (a : α) : (pure a : Interp α) = .ok a := rfl
 @[simp, grind =] theorem Interp.bind_ok (a : α) (f : α → Interp β) :
     (Interp.ok a >>= f) = f a := rfl
 @[simp, grind =] theorem Interp.bind_ub (f : α → Interp β) :
