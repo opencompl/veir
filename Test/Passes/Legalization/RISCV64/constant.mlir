@@ -16,7 +16,11 @@
     // CHECK:      %[[WIDE:.*]] = "gmir.g_constant"() <{"value" = 7 : i64}> : () -> i64
     // CHECK-NEXT: "gmir.g_trunc"(%[[WIDE]]) : (i64) -> i3
 
-    "test.test"(%x_i64, %x_i32, %x_i3) : (i64, i32, i3) -> ()
+    // A null pointer is legal (See LLVM's `legalize-const-rv64.mir` lit test).
+    %null = "gmir.g_constant"() <{value = 0 : i64}> : () -> !llvm.ptr
+    // CHECK:      "gmir.g_constant"() <{"value" = 0 : i64}> : () -> !llvm.ptr
+
+    "test.test"(%x_i64, %x_i32, %x_i3, %null) : (i64, i32, i3, !llvm.ptr) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

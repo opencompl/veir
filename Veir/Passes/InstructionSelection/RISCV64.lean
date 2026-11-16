@@ -97,14 +97,6 @@ def constant_pattern : Pattern OpCode :=
 /-- llvm.constant -> riscv.li -/
 def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
 
-/-- The width of an `icmp` operand of type `t` once it is in a register: integers keep their
-    width, and an `!llvm.ptr` is a full 64-bit register, compared exactly like an `i64`. -/
-def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
-  match t.val with
-  | .integerType t => some t.bitwidth
-  | .llvmPointerType _ => some 64
-  | _ => none
-
 /--
   Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
   byte types, and the result is strictly narrower than the operand.
@@ -801,26 +793,6 @@ def gmirPoison_pattern : Pattern OpCode :=
           #[liOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
-
-/-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
-def zeroConst_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let resType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => (icmpTypeWidth? t).any (· ≤ 64))
-      let _ ← MatchProg.root (.llvm .mlir__zero) #[] #[resType]
-      return resType)
-    (fun resType => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
-      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
-def zeroConst : Puddle.CompiledPattern OpCode := zeroConst_pattern.compile
 
 /-- gmir.g_poison -> riscv.li 0 -/
 def gmirPoison : Puddle.CompiledPattern OpCode := gmirPoison_pattern.compile
@@ -1805,11 +1777,11 @@ def gmirRiscvSraw : Puddle.CompiledPattern OpCode := gmirRiscvSraw_pattern.compi
 def gmirRiscvClzw : Puddle.CompiledPattern OpCode := gmirRiscvClzw_pattern.compile
 def gmirRiscvCtzw : Puddle.CompiledPattern OpCode := gmirRiscvCtzw_pattern.compile
 
-/-- `gmir.g_constant` (`i64`) -> `riscv.li`. -/
+/-- `gmir.g_constant` (`i64` or pointer) -> `riscv.li`. -/
 def gmirConstant_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := TypeAttr)
       let root ← MatchProg.root (.gmir .g_constant) #[] #[type]
       matchLegal .g_constant type root.properties
       return (type, root.properties))
@@ -2125,7 +2097,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++
     gmirStore.map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
-    gmirPoison.run, zeroConst.run, gmirFreeze.run,
+    gmirPoison.run, gmirFreeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSmulh.run, gmirUmulh.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,

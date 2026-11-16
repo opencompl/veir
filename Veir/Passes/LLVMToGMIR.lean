@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.Passes.Legalization.LegalizerHelper
 import Veir.Passes.Legalization.LegalizerInfo
 import Veir.DataLayout.RISCV64
 import Veir.Interfaces.ConstantLikeInterfaces
@@ -426,6 +427,22 @@ def lowerIntegerConstant : Puddle.Pattern OpCode :=
 
 def g_constant := lowerIntegerConstant.compile
 
+/-- `llvm.mlir.zero` (integer up to `i64` or pointer) -> `gmir.g_constant 0`. -/
+def lowerZero : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t =>
+        match LLT.ofType? t with
+        | some (.scalar width) => width ≤ 64
+        | some (.pointer _) => true
+        | none => false
+      let _ ← Puddle.MatchProg.root (.llvm .mlir__zero) #[] #[resultType]
+      return resultType)
+    (fun resultType => createConstant resultType 0)
+    (fun newOp => newOp)
+
+def g_zero := lowerZero.compile
+
 /--
   `llvm.mlir.poison` (integer or pointer) -> `gmir.g_poison`, as LLVM's IRTranslator turns poison
   of any type into `G_IMPLICIT_DEF`. Byte poison is translated by `lowerBytePoison`.
@@ -598,7 +615,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_scmp.run, g_ucmp.run, g_abs.run, g_fshl.run, g_fshr.run,
     g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run,
-    g_constant.run, g_poison.run, g_bytePoison.run, g_freeze.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
+    g_constant.run, g_zero.run, g_poison.run, g_bytePoison.run, g_freeze.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices,
     lowerStaticAlloca.run, g_load.run, g_store.run,
     intToByteRoundTrip.run
