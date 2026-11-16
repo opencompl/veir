@@ -365,10 +365,12 @@ theorem val_freeze (x : Byte w) : x.freeze.val = x.val := by
 theorem poison_freeze (x : Byte w) : x.freeze.poison = 0#w := by
   simp [Byte.freeze]
 
+@[simp]
 theorem getLsbD_val_freeze (x : Byte w) (i : Nat) :
     x.freeze.val.getLsbD i = x.val.getLsbD i := by
   simp
 
+@[simp]
 theorem getLsbD_poison_freeze (x : Byte w) (i : Nat) :
     x.freeze.poison.getLsbD i = false := by
   simp
