@@ -130,6 +130,7 @@ attribute [pbv_push] signBitOfMask_eq BitVec.setWidth_zero BitVec.ofNat_eq_ofNat
 
 attribute [pbv_unfold] BitVec.ofNat_mul BitVec.ofInt_sub'
   BitVec.ofInt_min_toInt BitVec.ofInt_max_toInt
+  BitVec.ofInt_add BitVec.ofInt_neg BitVec.ofInt_mul BitVec.ofInt_toInt
 
 attribute [pbv_push low] BitVec.setWidth_eq
 

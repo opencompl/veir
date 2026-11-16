@@ -13,7 +13,6 @@ import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Passes.Legalization.Validity.PBVNormalize
-import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide

@@ -547,37 +547,30 @@ private theorem soc_const_allOnes {w : Nat} (h : 1 < w) (_hw : w ≤ 64) (c : Da
 
 /-! ## Validity of every combine that matches a constant -/
 
-@[combine_valid]
 theorem combine_right_identity_zero_sub_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_sub) := by
   proveConstValid using Data.LLVM.right_identity_zero_sub
 
-@[combine_valid]
 theorem combine_right_identity_zero_add_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_add) := by
   proveConstValid using Data.LLVM.right_identity_zero_add
 
-@[combine_valid]
 theorem combine_right_identity_zero_or_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_or) := by
   proveConstValid using Data.LLVM.right_identity_zero_or
 
-@[combine_valid]
 theorem combine_right_identity_zero_xor_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_xor) := by
   proveConstValid using Data.LLVM.right_identity_zero_xor
 
-@[combine_valid]
 theorem combine_right_identity_zero_shl_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_shl) := by
   proveConstValid using right_identity_zero_shl
 
-@[combine_valid]
 theorem combine_right_identity_zero_ashr_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_ashr) := by
   proveConstValid using right_identity_zero_ashr
 
-@[combine_valid]
 theorem combine_right_identity_zero_lshr_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_lshr) := by
   proveConstValid using right_identity_zero_lshr
@@ -587,47 +580,38 @@ theorem combine_right_identity_one_int_valid :
     Puddle.CTree.Pattern.Valid (right_identity_one_int_pattern) := by
   proveConstValid using Data.LLVM.right_identity_one_mul
 
-@[combine_valid]
 theorem combine_binop_right_to_zero_valid :
     Puddle.CTree.Pattern.Valid (binop_right_to_zero_pattern) := by
   proveConstValid using Data.LLVM.binop_right_to_zero
 
-@[combine_valid]
 theorem combine_binop_left_to_zero_shl_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_shl) := by
   proveConstValid using Data.LLVM.binop_left_to_zero_shl
 
-@[combine_valid]
 theorem combine_binop_left_to_zero_lshr_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_lshr) := by
   proveConstValid using Data.LLVM.binop_left_to_zero_lshr
 
-@[combine_valid]
 theorem combine_binop_left_to_zero_ashr_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_ashr) := by
   proveConstValid using Data.LLVM.binop_left_to_zero_ashr
 
-@[combine_valid]
 theorem combine_binop_left_to_zero_mul_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_mul) := by
   proveConstValid using Data.LLVM.binop_left_to_zero_mul
 
-@[combine_valid]
 theorem combine_sub_minus_one_valid :
     Puddle.CTree.Pattern.Valid (sub_minus_one_pattern) := by
   proveConstValid using Data.LLVM.sub_minus_one
 
-@[combine_valid]
 theorem combine_ZeroMinusAPlusB_valid :
     Puddle.CTree.Pattern.Valid (ZeroMinusAPlusB_pattern) := by
   proveConstValid using Data.LLVM.ZeroMinusAPlusB
 
-@[combine_valid]
 theorem combine_APlusZeroMinusB_valid :
     Puddle.CTree.Pattern.Valid (APlusZeroMinusB_pattern) := by
   proveConstValid using Data.LLVM.APlusZeroMinusB
 
-@[combine_valid]
 theorem combine_AMinusZeroMinusB_valid :
     Puddle.CTree.Pattern.Valid (AMinusZeroMinusB_pattern) := by
   proveConstValid using Data.LLVM.AMinusZeroMinusB
@@ -637,27 +621,22 @@ theorem combine_sub_one_from_sub_valid :
     Puddle.CTree.Pattern.Valid (sub_one_from_sub_pattern) := by
   proveConstValid using Data.LLVM.sub_one_from_sub
 
-@[combine_valid]
 theorem combine_APlusC1MinusC2_valid :
     Puddle.CTree.Pattern.Valid (APlusC1MinusC2_pattern) := by
   proveConstValid using Data.LLVM.APlusC1MinusC2
 
-@[combine_valid]
 theorem combine_C2MinusAPlusC1_valid :
     Puddle.CTree.Pattern.Valid (C2MinusAPlusC1_pattern) := by
   proveConstValid using Data.LLVM.C2MinusAPlusC1
 
-@[combine_valid]
 theorem combine_AMinusC1MinusC2_valid :
     Puddle.CTree.Pattern.Valid (AMinusC1MinusC2_pattern) := by
   proveConstValid using Data.LLVM.AMinusC1MinusC2
 
-@[combine_valid]
 theorem combine_C1MinusAMinusC2_valid :
     Puddle.CTree.Pattern.Valid (C1MinusAMinusC2_pattern) := by
   proveConstValid using Data.LLVM.C1MinusAMinusC2
 
-@[combine_valid]
 theorem combine_AMinusC1PlusC2_valid :
     Puddle.CTree.Pattern.Valid (AMinusC1PlusC2_pattern) := by
   proveConstValid using Data.LLVM.AMinusC1PlusC2
@@ -677,57 +656,46 @@ theorem combine_mulo_by_2_valid :
     Puddle.CTree.Pattern.Valid (mulo_by_2_pattern) := by
   proveConstValid using Data.LLVM.mulo_by_2
 
-@[combine_valid]
 theorem combine_NotAPlusNegOne_valid :
     Puddle.CTree.Pattern.Valid (NotAPlusNegOne_pattern) := by
   proveConstValid using Data.LLVM.NotAPlusNegOne
 
-@[combine_valid]
 theorem combine_add_shift_valid :
     Puddle.CTree.Pattern.Valid (add_shift_pattern false) := by
   proveConstValid using Data.LLVM.add_shift
 
-@[combine_valid]
 theorem combine_add_shift_swapped_valid :
     Puddle.CTree.Pattern.Valid (add_shift_pattern true) := by
   proveConstValid using Data.LLVM.add_shift'
 
-@[combine_valid]
 theorem combine_or_and_xor_to_or_or_and_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_or_pattern .g_or .g_and) := by
   proveConstValid using Data.LLVM.or_and_xor_to_or
 
-@[combine_valid]
 theorem combine_or_and_xor_to_or_and_or_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_or_pattern .g_and .g_or) := by
   proveConstValid using Data.LLVM.or_and_xor_to_or'
 
-@[combine_valid]
 theorem combine_or_and_xor_to_xor_or_or_and_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_xor_or_pattern .g_or .g_and) := by
   proveConstValid using Data.LLVM.or_and_xor_to_xor_or
 
-@[combine_valid]
 theorem combine_or_and_xor_to_xor_or_and_or_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_xor_or_pattern .g_and .g_or) := by
   proveConstValid using Data.LLVM.or_and_xor_to_xor_or'
 
-@[combine_valid]
 theorem combine_simplify_neg_smax_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_smax .g_smin) := by
   proveConstValid using Data.LLVM.simplify_neg_smax
 
-@[combine_valid]
 theorem combine_simplify_neg_umax_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_umax .g_umin) := by
   proveConstValid using Data.LLVM.simplify_neg_umax
 
-@[combine_valid]
 theorem combine_simplify_neg_smin_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_smin .g_smax) := by
   proveConstValid using Data.LLVM.simplify_neg_smin
 
-@[combine_valid]
 theorem combine_simplify_neg_umin_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_umin .g_umax) := by
   proveConstValid using Data.LLVM.simplify_neg_umin
@@ -782,12 +750,10 @@ theorem combine_not_cmp_fold_sle_valid :
     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sle .sgt) := by
   proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
 
-@[combine_valid]
 theorem combine_double_icmp_zero_and_valid :
     Puddle.CTree.Pattern.Valid (double_icmp_zero_pattern .g_and .eq) := by
   proveConstValid using Data.LLVM.double_icmp_zero_and_zext, Data.LLVM.double_icmp_zero_and
 
-@[combine_valid]
 theorem combine_double_icmp_zero_or_valid :
     Puddle.CTree.Pattern.Valid (double_icmp_zero_pattern .g_or .ne) := by
   proveConstValid using Data.LLVM.double_icmp_zero_or_zext, Data.LLVM.double_icmp_zero_or
@@ -827,12 +793,10 @@ theorem combine_urem_pow2_to_mask_valid :
     Puddle.CTree.Pattern.Valid (urem_pow2_to_mask_pattern) := by
   proveConstValid using urem_pow2
 
-@[combine_valid]
 theorem combine_constant_fold_add_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_add (fun a b => a + b)) := by
   proveConstValid using Data.LLVM.constant_fold_add
 
-@[combine_valid]
 theorem combine_constant_fold_sub_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_sub ((· - ·))) := by
   proveConstValid using Data.LLVM.constant_fold_sub
@@ -842,27 +806,22 @@ theorem combine_constant_fold_mul_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_mul ((· * ·))) := by
   proveConstValid using Data.LLVM.constant_fold_mul
 
-@[combine_valid]
 theorem combine_constant_fold_smin_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smin (min)) := by
   proveConstValid using Data.LLVM.constant_fold_smin
 
-@[combine_valid]
 theorem combine_constant_fold_smax_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smax (max)) := by
   proveConstValid using Data.LLVM.constant_fold_smax
 
-@[combine_valid]
 theorem combine_select_constant_cmp_nonzero_valid :
     Puddle.CTree.Pattern.Valid (select_constant_cmp_pattern true) := by
   proveConstValid using Data.LLVM.select_constant_cmp_nonzero
 
-@[combine_valid]
 theorem combine_select_constant_cmp_zero_valid :
     Puddle.CTree.Pattern.Valid (select_constant_cmp_pattern false) := by
   proveConstValid using Data.LLVM.select_constant_cmp_zero
 
-@[combine_valid]
 theorem combine_sub_to_add_valid (info : LegalizerInfo) :
     Puddle.CTree.Pattern.Valid (sub_to_add_pattern info) := by
   proveConstValid using Data.LLVM.sub_to_add
@@ -909,32 +868,26 @@ theorem combine_select_into_ashr_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_ashr true) := by
   proveConstValid using select_into_ashr_swapped'
 
-@[combine_valid]
 theorem combine_select_one_zero_valid :
     Puddle.CTree.Pattern.Valid (select_one_zero_pattern) := by
   proveConstValid using soc_one_zero
 
-@[combine_valid]
 theorem combine_select_allOnes_zero_valid :
     Puddle.CTree.Pattern.Valid (select_allOnes_zero_pattern) := by
   proveConstValid using soc_allOnes_zero
 
-@[combine_valid]
 theorem combine_select_zero_one_valid :
     Puddle.CTree.Pattern.Valid (select_zero_one_pattern) := by
   proveConstValid using soc_zero_one
 
-@[combine_valid]
 theorem combine_select_zero_allOnes_valid :
     Puddle.CTree.Pattern.Valid (select_zero_allOnes_pattern) := by
   proveConstValid using soc_zero_allOnes
 
-@[combine_valid]
 theorem combine_select_succ_valid :
     Puddle.CTree.Pattern.Valid (select_succ_pattern) := by
   proveConstValid using soc_succ
 
-@[combine_valid]
 theorem combine_select_pred_valid :
     Puddle.CTree.Pattern.Valid (select_pred_pattern) := by
   proveConstValid using soc_pred
@@ -949,12 +902,10 @@ theorem combine_select_zero_pow2_valid :
     Puddle.CTree.Pattern.Valid (select_zero_pow2_pattern) := by
   proveConstValid using soc_zero_pow2
 
-@[combine_valid]
 theorem combine_select_allOnes_const_valid :
     Puddle.CTree.Pattern.Valid (select_allOnes_const_pattern) := by
   proveConstValid using soc_allOnes_const
 
-@[combine_valid]
 theorem combine_select_const_allOnes_valid :
     Puddle.CTree.Pattern.Valid (select_const_allOnes_pattern) := by
   proveConstValid using soc_const_allOnes
@@ -1004,119 +955,14 @@ theorem combine_funnel_shift_overshift_r_valid :
 /-! ## Status of every combine that matches a constant -/
 
 @[legalization_status]
-theorem combine_right_identity_zero_sub_status :
-    Status Unproven (right_identity_zero_pattern .g_sub) :=
-  .proven (combine_right_identity_zero_sub_valid)
-
-@[legalization_status]
-theorem combine_right_identity_zero_add_status :
-    Status Unproven (right_identity_zero_pattern .g_add) :=
-  .proven (combine_right_identity_zero_add_valid)
-
-@[legalization_status]
-theorem combine_right_identity_zero_or_status :
-    Status Unproven (right_identity_zero_pattern .g_or) :=
-  .proven (combine_right_identity_zero_or_valid)
-
-@[legalization_status]
-theorem combine_right_identity_zero_xor_status :
-    Status Unproven (right_identity_zero_pattern .g_xor) :=
-  .proven (combine_right_identity_zero_xor_valid)
-
-@[legalization_status]
-theorem combine_right_identity_zero_shl_status :
-    Status Unproven (right_identity_zero_pattern .g_shl) :=
-  .proven (combine_right_identity_zero_shl_valid)
-
-@[legalization_status]
-theorem combine_right_identity_zero_ashr_status :
-    Status Unproven (right_identity_zero_pattern .g_ashr) :=
-  .proven (combine_right_identity_zero_ashr_valid)
-
-@[legalization_status]
-theorem combine_right_identity_zero_lshr_status :
-    Status Unproven (right_identity_zero_pattern .g_lshr) :=
-  .proven (combine_right_identity_zero_lshr_valid)
-
-@[legalization_status]
 theorem combine_right_identity_one_int_status :
     Status Unproven (right_identity_one_int_pattern) :=
   .proven (combine_right_identity_one_int_valid)
 
 @[legalization_status]
-theorem combine_binop_right_to_zero_status :
-    Status Unproven (binop_right_to_zero_pattern) :=
-  .proven (combine_binop_right_to_zero_valid)
-
-@[legalization_status]
-theorem combine_binop_left_to_zero_shl_status :
-    Status Unproven (binop_left_to_zero_pattern .g_shl) :=
-  .proven (combine_binop_left_to_zero_shl_valid)
-
-@[legalization_status]
-theorem combine_binop_left_to_zero_lshr_status :
-    Status Unproven (binop_left_to_zero_pattern .g_lshr) :=
-  .proven (combine_binop_left_to_zero_lshr_valid)
-
-@[legalization_status]
-theorem combine_binop_left_to_zero_ashr_status :
-    Status Unproven (binop_left_to_zero_pattern .g_ashr) :=
-  .proven (combine_binop_left_to_zero_ashr_valid)
-
-@[legalization_status]
-theorem combine_binop_left_to_zero_mul_status :
-    Status Unproven (binop_left_to_zero_pattern .g_mul) :=
-  .proven (combine_binop_left_to_zero_mul_valid)
-
-@[legalization_status]
-theorem combine_sub_minus_one_status :
-    Status Unproven (sub_minus_one_pattern) :=
-  .proven (combine_sub_minus_one_valid)
-
-@[legalization_status]
-theorem combine_ZeroMinusAPlusB_status :
-    Status Unproven (ZeroMinusAPlusB_pattern) :=
-  .proven (combine_ZeroMinusAPlusB_valid)
-
-@[legalization_status]
-theorem combine_APlusZeroMinusB_status :
-    Status Unproven (APlusZeroMinusB_pattern) :=
-  .proven (combine_APlusZeroMinusB_valid)
-
-@[legalization_status]
-theorem combine_AMinusZeroMinusB_status :
-    Status Unproven (AMinusZeroMinusB_pattern) :=
-  .proven (combine_AMinusZeroMinusB_valid)
-
-@[legalization_status]
 theorem combine_sub_one_from_sub_status :
     Status Unproven (sub_one_from_sub_pattern) :=
   .proven (combine_sub_one_from_sub_valid)
-
-@[legalization_status]
-theorem combine_APlusC1MinusC2_status :
-    Status Unproven (APlusC1MinusC2_pattern) :=
-  .proven (combine_APlusC1MinusC2_valid)
-
-@[legalization_status]
-theorem combine_C2MinusAPlusC1_status :
-    Status Unproven (C2MinusAPlusC1_pattern) :=
-  .proven (combine_C2MinusAPlusC1_valid)
-
-@[legalization_status]
-theorem combine_AMinusC1MinusC2_status :
-    Status Unproven (AMinusC1MinusC2_pattern) :=
-  .proven (combine_AMinusC1MinusC2_valid)
-
-@[legalization_status]
-theorem combine_C1MinusAMinusC2_status :
-    Status Unproven (C1MinusAMinusC2_pattern) :=
-  .proven (combine_C1MinusAMinusC2_valid)
-
-@[legalization_status]
-theorem combine_AMinusC1PlusC2_status :
-    Status Unproven (AMinusC1PlusC2_pattern) :=
-  .proven (combine_AMinusC1PlusC2_valid)
 
 @[legalization_status]
 theorem combine_sub_of_mul_const_status :
@@ -1132,61 +978,6 @@ theorem combine_mul_by_neg_one_status :
 theorem combine_mulo_by_2_status :
     Status Unproven (mulo_by_2_pattern) :=
   .proven (combine_mulo_by_2_valid)
-
-@[legalization_status]
-theorem combine_NotAPlusNegOne_status :
-    Status Unproven (NotAPlusNegOne_pattern) :=
-  .proven (combine_NotAPlusNegOne_valid)
-
-@[legalization_status]
-theorem combine_add_shift_status :
-    Status Unproven (add_shift_pattern false) :=
-  .proven (combine_add_shift_valid)
-
-@[legalization_status]
-theorem combine_add_shift_swapped_status :
-    Status Unproven (add_shift_pattern true) :=
-  .proven (combine_add_shift_swapped_valid)
-
-@[legalization_status]
-theorem combine_or_and_xor_to_or_or_and_status :
-    Status Unproven (or_and_xor_to_or_pattern .g_or .g_and) :=
-  .proven (combine_or_and_xor_to_or_or_and_valid)
-
-@[legalization_status]
-theorem combine_or_and_xor_to_or_and_or_status :
-    Status Unproven (or_and_xor_to_or_pattern .g_and .g_or) :=
-  .proven (combine_or_and_xor_to_or_and_or_valid)
-
-@[legalization_status]
-theorem combine_or_and_xor_to_xor_or_or_and_status :
-    Status Unproven (or_and_xor_to_xor_or_pattern .g_or .g_and) :=
-  .proven (combine_or_and_xor_to_xor_or_or_and_valid)
-
-@[legalization_status]
-theorem combine_or_and_xor_to_xor_or_and_or_status :
-    Status Unproven (or_and_xor_to_xor_or_pattern .g_and .g_or) :=
-  .proven (combine_or_and_xor_to_xor_or_and_or_valid)
-
-@[legalization_status]
-theorem combine_simplify_neg_smax_status :
-    Status Unproven (simplify_neg_minmax_pattern .g_smax .g_smin) :=
-  .proven (combine_simplify_neg_smax_valid)
-
-@[legalization_status]
-theorem combine_simplify_neg_umax_status :
-    Status Unproven (simplify_neg_minmax_pattern .g_umax .g_umin) :=
-  .proven (combine_simplify_neg_umax_valid)
-
-@[legalization_status]
-theorem combine_simplify_neg_smin_status :
-    Status Unproven (simplify_neg_minmax_pattern .g_smin .g_smax) :=
-  .proven (combine_simplify_neg_smin_valid)
-
-@[legalization_status]
-theorem combine_simplify_neg_umin_status :
-    Status Unproven (simplify_neg_minmax_pattern .g_umin .g_umax) :=
-  .proven (combine_simplify_neg_umin_valid)
 
 @[legalization_status]
 theorem combine_not_cmp_fold_eq_status :
@@ -1239,16 +1030,6 @@ theorem combine_not_cmp_fold_sle_status :
   .proven (combine_not_cmp_fold_sle_valid)
 
 @[legalization_status]
-theorem combine_double_icmp_zero_and_status :
-    Status Unproven (double_icmp_zero_pattern .g_and .eq) :=
-  .proven (combine_double_icmp_zero_and_valid)
-
-@[legalization_status]
-theorem combine_double_icmp_zero_or_status :
-    Status Unproven (double_icmp_zero_pattern .g_or .ne) :=
-  .proven (combine_double_icmp_zero_or_valid)
-
-@[legalization_status]
 theorem combine_udiv_by_pow2_status :
     Status Unproven (udiv_by_pow2_pattern) :=
   .proven (combine_udiv_by_pow2_valid)
@@ -1284,44 +1065,9 @@ theorem combine_urem_pow2_to_mask_status :
   .proven (combine_urem_pow2_to_mask_valid)
 
 @[legalization_status]
-theorem combine_constant_fold_add_status :
-    Status Unproven (constant_fold_binop_pattern .g_add (fun a b => a + b)) :=
-  .proven (combine_constant_fold_add_valid)
-
-@[legalization_status]
-theorem combine_constant_fold_sub_status :
-    Status Unproven (constant_fold_binop_pattern .g_sub ((· - ·))) :=
-  .proven (combine_constant_fold_sub_valid)
-
-@[legalization_status]
 theorem combine_constant_fold_mul_status :
     Status Unproven (constant_fold_binop_pattern .g_mul ((· * ·))) :=
   .proven (combine_constant_fold_mul_valid)
-
-@[legalization_status]
-theorem combine_constant_fold_smin_status :
-    Status Unproven (constant_fold_binop_pattern .g_smin (min)) :=
-  .proven (combine_constant_fold_smin_valid)
-
-@[legalization_status]
-theorem combine_constant_fold_smax_status :
-    Status Unproven (constant_fold_binop_pattern .g_smax (max)) :=
-  .proven (combine_constant_fold_smax_valid)
-
-@[legalization_status]
-theorem combine_select_constant_cmp_nonzero_status :
-    Status Unproven (select_constant_cmp_pattern true) :=
-  .proven (combine_select_constant_cmp_nonzero_valid)
-
-@[legalization_status]
-theorem combine_select_constant_cmp_zero_status :
-    Status Unproven (select_constant_cmp_pattern false) :=
-  .proven (combine_select_constant_cmp_zero_valid)
-
-@[legalization_status]
-theorem combine_sub_to_add_status (info : LegalizerInfo) :
-    Status Unproven (sub_to_add_pattern info) :=
-  .proven (combine_sub_to_add_valid info)
 
 @[legalization_status]
 theorem combine_redundant_and_select_icmp_constant_status :
@@ -1339,36 +1085,6 @@ theorem combine_redundant_and_select_constant_constant_status :
   .proven (combine_redundant_and_select_constant_constant_valid)
 
 @[legalization_status]
-theorem combine_select_one_zero_status :
-    Status Unproven (select_one_zero_pattern) :=
-  .proven (combine_select_one_zero_valid)
-
-@[legalization_status]
-theorem combine_select_allOnes_zero_status :
-    Status Unproven (select_allOnes_zero_pattern) :=
-  .proven (combine_select_allOnes_zero_valid)
-
-@[legalization_status]
-theorem combine_select_zero_one_status :
-    Status Unproven (select_zero_one_pattern) :=
-  .proven (combine_select_zero_one_valid)
-
-@[legalization_status]
-theorem combine_select_zero_allOnes_status :
-    Status Unproven (select_zero_allOnes_pattern) :=
-  .proven (combine_select_zero_allOnes_valid)
-
-@[legalization_status]
-theorem combine_select_succ_status :
-    Status Unproven (select_succ_pattern) :=
-  .proven (combine_select_succ_valid)
-
-@[legalization_status]
-theorem combine_select_pred_status :
-    Status Unproven (select_pred_pattern) :=
-  .proven (combine_select_pred_valid)
-
-@[legalization_status]
 theorem combine_select_pow2_zero_status :
     Status Unproven (select_pow2_zero_pattern) :=
   .proven (combine_select_pow2_zero_valid)
@@ -1377,16 +1093,6 @@ theorem combine_select_pow2_zero_status :
 theorem combine_select_zero_pow2_status :
     Status Unproven (select_zero_pow2_pattern) :=
   .proven (combine_select_zero_pow2_valid)
-
-@[legalization_status]
-theorem combine_select_allOnes_const_status :
-    Status Unproven (select_allOnes_const_pattern) :=
-  .proven (combine_select_allOnes_const_valid)
-
-@[legalization_status]
-theorem combine_select_const_allOnes_status :
-    Status Unproven (select_const_allOnes_pattern) :=
-  .proven (combine_select_const_allOnes_valid)
 
 @[legalization_status]
 theorem combine_funnel_shift_right_zero_status :

@@ -267,14 +267,4 @@ theorem custom_bitreverse_status :
     Status Unproven (customLegalizeBitreverse8) :=
   .proven custom_bitreverse_valid
 
-@[legalization_status]
-theorem custom_saddsat_status :
-    Status Unproven (lowerAddSubSatToAddoSubo .g_saddsat true true) :=
-  .proven custom_saddsat_valid
-
-@[legalization_status]
-theorem custom_ssubsat_status :
-    Status Unproven (lowerAddSubSatToAddoSubo .g_ssubsat true false) :=
-  .proven custom_ssubsat_valid
-
 end Veir.Legalization.CTreeProofs

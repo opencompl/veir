@@ -12,7 +12,6 @@ import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Passes.Legalization.Validity.PBVNormalize
-import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
@@ -41,6 +40,16 @@ attribute [local ctree_semantics]
 attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
 attribute [local implicit_reducible] TypeAttr
+
+/-- `ofInt` of a difference, as `BitVec.ofInt_add` for a sum. -/
+theorem ofInt_sub' {n : Nat} (x y : _root_.Int) :
+    BitVec.ofInt n (x - y) = BitVec.ofInt n x - BitVec.ofInt n y := by
+  rw [Int.sub_eq_add_neg, BitVec.ofInt_add, BitVec.ofInt_neg, BitVec.sub_eq_add_neg]
+
+/-- Rewrite the width constants that a rule builds as integers, such as `BitVec.ofInt n (↑w - 1)`,
+to `BitVec.ofNat n w - 1`, a width placed in a value, which `pbv_decide` translates. -/
+local macro "widthNorm" : tactic => `(tactic|
+  (try simp only [ofInt_sub', BitVec.ofInt_natCast, BitVec.ofInt_ofNat] at *))
 
 theorem custom_urem_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_remuw) := by
   proveLegalValid with veir_pbv_decide 64
@@ -130,14 +139,22 @@ theorem custom_usubsat_status :
     Status Unproven (lowerAddSubSatToAddoSubo .g_usubsat false false) :=
   .proven custom_usubsat_valid
 
--- the width-dependent constant `BitVec.ofInt 64 (bitwidth - 1)` is abstracted
--- theorem custom_saddsat_valid :
---     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_saddsat true true) := by
---   proveLegalValid with veir_pbv_decide 64
+theorem custom_saddsat_valid :
+    Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_saddsat true true) := by
+  proveLegalValid with (all_goals widthNorm; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
 
--- the width-dependent constant `BitVec.ofInt 64 (bitwidth - 1)` is abstracted
--- theorem custom_ssubsat_valid :
---     Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_ssubsat true false) := by
---   proveLegalValid with veir_pbv_decide 64
+@[legalization_status]
+theorem custom_saddsat_status :
+    Status Unproven (lowerAddSubSatToAddoSubo .g_saddsat true true) :=
+  .proven custom_saddsat_valid
+
+theorem custom_ssubsat_valid :
+    Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_ssubsat true false) := by
+  proveLegalValid with (all_goals widthNorm; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem custom_ssubsat_status :
+    Status Unproven (lowerAddSubSatToAddoSubo .g_ssubsat true false) :=
+  .proven custom_ssubsat_valid
 
 end Veir.Legalization.CTreeProofs.PBV
