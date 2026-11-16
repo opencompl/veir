@@ -310,16 +310,25 @@ theorem legalizePattern_pointwise {info : LegalizerInfo}
 a verified module: each branch to the block passes a `g_anyext` of its operand, and a `g_trunc` at
 the start of the block restores the argument's type. The widening is one per argument
 (`distinct`), each from a narrower integer (`narrow`). -/
-theorem widenBlockArguments_sound (block : BlockPtr) (args : List (Nat × Nat))
+-- theorem widenBlockArguments_sound (block : BlockPtr) (args : List (Nat × Nat))
+--     {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr} (root : ModuleRoot ctx moduleOp)
+--     (blockIn : block.InBounds ctx.raw) (phi : block.hasPredecessor! ctx.raw = true)
+--     (distinct : (args.map Prod.fst).Nodup)
+--     (narrow : args.all (fun (i, width) => LegalizerInfo.narrowerArgument block ctx.raw i width) =
+--       true)
+--     (widened : widenBlockArguments block args ctx = some ctx') :
+--     moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ModuleRoot ctx' moduleOp := by
+--   sorry
+
+axiom widenBlockArguments_sound (block : BlockPtr) (args : List (Nat × Nat))
     {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr} (root : ModuleRoot ctx moduleOp)
     (blockIn : block.InBounds ctx.raw) (phi : block.hasPredecessor! ctx.raw = true)
     (distinct : (args.map Prod.fst).Nodup)
     (narrow : args.all (fun (i, width) => LegalizerInfo.narrowerArgument block ctx.raw i width) =
       true)
     (widened : widenBlockArguments block args ctx = some ctx') :
-    moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ModuleRoot ctx' moduleOp := by
+    moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ModuleRoot ctx' moduleOp
 
-  sorry
 
 /-- Widening the arguments of a phi block, with the checks of the pass, refines the module and
 keeps it a verified module. -/

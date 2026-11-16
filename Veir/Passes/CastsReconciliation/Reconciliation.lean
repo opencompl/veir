@@ -98,18 +98,18 @@ def reconcileRegIntExt (width : Nat) (opcode : Riscv)
       CreateProg.operation (.riscv opcode) #[input] #[regType] props)
     (fun op => op)
 
-/-- Reconcile other narrow register round trips with two shifts; leave the parent cast to DCE. -/
+/-- Reconcile other narrow register round trips with two shifts; leave the parent cast to DCE.
+Over-wide casts (65 bits and more) are not matched: they stay in the module, where the later
+passes report them. -/
 def reconcileRegIntShift : Pattern OpCode :=
   Pattern.Builder
     -- i0 needs a constant zero, which this two-shift sequence cannot compute.
-    (matchRegIntCast fun bw => bw ≠ 0 && bw ≠ 8 && bw ≠ 16 && bw ≠ 32)
+    (matchRegIntCast fun bw => bw ≠ 0 && bw ≠ 8 && bw ≠ 16 && bw ≠ 32 && bw < 64)
     (fun (regType, interType, input) => do
       let (leftProps, rightProps) ← CreateProg.applyNative
           (Outputs := Handle OpCode (.prop (.riscv .slli)) ×
             Handle OpCode (.prop (.riscv .srli))) interType fun type => do
         let type ← type.cast? IntegerType
-        -- Preserve the existing error on over-wide casts. The identity rule handles i64 first.
-        guard (type.bitwidth < 64)
         let props : RISCVImmediateProperties := ⟨BitVec.ofNat 64 (64 - type.bitwidth)⟩
         return (props, props)
       let left ← CreateProg.operation (.riscv .slli) #[input] #[regType] (.inr leftProps)
@@ -117,15 +117,16 @@ def reconcileRegIntShift : Pattern OpCode :=
     (fun op => op)
 
 /-- The patterns of the pass, all proved valid (`Veir.Passes.CastsReconciliation.Validity`), but the
-`ptr -> reg -> ptr` round trip, which is assumed valid (`ptr_reg_valid`). The two-shift narrowing
-(`reconcileRegIntShift`, `createFailsOverWide`) is unproven, so not run. -/
+`ptr -> reg -> ptr` round trip, which is assumed valid (`ptr_reg_valid`). The dedicated extensions
+come before the two-shift narrowing, whose matcher excludes their widths anyway. -/
 public def reconcilePatterns : Array (Pattern OpCode) :=
   #[reconcilePairingCast isRegToI64RoundTrip,
     reconcilePairingCast isRiscvRegToPtrCast,
     reconcilePairingCast isRiscvPtrToRegCast,
     reconcilePairingCast isPreservingModArithToIntCast,
     reconcilePairingCast isCirToIntRoundTrip,
-    reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (), reconcileRegIntExt 32 .zextw ()]
+    reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (), reconcileRegIntExt 32 .zextw (),
+    reconcileRegIntShift]
 
 /-- The pass: the patterns, then the erasure of the dead parent casts by the driver (a pattern
 can only erase the operation it matched). `eliminateDeadOp`, which also erases allocating

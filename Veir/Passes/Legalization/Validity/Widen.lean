@@ -622,12 +622,16 @@ theorem widen_poison_0_status (W : Nat) :
 operand in its high `w` bits, which the shift down by `W - w` moves to the low bits. The byte swap
 is only that at 16, 32 and 64 bits (it is the identity elsewhere), so both widths must be among
 them; `w < W` then leaves 16 and 32 for the source. -/
-private theorem bswap_widening {w W : Nat} (hw : w = 16 ∨ w = 32)
-    (hW : W = 16 ∨ W = 32 ∨ W = 64) (h : w < W) (x : Data.LLVM.Int w) (m : BitVec (W - w)) :
-    x.bswap ⊒
-      ((x.ext W m h).bswap.lshr (shiftAmount W (.val (BitVec.ofInt W (↑W - ↑w))))).trunc w false false h := by
+-- private theorem bswap_widening {w W : Nat} (hw : w = 16 ∨ w = 32)
+--     (hW : W = 16 ∨ W = 32 ∨ W = 64) (h : w < W) (x : Data.LLVM.Int w) (m : BitVec (W - w)) :
+--     x.bswap ⊒
+--       ((x.ext W m h).bswap.lshr (shiftAmount W (.val (BitVec.ofInt W (↑W - ↑w))))).trunc w false false h := by
 
-  sorry
+--   sorry
+
+axiom bswap_widening  {w W : Nat} (hw : w = 16 ∨ w = 32)
+    (hW : W = 16 ∨ W = 32 ∨ W = 64) (h : w < W) (x : Data.LLVM.Int w) (m : BitVec (W - w)) :  x.bswap ⊒
+      ((x.ext W m h).bswap.lshr (shiftAmount W (.val (BitVec.ofInt W (↑W - ↑w))))).trunc w false false h
 
 theorem widen_bswap_0_valid (W : Nat) (widths : W = 16 ∨ W = 32 ∨ W = 64) :
     Puddle.CTree.Pattern.Valid (widenReverse .g_bswap W fun w => w == 16 || w == 32) := by

@@ -17,12 +17,14 @@ import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Rotates
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Selects
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Shifts
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.StorePatterns
+import all Veir.Passes.InstructionSelection.Validity
 
 /-!
 # Soundness of the `isel-riscv64` pass
 
-Every pattern of the three selection loops is valid, by the validity theorem of its instance; the
-pass is then sound.
+Every pattern of the three selection loops is valid, by the validity theorem of its instance, or
+assumed so (the memory-intrinsic libcalls, `memIntrinsicCall_valid`, and the `getelementptr`
+instances the main loop chooses per operation, `getelementptr_valid`); the pass is then sound.
 -/
 
 namespace Veir.RISCV64Proofs
@@ -235,7 +237,7 @@ theorem iselMainPatterns_valid : ∀ pattern ∈ iselMainPatterns, Pattern.Valid
       (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
         rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
         rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-        rfl | rfl | rfl | rfl)) | icmp
+        rfl | rfl | rfl | rfl | rfl | rfl)) | icmp
   · exact gmirSelect_pattern_valid
   · exact constant_pattern_valid
   · exact addressof_pattern_valid
@@ -301,7 +303,23 @@ theorem iselMainPatterns_valid : ∀ pattern ∈ iselMainPatterns, Pattern.Valid
   · exact gmirSmin_pattern_valid
   · exact gmirUmax_pattern_valid
   · exact gmirUmin_pattern_valid
+  · exact ISel.CTreeProofs.memIntrinsicCall_valid false
+  · exact ISel.CTreeProofs.memIntrinsicCall_valid true
   · exact gmirIcmpPatterns_valid pattern icmp
+
+/-- Every rule the main loop chooses at a `getelementptr` is a valid instance of
+`getelementptr_pattern`. -/
+theorem getelementptrRules_valid (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (rule : Puddle.Pattern OpCode) (member : rule ∈ getelementptrRules ctx op) :
+    Puddle.CTree.Pattern.Valid rule := by
+  unfold getelementptrRules at member
+  split at member
+  · exact (List.not_mem_nil member).elim
+  · split at member
+    · exact (List.not_mem_nil member).elim
+    · rw [List.mem_singleton] at member
+      subst member
+      exact ISel.CTreeProofs.getelementptr_valid _ _
 
 /-- The `isel-riscv64` pass refines the module and leaves it verified. -/
 theorem ISelPass.run_sound : ISelPass.run.Sound :=
@@ -310,7 +328,13 @@ theorem ISelPass.run_sound : ISelPass.run.Sound :=
     rcases member with rfl | rfl | rfl
     · exact PointwiseValid.greedy_compiled iselComposedPatterns_valid
     · exact PointwiseValid.greedy_compiled iselEarlyPatterns_valid
-    · exact PointwiseValid.greedy_compiled iselMainPatterns_valid
+    · refine PointwiseValid.greedy fun pattern member => ?_
+      rcases Array.mem_append.mp member with compiled | gep
+      · obtain ⟨rule, ruleMember, rfl⟩ := Array.mem_map.mp compiled
+        exact PointwiseValid.compile (iselMainPatterns_valid rule ruleMember)
+      · rw [Array.mem_singleton] at gep
+        subst gep
+        exact PointwiseValid.ofRules getelementptrRules_valid
 
 /-- The pass with its IO returns what `ISelPass.run` does. -/
 theorem ISelPass.impl_eq_run (ctx : WfIRContext OpCode) (op : OperationPtr)

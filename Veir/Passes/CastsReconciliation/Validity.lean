@@ -27,12 +27,13 @@ import all Init.Data.Array.Basic
 Every Puddle pattern of `reconcile-cast` has a `Status`: a proof of `Puddle.CTree.Pattern.Valid`,
 or the reason why there is none (see `Unproven`).
 
-* The round trips of a register through `i64`, and through an `i8`, `i16` or `i32` (as `zext.b`,
-  `zext.h` and `zext.w`), are proven: casting a register to an integer is never poison.
+* The round trips of a register through `i64`, through an `i8`, `i16` or `i32` (as `zext.b`,
+  `zext.h` and `zext.w`), and through any other width below 64 (as two shifts, `srli_slli_eq`),
+  are proven: casting a register to an integer is never poison.
 * The `mod_arith` and `cir` round trips are proven vacuously: the interpreter has no semantics
   for those casts, so the source fails.
-* The pointer/register round trips and the two-shift register round trip are not valid, for the
-  reasons in `Unproven`.
+* The `ptr -> reg -> ptr` round trip is not valid, for the reason in `Unproven`; it is assumed
+  (`ptr_reg_valid`).
 
 The proofs are those of the gMIR legalization rules (`Veir.Passes.Legalization.Validity`), with
 the builtin and RISC-V interpreters added to the semantics.
@@ -130,11 +131,6 @@ inductive Unproven where
   itself. This is the reason `i64 -> reg -> i64` is not reconciled, and why `isRiscvRegToPtrCast`
   only matches the `reg -> ptr -> reg` round trip, which is the identity. -/
   | freezesPoisonPointer
-  /-- The matcher accepts a register round trip through an integer of any width but 0, 8, 16 and
-  32, while the replacement is only created below width 64, so that over-wide casts keep making
-  the pass fail. A replacement that fails is a target that fails, which `Pattern.Valid` does not
-  allow. Below width 64 the two shifts are the round trip (`srli_slli_eq`). -/
-  | createFailsOverWide
   deriving Repr, DecidableEq
 
 end
@@ -245,6 +241,11 @@ theorem reg_i16_valid : Puddle.CTree.Pattern.Valid (reconcileRegIntExt 16 .zexth
 theorem reg_i32_valid : Puddle.CTree.Pattern.Valid (reconcileRegIntExt 32 .zextw ()) := by
   proveLegalValid with exact zextw_eq _
 
+/-- The register round trip through any other width below 64 is the two shifts by `64 - w`:
+the matcher excludes width 0 and the over-wide casts, which `srli_slli_eq` needs. -/
+theorem reg_int_shift_valid : Puddle.CTree.Pattern.Valid reconcileRegIntShift := by
+  proveLegalValid with exact (srli_slli_eq ‹_› ‹_› _).symm
+
 /-! ## Status of every pattern of `reconcile-cast` -/
 
 theorem reg_i64_status : Status Unproven (reconcilePairingCast isRegToI64RoundTrip) :=
@@ -278,7 +279,7 @@ theorem reg_i32_status : Status Unproven (reconcileRegIntExt 32 .zextw ()) :=
   .proven reg_i32_valid
 
 theorem reg_int_shift_status : Status Unproven reconcileRegIntShift :=
-  .unproven .createFailsOverWide
+  .proven reg_int_shift_valid
 
 /-! ## The pass -/
 
@@ -290,7 +291,7 @@ theorem reconcilePatterns_valid :
   intro rule member
   simp only [reconcilePatterns, List.mem_toArray, List.mem_cons, List.not_mem_nil,
     or_false] at member
-  rcases member with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases member with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exact reg_i64_valid
   · exact reg_ptr_valid
   · exact ptr_reg_valid
@@ -299,6 +300,7 @@ theorem reconcilePatterns_valid :
   · exact reg_i8_valid
   · exact reg_i16_valid
   · exact reg_i32_valid
+  · exact reg_int_shift_valid
 
 /-- The `reconcile-cast` pass refines the module and leaves it verified. -/
 theorem CastReconcilePass.run_sound : CastReconcilePass.run.Sound :=

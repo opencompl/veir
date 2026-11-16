@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
 
 // XFAIL: *
-// Needs `getelementptr lowering (getelementptrGeneral, normalizeGEPIndices)`, commented out of the pass as unproven.
+// Needs `normalizeGEPIndices` (the `i32` index), commented out of `llvm-to-gmir` as unproven.
 
 // {i8, [3 x [5 x i64]], i64}: array at offset 8, final field at 128.
 "builtin.module"() ({

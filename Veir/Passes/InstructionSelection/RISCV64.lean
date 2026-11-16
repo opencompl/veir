@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 public import Veir.Passes.CheckedDriver
+public import Veir.PatternRewriter.Choice
 import Veir.DataLayout.RISCV64
 import Veir.IR.SymbolRef
 import Veir.Passes.Matching.GMIR.Basic
@@ -615,6 +616,20 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite getelementptr_local rewriter op opInBounds
+
+/--
+  The rule lowering the `llvm.getelementptr` `op`, for the per-operation choice of the main
+  selection loop (`RewritePattern.ofRules`): `getelementptr_pattern` at the strides and offset
+  `gepDecomposition?` finds, and no rule at any other operation. This is `getelementptr_local` as
+  a choice of Puddle patterns, whose validity (`getelementptr_valid`) the pass soundness uses.
+-/
+public def getelementptrRules (ctx : WfIRContext OpCode) (op : OperationPtr) : List (Pattern OpCode) :=
+  match matchGetelementptrIndices op ctx.raw with
+  | none => []
+  | some (_, idxs, properties) =>
+    match gepDecomposition? properties idxs.size with
+    | none => []
+    | some (offset, strides) => [getelementptr_pattern strides (gepOffsetKind offset)]
 
 /-! ## Zbb min/max and rotate intrinsics
 
@@ -2108,11 +2123,13 @@ def gmirSltiPatterns : Array (Pattern OpCode) :=
 /-! # Pass implementation
 
 The pass runs, through the module-filtered driver, three selection loops whose patterns are all
-proved to refine the module (`Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass`). The
-memory-intrinsic lowerings (the libcall fallback has no semantics, the inline expansion no proof
-yet), the split loads and stores and the general `getelementptr` lowering, whose address lemmas are
-not written, are unproven and no loop runs them: an input that needs one of those keeps the
-operation unselected. -/
+proved or assumed to refine the module (`Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass`).
+The main loop also chooses, per `llvm.getelementptr`, the instance of `getelementptr_pattern` that
+lowers it (`getelementptrRules`); its validity is assumed (`getelementptr_valid`: the address
+lemmas are not written), as is that of the memory-intrinsic libcalls (`memIntrinsicCall_valid`:
+the call has no semantics). The inline memory-intrinsic expansion and the split loads and stores
+are unproven and no loop runs them: an input that needs one of those keeps the operation
+unselected. -/
 
 /-- The composed loop: select expressions of several gMIR operations into one instruction, before
 the later loops select their inner operations. -/
@@ -2152,7 +2169,8 @@ public def iselMainPatterns : Array (Pattern OpCode) :=
     gmirConstant_pattern,
     gmirCtlz_pattern, gmirCttz_pattern, gmirCtpop_pattern, gmirBswap_pattern, gmirBrev8_pattern,
     gmirBitreverse_pattern,
-    gmirSmax_pattern, gmirSmin_pattern, gmirUmax_pattern, gmirUmin_pattern] ++
+    gmirSmax_pattern, gmirSmin_pattern, gmirUmax_pattern, gmirUmin_pattern,
+    memIntrinsicCallPattern false, memIntrinsicCallPattern true] ++
   gmirIcmpPatterns
 
 /-- The pass: the three loops, through the module-filtered driver. Its soundness is
@@ -2161,7 +2179,8 @@ public def ISelPass.run : PurePass :=
   checkedFunctionsPasses "isel-riscv64" [
     RewritePattern.GreedyRewritePattern (iselComposedPatterns.map fun rule => rule.compile.run),
     RewritePattern.GreedyRewritePattern (iselEarlyPatterns.map fun rule => rule.compile.run),
-    RewritePattern.GreedyRewritePattern (iselMainPatterns.map fun rule => rule.compile.run)]
+    RewritePattern.GreedyRewritePattern ((iselMainPatterns.map fun rule => rule.compile.run) ++
+      #[RewritePattern.ofRules getelementptrRules])]
 
 public def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) :=

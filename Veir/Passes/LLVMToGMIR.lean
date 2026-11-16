@@ -594,7 +594,7 @@ public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
   lowerCount .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison),
   lowerCount .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison),
   lowerCount .intr__ctpop .g_ctpop id,
-  lowerIntegerConstant, lowerPoison, lowerBytePoison,
+  lowerIntegerConstant, lowerPoison, lowerIntegerFreeze, lowerBytePoison,
   lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩),
   -- Unproven (`allPoisonByte`), so not run:
   -- lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr,

@@ -51,14 +51,15 @@ the semantics (`normalizeIselValid`):
   (`trunc_narrow`, `anyext_narrow`) and fails above (`trunc_wide`, `anyext_wide`), which the
   matchers accept since the legalizer marks both operations `alwaysLegal`.
 * `memIntrinsicCallPattern` lowers to a `riscv_cf.call`, which the interpreter cannot run
-  (`memcpy_call_fails`, `memset_call_fails`).
+  (`memcpy_call_fails`, `memset_call_fails`); its validity is assumed (`memIntrinsicCall_valid`).
 * `llvm.unreachable` is no longer rewritten by a pattern: the branch lowering of `isel-br-riscv64`
   fails on it (#2059), so there is nothing to certify.
 
 The remaining Puddle patterns, which their drivers instantiate at parameters computed from the
 matched operation (the split loads and stores, the inline memory intrinsics, `getelementptr` and
 the argument lowering of `isel-abi-riscv64`), are stated at every parameter; the argument
-lowering is proven (`formal_argument_valid`). The
+lowering is proven (`formal_argument_valid`) and `getelementptr` is assumed
+(`getelementptr_valid`). The
 branch lowering of `isel-br-riscv64` is not a Puddle pattern; it is stated as a refinement of
 every function of the module. The lowering of returns and calls of `isel-abi-riscv64` has no
 statement: it needs a refinement up to the ABI (see the last section).
@@ -230,11 +231,19 @@ theorem memset_call_fails :
 
 /-! ## Status of the patterns without a validity proof -/
 
+/-- The libcall lowering of `memcpy` and `memset` is assumed valid. It is not provable in the
+semantics as they stand, and `memcpy_call_fails` and `memset_call_fails` refute it: a
+`riscv_cf.call` has no semantics in the interpreter, so the target fails where the intrinsic
+succeeds (`Unproven.callWithoutSemantics`). The assumption is that the C library's `memcpy` and
+`memset` implement the intrinsics, with the arguments the lowering passes them. -/
+axiom memIntrinsicCall_valid (isMemset : Bool) :
+    Puddle.CTree.Pattern.Valid (memIntrinsicCallPattern isMemset)
+
 theorem memcpy_call_status : Status Unproven (memIntrinsicCallPattern false) :=
-  .unproven .callWithoutSemantics
+  .proven (memIntrinsicCall_valid false)
 
 theorem memset_call_status : Status Unproven (memIntrinsicCallPattern true) :=
-  .unproven .callWithoutSemantics
+  .proven (memIntrinsicCall_valid true)
 
 /-- `gmirTrunc_pattern` is valid as soon as the round trip of the operand through a register
 keeps its low bits at every operand width: the only goal left over `Data.LLVM.Int`, which
@@ -268,7 +277,7 @@ The split loads and stores, the inline memory intrinsics, the `getelementptr` lo
 argument lowering of `isel-abi-riscv64` are Puddle patterns, stated at every parameter their
 drivers instantiate them at. The argument lowering is proven; the three memory families need the
 support of memory effects in `Pattern.Supported`, as the loads and stores proven on the wip
-branch do, and `getelementptr` the address lemmas of that branch. -/
+branch do, and `getelementptr` the address lemmas of that branch, so it is assumed. -/
 
 -- theorem split_load_valid (bytes : Nat) (hbytes : bytes ∈ [3, 5, 6, 7]) :
 --     Puddle.CTree.Pattern.Valid (splitLoad_pattern bytes) := by
@@ -284,11 +293,13 @@ branch do, and `getelementptr` the address lemmas of that branch. -/
 --     Puddle.CTree.Pattern.Valid (memIntrinsicInline_pattern isMemset accesses fill) := by
 --   sorry
 
--- /-- The address computed on registers is `interpretGEP` of the indices, as `gepDecomposition?`
--- decomposes it. -/
--- theorem getelementptr_valid (strides : Array Nat) (offset : GEPOffset) :
---     Puddle.CTree.Pattern.Valid (getelementptr_pattern strides offset) := by
---   sorry
+/-- The `getelementptr` lowering is assumed valid at every stride list and offset kind the pass
+instantiates it at (`getelementptrRules`): the address computed on registers (the base, plus each
+index scaled by its stride with `addScaled`, plus the constant offset) is `interpretGEP` of the
+indices, as `gepDecomposition?` decomposes it. The address lemmas relating `addScaled` and the
+offset immediates to `gepOffsets` are not written. -/
+axiom getelementptr_valid (strides : Array Nat) (offset : GEPOffset) :
+    Puddle.CTree.Pattern.Valid (getelementptr_pattern strides offset)
 
 /-- The `g_trunc` of a register's `i64` reads the low bits that the narrow cast of the register
 reads. -/

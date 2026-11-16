@@ -1,7 +1,8 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 // XFAIL: *
-// Needs `memIntrinsic`, commented out of the pass as unproven.
+// Needs the inline expansion (`memIntrinsicInline_local`), commented out of the pass as unproven;
+// only the libcall lowering runs, so every case below becomes a call.
 
 // A constant-length memcpy/memset that takes at most 8 accesses, each no wider
 // than the known alignment, is expanded into loads and stores. Anything else

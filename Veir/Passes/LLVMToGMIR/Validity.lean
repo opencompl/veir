@@ -669,6 +669,23 @@ theorem poison_valid : Puddle.CTree.Pattern.Valid lowerPoison := by
 theorem byte_poison_valid : Puddle.CTree.Pattern.Valid lowerBytePoison := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
+/-! ## Freeze
+
+Both sides return a defined integer unchanged and choose the bits of a poison one. -/
+
+theorem freeze_valid : Puddle.CTree.Pattern.Valid lowerIntegerFreeze := by
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+  normalizeLegalValid
+  all_goals intros
+  rename_i value
+  cases value
+  · simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy_refl]
+  · simp [CTree.choose_def, CTree.tau_def, Functor.map, Sim.tau_l, _root_.CTree.CTree.bind_tau,
+      RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy_refl]
+    exact fun bits => ⟨bits, Data.LLVM.Int.isRefinedBy_refl _⟩
+
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/
 public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMIRPatternList :=
@@ -714,6 +731,7 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .proven ctpop_valid <|
   .proven constant_valid <|
   .proven poison_valid <|
+  .proven freeze_valid <|
   .proven byte_poison_valid <|
   .proven byte_trunc_valid <|
   -- The byte shifts, unproven (`allPoisonByte`), are commented out of the pass:
