@@ -396,7 +396,7 @@ def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-      let ovType ← MatchProg.type (Attr := IntegerType)
+      let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
