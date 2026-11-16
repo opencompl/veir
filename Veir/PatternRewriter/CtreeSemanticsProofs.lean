@@ -1,32 +1,19 @@
 module
 
-public import Veir.IR.Simp
-public import Veir.Interpreter.CTree
-public import Veir.Interpreter.CTreeInterpreter
 public import Veir.Dialects.Builtin.Interpreter
-public import Veir.Dialects.RISCV.Interpreter
-public import Veir.Dialects.GMIR.OpInfo
-public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Data.Casting
-import all Veir.Interpreter.CTree
-import all Veir.Interpreter.CTreeInterpreter
-import all Veir.Interpreter.Memory
 import all Veir.Dialects.Builtin.Interpreter
-import all Veir.Dialects.RISCV.Interpreter
-import all Veir.Dialects.GMIR.OpInfo
-import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Data.Casting
-import all Veir.IR.Attribute
 
 /-!
 # The `ctree_semantics` simp set
 
-* the quantifier normalizations binding the type equations introduced by `TypeAttr` matchers and
-  the bitwidth equations of integer types;
-* the simulation lemmas exposing the choice of a `CTree.choose`, of a lifted `Interp`
-  computation, and of each `builtin.unrealized_conversion_cast` between values and registers;
-* the RISC-V CTree interpreter, which unfolds to the CTree loads and to the lifted basic
-  interpreter.
+  * the quantifier normalizations binding the type equations introduced by `TypeAttr` matchers and
+    the bitwidth equations of integer types;
+  * the simulation lemmas exposing the choice of a `CTree.choose`, of a lifted `Interp`
+    computation, and of each `builtin.unrealized_conversion_cast` between values and registers;
+  * the RISC-V CTree interpreter, which unfolds to the CTree loads and to the lifted basic
+    interpreter.
 -/
 
 namespace Veir
@@ -63,8 +50,6 @@ theorem forall_gmirConstantProperties (P : propertiesOf (OpCode.gmir GMIR.g_cons
   · intro h ⟨prop⟩
     grind
 
-/-! ## Simulation of choices and lifted computations -/
-
 /-- A pure tree is simulated by a choice followed by `after` exactly when one
 choice result makes `after` simulate that pure tree. -/
 @[simp, ctree_semantics]
@@ -86,7 +71,7 @@ theorem CTree.Sim.pure_bind_choose_iff
     exact ⟨branch, h⟩
 
 /-- Expose the outcome of an `Interp` computation lifted into the left tree.
-Successful results run `after`; UB and failure bypass it. -/
+  Successful results run `after`; UB and failure bypass it. -/
 theorem CTree.Sim.bind_monadLift_iff {EIn : Type} {E : EIn → Type}
   [HasUB EIn] [ErrorE -< E] [UBE -< E]
   {CIn C'In : Type} {C : CIn → Type} {C' : C'In → Type}
@@ -283,24 +268,6 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_addr_reg_iff
   simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
     -Attribute.llvmPointerType_eq_of]
 
-/-! ## Interpreters -/
-
-/- The RISC-V CTree interpreter unfolds to the CTree loads and the lifted basic interpreter. -/
-attribute [ctree_semantics] Riscv.interpretOpCTree
-
-/-- Normalize a strict singleton `llvm.bitcast` without unfolding its array/list destructors.
-
-Not in the set globally: the bitcast proofs add it with `attribute [local ctree_semantics]` after
-removing `Llvm.interpretOp'` (`attribute [-ctree_semantics] Llvm.interpretOp'`), so that
-`simp [ctree_semantics]` rewrites the bitcast with this equation instead of unfolding the
-interpreter. -/
-theorem llvm_bitcast_singleton (props : propertiesOf (OpCode.llvm .bitcast))
-    (type : TypeAttr) (val : RuntimeValue) (mem : MemoryState) (layout : DataLayout) :
-    Llvm.interpretOp' .bitcast props #[type] #[val] #[] mem layout = (do
-    let result ← Llvm.bitcastValue mem val type.val
-    return (#[result], mem, none)) := by
-  rcases type with ⟨type, ht⟩
-  rfl
 
 end
 
