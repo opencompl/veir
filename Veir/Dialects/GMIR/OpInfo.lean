@@ -84,6 +84,7 @@ inductive GMIR where
 | g_rotr
 | g_poison
 | g_freeze
+| g_global_value
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, implicit_reducible, properties_of]
@@ -95,6 +96,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_zext => NnegProperties
   | .g_sext_inreg => SextInRegProperties
   | .g_constant => GMIRConstantProperties
+  | .g_global_value => LLVMAddressOfProperties
   | .g_load | .g_store => MachineMemOperand
   | .g_brcond => GMIRBrCondProperties
   | .g_select | .g_anyext | .g_sext
@@ -119,6 +121,7 @@ def GMIR.fromAttrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
   case g_sext_inreg => exact SextInRegProperties.fromAttrDict attrDict
   case g_constant => exact GMIRConstantProperties.fromAttrDict attrDict
+  case g_global_value => exact LLVMAddressOfProperties.fromAttrDict attrDict
   case g_load => exact MachineMemOperand.fromAttrDict "gmir.g_load" attrDict
   case g_store => exact MachineMemOperand.fromAttrDict "gmir.g_store" attrDict
   case g_brcond => exact GMIRBrCondProperties.fromAttrDict attrDict
@@ -161,6 +164,9 @@ def GMIR.toAttrDict
   | .g_zext => props.toAttrDict
   | .g_sext_inreg => (Std.HashMap.emptyWithCapacity 1).insert "sz".toUTF8 (i64Attr props.sz)
   | .g_constant => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (.integerAttr props.value)
+  | .g_global_value =>
+    (Std.HashMap.ofList props.extra.entries.toList).insert "global_name".toUTF8
+      (.flatSymbolRefAttr props.global_name)
   | .g_load | .g_store => props.toAttrDict
   | .g_brcond => (Std.HashMap.emptyWithCapacity 1).insert
       "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
@@ -232,7 +238,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_bswap | .g_bitreverse | .g_brev8 | .g_abs | .g_sext_inreg | .g_freeze =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0] }
-  | .g_constant | .g_poison =>
+  | .g_constant | .g_poison | .g_global_value =>
     { outOperandList := #[.type 0]
       inOperandList := #[] }
   | .g_load =>
@@ -453,6 +459,9 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
   | .g_freeze => do
     let [.int w val] := operands.toList | none
     return (#[.int w val.freeze], mem, none)
+  | .g_global_value => do
+    let some p := mem.pointerToGlobal properties.global_name.value | none
+    return (#[.addr (.val p)], mem, none)
   | .g_mul => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -844,6 +853,10 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     opPtr.checkIsNonNullIntegerType ctx opIn
     ((opPtr.getResult 0).getType! ctx.raw).verifyIntegerOrPointerType
       "gmir.g_poison: Expected result to have integer or !llvm.ptr type"
+  | .g_global_value =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    ((opPtr.getResult 0).getType! ctx.raw).verifyLlvmPointerType
+      "gmir.g_global_value: Expected result to have !llvm.ptr type"
   | .g_select =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRSelect ctx
@@ -943,7 +956,8 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr => true
   -- Poison on the arm that `g_select` does not select does not reach its result.
-  | .g_select | .g_constant | .g_poison | .g_freeze | .g_load | .g_store | .g_br | .g_brcond => false
+  | .g_select | .g_constant | .g_poison | .g_freeze | .g_global_value | .g_load | .g_store | .g_br
+  | .g_brcond => false
 
 /--
 `g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and
