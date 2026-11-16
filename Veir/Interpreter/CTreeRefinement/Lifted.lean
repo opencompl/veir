@@ -33,6 +33,7 @@ namespace Veir
 def OpCode.isLifted : OpCode → Bool
   | .llvm .freeze => false
   | .gmir .g_anyext => false
+  | .gmir .g_freeze => false
   | .gmir .g_load => false
   | .riscv op => !op.isLoad
   | .builtin _ => false
@@ -147,6 +148,7 @@ theorem interpretOp'_eq_monadLift {opType : OpCode} (hLifted : opType.isLifted)
     exact interpretOp'_llvm_of_ne_freeze (by rintro rfl; simp [OpCode.isLifted] at hLifted) ..
   | gmir op =>
     exact interpretOp'_gmir_of_lift (by rintro rfl; simp [OpCode.isLifted] at hLifted)
+      (by rintro rfl; simp [OpCode.isLifted] at hLifted)
       (by rintro rfl; simp [OpCode.isLifted] at hLifted) ..
   | riscv op => exact interpretOp'_riscv (by simpa [OpCode.isLifted] using hLifted) ..
   | builtin op => simp [OpCode.isLifted] at hLifted
@@ -227,6 +229,9 @@ theorem interpretOp'_bind_dropAction {opType : OpCode} (hLifted : opType.isLifte
       simp only [monadLift, MonadLift.monadLift, pure_bind]
       repeat' split
       all_goals simp [dropAction, -bind_pure_comp, CTree.tau_def]
+    · simp only [interpretOp', GMIR.interpretOpCTree]
+      repeat' split
+      all_goals simp [dropAction, -bind_pure_comp]
   | riscv op =>
     have hLoad : op.isLoad := by simpa [OpCode.isLifted] using hLifted
     rw [Riscv.isLoad_iff] at hLoad

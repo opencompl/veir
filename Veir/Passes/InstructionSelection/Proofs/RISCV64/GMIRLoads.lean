@@ -36,8 +36,8 @@ theorem intLoad_loadByte (memory : MemoryState) (p : Data.Pointer)
   subst value
   refine ⟨b, rfl, ?_⟩
   by_cases hz : b.poison = 0#(8 * bytes)
-  · simp [Data.LLVM.Byte.toInt, hz, isRefinedBy]
-  · simp [Data.LLVM.Byte.toInt, hz, isRefinedBy]
+  · simp [Data.LLVM.Byte.toInt, hz, Data.LLVM.Int.isRefinedBy]
+  · simp [Data.LLVM.Byte.toInt, hz, Data.LLVM.Int.isRefinedBy]
 
 
 /-- The target memory read and result cast shared by all GMIR load addressing modes. -/
@@ -91,9 +91,9 @@ theorem gmirLoad_integer_sim (memory : MemoryState) (p : Data.Pointer)
       simpa only [loadResolvedBits_low b choice ext (by decide)] using href
     clear href
     generalize loadResolvedBits b choice ext = bits at *
-    cases value <;> simp_all [ctree_semantics, isRefinedBy]
+    cases value <;> simp_all [ctree_semantics, Data.LLVM.Int.isRefinedBy]
     all_goals simp [ctree_semantics, RISCV.Reg.toInt,
-      Data.LLVM.Int.trunc, Data.LLVM.Int.ext, RuntimeValue.isRefinedBy, isRefinedBy]
+      Data.LLVM.Int.trunc, Data.LLVM.Int.ext, RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]
     all_goals refine ⟨loadHighBits bits, ?_⟩
     all_goals simp [Id.run, loadHighBits]
     all_goals veir_bv_decide

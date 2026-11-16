@@ -6,7 +6,6 @@ import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Ptr.Basic
 import all Veir.Data.Casting
-import all Veir.Data.Refinement
 import all Veir.Interpreter.Memory
 import all Init.Data.ByteArray.Extra
 import all Veir.Data.Pointer.Basic
@@ -144,7 +143,7 @@ private theorem byte_lshr_frozen {w : Nat} (b : LLVM.Byte w) (y : LLVM.Int w) (e
 /-- `llvm.bitcast` of a byte to an integer, at a nonzero width: freezing the poison bits, to any
 `bits`, refines the integer, which is poison if any bit is. -/
 private theorem byte_toInt_frozen {w : Nat} (hw : 0 < w) (b : LLVM.Byte w) (bits : BitVec w) :
-    _root_.isRefinedBy b.toInt (freezeByteWith b bits) := by
+    LLVM.Int.isRefinedBy b.toInt (freezeByteWith b bits) := by
   simp only [LLVM.Byte.toInt, freezeByteWith]
   split <;> split
   · rename_i h h'
@@ -153,7 +152,7 @@ private theorem byte_toInt_frozen {w : Nat} (hw : 0 < w) (b : LLVM.Byte w) (bits
     simp [BitVec.toNat_allOnes] at this
     have := Nat.one_lt_two_pow (n := w) (by omega)
     omega
-  all_goals first | exact isRefinedBy_refl _ | exact poison_isRefinedBy _ | simp_all
+  all_goals first | exact Data.LLVM.Int.isRefinedBy_refl _ | exact Data.LLVM.Int.poison_isRefinedBy _ | simp_all
 
 /-- The pointer cast back from the address of an allocation refines it: it is the allocation's
 pointer without its provenance. -/

@@ -85,9 +85,9 @@ theorem llvmLoad_integer_loadByte (memory : MemoryState) (p : Data.Pointer)
         cases hm'
         simp only [UInt64.reduceToNat, Nat.reduceMul] at hz
         have hs := MemoryState.load_size hl
-        simp [hz, RuntimeValue.isRefinedBy, isRefinedBy, hs]
+        simp [hz, RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy, hs]
         veir_bv_decide
-      · simp [RuntimeValue.isRefinedBy, isRefinedBy]
+      · simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]
 
 /-- Every resolution of a loaded pointer's bytes refines the source pointer. -/
 theorem llvmLoad_pointer_loadByte (memory : MemoryState) (p : Data.Pointer)

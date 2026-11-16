@@ -11,7 +11,6 @@ import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Ptr.Basic
-import all Veir.Data.Refinement
 import all Veir.Interpreter.Interp
 
 import Veir.Interpreter.Refinement.Lemmas
@@ -47,6 +46,18 @@ instance gmir_monotone_g_sub : InterpretOp'Monotone (.gmir .g_sub) where
 
 instance gmir_monotone_g_mul : InterpretOp'Monotone (.gmir .g_mul) where
   monotone _ _ _ _ _ _ _ := by op_mono [GMIR.interpretOp'] [LLVM.Int.mul, LLVM.Int.cast]
+
+instance gmir_monotone_g_smulh : InterpretOp'Monotone (.gmir .g_smulh) where
+  monotone _ _ _ _ _ _ _ := by op_mono [GMIR.interpretOp'] [LLVM.Int.smulHigh, LLVM.Int.cast]
+
+instance gmir_monotone_g_umulh : InterpretOp'Monotone (.gmir .g_umulh) where
+  monotone _ _ _ _ _ _ _ := by op_mono [GMIR.interpretOp'] [LLVM.Int.umulHigh, LLVM.Int.cast]
+
+instance gmir_monotone_g_scmp : InterpretOp'Monotone (.gmir .g_scmp) where
+  monotone _ _ _ _ _ _ _ := by op_mono [GMIR.interpretOp'] [LLVM.Int.scmp, LLVM.Int.cast]
+
+instance gmir_monotone_g_ucmp : InterpretOp'Monotone (.gmir .g_ucmp) where
+  monotone _ _ _ _ _ _ _ := by op_mono [GMIR.interpretOp'] [LLVM.Int.ucmp, LLVM.Int.cast]
 
 instance gmir_monotone_g_and : InterpretOp'Monotone (.gmir .g_and) where
   monotone _ _ _ _ _ _ _ := by op_mono [GMIR.interpretOp'] [LLVM.Int.and, LLVM.Int.cast]
@@ -232,15 +243,15 @@ instance gmir_monotone_g_select : InterpretOp'Monotone (.gmir .g_select) where
       · simp [Interp.isRefinedBy]
       · rcases h1 with rfl | ⟨c, rfl, rfl⟩
         · simp [GMIR.selectNonzero, Id.run, Interp.isRefinedBy, OperationResult.isRefinedBy,
-            ControlFlowAction.optionIsRefinedBy, RuntimeValue.isRefinedBy, _root_.isRefinedBy]
+            ControlFlowAction.optionIsRefinedBy, RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy]
         · by_cases hc : c = 0#_
           · rcases h3 with rfl | ⟨_, rfl, rfl⟩ <;>
               simp [GMIR.selectNonzero, Id.run, hc, LLVM.Int.cast, Interp.isRefinedBy,
                 OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy,
-                RuntimeValue.isRefinedBy, _root_.isRefinedBy]
+                RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy]
           · rcases h2 with rfl | ⟨_, rfl, rfl⟩ <;>
               simp [GMIR.selectNonzero, Id.run, hc, Interp.isRefinedBy, OperationResult.isRefinedBy,
-                ControlFlowAction.optionIsRefinedBy, RuntimeValue.isRefinedBy, _root_.isRefinedBy]
+                ControlFlowAction.optionIsRefinedBy, RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy]
     · simp [Interp.isRefinedBy]
 
 /-- A load from a poison pointer is undefined behavior, and a load from a pointer is the same. -/
@@ -310,19 +321,19 @@ private theorem result_single {v v' : RuntimeValue} {m m' : MemoryState} (hv : v
 
 /-- Integers of refined integers refine. -/
 theorem RuntimeValue.int_isRefinedBy_of {w : Nat} {x x' : LLVM.Int w}
-    (h : _root_.isRefinedBy x x') : RuntimeValue.int w x ⊒ RuntimeValue.int w x' := by
+    (h : LLVM.Int.isRefinedBy x x') : RuntimeValue.int w x ⊒ RuntimeValue.int w x' := by
   simpa [RuntimeValue.isRefinedBy] using h
 
 /-- A function of integers that keeps poison keeps refinement. -/
 theorem Data.LLVM.Int.isRefinedBy_map {w w' : Nat} {f : LLVM.Int w → LLVM.Int w'}
-    (hf : f .poison = .poison) {x x' : LLVM.Int w} (h : _root_.isRefinedBy x x') :
-    _root_.isRefinedBy (f x) (f x') := by
+    (hf : f .poison = .poison) {x x' : LLVM.Int w} (h : LLVM.Int.isRefinedBy x x') :
+    LLVM.Int.isRefinedBy (f x) (f x') := by
   cases x with
-  | poison => rw [hf]; exact _root_.poison_isRefinedBy _
+  | poison => rw [hf]; exact LLVM.Int.poison_isRefinedBy _
   | val a =>
     cases x' with
-    | poison => exact absurd h (by simp [_root_.isRefinedBy])
-    | val b => obtain rfl : a = b := h; exact _root_.isRefinedBy_refl _
+    | poison => exact absurd h (by simp [LLVM.Int.isRefinedBy])
+    | val b => obtain rfl : a = b := h; exact LLVM.Int.isRefinedBy_refl _
 
 /--
 `g_load` is monotone: a poison pointer is undefined behavior, and an integer or any other value
@@ -425,17 +436,18 @@ theorem gmir_frame {opType : GMIR} (h : opType.touchesMemory = false)
       MemoryState.ptrFromInt_eq_of_objects hObjects] <;>
     first | rfl | ((repeat' split) <;> simp [Interp.map])
 
-/-- Every gMIR opcode but `g_store` is monotone in its operands, with the same memory. -/
-theorem gmir_interpretOp'Monotone {opType : GMIR} (h : opType ≠ .g_store) :
-    InterpretOp'Monotone (.gmir opType) := by
-  cases opType <;> first | exact absurd rfl h | infer_instance
+/-- Every gMIR opcode but `g_store` and `g_freeze` is monotone in its operands, with the same
+memory. `g_freeze` chooses what poison becomes, which only its CTree semantics can. -/
+theorem gmir_interpretOp'Monotone {opType : GMIR} (h : opType ≠ .g_store)
+    (hFreeze : opType ≠ .g_freeze) : InterpretOp'Monotone (.gmir opType) := by
+  cases opType <;> first | exact absurd rfl h | exact absurd rfl hFreeze | infer_instance
 
-/-- Every gMIR opcode is monotone in its operands and its memory. -/
-theorem gmir_interpretOp'ContextuallyMonotone (opType : GMIR) :
+/-- Every gMIR opcode but `g_freeze` is monotone in its operands and its memory. -/
+theorem gmir_interpretOp'ContextuallyMonotone {opType : GMIR} (hFreeze : opType ≠ .g_freeze) :
     InterpretOp'ContextuallyMonotone (.gmir opType) := by
   cases hT : opType.touchesMemory
   · have := gmir_interpretOp'Monotone (opType := opType)
-      (by rintro rfl; simp [GMIR.touchesMemory] at hT)
+      (by rintro rfl; simp [GMIR.touchesMemory] at hT) hFreeze
     exact .of_frame fun _ _ _ _ _ _ hObjects => gmir_frame hT _ _ _ _ _ _ hObjects
   · cases opType <;> simp [GMIR.touchesMemory] at hT <;> infer_instance
 

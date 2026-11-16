@@ -302,7 +302,7 @@ theorem RuntimeValue.int_isRefinedBy_iff {w : Nat} {x : Data.LLVM.Int w} {t : Ru
   · intro h
     obtain ⟨x', rfl, hx⟩ := int_of_isRefinedBy h
     refine ⟨x', rfl, ?_⟩
-    rw [_root_.isRefinedBy_eq] at hx
+    rw [LLVM.Int.isRefinedBy_eq] at hx
     cases x <;> cases x' <;> simp_all
   · rintro ⟨x', rfl, rfl | ⟨_, rfl, rfl⟩⟩
     · simp [RuntimeValue.isRefinedBy]

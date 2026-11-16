@@ -1,7 +1,7 @@
 module
 
 public import Veir.Data.LLVM.Byte.Basic
-public import Veir.Data.Refinement
+public import Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Int.Bitblast
 
@@ -105,15 +105,15 @@ theorem trunc_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') (w' : Nat) :
 
 /-- Left shift is monotone under refinement, also with `nuw`. -/
 theorem shl_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w} (hx : x ⊒ x')
-    (hy : _root_.isRefinedBy y y') (nuw : Bool) :
+    (hy : LLVM.Int.isRefinedBy y y') (nuw : Bool) :
     x.shl y nuw ⊒ x'.shl y' nuw := by
   cases y with
   | poison => exact allPoison_isRefinedBy _
   | val s =>
     cases y' with
-    | poison => simp [_root_.isRefinedBy] at hy
+    | poison => simp [LLVM.Int.isRefinedBy] at hy
     | val s' =>
-      simp only [_root_.isRefinedBy] at hy
+      simp only [LLVM.Int.isRefinedBy] at hy
       subst hy
       simp only [shl, Id.run]
       by_cases hs : s ≥ ↑w
@@ -157,7 +157,7 @@ private theorem lshr_val {w : Nat} (x : Byte w) (s : BitVec w) (exact : Bool) :
 
 /-- Logical right shift is monotone under refinement, also with `exact`. -/
 theorem lshr_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w} (hx : x ⊒ x')
-    (hy : _root_.isRefinedBy y y') (exact : Bool) :
+    (hy : LLVM.Int.isRefinedBy y y') (exact : Bool) :
     x.lshr y exact ⊒ x'.lshr y' exact := by
   cases y with
   | poison =>
@@ -165,9 +165,9 @@ theorem lshr_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w} (hx : x ⊒ x'
     exact allPoison_isRefinedBy _
   | val s =>
     cases y' with
-    | poison => simp [_root_.isRefinedBy] at hy
+    | poison => simp [LLVM.Int.isRefinedBy] at hy
     | val s' =>
-      simp only [_root_.isRefinedBy] at hy
+      simp only [LLVM.Int.isRefinedBy] at hy
       subst hy
       rw [lshr_val, lshr_val]
       by_cases hs : s ≥ ↑w
@@ -201,7 +201,7 @@ theorem lshr_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w} (hx : x ⊒ x'
 
 /-- Converting a byte to an integer is monotone under refinement. -/
 theorem toInt_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') :
-    _root_.isRefinedBy x.toInt x'.toInt := by
+    LLVM.Int.isRefinedBy x.toInt x'.toInt := by
   by_cases hp : x.poison = 0
   · have hp' : x'.poison = 0 := by
       apply BitVec.eq_of_getLsbD_eq
@@ -215,19 +215,19 @@ theorem toInt_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') :
       rcases getLsbD_of_isRefinedBy' h hm with h₁ | ⟨h₂, _⟩
       · simp [hp] at h₁
       · exact h₂.symm
-    simp [toInt, hp, hp', hv, _root_.isRefinedBy]
-  · rw [toInt, ite_eq_right hp]; exact _root_.poison_isRefinedBy _
+    simp [toInt, hp, hp', hv, LLVM.Int.isRefinedBy]
+  · rw [toInt, ite_eq_right hp]; exact LLVM.Int.poison_isRefinedBy _
 
 /-- Converting an integer to a byte is monotone under refinement. -/
-theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : _root_.isRefinedBy i i') :
+theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : LLVM.Int.isRefinedBy i i') :
     fromInt i ⊒ fromInt i' := by
   cases i with
   | poison => rw [fromInt_poison]; exact allPoison_isRefinedBy _
   | val v =>
     cases i' with
-    | poison => simp [_root_.isRefinedBy] at h
+    | poison => simp [LLVM.Int.isRefinedBy] at h
     | val v' =>
-      simp only [_root_.isRefinedBy] at h
+      simp only [LLVM.Int.isRefinedBy] at h
       subst h
       exact isRefinedBy_refl _
 

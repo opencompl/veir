@@ -60,6 +60,13 @@ theorem GMIR.interpretOpCTree_pureOrErr (code : GMIR) (properties : propertiesOf
     | simp only [CTree.tau_def, Veir.fail, CTree.trigger_def, Bind.bind,
         _root_.CTree.CTree.bind_vis]
     | apply PureOrErr.tau; intro
+  · repeat first
+    | exact PureOrErr.ret _
+    | exact PureOrErr.fail
+    | split
+    | simp only [CTree.choose_def, CTree.tau_def, Bind.bind, _root_.CTree.CTree.bind_tau,
+        _root_.CTree.CTree.bind_ret, Pure.pure, Veir.fail, CTree.trigger_def, _root_.CTree.CTree.bind_vis]
+    | apply PureOrErr.tau; intro
   · apply PureOrErr.bind _ _ (PureOrErr.liftedInterp _)
     rintro ⟨results, mem, action⟩
     dsimp

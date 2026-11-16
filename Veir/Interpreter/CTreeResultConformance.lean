@@ -91,6 +91,32 @@ theorem GMIR.interpretOpCTree_result_shape
       refine ⟨size, ?_⟩
       cases hty : ts[0]! with
       | mk val verified => cases val <;> simp only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] at conf ⊢ <;> exact conf
+  · repeat first | split at h
+    all_goals simp [CTree.choose_def, CTree.tau_def, Bind.bind, _root_.CTree.CTree.bind_tau,
+      _root_.CTree.CTree.bind_ret, PureOrErr.CanInterpretTo.tauG_iff, CTree.ret_pure,
+      PureOrErr.CanInterpretTo.pure_iff, Veir.fail, CTree.trigger_def] at h
+    · rename_i w v heq
+      obtain ⟨rfl, rfl, rfl⟩ := h
+      refine ⟨#[.int w (Data.LLVM.Int.val v).freeze],
+        by simp [GMIR.interpretOp', heq, Interp.pure_eq], fun ts conf => ?_⟩
+      simp only [RuntimeValue.ArrayConforms, Array.size_singleton, Nat.lt_one_iff,
+        forall_eq] at conf ⊢
+      simp only [singleton_get] at conf ⊢
+      rcases conf with ⟨size, conf⟩
+      refine ⟨size, ?_⟩
+      cases hty : ts[0]! with
+      | mk val verified => cases val <;> simp only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] at conf ⊢ <;> exact conf
+    · rename_i w heq
+      obtain ⟨⟨x, rfl⟩, rfl, rfl⟩ := h
+      refine ⟨#[.int w (Data.LLVM.Int.poison).freeze],
+        by simp [GMIR.interpretOp', heq, Interp.pure_eq], fun ts conf => ?_⟩
+      simp only [RuntimeValue.ArrayConforms, Array.size_singleton, Nat.lt_one_iff,
+        forall_eq] at conf ⊢
+      simp only [singleton_get] at conf ⊢
+      rcases conf with ⟨size, conf⟩
+      refine ⟨size, ?_⟩
+      cases hty : ts[0]! with
+      | mk val verified => cases val <;> simp only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] at conf ⊢ <;> exact conf
   · simp only [Bind.bind, PureOrErr.CanInterpretTo.bind_iff] at h
     simp only [liftedInterp_ok_iff, reduceCtorEq, and_false, or_false] at h
     obtain ⟨⟨deterministic, memory, control⟩, hdet, h⟩ := h

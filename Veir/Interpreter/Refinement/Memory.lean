@@ -648,7 +648,7 @@ is poison if any loaded bit is, and otherwise loads the bits of the target.
 -/
 theorem MemoryState.intLoad_isRefinedBy_of_refines {mem mem' : MemoryState} (h : mem ⊒ mem')
     {p p' : Pointer} (hp : p ⊒ p') (w : Nat) :
-    Interp.isRefinedBy (fun (x x' : LLVM.Int w) => _root_.isRefinedBy x x')
+    Interp.isRefinedBy (fun (x x' : LLVM.Int w) => LLVM.Int.isRefinedBy x x')
       (mem.intLoad p w) (mem'.intLoad p' w) := by
   rw [Pointer.isRefinedBy_iff.mp hp]
   unfold MemoryState.intLoad

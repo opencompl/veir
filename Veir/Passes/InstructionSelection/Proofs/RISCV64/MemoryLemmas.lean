@@ -131,7 +131,7 @@ theorem llvmLoad16_riscvLoad (memory : MemoryState) (p : Data.Pointer)
       | .signExt => (bytes.toBitVecLE 16).signExtend 64
       | .zeroExt => (bytes.toBitVecLE 16).setWidth 64), ?_, ?_⟩
   all_goals try simp [riscvLoad, MemoryState.decode, hl]
-  all_goals cases ext <;> simp [RuntimeValue.isRefinedBy, isRefinedBy]
+  all_goals cases ext <;> simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]
   all_goals veir_bv_decide
 
 /-- A successful 32-bit LLVM load is refined by the low bits of the matching RISC-V load. -/
@@ -157,7 +157,7 @@ theorem llvmLoad32_riscvLoad (memory : MemoryState) (p : Data.Pointer)
       | .signExt => (bytes.toBitVecLE 32).signExtend 64
       | .zeroExt => (bytes.toBitVecLE 32).setWidth 64), ?_, ?_⟩
   all_goals try simp [riscvLoad, MemoryState.decode, hl]
-  all_goals cases ext <;> simp [RuntimeValue.isRefinedBy, isRefinedBy]
+  all_goals cases ext <;> simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]
   all_goals veir_bv_decide
 
 /-- A successful 8-bit LLVM load is refined by the low bits of the matching RISC-V load. -/
@@ -184,7 +184,7 @@ theorem llvmLoad8_riscvLoad (memory : MemoryState) (p : Data.Pointer)
       | .signExt => (bytes.toBitVecLE 8).signExtend 64
       | .zeroExt => (bytes.toBitVecLE 8).setWidth 64), ?_, ?_⟩
   all_goals try simp [riscvLoad, MemoryState.decode, hl]
-  all_goals cases ext <;> simp [RuntimeValue.isRefinedBy, isRefinedBy, byteArray_toBitVecLE8 bytes hsize]
+  all_goals cases ext <;> simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy, byteArray_toBitVecLE8 bytes hsize]
   all_goals veir_bv_decide
 
 /-- A successful 64-bit LLVM load is refined by the low bits of the matching RISC-V load. -/
@@ -211,7 +211,7 @@ theorem llvmLoad64_riscvLoad (memory : MemoryState) (p : Data.Pointer)
       | .signExt => (bytes.toBitVecLE 64).signExtend 64
       | .zeroExt => (bytes.toBitVecLE 64).setWidth 64), ?_, ?_⟩
   all_goals try simp [riscvLoad, MemoryState.decode, hl]
-  all_goals cases ext <;> simp [RuntimeValue.isRefinedBy, isRefinedBy, byteArray_toBitVecLE64 bytes hsize]
+  all_goals cases ext <;> simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy, byteArray_toBitVecLE64 bytes hsize]
   all_goals veir_bv_decide
 
 theorem llvmLoad_integer_riscvLoad (memory : MemoryState) (p : Data.Pointer)

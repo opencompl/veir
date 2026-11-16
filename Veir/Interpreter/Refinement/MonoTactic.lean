@@ -30,7 +30,7 @@ poison or to the target.
 macro "op_mono_finish" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
   (repeat' split) <;> (try simp_all [Interp.pure_eq, Interp.isRefinedBy_ok_ok,
     Interp.liftM_none_eq, OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy,
-    RuntimeValue.isRefinedBy, _root_.isRefinedBy, Id.run, $ls,*])
+    RuntimeValue.isRefinedBy, Veir.Data.LLVM.Int.isRefinedBy, Id.run, $ls,*])
   all_goals ((repeat' split) <;> (try simp_all [Interp.isRefinedBy_ok_ok,
     Interp.liftM_none_eq]))))
 

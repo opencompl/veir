@@ -25,7 +25,6 @@ import all Veir.Dialects.Builtin.OpInfo
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.Casting
-import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 import all Veir.Dialects.RISCV_Stack.OpInfo
 import all Veir.Dialects.Arith.OpInfo
@@ -140,7 +139,7 @@ end
 private theorem select_selectNonzero {w : Nat} (c : Data.LLVM.Int 1) (x y : Data.LLVM.Int w) :
     c.select x y ⊒ GMIR.selectNonzero c x y := by
   rw [GMIR.selectNonzero_one]
-  exact isRefinedBy_refl _
+  exact Data.LLVM.Int.isRefinedBy_refl _
 
 /-- A same-width shift amount: gMIR's `shiftAmount` keeps it in range and makes it all ones out of
 range, which every shift then treats as the out-of-range amount it was. -/
@@ -162,16 +161,16 @@ private theorem ge_of_not_lt {w : Nat} {y : BitVec w} (h : ¬ y.toNat < w) : Bit
 /-- Closes the shift lemmas, by cases on whether the amount `y` is in range. -/
 local macro "shift_tac" x:ident y:ident w:ident "[" op:Lean.Parser.Tactic.simpLemma "]" : tactic => `(tactic| (
   cases $x:ident with
-  | poison => cases $y:ident <;> simp [shiftAmount, $op, Id.run, poison_isRefinedBy]
+  | poison => cases $y:ident <;> simp [shiftAmount, $op, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   | val $x:ident =>
     cases $y:ident with
-    | poison => simp [shiftAmount, $op, Id.run, poison_isRefinedBy]
+    | poison => simp [shiftAmount, $op, Id.run, Data.LLVM.Int.poison_isRefinedBy]
     | val $y:ident =>
       rw [shiftAmount_val]
       by_cases h : ($y).toNat < $w
       · simp only [h, ite_true]
-        exact isRefinedBy_refl _
-      · simp [h, $op, Id.run, ge_of_not_lt h, allOnes_ge, poison_isRefinedBy]))
+        exact Data.LLVM.Int.isRefinedBy_refl _
+      · simp [h, $op, Id.run, ge_of_not_lt h, allOnes_ge, Data.LLVM.Int.poison_isRefinedBy]))
 
 private theorem shl_shiftAmount {w : Nat} (x y : Data.LLVM.Int w) (n u : Bool) :
     x.shl y n u ⊒ x.shl (shiftAmount w y) n u := by
@@ -196,31 +195,31 @@ private theorem ushlSat_shiftAmount {w : Nat} (x y : Data.LLVM.Int w) :
 /-- `g_abs` is `llvm.intr.abs` without `is_int_min_poison`, which only adds poison. -/
 private theorem abs_drop_int_min_poison {w : Nat} (x : Data.LLVM.Int w) (b : Bool) :
     x.abs b ⊒ x.abs false := by
-  cases x <;> cases b <;> simp [Data.LLVM.Int.abs, Id.run, poison_isRefinedBy, isRefinedBy_refl, pure]
-  all_goals split <;> simp [poison_isRefinedBy, isRefinedBy_refl]
+  cases x <;> cases b <;> simp [Data.LLVM.Int.abs, Id.run, Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl, pure]
+  all_goals split <;> simp [Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl]
 
 /-- gMIR reduces the funnel shift amount modulo the width, as the funnel shift itself does. -/
 private theorem fshl_funnelShiftAmount {w : Nat} (a b c : Data.LLVM.Int w) :
     a.fshl b c ⊒ a.fshl b (GMIR.funnelShiftAmount w c) := by
   cases a <;> cases b <;> cases c <;>
-    simp [Data.LLVM.Int.fshl, GMIR.funnelShiftAmount, Id.run, poison_isRefinedBy, isRefinedBy_refl]
+    simp [Data.LLVM.Int.fshl, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl]
   rename_i a b c
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · exact BitVec.of_length_zero.trans BitVec.of_length_zero.symm
   · rw [Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le (Nat.mod_lt _ hw) (Nat.le_of_lt Nat.lt_two_pow_self)),
       Nat.mod_mod]
-    exact isRefinedBy_refl _
+    exact Data.LLVM.Int.isRefinedBy_refl _
 
 private theorem fshr_funnelShiftAmount {w : Nat} (a b c : Data.LLVM.Int w) :
     a.fshr b c ⊒ a.fshr b (GMIR.funnelShiftAmount w c) := by
   cases a <;> cases b <;> cases c <;>
-    simp [Data.LLVM.Int.fshr, GMIR.funnelShiftAmount, Id.run, poison_isRefinedBy, isRefinedBy_refl]
+    simp [Data.LLVM.Int.fshr, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl]
   rename_i a b c
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · exact BitVec.of_length_zero.trans BitVec.of_length_zero.symm
   · rw [Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le (Nat.mod_lt _ hw) (Nat.le_of_lt Nat.lt_two_pow_self)),
       Nat.mod_mod]
-    exact isRefinedBy_refl _
+    exact Data.LLVM.Int.isRefinedBy_refl _
 
 
 /-- The int/byte round trip: an integer type and a byte type of the same nonzero width. -/
@@ -247,39 +246,39 @@ theorem conforms_of_val_integerType {v : RuntimeValue} {t : TypeAttr} {i : Integ
 
 theorem constant_valid : Puddle.CTree.Pattern.Valid lowerIntegerConstant := by
   proveLegalValid with
-    cases h : (‹propertiesOf (OpCode.llvm Llvm.mlir__constant)›).value <;> simp_all [isRefinedBy_refl]
+    cases h : (‹propertiesOf (OpCode.llvm Llvm.mlir__constant)›).value <;> simp_all [Data.LLVM.Int.isRefinedBy_refl]
 
 attribute [local simp] conforms_of_val_integerType in
 theorem round_trip_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isIntToByteRoundTrip) := by
   proveLegalValid with
-    exact ⟨0, by rw [freezeByteWith_fromInt ‹0 < _›]; exact isRefinedBy_refl _⟩
+    exact ⟨0, by rw [freezeByteWith_fromInt ‹0 < _›]; exact Data.LLVM.Int.isRefinedBy_refl _⟩
 
 theorem add_valid : Puddle.CTree.Pattern.Valid (lowerBinop .add .g_add) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem sub_valid : Puddle.CTree.Pattern.Valid (lowerBinop .sub .g_sub) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem select_valid : Puddle.CTree.Pattern.Valid (lowerSelect) := by
   proveLegalValid using select_selectNonzero
 
 theorem sext_valid : Puddle.CTree.Pattern.Valid (lowerIntegerCast .sext .g_sext) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem zext_valid : Puddle.CTree.Pattern.Valid (lowerIntegerCast .zext .g_zext) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem trunc_valid : Puddle.CTree.Pattern.Valid (lowerIntegerCast .trunc .g_trunc) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem and_valid : Puddle.CTree.Pattern.Valid (lowerBinop .and .g_and) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem or_valid : Puddle.CTree.Pattern.Valid (lowerBinop .or .g_or) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem xor_valid : Puddle.CTree.Pattern.Valid (lowerBinop .xor .g_xor) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem shl_valid : Puddle.CTree.Pattern.Valid (lowerBinop .shl .g_shl) := by
   proveLegalValid using shl_shiftAmount
@@ -291,37 +290,43 @@ theorem ashr_valid : Puddle.CTree.Pattern.Valid (lowerBinop .ashr .g_ashr) := by
   proveLegalValid using ashr_shiftAmount
 
 theorem mul_valid : Puddle.CTree.Pattern.Valid (lowerBinop .mul .g_mul) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+
+theorem smulh_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__smulh .g_smulh) := by
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+
+theorem umulh_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__umulh .g_umulh) := by
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem sdiv_valid : Puddle.CTree.Pattern.Valid (lowerBinop .sdiv .g_sdiv) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem udiv_valid : Puddle.CTree.Pattern.Valid (lowerBinop .udiv .g_udiv) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem srem_valid : Puddle.CTree.Pattern.Valid (lowerBinop .srem .g_srem) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem urem_valid : Puddle.CTree.Pattern.Valid (lowerBinop .urem .g_urem) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem bswap_valid : Puddle.CTree.Pattern.Valid (lowerUnop .intr__bswap .g_bswap id) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem bitreverse_valid : Puddle.CTree.Pattern.Valid (lowerUnop .intr__bitreverse .g_bitreverse id) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem smax_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__smax .g_smax) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem smin_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__smin .g_smin) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem umax_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__umax .g_umax) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem umin_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__umin .g_umin) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem abs_valid : Puddle.CTree.Pattern.Valid (lowerUnop .intr__abs .g_abs (fun _ => ())) := by
   proveLegalValid using abs_drop_int_min_poison
@@ -333,16 +338,16 @@ theorem fshr_valid : Puddle.CTree.Pattern.Valid (lowerFunnelShiftIntrinsic .intr
   proveLegalValid using fshr_funnelShiftAmount
 
 theorem saddsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__sadd__sat .g_saddsat) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem uaddsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__uadd__sat .g_uaddsat) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem ssubsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__ssub__sat .g_ssubsat) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem usubsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__usub__sat .g_usubsat) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem sshlsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__sshl__sat .g_sshlsat) := by
   proveLegalValid using sshlSat_shiftAmount
@@ -351,12 +356,12 @@ theorem ushlsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__ushl__sat 
   proveLegalValid using ushlSat_shiftAmount
 
 theorem icmp_valid : Puddle.CTree.Pattern.Valid lowerIcmp := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 /-- A count is refined by itself resized to the width it has. -/
 private theorem isRefinedBy_resizeCount {w : Nat} (c : Data.LLVM.Int w) : c ⊒ resizeCount w c := by
   rw [resizeCount_self]
-  exact isRefinedBy_refl _
+  exact Data.LLVM.Int.isRefinedBy_refl _
 
 theorem ctlz_valid : Puddle.CTree.Pattern.Valid
     (lowerCount .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison)) := by
@@ -405,7 +410,7 @@ theorem byte_int_bitcast_valid : Puddle.CTree.Pattern.Valid lowerByteIntBitcast 
   proveLegalValid with
     first
     | exact byte_toInt_frozen ‹_› _ _
-    | (simp [Llvm.bitcastValue, isRefinedBy_refl]; done)
+    | (simp [Llvm.bitcastValue, Data.LLVM.Int.isRefinedBy_refl]; done)
     | (simp [Llvm.bitcastValue, RuntimeValue.isRefinedBy]; exact fun bits => byte_toInt_frozen ‹_› _ _)
     | (split <;> (try simp_all) <;> rename_i heq <;> split at heq <;> cases heq)
 
@@ -427,10 +432,10 @@ theorem loadMemOperand?_some {type : TypeAttr} {props : LoadProperties} {mmo : M
      (∃ s, type.val = .integerType ⟨64, s⟩ ∧ mmo.size.toNat = 64) ∨
      (∃ p, type.val = .llvmPointerType p ∧ mmo.size.toNat = 64)) := by
   rcases type with ⟨val, hval⟩
-  cases val <;> simp [loadMemOperand?, memAccessWidth?, DataLayout.getTypeSize,
+  cases val <;> simp [loadMemOperand?, memOperand?, memAccessWidth?, DataLayout.getTypeSize,
     DataLayout.getTypeABIAlignment, Llvm.accessAlignment, guard, Option.bind_eq_some_iff,
     -Attribute.integerType_eq_of] at h ⊢
-  · obtain ⟨a, ⟨h8, ⟨a1, ⟨h0, rfl⟩, rfl⟩, hw⟩, hsync, hmmo⟩ := h
+  · obtain ⟨width, ⟨h8, ⟨info, ⟨h0, rfl⟩, rfl⟩, hw⟩, -, hmmo⟩ := h
     rename_i t
     rcases t with ⟨bw, sg⟩
     dsimp only at h8 h0 hw hmmo ⊢
@@ -441,7 +446,7 @@ theorem loadMemOperand?_some {type : TypeAttr} {props : LoadProperties} {mmo : M
     all_goals first
       | (subst hmmo; simp)
       | (obtain ⟨-, rfl⟩ := hmmo; simp)
-  · obtain ⟨hsync, h⟩ := h
+  · obtain ⟨-, h⟩ := h
     by_cases hv : props.alignment.value = 0 <;> simp [hv, Option.bind_eq_some_iff] at h ⊢
     · subst h; simp
     · obtain ⟨-, rfl⟩ := h; simp
@@ -658,11 +663,11 @@ theorem poison_valid : Puddle.CTree.Pattern.Valid lowerPoison := by
   proveLegalValid with
     first
       | (simp [Data.LLVM.Int.mlir_poison])
-      | (exact poison_isRefinedBy _)
+      | (exact Data.LLVM.Int.poison_isRefinedBy _)
       | (simp [LLT.ofType?] at *)
 
 theorem byte_poison_valid : Puddle.CTree.Pattern.Valid lowerBytePoison := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/
@@ -681,6 +686,8 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .proven lshr_valid <|
   .proven ashr_valid <|
   .proven mul_valid <|
+  .proven smulh_valid <|
+  .proven umulh_valid <|
   .proven sdiv_valid <|
   .proven udiv_valid <|
   .proven srem_valid <|

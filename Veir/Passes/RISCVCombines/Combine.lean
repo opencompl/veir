@@ -328,6 +328,7 @@ def add_li_to_addi_commuted : Puddle.CompiledPattern OpCode :=
     LLVM GlobalISel imports `ADD_UWPat`'s RV64+Zba rule, selecting
     `and GPR, 0xFFFFFFFF` as `ADD_UW GPR, X0` (the `zext.w` alias).
     https://github.com/llvm/llvm-project/blob/99a148b807da7942d629fd8e807d12026fcb5e20/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L758-L764 -/
+@[riscv_pattern]
 def and_li_to_zextw_pattern (liFirst : Bool) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do

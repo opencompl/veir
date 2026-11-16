@@ -100,6 +100,14 @@ theorem add_li_to_addi_commuted_valid :
     Puddle.CTree.Pattern.Valid (add_li_to_addi_pattern true) := by
   proveCombineValid using Data.RISCV.add_li_to_addi_commuted
 
+theorem and_li_to_zextw_valid :
+    Puddle.CTree.Pattern.Valid (and_li_to_zextw_pattern false) := by
+  proveCombineValid using Data.RISCV.and_li_to_zextw
+
+theorem and_li_to_zextw_commuted_valid :
+    Puddle.CTree.Pattern.Valid (and_li_to_zextw_pattern true) := by
+  proveCombineValid using Data.RISCV.and_li_to_zextw_commuted
+
 theorem zextw_li_low32_valid :
     Puddle.CTree.Pattern.Valid
       (ext_of_li_pattern .zextw fun cst => !decide (cst.value ≥ 4294967296#64)) := by

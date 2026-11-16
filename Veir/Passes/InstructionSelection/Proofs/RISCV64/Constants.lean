@@ -68,20 +68,20 @@ theorem zeroConst_pattern_valid :
 -- The simp arguments below are each needed on some of the goals the `cases` produce.
 set_option linter.unusedSimpArgs false in
 theorem freeze_pattern_valid :
-    Puddle.CTree.Pattern.Valid freeze_pattern := by
-  unfold freeze_pattern
+    Puddle.CTree.Pattern.Valid gmirFreeze_pattern := by
+  unfold gmirFreeze_pattern
   simp only [lowerRegCast]
   simpPuddleValid
   simp [ctree_semantics]
-  intro ⟨src, hsrc⟩ ⟨dst, hdst⟩ value hc props hv hlegal
-  cases src <;> cases dst <;> simp at hlegal
-  obtain ⟨hw, rfl⟩ := hlegal
+  intro src dst value hc props hv hlegal
+  obtain rfl := hv.gmir_freeze_type_eq
+  obtain ⟨s, rfl⟩ := isLegal_g_freeze_types _ props hlegal
   cases value <;> simp [RuntimeValue.Conforms] at hc
   cases hc
   rename_i bits
   cases bits <;> simp [ctree_semantics, ←Attribute.integerType_eq_of, Builtin.interpretUnrealizedConversionCastCTree, ←Attribute.registerType_eq_of]
   all_goals intros
-  all_goals simp_all [ctree_semantics, RISCV.Reg.toInt, BitVec.setWidth_setWidth_of_le _ hw, ←Attribute.integerType_eq_of,
+  all_goals simp_all [ctree_semantics, RISCV.Reg.toInt, BitVec.setWidth_eq, ←Attribute.integerType_eq_of,
     ←Attribute.registerType_eq_of, Functor.map, CTree.choose_def, CTree.tau_def, Bind.bind]
 
 theorem gmirConstant_pattern_valid :

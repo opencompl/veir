@@ -84,7 +84,7 @@ theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
   · simp [Interp.isRefinedBy]
   cases x
   case val bits =>
-    have he : bits = v.setWidth (8 * n) := by simpa [isRefinedBy] using hx
+    have he : bits = v.setWidth (8 * n) := by simpa [Data.LLVM.Int.isRefinedBy] using hx
     subst bits
     rcases hn with rfl | rfl | rfl | rfl
     · unfold MemoryState.storeBits
@@ -237,7 +237,7 @@ private theorem llvmStorePtr_toInt_refines (memory : MemoryState) (p : Data.Poin
   · simp [Interp.isRefinedBy]
   cases x
   case val q =>
-    have he : q.address.toBitVec = v := by simpa [Data.LLVM.Ptr.toInt, isRefinedBy] using hx
+    have he : q.address.toBitVec = v := by simpa [Data.LLVM.Ptr.toInt, Data.LLVM.Int.isRefinedBy] using hx
     subst v
     unfold MemoryState.storeByte64
     apply rawStore_refines memory p 8 (.inr (.inr (.inr rfl)))
@@ -280,8 +280,8 @@ theorem llvmStorePtr_refines (memory : MemoryState) (p : Data.Pointer)
       have hq : q = ⟨UInt64.ofBitVec v⟩ := by
         simpa [Data.LLVM.Ptr.isRefinedBy, Data.Pointer.isRefinedBy, eq_comm] using hx
       subst q
-      simp [Data.LLVM.Ptr.toInt, isRefinedBy]
-    | poison => simp [Data.LLVM.Ptr.toInt, isRefinedBy]
+      simp [Data.LLVM.Ptr.toInt, Data.LLVM.Int.isRefinedBy]
+    | poison => simp [Data.LLVM.Ptr.toInt, Data.LLVM.Int.isRefinedBy]
   have he : (UInt64.ofBitVec v).toByteArrayLE.extract 0 8 = (UInt64.ofBitVec v).toByteArrayLE := by
     simpa only [UInt64.toByteArrayLE_size] using (ByteArray.extract_zero_size (b := (UInt64.ofBitVec v).toByteArrayLE))
   simp only [he]

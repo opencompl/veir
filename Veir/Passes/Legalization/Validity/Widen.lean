@@ -10,7 +10,6 @@ import all Veir.Dialects.GMIR.Interpreter
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 
 /-! CTree validity of the widening rules of `widenScalarPattern?`, at every target width.
@@ -85,7 +84,7 @@ private theorem shl_widening {v : Nat} (h : w < W) (x : Data.LLVM.Int w) (z : Da
   by_cases hz : z.toNat < w
   · have hW : z.toNat < W := by omega
     rw [shiftAmount_of_lt z hz, shiftAmount_of_lt z hW]
-    refine isRefinedBy_trans (shl_isRefinedBy_shl _ _ nsw nuw) ?_
+    refine Data.LLVM.Int.isRefinedBy_trans (shl_isRefinedBy_shl _ _ nsw nuw) ?_
     simp [Data.LLVM.Int.shl, Data.LLVM.Int.ext, Data.LLVM.Int.trunc, Data.LLVM.Int.cast, Id.run, BitVec.le_def,
       Nat.mod_eq_of_lt (Nat.lt_trans hz hww), Nat.mod_eq_of_lt (Nat.lt_trans hW hWW),
       Nat.mod_eq_of_lt hww, Nat.mod_eq_of_lt hWW, Nat.not_le.mpr hz, Nat.not_le.mpr hW,
@@ -181,7 +180,7 @@ private theorem bitreverse_widening {w W : Nat} (hw : 0 < w) (h : w < W) (x : Da
     simp only [shiftAmount, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt2, hlt, ite_true]
     simp [Data.LLVM.Int.bitreverse, Data.LLVM.Int.ext, Data.LLVM.Int.lshr, Data.LLVM.Int.trunc, Data.LLVM.Int.cast, Id.run,
       BitVec.le_def, BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt2, Nat.mod_eq_of_lt hWW,
-      Nat.not_le.mpr hlt, BitVec.ushiftRight_eq', isRefinedBy_eq]
+      Nat.not_le.mpr hlt, BitVec.ushiftRight_eq', Data.LLVM.Int.isRefinedBy_eq]
     apply BitVec.eq_of_getElem_eq
     intro i hi
     simp only [BitVec.getElem_setWidth, BitVec.getElem_reverse, BitVec.getMsbD_eq_getLsbD,
@@ -224,7 +223,7 @@ private theorem widen_ctlz_src {w W : Nat} (h : w < W) (a : Data.LLVM.Int w) :
       true_and]
     rw [Nat.mod_eq_of_lt (by omega : (BitVec.clz x).toNat + (W - w) < 2 ^ W),
       Nat.mod_eq_of_lt (by omega : W - w < 2 ^ W), ite_eq_right (by omega)]
-    simp only [isRefinedBy_eq]
+    simp only [Data.LLVM.Int.isRefinedBy_eq]
     apply BitVec.eq_of_toNat_eq
     rw [BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
       Nat.mod_eq_of_lt (by omega : (BitVec.clz x).toNat + (W - w) < 2 ^ W),
@@ -240,7 +239,7 @@ private theorem widen_cttz_src {w W : Nat} (h : w < W) (a : Data.LLVM.Int w) (m 
   | poison => simp [resizeCount, Data.LLVM.Int.cttz, Data.LLVM.Int.ext, Data.LLVM.Int.or, Id.run]
   | val x =>
     simp [resizeCount, Data.LLVM.Int.cttz, Data.LLVM.Int.ext, Data.LLVM.Int.or, Data.LLVM.Int.cast, Id.run,
-      Data.LLVM.ext_or_two_pow_ne_zero h m x, isRefinedBy_eq, Data.LLVM.toNat_ctz_or_two_pow h m x]
+      Data.LLVM.ext_or_two_pow_ne_zero h m x, Data.LLVM.Int.isRefinedBy_eq, Data.LLVM.toNat_ctz_or_two_pow h m x]
 
 /-- `widenScalar` of the operand of `g_ctpop` (type group 1) with `g_zext`: zero extension adds no
 set bits. -/
@@ -252,7 +251,7 @@ private theorem widen_ctpop_src {w W v : Nat} (h : w < W) (a : Data.LLVM.Int w) 
     have : (BitVec.cpop (x.setWidth W)).toNat = (BitVec.cpop x).toNat := by
       rw [BitVec.toNat_cpop, BitVec.toNat_cpop, BitVec.cpopNatRec_setWidth_of_le _ (Nat.le_refl _),
         show W = w + (W - w) by omega, BitVec.cpopNatRec_of_le _ _ (Nat.le_refl _)]
-    simp [resizeCount, Data.LLVM.Int.ctpop, Data.LLVM.Int.zext, Id.run, isRefinedBy_eq, this]
+    simp [resizeCount, Data.LLVM.Int.ctpop, Data.LLVM.Int.zext, Id.run, Data.LLVM.Int.isRefinedBy_eq, this]
 
 theorem widen_icmp_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_icmp (.type 1) .g_sext W) := by
@@ -432,7 +431,7 @@ theorem widen_poison_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_poison (.type 0) .g_anyext W) := by
   proveLegalValid with
     first
-      | exact poison_isRefinedBy _
+      | exact Data.LLVM.Int.poison_isRefinedBy _
       | simp_all
 
 /-- `widenTypeGroup .g_load`: a wider `g_load` reads the same `properties.size` bytes, and leaves
@@ -458,7 +457,7 @@ theorem widen_load_0_valid (W : Nat) :
     _root_.CTree.CTree.tau_def, Sim.tau_l, Sim.bind_monadLift_right_iff, Attribute.of,
     -Attribute.integerType_eq_of, le_eq_false_of_lt, lt_eq_false_of_le, RuntimeValue.isRefinedBy,
     Data.LLVM.trunc_zext, Data.LLVM.trunc_ext, Data.LLVM.trunc_ext_of_lt]
-  all_goals (intro msb; exact ⟨_, by first | exact isRefinedBy_refl _ | rfl⟩)
+  all_goals (intro msb; exact ⟨_, by first | exact Data.LLVM.Int.isRefinedBy_refl _ | rfl⟩)
 
 theorem widen_bitreverse_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenReverse .g_bitreverse W) := by
@@ -703,5 +702,49 @@ theorem widen_ssubo_0_status (W : Nat) :
 theorem widen_load_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_load (.type 0) .g_anyext W) :=
   .proven (widen_load_0_valid W)
+
+
+/-- `widenTypeGroup .g_store`: the wide store writes the low bytes of the extended value, which are
+the value's. -/
+theorem widen_store_0_valid (W : Nat) :
+    Puddle.CTree.Pattern.Valid (widenTypeGroup .g_store (.type 0) .g_anyext W) := by
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+
+/-- `widenTypeGroup .g_freeze`: a frozen value truncates to itself, and the source chooses the low
+bits of what the target chose for poison. -/
+theorem widen_freeze_0_valid (W : Nat) :
+    Puddle.CTree.Pattern.Valid (widenTypeGroup .g_freeze (.type 0) .g_anyext W) := by
+  proveLegalValid with
+    rename_i a x
+    cases a with
+    | val v =>
+      generalize hu : Data.LLVM.Int.ext (Data.LLVM.Int.val v) W x (by assumption) = u
+      have ht := Data.LLVM.trunc_ext (by assumption) (Data.LLVM.Int.val v) x
+      rw [hu] at ht
+      cases u with
+      | poison => simp [Data.LLVM.Int.ext, Id.run, Data.LLVM.Int.cast] at hu
+      | val u =>
+        simp [Data.LLVM.Int.trunc, Id.run] at ht
+        simp_all [ctree_semantics, monadLift, MonadLift.monadLift, le_eq_false_of_lt,
+          lt_eq_false_of_le, RuntimeValue.isRefinedBy, Data.LLVM.Int.trunc, Id.run]
+    | poison =>
+      simp_all [ctree_semantics, monadLift, MonadLift.monadLift, Id.run, Functor.map,
+        CTree.choose_def, _root_.CTree.CTree.tau_def, _root_.CTree.CTree.bind_tau, Sim.tau_l,
+        Sim.tau_r, le_eq_false_of_lt, lt_eq_false_of_le, RuntimeValue.isRefinedBy,
+        Data.LLVM.Int.trunc]
+      intro msb
+      exact ⟨_, by first | exact Data.LLVM.Int.isRefinedBy_refl _ | rfl⟩
+
+@[legalization_status]
+theorem widen_store_0_status (W : Nat) :
+    Status Unproven (widenTypeGroup .g_store (.type 0) .g_anyext W) :=
+  .proven (widen_store_0_valid W)
+
+@[legalization_status]
+theorem widen_freeze_0_status (W : Nat) :
+    Status Unproven (widenTypeGroup .g_freeze (.type 0) .g_anyext W) :=
+  .proven (widen_freeze_0_valid W)
 
 end Veir.Legalization.CTreeProofs

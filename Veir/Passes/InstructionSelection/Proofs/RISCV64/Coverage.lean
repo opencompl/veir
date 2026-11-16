@@ -112,7 +112,7 @@ def provedPatterns : Array {pattern : Puddle.Pattern OpCode // Puddle.CTree.Patt
   ⟨constant_pattern, constant_pattern_valid⟩,
   ⟨gmirPoison_pattern, gmirPoison_pattern_valid⟩,
   ⟨zeroConst_pattern, zeroConst_pattern_valid⟩,
-  ⟨freeze_pattern, freeze_pattern_valid⟩,
+  ⟨gmirFreeze_pattern, freeze_pattern_valid⟩,
   ⟨gmirConstant_pattern, gmirConstant_pattern_valid⟩,
   ⟨(gmirLoad_pattern .gepConst 1 .lbu), gmirLoad_gepConst_lbu_valid⟩,
   ⟨(gmirLoad_pattern .gepConst 2 .lh), gmirLoad_gepConst_lh_valid⟩,

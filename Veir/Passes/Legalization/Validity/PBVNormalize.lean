@@ -249,7 +249,7 @@ theorem zext_isRefinedBy_zext {w W : Nat} (x y : Int w) (h : w < W) :
         Nat.lt_of_lt_of_le b.isLt (Nat.pow_le_pow_right (by decide) (Nat.le_of_lt h))
       simpa [BitVec.toNat_setWidth, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb] using this
     · rintro rfl; rfl
-  cases x <;> cases y <;> simp [Int.zext, Id.run, isRefinedBy, hinj]
+  cases x <;> cases y <;> simp [Int.zext, Id.run, Data.LLVM.Int.isRefinedBy, hinj]
 
 end Normalize
 

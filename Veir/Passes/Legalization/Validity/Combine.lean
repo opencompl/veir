@@ -10,7 +10,6 @@ import all Veir.Dialects.GMIR.Interpreter
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 
 import Veir.Meta.Tactic.BVDecide
@@ -69,7 +68,7 @@ private theorem one_and_ofInt_of_odd {W : Nat} (hW : 0 < W) (v : _root_.Int) (hv
 private theorem and_icmp_odd {v : Nat} (x y : Data.LLVM.Int v) (p : Data.LLVM.IntPred) (c : _root_.Int)
     (hc : c % 2 = 1) : (x.icmp y p).and (.val (BitVec.ofInt 1 c)) ⊒ x.icmp y p := by
   have := one_and_ofInt_of_odd (W := 1) (by decide) c hc
-  cases x <;> cases y <;> simp only [Data.LLVM.Int.icmp, Data.LLVM.Int.and, Id.run, isRefinedBy_eq, pure]
+  cases x <;> cases y <;> simp only [Data.LLVM.Int.icmp, Data.LLVM.Int.and, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure]
   rename_i a b
   cases Data.LLVM.IntPred.eval p a b <;> simp_all
 
@@ -79,7 +78,7 @@ private theorem and_zext_icmp_odd {v W : Nat} (x y : Data.LLVM.Int v) (p : Data.
     ((x.icmp y p).zext W false hW).and (.val (BitVec.ofInt W c)) ⊒ (x.icmp y p).zext W false hW := by
   have := one_and_ofInt_of_odd (W := W) (by omega) c hc
   cases x <;> cases y <;>
-    simp only [Data.LLVM.Int.icmp, Data.LLVM.Int.and, Data.LLVM.Int.zext, Id.run, isRefinedBy_eq, pure]
+    simp only [Data.LLVM.Int.icmp, Data.LLVM.Int.and, Data.LLVM.Int.zext, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure]
   rename_i a b
   have h1 : BitVec.setWidth W 1#1 = 1#W := by
     apply BitVec.eq_of_toNat_eq
@@ -360,7 +359,7 @@ private theorem and_select_icmp_odd {wc v₁ v₂ : Nat} (c : Data.LLVM.Int wc) 
     (GMIR.selectNonzero c (x.icmp y p) (x'.icmp y' q)).and (.val (BitVec.ofInt 1 k)) ⊒
       GMIR.selectNonzero c (x.icmp y p) (x'.icmp y' q) := by
   cases c with
-  | poison => simp [GMIR.selectNonzero, Data.LLVM.Int.and, Id.run, poison_isRefinedBy]
+  | poison => simp [GMIR.selectNonzero, Data.LLVM.Int.and, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   | val c =>
     by_cases h : c = 0#wc <;> simp only [GMIR.selectNonzero, Id.run, h, bne_self_eq_false, ite_false,
       ite_true, bne_iff_ne, ne_eq, not_false_eq_true, Bool.false_eq_true]
@@ -374,7 +373,7 @@ private theorem and_select_zext_icmp_odd {wc v₁ v₂ W : Nat} (c : Data.LLVM.I
         (.val (BitVec.ofInt W k)) ⊒
       GMIR.selectNonzero c ((x.icmp y p).zext W false hW) ((x'.icmp y' q).zext W false hW) := by
   cases c with
-  | poison => simp [GMIR.selectNonzero, Data.LLVM.Int.and, Id.run, poison_isRefinedBy]
+  | poison => simp [GMIR.selectNonzero, Data.LLVM.Int.and, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   | val c =>
     by_cases h : c = 0#wc <;> simp only [GMIR.selectNonzero, Id.run, h, bne_self_eq_false, ite_false,
       ite_true, bne_iff_ne, ne_eq, not_false_eq_true, Bool.false_eq_true]
@@ -433,7 +432,7 @@ private theorem fshl_or_shl {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.I
       x.fshl z (GMIR.funnelShiftAmount w y) := by
   cases x <;> cases z <;> cases y <;>
     simp [GMIR.funnelShiftAmount, shiftAmount, Data.LLVM.Int.fshl, Data.LLVM.Int.shl, Data.LLVM.Int.or,
-      Id.run, poison_isRefinedBy, pure]
+      Id.run, Data.LLVM.Int.poison_isRefinedBy, pure]
   rename_i x z y
   by_cases h : y.toNat < w
   · have hw : w < 2 ^ w := Nat.lt_two_pow_self
@@ -450,21 +449,21 @@ private theorem fshl_or_shl {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.I
     · rename_i y' heq
       simp only [Data.LLVM.ite_poison_eq_val_id, Data.LLVM.val_eq_val_id] at heq
       obtain ⟨-, -, rfl⟩ := heq
-      split <;> simp [poison_isRefinedBy, isRefinedBy_eq, fshl_or_shl_bits]
-    · simp [poison_isRefinedBy]
+      split <;> simp [Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_eq, fshl_or_shl_bits]
+    · simp [Data.LLVM.Int.poison_isRefinedBy]
   · have hge : BitVec.ofNat w w ≤ BitVec.allOnes w := by
       have := Nat.lt_two_pow_self (n := w)
       simp [BitVec.le_def, BitVec.toNat_allOnes, Nat.mod_eq_of_lt this]
       omega
-    simp [h, hge, poison_isRefinedBy]
+    simp [h, hge, Data.LLVM.Int.poison_isRefinedBy]
 
 private theorem lshr_or_fshr {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.Int v) (e d : Bool) :
     (z.lshr (shiftAmount w y) e).or (x.fshr z (GMIR.funnelShiftAmount w y)) d ⊒
       x.fshr z (GMIR.funnelShiftAmount w y) := by
   cases x <;> cases z <;> cases y <;>
     simp [GMIR.funnelShiftAmount, shiftAmount, Data.LLVM.Int.fshr, Data.LLVM.Int.lshr, Data.LLVM.Int.or,
-      Id.run, poison_isRefinedBy, pure]
-  case poison.val.val => split <;> simp [poison_isRefinedBy]
+      Id.run, Data.LLVM.Int.poison_isRefinedBy, pure]
+  case poison.val.val => split <;> simp [Data.LLVM.Int.poison_isRefinedBy]
   rename_i x z y
   by_cases h : y.toNat < w
   · have hw : w < 2 ^ w := Nat.lt_two_pow_self
@@ -481,13 +480,13 @@ private theorem lshr_or_fshr {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.
     · rename_i y' heq
       simp only [Data.LLVM.ite_poison_eq_val_id, Data.LLVM.val_eq_val_id] at heq
       obtain ⟨-, rfl⟩ := heq
-      split <;> simp [poison_isRefinedBy, isRefinedBy_eq, lshr_or_fshr_bits]
-    · simp [poison_isRefinedBy]
+      split <;> simp [Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_eq, lshr_or_fshr_bits]
+    · simp [Data.LLVM.Int.poison_isRefinedBy]
   · have hge : BitVec.ofNat w w ≤ BitVec.allOnes w := by
       have := Nat.lt_two_pow_self (n := w)
       simp [BitVec.le_def, BitVec.toNat_allOnes, Nat.mod_eq_of_lt this]
       omega
-    simp [h, hge, poison_isRefinedBy]
+    simp [h, hge, Data.LLVM.Int.poison_isRefinedBy]
 
 /-- `g_or` is commutative, including its `disjoint` check. -/
 private theorem or_comm' {w : Nat} (a b : Data.LLVM.Int w) (d : Bool) : a.or b d = b.or a d := by

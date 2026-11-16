@@ -20,10 +20,11 @@ import all Veir.IR.Attribute
 import all Veir.Data.RISCV.Reg.Lemmas
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.LLVM.Int.Bitblast
-import all Veir.Data.Refinement
+import all Veir.Data.LLVM.Int.Basic
 import all Veir.Dialects.RISCV.Properties
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
 import all Veir.Passes.Legalization.LegalizerInfo
+import all Veir.Verifier
 meta import all Lean.Meta.Tactic.BVDecide.Normalize.Enums
 
 /-! Shared imports for the RISC-V 64-bit instruction-selection validity proofs. -/
@@ -129,6 +130,57 @@ private theorem type_of_pointer0 (type : TypeAttr) (h : LLT.ofType? type = some 
   cases attr <;> simp only [LLT.ofType?, Option.some.injEq, reduceCtorEq, LLT.pointer.injEq] at h
   rename_i p
   exact ⟨p, h, rfl⟩
+
+private theorem query_freeze (q : LegalityQuery (GMIR.propertiesOf .g_freeze))
+    (h : riscv64LegalizerInfo.getActionFor .g_freeze q = .legal) :
+    q.getLLT! (.type 0) = .scalar 64 := by
+  change (([LegalizeRule.legalFor [LLT.scalar 64],
+    LegalizeRule.minScalar (.type 0) 64]).findSome? (· q)).getD .unsupported = .legal at h
+  simp only [List.findSome?_cons, LegalizeRule.legalFor, LegalizeRule.legalIf,
+    List.contains_cons, List.contains_nil, Bool.or_false] at h
+  split at h
+  · rename_i ht
+    simp_all
+  · simp only [LegalizeRule.minScalar, LegalizeRule.widenScalarIf] at h
+    repeat' split at h <;> simp_all
+
+private theorem legal_freeze_llt (dst : TypeAttr) (props : GMIR.propertiesOf .g_freeze)
+    (h : riscv64LegalizerInfo.isLegal .g_freeze #[dst] props = true) :
+    LLT.ofType? dst = some (.scalar 64) := by
+  unfold LegalizerInfo.isLegal at h
+  cases hq : LegalityQuery.ofTypes? #[dst] props with
+  | none => simp [hq] at h
+  | some q =>
+    simp only [hq] at h
+    have hlegal : riscv64LegalizerInfo.getActionFor .g_freeze q = .legal := by
+      split at h <;> simp_all
+    have htypes := query_freeze q hlegal
+    cases hd : LLT.ofType? dst <;>
+      simp [LegalityQuery.ofTypes?, Array.mapM, ↓Array.mapM.map, hd] at hq
+    cases hq
+    simpa [LegalityQuery.getLLT!] using htypes
+
+/-- A legal `g_freeze` is on `i64`. -/
+theorem isLegal_g_freeze_types (dst : TypeAttr) (props : GMIR.propertiesOf .g_freeze)
+    (h : riscv64LegalizerInfo.isLegal .g_freeze #[dst] props = true) :
+    ∃ s, dst = TypeAttr.of IntegerType ⟨64, s⟩ :=
+  type_of_scalar64 dst (legal_freeze_llt dst props h)
+
+/-- A verified `g_freeze` has the type of its operand. -/
+theorem IsFromVerifiedOp.gmir_freeze_type_eq {src dst : TypeAttr} {props}
+    (h : IsFromVerifiedOp (.gmir .g_freeze) #[src] #[dst] props) : src = dst := by
+  rcases h with ⟨ctx, op, hin, hv, hop, hargs, hresults, _⟩
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, ←OperationPtr.getOpType!_eq_getOpType, hop,
+    OpCode.verifyLocalInvariants] at hv
+  dsimp only [GMIR.verifyLocalInvariants] at hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  obtain ⟨_, hloop, _⟩ := Except.bind_eq_ok.mp hv
+  simp [GMIR.getTypedGroups!, GMIR.genericOpInfo, hargs, hresults] at hloop
+  split at hloop <;> simp_all -failIfUnchanged [bind, Except.bind, pure, Except.pure, throw,
+    throwThe, MonadExceptOf.throw, Except.map, Functor.map]
+  split at hloop <;> simp_all -failIfUnchanged
+  all_goals grind
 
 theorem isLegal_g_icmp_types (dst src : TypeAttr) (props : GMIR.propertiesOf .g_icmp)
     (h : riscv64LegalizerInfo.isLegal .g_icmp #[dst, src] props = true) :

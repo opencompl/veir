@@ -20,11 +20,10 @@ attribute [local implicit_reducible] TypeAttr
 
 theorem lowerStore_gepConst_sb_of (store_refines : StorePrimitiveRefines 1) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepConst 1 .sb) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg gepType gep verifiedGEP address before after hinterp
-    props verified selected memory
+  intro ty value conforms argType arg harg gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
@@ -67,7 +66,7 @@ theorem lowerStore_gepConst_sb_of (store_refines : StorePrimitiveRefines 1) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of IntegerType ⟨8, sign⟩) (.int 8 x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
         rw [hs] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using
           rawStore_sim memory _ addr ((UInt64.ofBitVec rv.val).toByteArrayLE.extract 0 1) href
@@ -75,11 +74,10 @@ theorem lowerStore_gepConst_sb_of (store_refines : StorePrimitiveRefines 1) :
 
 theorem lowerStore_gepConst_sh_of (store_refines : StorePrimitiveRefines 2) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepConst 2 .sh) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg gepType gep verifiedGEP address before after hinterp
-    props verified selected memory
+  intro ty value conforms argType arg harg gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
@@ -122,7 +120,7 @@ theorem lowerStore_gepConst_sh_of (store_refines : StorePrimitiveRefines 2) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of IntegerType ⟨16, sign⟩) (.int 16 x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
         rw [hs] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using
           rawStore_sim memory _ addr ((UInt64.ofBitVec rv.val).toByteArrayLE.extract 0 2) href
@@ -130,11 +128,10 @@ theorem lowerStore_gepConst_sh_of (store_refines : StorePrimitiveRefines 2) :
 
 theorem lowerStore_gepConst_sw_of (store_refines : StorePrimitiveRefines 4) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepConst 4 .sw) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg gepType gep verifiedGEP address before after hinterp
-    props verified selected memory
+  intro ty value conforms argType arg harg gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
@@ -177,7 +174,7 @@ theorem lowerStore_gepConst_sw_of (store_refines : StorePrimitiveRefines 4) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of IntegerType ⟨32, sign⟩) (.int 32 x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
         rw [hs] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using
           rawStore_sim memory _ addr ((UInt64.ofBitVec rv.val).toByteArrayLE.extract 0 4) href
@@ -186,11 +183,10 @@ theorem lowerStore_gepConst_sw_of (store_refines : StorePrimitiveRefines 4) :
 set_option maxHeartbeats 800000 in
 theorem lowerStore_gepConst_sd_of (store_refines : StorePrimitiveRefines 8) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepConst 8 .sd) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg gepType gep verifiedGEP address before after hinterp
-    props verified selected memory
+  intro ty value conforms argType arg harg gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
@@ -233,7 +229,7 @@ theorem lowerStore_gepConst_sd_of (store_refines : StorePrimitiveRefines 8) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of IntegerType ⟨64, sign⟩) (.int 64 x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
         rw [hs] at href
         rw [store_fullWidth] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using
@@ -261,11 +257,10 @@ theorem lowerStore_gepConst_sd_of (store_refines : StorePrimitiveRefines 8) :
 
 theorem lowerStore_gepIndex_sb_of (store_refines : StorePrimitiveRefines 1) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 1 .sb) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
-    props verified selected memory
+  intro ty value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
@@ -308,7 +303,7 @@ theorem lowerStore_gepIndex_sb_of (store_refines : StorePrimitiveRefines 1) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[index] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of IntegerType ⟨8, sign⟩) (.int 8 x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
         rw [hs] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using
           rawStore_sim memory _ addr ((UInt64.ofBitVec rv.val).toByteArrayLE.extract 0 1) href
@@ -316,11 +311,10 @@ theorem lowerStore_gepIndex_sb_of (store_refines : StorePrimitiveRefines 1) :
 
 theorem lowerStore_gepIndex_sh_of (store_refines : StorePrimitiveRefines 2) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 2 .sh) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
-    props verified selected memory
+  intro ty value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
@@ -363,7 +357,7 @@ theorem lowerStore_gepIndex_sh_of (store_refines : StorePrimitiveRefines 2) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[index] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of IntegerType ⟨16, sign⟩) (.int 16 x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
         rw [hs] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using
           rawStore_sim memory _ addr ((UInt64.ofBitVec rv.val).toByteArrayLE.extract 0 2) href
@@ -371,11 +365,10 @@ theorem lowerStore_gepIndex_sh_of (store_refines : StorePrimitiveRefines 2) :
 
 theorem lowerStore_gepIndex_sw_of (store_refines : StorePrimitiveRefines 4) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 4 .sw) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
-    props verified selected memory
+  intro ty value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
@@ -418,7 +411,7 @@ theorem lowerStore_gepIndex_sw_of (store_refines : StorePrimitiveRefines 4) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[index] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of IntegerType ⟨32, sign⟩) (.int 32 x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
         rw [hs] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using
           rawStore_sim memory _ addr ((UInt64.ofBitVec rv.val).toByteArrayLE.extract 0 4) href
@@ -427,11 +420,10 @@ theorem lowerStore_gepIndex_sw_of (store_refines : StorePrimitiveRefines 4) :
 set_option maxHeartbeats 800000 in
 theorem lowerStore_gepIndex_sd_of (store_refines : StorePrimitiveRefines 8) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 8 .sd) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
-    props verified selected memory
+  intro ty value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
@@ -474,7 +466,7 @@ theorem lowerStore_gepIndex_sd_of (store_refines : StorePrimitiveRefines 8) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[index] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of IntegerType ⟨64, sign⟩) (.int 64 x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
         rw [hs] at href
         rw [store_fullWidth] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using

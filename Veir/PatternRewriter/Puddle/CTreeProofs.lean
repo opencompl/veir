@@ -8,7 +8,7 @@ import all Veir.Interpreter.Basic
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Interpreter.CTree
 import all Veir.IR.Attribute
-import all Veir.Data.Refinement
+import all Veir.Data.LLVM.Int.Basic
 import Veir.PatternRewriter.Puddle.Definitions
 import Veir.PatternRewriter.Puddle.Validity
 

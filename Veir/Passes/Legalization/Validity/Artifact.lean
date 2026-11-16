@@ -11,7 +11,6 @@ import all Veir.Dialects.GMIR.Interpreter
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
@@ -74,7 +73,7 @@ private theorem int_unmerge_merge {w k : Nat} (hk : k = w) (h : w + w = k + k) (
   subst hk
   cases lo <;> cases hi <;>
     simp [RuntimeValue.isRefinedBy, mergeValues, unmergeValues, BitVec.setWidth_append_eq_right,
-      BitVec.extractLsb'_append_eq_left, isRefinedBy_eq]
+      BitVec.extractLsb'_append_eq_left, Data.LLVM.Int.isRefinedBy_eq]
 
 /-- The interpreter of `g_unmerge_values` halves the width `w + w` of its operand, which `simp`
 cannot rewrite under the dependent result values, so this proof substitutes the merged value by

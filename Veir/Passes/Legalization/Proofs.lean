@@ -936,7 +936,7 @@ theorem and_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) :
     LLVM.Int.and x y ⊒
       LLVM.Int.trunc (LLVM.Int.and (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
   rw [trunc_and, trunc_ext, trunc_ext]
-  exact isRefinedBy_refl _
+  exact Data.LLVM.Int.isRefinedBy_refl _
 
 
 theorem or_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (disjoint : Bool) :
@@ -950,7 +950,7 @@ theorem xor_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) :
     LLVM.Int.xor x y ⊒
       LLVM.Int.trunc (LLVM.Int.xor (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
   rw [trunc_xor, trunc_ext, trunc_ext]
-  exact isRefinedBy_refl _
+  exact Data.LLVM.Int.isRefinedBy_refl _
 
 
 /-- The shift amount, when it is below the width, as a bit vector of that width. -/
@@ -1268,10 +1268,10 @@ theorem uaddo_widening (h : w < W) (x y : LLVM.Int w) :
   refine ⟨?_, ?_⟩
   · rw [BitVec.setWidth_add _ _ hle, BitVec.setWidth_setWidth_of_le _ hle,
       BitVec.setWidth_setWidth_of_le _ hle, BitVec.setWidth_eq, BitVec.setWidth_eq]
-    exact isRefinedBy_refl _
+    exact Data.LLVM.Int.isRefinedBy_refl _
   · have hS : x.toNat + y.toNat < 2 ^ W := by omega
     have hm := Nat.mod_lt (x.toNat + y.toNat) (Nat.two_pow_pos w)
-    simp only [isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toNat, BitVec.uaddOverflow,
+    simp only [Data.LLVM.Int.isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toNat, BitVec.uaddOverflow,
       BitVec.toNat_add, BitVec.toNat_setWidth, BitVec.toNat_setWidth_of_le hle, decide_eq_decide, ne_eq,
       Nat.mod_eq_of_lt hS, Nat.mod_eq_of_lt (show (x.toNat + y.toNat) % 2 ^ w < 2 ^ W by omega)]
     by_cases hs : x.toNat + y.toNat < 2 ^ w
@@ -1298,9 +1298,9 @@ theorem usubo_widening (h : w < W) (x y : LLVM.Int w) :
   refine ⟨?_, ?_⟩
   · rw [setWidth_sub_of_le hle, BitVec.setWidth_setWidth_of_le _ hle,
       BitVec.setWidth_setWidth_of_le _ hle, BitVec.setWidth_eq, BitVec.setWidth_eq]
-    exact isRefinedBy_refl _
+    exact Data.LLVM.Int.isRefinedBy_refl _
   · have hm := Nat.mod_lt ((2 ^ W - y.toNat + x.toNat) % 2 ^ W) (Nat.two_pow_pos w)
-    simp only [isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toNat, BitVec.usubOverflow,
+    simp only [Data.LLVM.Int.isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toNat, BitVec.usubOverflow,
       BitVec.toNat_sub, BitVec.toNat_setWidth, BitVec.toNat_setWidth_of_le hle, decide_eq_decide, ne_eq,
       Nat.mod_eq_of_lt (show (2 ^ W - y.toNat + x.toNat) % 2 ^ W % 2 ^ w < 2 ^ W by omega)]
     by_cases hs : x.toNat < y.toNat
@@ -1348,8 +1348,8 @@ theorem saddo_widening (h : w < W) (x y : LLVM.Int w) :
   have hle := Nat.le_of_lt h
   refine ⟨?_, ?_⟩
   · rw [BitVec.setWidth_add _ _ hle, setWidth_signExtend_of_le hle, setWidth_signExtend_of_le hle]
-    exact isRefinedBy_refl _
-  · simp only [isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toInt]
+    exact Data.LLVM.Int.isRefinedBy_refl _
+  · simp only [Data.LLVM.Int.isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toInt]
     rcases Nat.eq_zero_or_pos w with rfl | hw
     · simp [BitVec.of_length_zero (x := x), BitVec.of_length_zero (x := y), BitVec.saddOverflow,
         signExtend_zero']
@@ -1377,8 +1377,8 @@ theorem ssubo_widening (h : w < W) (x y : LLVM.Int w) :
   have hle := Nat.le_of_lt h
   refine ⟨?_, ?_⟩
   · rw [setWidth_sub_of_le hle, setWidth_signExtend_of_le hle, setWidth_signExtend_of_le hle]
-    exact isRefinedBy_refl _
-  · simp only [isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toInt]
+    exact Data.LLVM.Int.isRefinedBy_refl _
+  · simp only [Data.LLVM.Int.isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toInt]
     rcases Nat.eq_zero_or_pos w with rfl | hw
     · simp [BitVec.of_length_zero (x := x), BitVec.of_length_zero (x := y), BitVec.ssubOverflow,
         signExtend_zero']
@@ -1399,7 +1399,7 @@ theorem saddo_lowering (x y : LLVM.Int w) :
     LLVM.Int.saddOverflowFlag x y ⊒
       LLVM.Int.xor (LLVM.Int.icmp y (.val 0#w) .slt) (LLVM.Int.icmp (LLVM.Int.add x y) x .slt) := by
   cases x <;> cases y <;> simp [LLVM.Int.saddOverflowFlag, LLVM.Int.xor, LLVM.Int.icmp, LLVM.Int.add,
-    Id.run, pure, IntPred.eval, isRefinedBy_eq, BitVec.ofBool_xor_ofBool, BitVec.ofBool_eq_iff_eq,
+    Id.run, pure, IntPred.eval, Data.LLVM.Int.isRefinedBy_eq, BitVec.ofBool_xor_ofBool, BitVec.ofBool_eq_iff_eq,
     BitVec.slt_eq_decide, BitVec.toInt_zero, -BitVec.toInt_add]
   rename_i x y
   by_cases hov : BitVec.saddOverflow x y
@@ -1422,7 +1422,7 @@ theorem ssubo_lowering (x y : LLVM.Int w) :
     LLVM.Int.ssubOverflowFlag x y ⊒
       LLVM.Int.xor (LLVM.Int.icmp x y .slt) (LLVM.Int.icmp (LLVM.Int.sub x y) (.val 0#w) .slt) := by
   cases x <;> cases y <;> simp [LLVM.Int.ssubOverflowFlag, LLVM.Int.xor, LLVM.Int.icmp, LLVM.Int.sub,
-    Id.run, pure, IntPred.eval, isRefinedBy_eq, BitVec.ofBool_xor_ofBool, BitVec.ofBool_eq_iff_eq,
+    Id.run, pure, IntPred.eval, Data.LLVM.Int.isRefinedBy_eq, BitVec.ofBool_xor_ofBool, BitVec.ofBool_eq_iff_eq,
     BitVec.slt_eq_decide, BitVec.toInt_zero, -BitVec.toInt_sub]
   rename_i x y
   by_cases hov : BitVec.ssubOverflow x y
@@ -1443,7 +1443,7 @@ theorem uaddo_flag_lowering (x y : LLVM.Int w) :
   have := congrArg Prod.snd (uaddo_lowering x y)
   simp only at this
   rw [this]
-  exact isRefinedBy_refl _
+  exact Data.LLVM.Int.isRefinedBy_refl _
 
 /-- The overflow flag of `lowerUAddSubO false`: the difference borrows exactly when `a <u b`. -/
 theorem usubo_flag_lowering (x y : LLVM.Int w) :
@@ -1451,7 +1451,7 @@ theorem usubo_flag_lowering (x y : LLVM.Int w) :
   have := congrArg Prod.snd (usubo_lowering x y)
   simp only at this
   rw [this]
-  exact isRefinedBy_refl _
+  exact Data.LLVM.Int.isRefinedBy_refl _
 
 /-- `widenConstant`: a wide constant truncated back is the narrow constant, whatever the value
 it was created with is modulo `2 ^ w`. -/
@@ -1498,7 +1498,7 @@ theorem icmp_result_widening_one {w W : Nat} (hw : w ≤ 1) (hw0 : 0 < w) (hW : 
     (c : LLVM.Int 1) :
     ∃ h : 1 = w, LLVM.Int.cast c h ⊒ LLVM.Int.trunc (LLVM.Int.zext c W false hW) w false false hwW := by
   obtain rfl : w = 1 := by omega
-  exact ⟨rfl, by rw [LLVM.Int.cast_self, trunc_zext hW]; exact isRefinedBy_refl _⟩
+  exact ⟨rfl, by rw [LLVM.Int.cast_self, trunc_zext hW]; exact Data.LLVM.Int.isRefinedBy_refl _⟩
 
 end Widening
 
@@ -1660,7 +1660,7 @@ theorem intMax_eq_ofInt : BitVec.intMax w = BitVec.ofInt w (2 ^ (w - 1) - 1) := 
 theorem uaddSat_minmax (x y : LLVM.Int w) :
     x.uaddSat y ⊒ x.add ((x.xor (.val (BitVec.ofInt w (-1)))).umin y) := by
   cases x <;> cases y <;>
-    simp [Int.uaddSat, Int.add, Int.xor, Int.umin, Id.run, isRefinedBy_eq, pure, ofInt_neg_one,
+    simp [Int.uaddSat, Int.add, Int.xor, Int.umin, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure, ofInt_neg_one,
       BitVec.xor_allOnes]
   rename_i x y
   have := x.isLt
@@ -1678,7 +1678,7 @@ theorem uaddSat_minmax (x y : LLVM.Int w) :
 
 /-- Lowering `g_usubsat` with `g_umin`: `usub.sat a b = a - umin a b`. -/
 theorem usubSat_minmax (x y : LLVM.Int w) : x.usubSat y ⊒ x.sub (x.umin y) := by
-  cases x <;> cases y <;> simp [Int.usubSat, Int.sub, Int.umin, Id.run, isRefinedBy_eq, pure]
+  cases x <;> cases y <;> simp [Int.usubSat, Int.sub, Int.umin, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure]
   rename_i x y
   by_cases h1 : x.usubOverflow y <;> by_cases h2 : x.ule y <;>
     simp only [h1, h2, ite_true, ite_false, Bool.false_eq_true] <;>
@@ -1695,7 +1695,7 @@ theorem saddSat_minmax (x y : LLVM.Int w) :
     x.saddSat y ⊒ x.add ((((LLVM.Int.val (BitVec.ofInt w (-2 ^ (w - 1)))).sub
         (x.smin (.val 0#w))).smax y).smin
         ((LLVM.Int.val (BitVec.ofInt w (2 ^ (w - 1) - 1))).sub (x.smax (.val 0#w)))) := by
-  cases x <;> cases y <;> simp [Int.saddSat, Int.add, Int.sub, Int.smin, Int.smax, Id.run, isRefinedBy_eq,
+  cases x <;> cases y <;> simp [Int.saddSat, Int.add, Int.sub, Int.smin, Int.smax, Id.run, Data.LLVM.Int.isRefinedBy_eq,
     pure]
   rename_i x y
   by_cases h : x.saddOverflow y <;> simp only [h, ite_true, ite_false, Bool.false_eq_true]
@@ -1723,7 +1723,7 @@ theorem ssubSat_minmax (x y : LLVM.Int w) :
     x.ssubSat y ⊒ x.sub ((((x.smax (.val (BitVec.ofInt w (-1)))).sub
         (.val (BitVec.ofInt w (2 ^ (w - 1) - 1)))).smax y).smin
         ((x.smin (.val (BitVec.ofInt w (-1)))).sub (.val (BitVec.ofInt w (-2 ^ (w - 1)))))) := by
-  cases x <;> cases y <;> simp [Int.ssubSat, Int.sub, Int.smin, Int.smax, Id.run, isRefinedBy_eq, pure]
+  cases x <;> cases y <;> simp [Int.ssubSat, Int.sub, Int.smin, Int.smax, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure]
   rename_i x y
   by_cases h : x.ssubOverflow y <;> simp only [h, ite_true, ite_false, Bool.false_eq_true]
   all_goals rcases Nat.eq_zero_or_pos w with rfl | hw
@@ -1748,7 +1748,7 @@ theorem ssubSat_minmax (x y : LLVM.Int w) :
 theorem uaddSat_addo (x y : LLVM.Int w) :
     x.uaddSat y ⊒ GMIR.selectNonzero (x.uaddOverflowFlag y) (.val (BitVec.ofInt w (-1))) (x.add y) := by
   cases x <;> cases y <;>
-    simp [Int.uaddSat, Int.add, Int.uaddOverflowFlag, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure,
+    simp [Int.uaddSat, Int.add, Int.uaddOverflowFlag, GMIR.selectNonzero, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure,
       ofInt_neg_one]
   rename_i x y
   by_cases h1 : x.uaddOverflow y <;> simp [h1]
@@ -1757,7 +1757,7 @@ theorem uaddSat_addo (x y : LLVM.Int w) :
 theorem usubSat_subo (x y : LLVM.Int w) :
     x.usubSat y ⊒ GMIR.selectNonzero (x.usubOverflowFlag y) (.val (BitVec.ofInt w 0)) (x.sub y) := by
   cases x <;> cases y <;>
-    simp [Int.usubSat, Int.sub, Int.usubOverflowFlag, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure]
+    simp [Int.usubSat, Int.sub, Int.usubOverflowFlag, GMIR.selectNonzero, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure]
   rename_i x y
   by_cases h1 : x.usubOverflow y <;> simp [h1]
 
@@ -1850,11 +1850,11 @@ local elab "casesAnd" : tactic => do
 
 local macro "llvm_refines" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
   (repeat' split) <;>
-    try simp_all [poison_isRefinedBy, isRefinedBy_refl, isRefinedBy_eq, ite_poison_eq_val_id, val_eq_val_id,
+    try simp_all [Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl, Data.LLVM.Int.isRefinedBy_eq, ite_poison_eq_val_id, val_eq_val_id,
       poison_eq_val_id, $ls,*]
   all_goals casesAnd
   all_goals (try subst_vars)
-  all_goals try simp_all [poison_isRefinedBy, isRefinedBy_refl, isRefinedBy_eq, ite_poison_eq_val_id, val_eq_val_id,
+  all_goals try simp_all [Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl, Data.LLVM.Int.isRefinedBy_eq, ite_poison_eq_val_id, val_eq_val_id,
       poison_eq_val_id, $ls,*]
   all_goals try (simp only [BitVec.le_def, BitVec.lt_def, BitVec.toNat_ofNat, Nat.mod_two_pow_self,
     BitVec.natCast_eq_ofNat, ge_iff_le] at *; omega)
@@ -2071,7 +2071,7 @@ theorem sext_of_sext (hw : w ≤ 64) {M W : Nat} (hM : M ≤ 64) (hW : W ≤ 64)
 /-- Zero extension without `nneg` keeps refinement both ways. -/
 theorem zext_isRefinedBy_zext {W : Nat} (x y : LLVM.Int w) (h : w < W) :
     x.zext W false h ⊒ y.zext W false h ↔ x ⊒ y := by
-  cases x <;> cases y <;> simp [Int.zext, Id.run, isRefinedBy_eq, poison_isRefinedBy, pure]
+  cases x <;> cases y <;> simp [Int.zext, Id.run, Data.LLVM.Int.isRefinedBy_eq, Data.LLVM.Int.poison_isRefinedBy, pure]
   rename_i a b
   constructor
   · intro hab
@@ -2140,9 +2140,9 @@ theorem ofBool_eq_zero (b : Bool) : (BitVec.ofBool b = 0#1) ↔ b = false := by
 /-- Closes the select-to-min/max lemmas: both sides pick the same operand. -/
 local macro "select_minmax_tac" : tactic => `(tactic| (
   simp [Int.icmp, Int.umax, Int.umin, Int.smax, Int.smin, GMIR.selectNonzero, Id.run, pure, IntPred.eval,
-    poison_isRefinedBy, ofBool_eq_zero]
+    Data.LLVM.Int.poison_isRefinedBy, ofBool_eq_zero]
   all_goals (repeat' split)
-  all_goals simp_all [BitVec.ult, BitVec.ule, BitVec.slt, BitVec.sle, isRefinedBy_eq]
+  all_goals simp_all [BitVec.ult, BitVec.ule, BitVec.slt, BitVec.sle, Data.LLVM.Int.isRefinedBy_eq]
   all_goals first | omega | (apply BitVec.eq_of_toNat_eq; omega) | (apply BitVec.eq_of_toInt_eq; omega)))
 
 /-! ### Selects -/
@@ -2383,7 +2383,7 @@ theorem mul_by_neg_one (x : LLVM.Int w) (c : BitVec w) (hc : c = -1) (n u : Bool
     x.mul (.val c) n u ⊒ (LLVM.Int.val 0#w).sub x n := by
   subst hc
   cases x with
-  | poison => simp [LLVM.Int.mul, Id.run, poison_isRefinedBy]
+  | poison => simp [LLVM.Int.mul, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   | val x =>
     have hov : BitVec.smulOverflow x (-1#w) = BitVec.ssubOverflow 0#w x := by
       rcases Nat.eq_zero_or_pos w with rfl | hw
@@ -2400,7 +2400,7 @@ theorem mulo_by_2 (x : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 2) (n u : Bool
   have hn : c.toNat = 2 := by
     have := BitVec.toInt_eq_toNat_of_msb (x := c); grind [BitVec.toInt_eq_toNat_cond]
   cases x with
-  | poison => simp [LLVM.Int.mul, Id.run, poison_isRefinedBy]
+  | poison => simp [LLVM.Int.mul, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   | val x =>
     have hs : BitVec.smulOverflow x c = BitVec.saddOverflow x x := by
       simp only [BitVec.smulOverflow, BitVec.saddOverflow, hc]; congr 1 <;> simp <;> omega
@@ -2410,7 +2410,7 @@ theorem mulo_by_2 (x : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 2) (n u : Bool
       apply BitVec.eq_of_toNat_eq
       rw [BitVec.toNat_mul, BitVec.toNat_add, hn, Nat.mul_two]
     simp only [LLVM.Int.mul, LLVM.Int.add, Id.run, hs, hu, hv]
-    exact isRefinedBy_refl _
+    exact Data.LLVM.Int.isRefinedBy_refl _
 
 theorem add_shift (hw : w ≤ 64) (a b s : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
     a.add (((LLVM.Int.val c).sub b n₁ u₁).shl s n₂ u₂) n₃ u₃ ⊒ a.sub (b.shl s) := by
@@ -2427,7 +2427,7 @@ theorem NotAPlusNegOne (x : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = -1
     (x.add (.val c₁) n u).xor (.val c₂) ⊒ (LLVM.Int.val 0#w).sub x n u := by
   subst h₁ h₂
   cases x with
-  | poison => simp [LLVM.Int.add, LLVM.Int.xor, Id.run, poison_isRefinedBy]
+  | poison => simp [LLVM.Int.add, LLVM.Int.xor, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   | val x =>
     have hs : BitVec.saddOverflow x (-1#w) = BitVec.ssubOverflow 0#w x := by
       rcases Nat.eq_zero_or_pos w with rfl | hw
@@ -2532,10 +2532,10 @@ theorem not_cmp_fold {v : Nat} (x y : LLVM.Int v) (p : IntPred) (c : BitVec 1) (
     (x.icmp y p).xor (.val c) ⊒ x.icmp y p.inverse := by
   have : c = 1#1 := BitVec.eq_of_toNat_eq (by simp [hc])
   subst this
-  cases x <;> cases y <;> simp [LLVM.Int.icmp, LLVM.Int.xor, Id.run, poison_isRefinedBy,
+  cases x <;> cases y <;> simp [LLVM.Int.icmp, LLVM.Int.xor, Id.run, Data.LLVM.Int.poison_isRefinedBy,
     IntPred.eval_inverse]
   rename_i a b
-  cases p.eval a b <;> exact isRefinedBy_refl _
+  cases p.eval a b <;> exact Data.LLVM.Int.isRefinedBy_refl _
 
 theorem not_cmp_fold_zext {v W : Nat} (x y : LLVM.Int v) (p : IntPred) (h : 1 < W) (c : BitVec W)
     (hc : c.toNat = 1) :
@@ -2544,10 +2544,10 @@ theorem not_cmp_fold_zext {v W : Nat} (x y : LLVM.Int v) (p : IntPred) (h : 1 < 
     simp [hc, Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le h (Nat.le_of_lt Nat.lt_two_pow_self))])
   subst this
   cases x <;> cases y <;> simp [LLVM.Int.icmp, LLVM.Int.xor, LLVM.Int.zext, Id.run,
-    poison_isRefinedBy, IntPred.eval_inverse]
+    Data.LLVM.Int.poison_isRefinedBy, IntPred.eval_inverse]
   rename_i a b
   cases p.eval a b <;>
-    simp [BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt (by decide : 0 < 1), isRefinedBy_refl]
+    simp [BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt (by decide : 0 < 1), Data.LLVM.Int.isRefinedBy_refl]
 
 theorem or_beq_zero {v : Nat} (a b : BitVec v) : (a ||| b == 0#v) = (a == 0#v && b == 0#v) := by
   rw [Bool.eq_iff_iff]; simp [BitVec.or_eq_zero_iff]
@@ -2603,12 +2603,12 @@ theorem constant_fold_mul (c₁ c₂ : BitVec w) (n u : Bool) :
 theorem constant_fold_smin (c₁ c₂ : BitVec w) :
     (LLVM.Int.val c₁).smin (.val c₂) ⊒ .val (BitVec.ofInt w (min c₁.toInt c₂.toInt)) := by
   simp only [LLVM.Int.smin, Id.run, BitVec.sle, Int.min_def]
-  split <;> split <;> simp_all [BitVec.ofInt_toInt, isRefinedBy_refl] <;> omega
+  split <;> split <;> simp_all [BitVec.ofInt_toInt, Data.LLVM.Int.isRefinedBy_refl] <;> omega
 
 theorem constant_fold_smax (c₁ c₂ : BitVec w) :
     (LLVM.Int.val c₁).smax (.val c₂) ⊒ .val (BitVec.ofInt w (max c₁.toInt c₂.toInt)) := by
   simp only [LLVM.Int.smax, Id.run, BitVec.sle, Int.max_def]
-  split <;> split <;> simp_all [BitVec.ofInt_toInt, isRefinedBy_refl] <;> omega
+  split <;> split <;> simp_all [BitVec.ofInt_toInt, Data.LLVM.Int.isRefinedBy_refl] <;> omega
 
 theorem select_constant_cmp_nonzero (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : BitVec wc) (hc : ¬ c = 0#wc) (x y : LLVM.Int w) :
     GMIR.selectNonzero (.val c) x y ⊒ x := by
@@ -2627,7 +2627,7 @@ theorem sub_to_add (a : LLVM.Int w) (c : BitVec w) (n u : Bool) :
       a.add (.val (BitVec.ofInt w (-c.toInt))) (n && !decide (c = BitVec.intMin w)) := by
   rw [ofInt_neg_toInt]
   cases a with
-  | poison => simp [LLVM.Int.sub, Id.run, poison_isRefinedBy]
+  | poison => simp [LLVM.Int.sub, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   | val a =>
     by_cases hmin : c = BitVec.intMin w
     · simp only [hmin, decide_true, Bool.not_true, Bool.and_false]
@@ -2648,10 +2648,10 @@ theorem and_select_bool_odd {wc : Nat} (c : LLVM.Int wc) (t f : LLVM.Int w) (k :
     LLVM.Int.and (GMIR.selectNonzero c t f) (.val (BitVec.ofInt w k)) ⊒ GMIR.selectNonzero c t f := by
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · generalize GMIR.selectNonzero c t f = r
-    cases r <;> simp [LLVM.Int.and, Id.run, poison_isRefinedBy, isRefinedBy_refl,
+    cases r <;> simp [LLVM.Int.and, Id.run, Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl,
       BitVec.of_length_zero]
   · rw [and_select_bool c t f _ _ ht hf]
-    · exact isRefinedBy_refl _
+    · exact Data.LLVM.Int.isRefinedBy_refl _
     · have hd : (2 : _root_.Int) ∣ ((2 ^ w : Nat) : _root_.Int) := by
         refine ⟨((2 ^ (w - 1) : Nat) : _root_.Int), ?_⟩
         rw [show w = (w - 1) + 1 by omega, Nat.pow_succ]
@@ -2690,7 +2690,7 @@ theorem mul_twoPow_shl (x : LLVM.Int w) (k : Nat) (hk : k + 1 < w) (n u : Bool) 
     rw [BitVec.toInt_twoPow]
     simp only [show ¬ w ≤ k by omega, show ¬ k + 1 = w by omega, ite_false]
   cases x with
-  | poison => simp [LLVM.Int.mul, Id.run, poison_isRefinedBy]
+  | poison => simp [LLVM.Int.mul, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   | val x =>
     have hv : x <<< BitVec.ofInt w (k : _root_.Int) = x * BitVec.twoPow w k := by
       rw [BitVec.shiftLeft_eq', hkn, BitVec.shiftLeft_eq_mul_twoPow]
@@ -2715,9 +2715,9 @@ theorem mul_twoPow_shl (x : LLVM.Int w) (k : Nat) (hk : k + 1 < w) (n u : Bool) 
     simp only [LLVM.Int.mul, LLVM.Int.shl, LLVM.Int.constant, Id.run, pure, ge_iff_le, hrange,
       ite_false]
     by_cases hs : n = true ∧ BitVec.smulOverflow x (BitVec.twoPow w k) = true
-    · simp [hs, poison_isRefinedBy]
+    · simp [hs, Data.LLVM.Int.poison_isRefinedBy]
     by_cases hu : u = true ∧ BitVec.umulOverflow x (BitVec.twoPow w k) = true
-    · simp [hu, poison_isRefinedBy]
+    · simp [hu, Data.LLVM.Int.poison_isRefinedBy]
     have hs' : ¬ (n = true ∧ (x <<< BitVec.ofInt w (k : _root_.Int)).sshiftRight'
         (BitVec.ofInt w (k : _root_.Int)) ≠ x) := by
       rintro ⟨hn, hne⟩; exact hne (hnsw fun h => hs ⟨hn, h⟩)
@@ -2726,7 +2726,7 @@ theorem mul_twoPow_shl (x : LLVM.Int w) (k : Nat) (hk : k + 1 < w) (n u : Bool) 
       rintro ⟨hn, hne⟩; exact hne (hnuw fun h => hu ⟨hn, h⟩)
     simp only [hs, hu, hs', hu', ite_false]
     rw [hv]
-    exact isRefinedBy_refl _
+    exact Data.LLVM.Int.isRefinedBy_refl _
 
 end Combines
 

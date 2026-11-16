@@ -10,7 +10,6 @@ import all Veir.Dialects.GMIR.Interpreter
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
@@ -111,13 +110,13 @@ theorem custom_udiv_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary
   proveLegalValid using Data.LLVM.udiv_drop_exact
 
 theorem custom_urem_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_remuw) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem custom_ctlz_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordUnary .g_clzw) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 theorem custom_cttz_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordUnary .g_ctzw) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 /-- `customLegalizeAbs`: the absolute value of an `i64` is the larger of it and its negation. -/
 private theorem abs_smax_neg (x : Data.LLVM.Int 64) :
@@ -135,7 +134,7 @@ private theorem bitreverse_brev8 (x : Data.LLVM.Int 8) (m : BitVec 56) (h : 8 < 
   · simp only [brev8, Data.LLVM.Int.ext, Data.LLVM.Int.bswap, Data.LLVM.Int.bitreverse,
       Data.LLVM.Int.trunc, Data.LLVM.Int.cast, Data.LLVM.Int.bswap64BV, Id.run, reduceIte,
       Nat.reduceEqDiff, dite_false, dite_true]
-    simp only [isRefinedBy_eq]
+    simp only [Data.LLVM.Int.isRefinedBy_eq]
     apply BitVec.eq_of_getElem_eq
     intro i hi
     simp only [BitVec.getElem_reverse, BitVec.getElem_setWidth, BitVec.getLsbD_reverse,
@@ -144,7 +143,7 @@ private theorem bitreverse_brev8 (x : Data.LLVM.Int 8) (m : BitVec 56) (h : 8 < 
     rcases this with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
       simp [BitVec.getMsbD, BitVec.getLsbD_append, BitVec.getLsbD_extractLsb, BitVec.getLsbD_cast] <;>
       bv_decide
-  · simp [Data.LLVM.Int.bitreverse, Id.run, isRefinedBy_eq]
+  · simp [Data.LLVM.Int.bitreverse, Id.run, Data.LLVM.Int.isRefinedBy_eq]
 
 theorem custom_bitreverse_valid : Puddle.CTree.Pattern.Valid customLegalizeBitreverse8 := by
   proveLegalValid using bitreverse_brev8
@@ -164,7 +163,7 @@ private theorem saddSat_addo {w : Nat} (x y : Data.LLVM.Int w) :
         (Data.LLVM.Int.val (BitVec.ofInt w (-2 ^ (w - 1)))))
       (x.add y) := by
   cases x <;> cases y <;> simp [Data.LLVM.Int.saddSat, Data.LLVM.Int.add, Data.LLVM.Int.saddOverflowFlag,
-    GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure]
+    GMIR.selectNonzero, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure]
   rename_i x y
   by_cases h : x.saddOverflow y <;> simp only [h, ite_true, ite_false, Bool.false_eq_true]
   · have hw : 0 < w := by
@@ -188,7 +187,7 @@ private theorem ssubSat_subo {w : Nat} (x y : Data.LLVM.Int w) :
         (Data.LLVM.Int.val (BitVec.ofInt w (-2 ^ (w - 1)))))
       (x.sub y) := by
   cases x <;> cases y <;> simp [Data.LLVM.Int.ssubSat, Data.LLVM.Int.sub, Data.LLVM.Int.add,
-    Data.LLVM.Int.ssubOverflowFlag, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure]
+    Data.LLVM.Int.ssubOverflowFlag, GMIR.selectNonzero, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure]
   rename_i x y
   by_cases h : x.ssubOverflow y <;> simp only [h, ite_true, ite_false, Bool.false_eq_true]
   · have hw : 0 < w := by

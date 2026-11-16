@@ -17,7 +17,6 @@ import all Veir.Interpreter.Basic
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.IR.Attribute
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 import Veir.PatternRewriter.Puddle.Definitions
 import Veir.PatternRewriter.Puddle.Validity
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
@@ -141,7 +140,7 @@ macro "proveLegalValid" "using" lemma:term : tactic => `(tactic| (
   /- Strip the truncations of extended values that a narrow operation reads back, and the
   zero extensions of `g_icmp` results to their result type, on both sides or in a condition. -/
   all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext, Data.LLVM.zext_isRefinedBy_zext,
-    Data.LLVM.selectNonzero_zext, isRefinedBy_refl])
+    Data.LLVM.selectNonzero_zext, Data.LLVM.Int.isRefinedBy_refl])
   all_goals first
     | (apply $lemma <;> simp_all)
     | simp_all [$lemma:term]))
@@ -155,7 +154,7 @@ macro "proveLegalValid" "with" closer:tacticSeq : tactic => `(tactic| (
   normalizeLegalValid
   all_goals intros
   all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext, Data.LLVM.zext_isRefinedBy_zext,
-    Data.LLVM.selectNonzero_zext, isRefinedBy_refl])
+    Data.LLVM.selectNonzero_zext, Data.LLVM.Int.isRefinedBy_refl])
   all_goals ($closer)))
 
 

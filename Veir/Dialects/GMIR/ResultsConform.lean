@@ -456,10 +456,11 @@ theorem GMIR.interpretOp'_results_conform (opT : GMIR)
       (op.getResultTypes! ctx.raw) operands bs mem = .ok (vals, mem', act)) :
     RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) := by
   cases opT
-  case g_add | g_sub | g_mul | g_and | g_or | g_xor | g_sdiv | g_udiv | g_srem | g_urem
+  case g_add | g_sub | g_mul | g_smulh | g_umulh | g_and | g_or | g_xor | g_sdiv | g_udiv | g_srem
+     | g_urem
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_smin | g_smax | g_umin | g_umax
      | g_shl | g_lshr | g_ashr | g_sshlsat | g_ushlsat | g_rotl | g_rotr | g_fshl | g_fshr
-     | g_bswap | g_bitreverse | g_brev8 | g_abs | g_sext_inreg =>
+     | g_bswap | g_bitreverse | g_brev8 | g_abs | g_sext_inreg | g_freeze =>
     rc_same 1 0
   case g_select => rc_same 1 1
   case g_uaddo | g_uadde | g_usubo | g_usube | g_saddo | g_ssubo => rc_carry
@@ -481,6 +482,10 @@ theorem GMIR.interpretOp'_results_conform (opT : GMIR)
         rw [Array.getElem!_eq_getD, Array.getD_eq_getD_getElem?, hRes, Option.getD_some]
       have := hNZ resBw (by rw [hR0, hBw])
       exact results_getElem? hR hRes (int_conforms_of_val hBw (by omega))
+  case g_scmp | g_ucmp =>
+    rc_peel
+    all_goals (obtain rfl := vals_of_ok h
+               exact results_toList ‹_› (int_conforms_of_val ‹_› rfl))
   case g_poison =>
     rc_common 1
     rc_peel

@@ -611,7 +611,8 @@ def lowerThreewayCompare (signed : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
       let operandType ← MatchProg.type (Attr := IntegerType)
-      let resultType ← MatchProg.type (Attr := IntegerType)
+      -- The result holds `-1`, `0` and `1`, so it is at least two bits wide, as LLVM requires.
+      let resultType ← MatchProg.type (Attr := IntegerType) (1 < ·.bitwidth)
       let lhs ← MatchProg.value operandType
       let rhs ← MatchProg.value operandType
       let _ ← MatchProg.root (.gmir (if signed then .g_scmp else .g_ucmp))
@@ -639,7 +640,8 @@ def lowerThreewayCompare (signed : Bool) : Pattern OpCode :=
 def lowerMulh (signed : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      -- The verifier rejects `i0`, whose double width is itself.
+      let type ← MatchProg.type (Attr := IntegerType) (0 < ·.bitwidth)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir (if signed then .g_smulh else .g_umulh)) #[lhs, rhs] #[type]

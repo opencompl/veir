@@ -10,7 +10,6 @@ import all Veir.Dialects.GMIR.Interpreter
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
@@ -45,13 +44,13 @@ private theorem ctlz_zero_poison {v w : Nat} (x : Data.LLVM.Int v) :
     resizeCount w (x.ctlz true) ⊒ resizeCount w (x.ctlz false) := by
   cases x with
   | poison => simp [resizeCount, Data.LLVM.Int.ctlz, Id.run]
-  | val x => by_cases h : x = 0#v <;> simp [resizeCount, Data.LLVM.Int.ctlz, Id.run, h, isRefinedBy_eq, pure]
+  | val x => by_cases h : x = 0#v <;> simp [resizeCount, Data.LLVM.Int.ctlz, Id.run, h, Data.LLVM.Int.isRefinedBy_eq, pure]
 
 private theorem cttz_zero_poison {v w : Nat} (x : Data.LLVM.Int v) :
     resizeCount w (x.cttz true) ⊒ resizeCount w (x.cttz false) := by
   cases x with
   | poison => simp [resizeCount, Data.LLVM.Int.cttz, Id.run]
-  | val x => by_cases h : x = 0#v <;> simp [resizeCount, Data.LLVM.Int.cttz, Id.run, h, isRefinedBy_eq, pure]
+  | val x => by_cases h : x = 0#v <;> simp [resizeCount, Data.LLVM.Int.cttz, Id.run, h, Data.LLVM.Int.isRefinedBy_eq, pure]
 
 /-- Copied from `Veir.Passes.Legalization.Proofs`, where it is private. -/
 private theorem uadde_lowering {w : Nat} (h : 1 < w) (x y : Data.LLVM.Int w) (c : Data.LLVM.Int 1) :
@@ -103,7 +102,7 @@ private theorem sshlSat_lowering {w v : Nat} (x : Data.LLVM.Int w) (a : Data.LLV
           (.val (BitVec.ofInt w (2 ^ (w - 1) - 1))))
         (x.shl (shiftAmount w a)) := by
   cases x <;> cases a <;> simp [shiftAmount, Data.LLVM.Int.sshlSat, Data.LLVM.Int.shl, Data.LLVM.Int.ashr,
-    Data.LLVM.Int.icmp, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure, Data.LLVM.IntPred.eval]
+    Data.LLVM.Int.icmp, GMIR.selectNonzero, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure, Data.LLVM.IntPred.eval]
   rename_i x a
   generalize (if a.toNat < w then BitVec.setWidth w a else BitVec.allOnes w) = s
   -- An amount of at least the width makes the source poison.
@@ -124,7 +123,7 @@ private theorem ushlSat_lowering {w v : Nat} (x : Data.LLVM.Int w) (a : Data.LLV
       GMIR.selectNonzero (x.icmp ((x.shl (shiftAmount w a)).lshr (shiftAmount w a)) .ne)
         (.val (BitVec.ofInt w (-1))) (x.shl (shiftAmount w a)) := by
   cases x <;> cases a <;> simp [shiftAmount, Data.LLVM.Int.ushlSat, Data.LLVM.Int.shl, Data.LLVM.Int.lshr,
-    Data.LLVM.Int.icmp, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure, Data.LLVM.IntPred.eval]
+    Data.LLVM.Int.icmp, GMIR.selectNonzero, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure, Data.LLVM.IntPred.eval]
   rename_i x a
   generalize (if a.toNat < w then BitVec.setWidth w a else BitVec.allOnes w) = s
   by_cases hpo : BitVec.ofNat w w ≤ s
@@ -224,12 +223,12 @@ private theorem add_narrowing_cast {n k : Nat} (h : n = k + k) (x y : Data.LLVM.
   subst h
   refine ⟨hP, ?_⟩
   simp only [Data.LLVM.Int.cast_self]
-  refine isRefinedBy_trans (add_isRefinedBy_add x y nsw nuw) ?_
+  refine Data.LLVM.Int.isRefinedBy_trans (add_isRefinedBy_add x y nsw nuw) ?_
   cases x <;> cases y
   case val.val x y =>
     simp [Data.LLVM.Int.add, Data.LLVM.Int.uaddOverflowFlag, unmergeValues, uaddWithCarry, mergeValues,
       Id.run, BitVec.add_eq_append]
-  all_goals exact poison_isRefinedBy _
+  all_goals exact Data.LLVM.Int.poison_isRefinedBy _
 
 /-- `narrowAddSub false`, as `add_narrowing_cast`. -/
 private theorem sub_narrowing_cast {n k : Nat} (h : n = k + k) (x y : Data.LLVM.Int n)
@@ -241,12 +240,12 @@ private theorem sub_narrowing_cast {n k : Nat} (h : n = k + k) (x y : Data.LLVM.
   subst h
   refine ⟨hP, ?_⟩
   simp only [Data.LLVM.Int.cast_self]
-  refine isRefinedBy_trans (sub_isRefinedBy_sub x y nsw nuw) ?_
+  refine Data.LLVM.Int.isRefinedBy_trans (sub_isRefinedBy_sub x y nsw nuw) ?_
   cases x <;> cases y
   case val.val x y =>
     simp [Data.LLVM.Int.sub, Data.LLVM.Int.usubOverflowFlag, unmergeValues, usubWithBorrow, mergeValues,
       Id.run, BitVec.sub_eq_append]
-  all_goals exact poison_isRefinedBy _
+  all_goals exact Data.LLVM.Int.poison_isRefinedBy _
 
 theorem lower_uaddo_valid : Puddle.CTree.Pattern.Valid (lowerUAddSubO true) := by
   proveLegalValid using Data.LLVM.uaddo_flag_lowering
@@ -369,5 +368,128 @@ theorem narrow_add_status (W : Nat) :
 theorem narrow_sub_status (W : Nat) :
     Status Unproven (narrowAddSub false W) :=
   .proven (narrow_sub_valid W)
+
+
+/-! ## Three-way comparisons and multiply-high -/
+
+/-- Zero-extending a set flag gives one. -/
+private theorem setWidth_one (w : Nat) : (1#1).setWidth w = 1#w := by
+  apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_setWidth]
+
+/-- Zero-extending a clear flag gives zero. -/
+private theorem setWidth_zero_one (w : Nat) : (0#1).setWidth w = 0#w := by
+  apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_setWidth]
+
+/-- The signed three-way comparison is the difference of the zero-extended `sgt` and `slt` flags. -/
+private theorem scmp_bits {w₁ w₂ : Nat} (a b : BitVec w₁) :
+    (if a.slt b then -1#w₂ else if a = b then 0#w₂ else 1#w₂) =
+      (BitVec.ofBool (b.slt a)).setWidth w₂ - (BitVec.ofBool (a.slt b)).setWidth w₂ := by
+  rcases Int.lt_trichotomy a.toInt b.toInt with hlt | heq | hgt
+  · simp [BitVec.slt, hlt, Int.not_lt.mpr (Int.le_of_lt hlt), setWidth_one, setWidth_zero_one, BitVec.zero_sub]
+  · obtain rfl : a = b := BitVec.toInt_inj.mp heq
+    simp [BitVec.slt]
+  · have hne : a ≠ b := by rintro rfl; exact Int.lt_irrefl _ hgt
+    simp [BitVec.slt, hgt, Int.not_lt.mpr (Int.le_of_lt hgt), hne, setWidth_one, setWidth_zero_one]
+
+/-- The unsigned three-way comparison is the difference of the zero-extended `ugt` and `ult` flags. -/
+private theorem ucmp_bits {w₁ w₂ : Nat} (a b : BitVec w₁) :
+    (if a.ult b then -1#w₂ else if a = b then 0#w₂ else 1#w₂) =
+      (BitVec.ofBool (b.ult a)).setWidth w₂ - (BitVec.ofBool (a.ult b)).setWidth w₂ := by
+  rcases Nat.lt_trichotomy a.toNat b.toNat with hlt | heq | hgt
+  · simp [BitVec.ult, hlt, Nat.not_lt.mpr (Nat.le_of_lt hlt), setWidth_one, setWidth_zero_one, BitVec.zero_sub]
+  · obtain rfl : a = b := BitVec.toNat_inj.mp heq
+    simp [BitVec.ult]
+  · have hne : a ≠ b := by rintro rfl; exact Nat.lt_irrefl _ hgt
+    simp [BitVec.ult, hgt, Nat.not_lt.mpr (Nat.le_of_lt hgt), hne, setWidth_one, setWidth_zero_one]
+
+/-- `lowerThreewayCompare true`. -/
+private theorem scmp_lowering {w₁ w₂ : Nat} (h : 1 < w₂) (x y : Data.LLVM.Int w₁) :
+    x.scmp y w₂ ⊒ ((x.icmp y .sgt).zext w₂ false h).sub ((x.icmp y .slt).zext w₂ false h) := by
+  cases x <;> cases y <;>
+    simp [Data.LLVM.Int.scmp, Data.LLVM.Int.icmp, Data.LLVM.Int.zext, Data.LLVM.Int.sub, Id.run,
+      pure, Data.LLVM.IntPred.eval, scmp_bits]
+
+/-- `lowerThreewayCompare false`. -/
+private theorem ucmp_lowering {w₁ w₂ : Nat} (h : 1 < w₂) (x y : Data.LLVM.Int w₁) :
+    x.ucmp y w₂ ⊒ ((x.icmp y .ugt).zext w₂ false h).sub ((x.icmp y .ult).zext w₂ false h) := by
+  cases x <;> cases y <;>
+    simp [Data.LLVM.Int.ucmp, Data.LLVM.Int.icmp, Data.LLVM.Int.zext, Data.LLVM.Int.sub, Id.run,
+      pure, Data.LLVM.IntPred.eval, ucmp_bits]
+
+theorem lower_scmp_valid : Puddle.CTree.Pattern.Valid (lowerThreewayCompare true) := by
+  proveLegalValid using scmp_lowering
+
+theorem lower_ucmp_valid : Puddle.CTree.Pattern.Valid (lowerThreewayCompare false) := by
+  proveLegalValid using ucmp_lowering
+
+/-- The high half of a double-width product is the product shifted down by the width. -/
+private theorem extractLsb'_eq_setWidth_sshiftRight (w : Nat) (p : BitVec (w + w)) :
+    p.extractLsb' w w = (p.sshiftRight w).setWidth w := by
+  ext i hi
+  simp [BitVec.getLsbD_sshiftRight, show w + i < w + w by omega]
+  intros; omega
+
+private theorem extractLsb'_eq_setWidth_ushiftRight (w : Nat) (p : BitVec (w + w)) :
+    p.extractLsb' w w = (p.ushiftRight w).setWidth w := by
+  ext i hi
+  simp [BitVec.getLsbD_ushiftRight, hi]
+
+/-- `lowerMulh true`: the double width `2 * w` is `w + w`, at which `smulHigh` is defined. -/
+private theorem smulh_lowering {w w₂ : Nat} (hw : w₂ = w + w) (hpos : 0 < w) (x y : Data.LLVM.Int w) :
+    x.smulHigh y ⊒
+      (((x.sext w₂ (by omega)).mul (y.sext w₂ (by omega))).ashr
+        (shiftAmount w₂ (Data.LLVM.Int.val (BitVec.ofNat w₂ w)))).trunc w false false (by omega) := by
+  subst hw
+  have hlt2 : w + w < 2 ^ (w + w) := by
+    first | exact Nat.lt_two_pow_self | exact Nat.lt_two_pow_self _
+  have hlt : w < 2 ^ (w + w) := by omega
+  cases x <;> cases y <;>
+    simp [Data.LLVM.Int.smulHigh, Data.LLVM.Int.sext, Data.LLVM.Int.mul, Data.LLVM.Int.ashr,
+      Data.LLVM.Int.trunc, shiftAmount, Id.run, pure, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt,
+      Nat.mod_eq_of_lt hlt2, BitVec.le_def, BitVec.sshiftRight', hpos,
+      show ¬ w + w ≤ w by omega, extractLsb'_eq_setWidth_sshiftRight]
+
+/-- `lowerMulh false`. -/
+private theorem umulh_lowering {w w₂ : Nat} (hw : w₂ = w + w) (hpos : 0 < w) (x y : Data.LLVM.Int w) :
+    x.umulHigh y ⊒
+      (((x.zext w₂ false (by omega)).mul (y.zext w₂ false (by omega))).lshr
+        (shiftAmount w₂ (Data.LLVM.Int.val (BitVec.ofNat w₂ w)))).trunc w false false (by omega) := by
+  subst hw
+  have hlt2 : w + w < 2 ^ (w + w) := by
+    first | exact Nat.lt_two_pow_self | exact Nat.lt_two_pow_self _
+  have hlt : w < 2 ^ (w + w) := by omega
+  cases x <;> cases y <;>
+    simp [Data.LLVM.Int.umulHigh, Data.LLVM.Int.zext, Data.LLVM.Int.mul, Data.LLVM.Int.lshr,
+      Data.LLVM.Int.trunc, shiftAmount, Id.run, pure, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt,
+      Nat.mod_eq_of_lt hlt2, BitVec.le_def, BitVec.ushiftRight_eq', hpos,
+      show ¬ w + w ≤ w by omega, extractLsb'_eq_setWidth_ushiftRight]
+
+theorem lower_smulh_valid : Puddle.CTree.Pattern.Valid (lowerMulh true) := by
+  proveLegalValid with
+    first
+      | (simp_all; done)
+      | (refine smulh_lowering ?_ ?_ _ _ <;> omega)
+
+theorem lower_umulh_valid : Puddle.CTree.Pattern.Valid (lowerMulh false) := by
+  proveLegalValid with
+    first
+      | (simp_all; done)
+      | (refine umulh_lowering ?_ ?_ _ _ <;> omega)
+
+@[legalization_status]
+theorem lower_scmp_status : Status Unproven (lowerThreewayCompare true) :=
+  .proven lower_scmp_valid
+
+@[legalization_status]
+theorem lower_ucmp_status : Status Unproven (lowerThreewayCompare false) :=
+  .proven lower_ucmp_valid
+
+@[legalization_status]
+theorem lower_smulh_status : Status Unproven (lowerMulh true) :=
+  .proven lower_smulh_valid
+
+@[legalization_status]
+theorem lower_umulh_status : Status Unproven (lowerMulh false) :=
+  .proven lower_umulh_valid
 
 end Veir.Legalization.CTreeProofs

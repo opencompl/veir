@@ -40,11 +40,11 @@ instance builtin_module_monotone : InterpretOp'Monotone (.builtin .module) where
   monotone _ _ _ _ _ _ _ := by simp [interpretOp', Interp.isRefinedBy]
 
 /--
-The opcodes proved monotone: those of gMIR but `g_store`, RISC-V, `llvm.load`, `func` and
-`builtin.module`.
+The opcodes proved monotone: those of gMIR but `g_store` and `g_freeze`, RISC-V, `llvm.load`,
+`func` and `builtin.module`.
 -/
 def OpCode.monotoneProved : OpCode → Bool
-  | .gmir op => op != .g_store
+  | .gmir op => op != .g_store && op != .g_freeze
   | .riscv _ | .llvm .load | .func _ | .builtin .module => true
   | _ => false
 
@@ -52,7 +52,9 @@ def OpCode.monotoneProved : OpCode → Bool
 theorem OpCode.interpretOp'Monotone_of_monotoneProved {opType : OpCode}
     (h : opType.monotoneProved) : InterpretOp'Monotone opType := by
   match opType, h with
-  | .gmir op, h => exact gmir_interpretOp'Monotone (by simpa [OpCode.monotoneProved] using h)
+  | .gmir op, h =>
+    have h' : op ≠ .g_store ∧ op ≠ .g_freeze := by simpa [OpCode.monotoneProved] using h
+    exact gmir_interpretOp'Monotone h'.1 h'.2
   | .riscv _, _ => infer_instance
   | .llvm .load, _ => infer_instance
   | .func _, _ => infer_instance
@@ -83,7 +85,8 @@ theorem OpCode.interpretOp'ContextuallyMonotone_of_treeMonotoneProved {opType : 
     (h : opType.treeMonotoneProved) (hLifted : opType.isLifted) :
     InterpretOp'ContextuallyMonotone opType := by
   match opType, h with
-  | .gmir op, _ => exact gmir_interpretOp'ContextuallyMonotone op
+  | .gmir op, _ =>
+    exact gmir_interpretOp'ContextuallyMonotone (by rintro rfl; simp [OpCode.isLifted] at hLifted)
   | .llvm op, _ =>
     exact llvm_interpretOp'ContextuallyMonotone (by rintro rfl; simp [OpCode.isLifted] at hLifted)
   | .riscv op, _ =>

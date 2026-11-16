@@ -11,7 +11,6 @@ import all Veir.Dialects.GMIR.Interpreter
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 import all Init.Data.Nat.Power2.Basic
 
@@ -139,22 +138,22 @@ private theorem right_identity_zero_shl {w v : Nat} (x : Data.LLVM.Int w) (c : B
     (n u : Bool) : x.shl (shiftAmount w (.val c)) n u ⊒ x := by
   rw [shiftAmount_zero c hc]
   rcases Nat.eq_zero_or_pos w with rfl | hw
-  · cases x <;> simp [Data.LLVM.Int.shl, Id.run, poison_isRefinedBy, zero_width_ge, id_pure]
-  · cases x <;> simp [hw, zero_lt_width hw, ofNat_self_ne_zero hw, Data.LLVM.Int.shl, Id.run, isRefinedBy_refl, poison_isRefinedBy]
+  · cases x <;> simp [Data.LLVM.Int.shl, Id.run, Data.LLVM.Int.poison_isRefinedBy, zero_width_ge, id_pure]
+  · cases x <;> simp [hw, zero_lt_width hw, ofNat_self_ne_zero hw, Data.LLVM.Int.shl, Id.run, Data.LLVM.Int.isRefinedBy_refl, Data.LLVM.Int.poison_isRefinedBy]
 
 private theorem right_identity_zero_lshr {w v : Nat} (x : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0)
     (e : Bool) : x.lshr (shiftAmount w (.val c)) e ⊒ x := by
   rw [shiftAmount_zero c hc]
   rcases Nat.eq_zero_or_pos w with rfl | hw
-  · cases x <;> simp [Data.LLVM.Int.lshr, Id.run, poison_isRefinedBy, zero_width_ge, id_pure]
-  · cases x <;> simp [hw, zero_lt_width hw, ofNat_self_ne_zero hw, Data.LLVM.Int.lshr, Id.run, isRefinedBy_refl, poison_isRefinedBy]
+  · cases x <;> simp [Data.LLVM.Int.lshr, Id.run, Data.LLVM.Int.poison_isRefinedBy, zero_width_ge, id_pure]
+  · cases x <;> simp [hw, zero_lt_width hw, ofNat_self_ne_zero hw, Data.LLVM.Int.lshr, Id.run, Data.LLVM.Int.isRefinedBy_refl, Data.LLVM.Int.poison_isRefinedBy]
 
 private theorem right_identity_zero_ashr {w v : Nat} (x : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0)
     (e : Bool) : x.ashr (shiftAmount w (.val c)) e ⊒ x := by
   rw [shiftAmount_zero c hc]
   rcases Nat.eq_zero_or_pos w with rfl | hw
-  · cases x <;> simp [Data.LLVM.Int.ashr, Id.run, poison_isRefinedBy, zero_width_ge, id_pure]
-  · cases x <;> simp [hw, zero_lt_width hw, ofNat_self_ne_zero hw, Data.LLVM.Int.ashr, Id.run, isRefinedBy_refl, poison_isRefinedBy,
+  · cases x <;> simp [Data.LLVM.Int.ashr, Id.run, Data.LLVM.Int.poison_isRefinedBy, zero_width_ge, id_pure]
+  · cases x <;> simp [hw, zero_lt_width hw, ofNat_self_ne_zero hw, Data.LLVM.Int.ashr, Id.run, Data.LLVM.Int.isRefinedBy_refl, Data.LLVM.Int.poison_isRefinedBy,
       BitVec.sshiftRight']
 
 
@@ -350,14 +349,14 @@ private theorem urem_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
     rw [hti, show (2 : Int) ^ k - 1 = ((2 ^ k - 1 : Nat) : Int) by omega, BitVec.ofInt_natCast]
   rw [hmask]
   cases x with
-  | poison => simp [Data.LLVM.Int.urem, Id.run, poison_isRefinedBy]
+  | poison => simp [Data.LLVM.Int.urem, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   | val x =>
     have hv : x % BitVec.twoPow w k = x &&& BitVec.ofNat w (2 ^ k - 1) := by
       apply BitVec.eq_of_toNat_eq
       rw [BitVec.toNat_umod, BitVec.toNat_and, BitVec.toNat_twoPow_of_lt (by omega),
         BitVec.toNat_ofNat, Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.sub_le (2 ^ k) 1) hlt),
         Nat.and_two_pow_sub_one_eq_mod]
-    simp [Data.LLVM.Int.urem, Data.LLVM.Int.and, Id.run, hne, hv, isRefinedBy_refl]
+    simp [Data.LLVM.Int.urem, Data.LLVM.Int.and, Id.run, hne, hv, Data.LLVM.Int.isRefinedBy_refl]
 
 /-! ### Selects of a shift on the other arm -/
 
@@ -432,13 +431,13 @@ private theorem overshiftAmount?_integerType (v : Int) (t' t : IntegerType)
 private theorem fshr_zero {w v : Nat} (x y : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0) :
     x.fshr y (GMIR.funnelShiftAmount w (.val c)) ⊒ y := by
   subst hc
-  cases x <;> cases y <;> simp [Data.LLVM.Int.fshr, GMIR.funnelShiftAmount, Id.run, poison_isRefinedBy]
+  cases x <;> cases y <;> simp [Data.LLVM.Int.fshr, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   ext i hi; simp [hi, BitVec.getLsbD_append]
 
 private theorem fshl_zero {w v : Nat} (x y : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0) :
     x.fshl y (GMIR.funnelShiftAmount w (.val c)) ⊒ x := by
   subst hc
-  cases x <;> cases y <;> simp [Data.LLVM.Int.fshl, GMIR.funnelShiftAmount, Id.run, poison_isRefinedBy]
+  cases x <;> cases y <;> simp [Data.LLVM.Int.fshl, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy]
   ext i hi; simp [hi, BitVec.getLsbD_append, BitVec.getElem_extractLsb', BitVec.getElem_append,
     show ¬ w + i < w by omega]
 
@@ -990,9 +989,9 @@ theorem combine_funnel_shift_overshift_l_valid :
   all_goals subst_vars
   all_goals (simp only [overshiftAmount?_integerType] at *)
   all_goals split
-  all_goals (try simp_all [funnelShiftAmount_overshift', RuntimeValue.isRefinedBy, isRefinedBy_refl])
+  all_goals (try simp_all [funnelShiftAmount_overshift', RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy_refl])
   all_goals (rename_i heq; subst heq)
-  all_goals (simp only [funnelShiftAmount_overshift']; exact isRefinedBy_refl _)
+  all_goals (simp only [funnelShiftAmount_overshift']; exact Data.LLVM.Int.isRefinedBy_refl _)
 
 set_option maxHeartbeats 4000000 in
 @[combine_valid]
@@ -1004,9 +1003,9 @@ theorem combine_funnel_shift_overshift_r_valid :
   all_goals subst_vars
   all_goals (simp only [overshiftAmount?_integerType] at *)
   all_goals split
-  all_goals (try simp_all [funnelShiftAmount_overshift', RuntimeValue.isRefinedBy, isRefinedBy_refl])
+  all_goals (try simp_all [funnelShiftAmount_overshift', RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy_refl])
   all_goals (rename_i heq; subst heq)
-  all_goals (simp only [funnelShiftAmount_overshift']; exact isRefinedBy_refl _)
+  all_goals (simp only [funnelShiftAmount_overshift']; exact Data.LLVM.Int.isRefinedBy_refl _)
 
 /-! ## Status of every combine that matches a constant -/
 

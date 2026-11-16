@@ -12,7 +12,6 @@ import all Veir.Interpreter.Refinement.Basic
 import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Ptr.Basic
-import all Veir.Data.Refinement
 import all Veir.Interpreter.Interp
 
 import Veir.Interpreter.Refinement.Lemmas
@@ -132,6 +131,18 @@ instance llvm_monotone_intr__umax : InterpretOp'Monotone (.llvm .intr__umax) whe
 instance llvm_monotone_intr__umin : InterpretOp'Monotone (.llvm .intr__umin) where
   monotone _ _ _ _ _ _ _ := by op_mono [Llvm.interpretOp'] [LLVM.Int.umin, LLVM.Int.cast]
 
+instance llvm_monotone_intr__scmp : InterpretOp'Monotone (.llvm .intr__scmp) where
+  monotone _ _ _ _ _ _ _ := by op_mono [Llvm.interpretOp'] [LLVM.Int.scmp, LLVM.Int.cast]
+
+instance llvm_monotone_intr__ucmp : InterpretOp'Monotone (.llvm .intr__ucmp) where
+  monotone _ _ _ _ _ _ _ := by op_mono [Llvm.interpretOp'] [LLVM.Int.ucmp, LLVM.Int.cast]
+
+instance llvm_monotone_intr__smulh : InterpretOp'Monotone (.llvm .intr__smulh) where
+  monotone _ _ _ _ _ _ _ := by op_mono [Llvm.interpretOp'] [LLVM.Int.smulHigh, LLVM.Int.cast]
+
+instance llvm_monotone_intr__umulh : InterpretOp'Monotone (.llvm .intr__umulh) where
+  monotone _ _ _ _ _ _ _ := by op_mono [Llvm.interpretOp'] [LLVM.Int.umulHigh, LLVM.Int.cast]
+
 instance llvm_monotone_intr__abs : InterpretOp'Monotone (.llvm .intr__abs) where
   monotone _ _ _ _ _ _ _ := by op_mono [Llvm.interpretOp'] [LLVM.Int.abs, LLVM.Int.cast]
 
@@ -205,15 +216,15 @@ instance llvm_monotone_select : InterpretOp'Monotone (.llvm .select) where
       · simp [Interp.isRefinedBy]
       · rcases h1 with rfl | ⟨c, rfl, rfl⟩
         · simp [LLVM.Int.select, Id.run, Interp.isRefinedBy, OperationResult.isRefinedBy,
-            ControlFlowAction.optionIsRefinedBy, RuntimeValue.isRefinedBy, _root_.isRefinedBy]
+            ControlFlowAction.optionIsRefinedBy, RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy]
         · by_cases hc : c = 1#1
           · rcases h2 with rfl | ⟨_, rfl, rfl⟩ <;>
               simp [LLVM.Int.select, Id.run, hc, Interp.isRefinedBy, OperationResult.isRefinedBy,
-                ControlFlowAction.optionIsRefinedBy, RuntimeValue.isRefinedBy, _root_.isRefinedBy]
+                ControlFlowAction.optionIsRefinedBy, RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy]
           · rcases h3 with rfl | ⟨_, rfl, rfl⟩ <;>
               simp [LLVM.Int.select, Id.run, hc, LLVM.Int.cast, Interp.isRefinedBy,
                 OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy,
-                RuntimeValue.isRefinedBy, _root_.isRefinedBy]
+                RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy]
     · simp [Interp.isRefinedBy]
 
 /-- `cond_br` on poison is undefined behavior; on a value, which the target shares, it passes on
@@ -248,40 +259,38 @@ instance llvm_monotone_switch : InterpretOp'Monotone (.llvm .switch) where
         obtain ⟨v', h0, hv⟩ := RuntimeValue.getElem?_of_arrayIsRefinedBy h heq
         simp only [h0]
         split
-        · split
-          · split
-            · simp [Interp.isRefinedBy]
-            · split
-              · next bw v =>
-                obtain rfl := RuntimeValue.int_val_isRefinedBy_iff.mp hv
-                simp only
-                refine Interp.isRefinedBy_bind
-                  (R := fun (s s' : Option (Array RuntimeValue × MemoryState ×
-                      Option ControlFlowAction) × Nat) => s.2 = s'.2 ∧
-                    ((s.1 = none ∧ s'.1 = none) ∨
-                      ∃ a a', s.1 = some a ∧ s'.1 = some a' ∧ sameMemory a a'))
-                  (Interp.forIn_range_isRefinedBy _ _ _ _ (fun i b b' hb => ?_) _ _ (by simp)) ?_
-                · obtain ⟨hsnd, -⟩ := hb
-                  rw [hsnd]
-                  split
-                  · split
-                    · split
-                      · simp only [Interp.pure_eq, Interp.isRefinedBy_ok_ok, ForInStep.rel_done]
-                        refine ⟨by simp, .inr ⟨_, _, rfl, rfl, ?_⟩⟩
-                        simp [sameMemory, OperationResult.isRefinedBy,
-                          ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy,
-                          RuntimeValue.arrayIsRefinedBy_extract h]
-                      · simp [Interp.isRefinedBy, Bind.bind]
-                    · simp [Interp.isRefinedBy]
-                  · simp [Interp.isRefinedBy, Bind.bind]
-                · rintro ⟨r, base⟩ ⟨r', base'⟩ ⟨rfl, hr⟩
-                  rcases hr with ⟨rfl, rfl⟩ | ⟨a, a', rfl, rfl, ha⟩
-                  · simp [Interp.isRefinedBy, OperationResult.isRefinedBy,
+        · cases value <;> try (simp [Interp.isRefinedBy]; done)
+          rename_i bw x
+          cases x <;> try (simp [Interp.isRefinedBy]; done)
+          rename_i v
+          obtain rfl := RuntimeValue.int_val_isRefinedBy_iff.mp hv
+          simp only
+          split
+          · refine Interp.isRefinedBy_bind
+              (R := fun (s s' : Option (Array RuntimeValue × MemoryState ×
+                  Option ControlFlowAction) × Nat) => s.2 = s'.2 ∧
+                ((s.1 = none ∧ s'.1 = none) ∨
+                  ∃ a a', s.1 = some a ∧ s'.1 = some a' ∧ sameMemory a a'))
+              (Interp.forIn_range_isRefinedBy _ _ _ _ (fun i b b' hb => ?_) _ _ (by simp)) ?_
+            · obtain ⟨hsnd, -⟩ := hb
+              rw [hsnd]
+              split
+              · split
+                · split
+                  · simp only [Interp.pure_eq, Interp.isRefinedBy_ok_ok, ForInStep.rel_done]
+                    refine ⟨by simp, .inr ⟨_, _, rfl, rfl, ?_⟩⟩
+                    simp [sameMemory, OperationResult.isRefinedBy,
                       ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy,
                       RuntimeValue.arrayIsRefinedBy_extract h]
-                  · simpa [Interp.isRefinedBy] using ha
-              · simp [Interp.isRefinedBy]
-              · simp [Interp.isRefinedBy]
+                  · simp [Interp.isRefinedBy, Bind.bind]
+                · simp [Interp.isRefinedBy]
+              · simp [Interp.isRefinedBy, Bind.bind]
+            · rintro ⟨r, base⟩ ⟨r', base'⟩ ⟨rfl, hr⟩
+              rcases hr with ⟨rfl, rfl⟩ | ⟨a, a', rfl, rfl, ha⟩
+              · simp [Interp.isRefinedBy, OperationResult.isRefinedBy,
+                  ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy,
+                  RuntimeValue.arrayIsRefinedBy_extract h]
+              · simpa [Interp.isRefinedBy] using ha
           · simp [Interp.isRefinedBy]
         · simp [Interp.isRefinedBy]
       · simp [Interp.isRefinedBy]
@@ -402,10 +411,10 @@ instance llvm_monotone_getelementptr : InterpretOp'Monotone (.llvm .getelementpt
         (repeat' split) <;> exact ⟨_, rfl⟩
     · simp [Interp.isRefinedBy]
 
-private theorem int_cast_isRefinedBy {w w' : Nat} {x x' : LLVM.Int w} (h : isRefinedBy x x')
-    (hw : w = w') : isRefinedBy (x.cast hw) (x'.cast hw) := by
+private theorem int_cast_isRefinedBy {w w' : Nat} {x x' : LLVM.Int w} (h : Data.LLVM.Int.isRefinedBy x x')
+    (hw : w = w') : Data.LLVM.Int.isRefinedBy (x.cast hw) (x'.cast hw) := by
   subst hw
-  cases x <;> cases x' <;> simp_all [isRefinedBy, LLVM.Int.cast]
+  cases x <;> cases x' <;> simp_all [Data.LLVM.Int.isRefinedBy, LLVM.Int.cast]
 
 /-- A single result, refined, with the memory and no control flow. -/
 private theorem result_isRefinedBy {v v' : RuntimeValue} (h : v ⊒ v') (mem : MemoryState) :
@@ -439,7 +448,7 @@ instance llvm_monotone_shl : InterpretOp'Monotone (.llvm .shl) where
           · simp [Interp.isRefinedBy]
           · refine result_isRefinedBy ?_ _
             exact RuntimeValue.byte_isRefinedBy_byte.mpr (LLVM.Byte.shl_isRefinedBy hb
-              (int_cast_isRefinedBy (by rcases hrhs with rfl | ⟨_, rfl, rfl⟩ <;> simp [isRefinedBy])
+              (int_cast_isRefinedBy (by rcases hrhs with rfl | ⟨_, rfl, rfl⟩ <;> simp [Data.LLVM.Int.isRefinedBy])
               _) _)
       | _ => simp [Interp.isRefinedBy]
     · simp [Interp.isRefinedBy]
@@ -468,7 +477,7 @@ instance llvm_monotone_lshr : InterpretOp'Monotone (.llvm .lshr) where
         · simp [Interp.isRefinedBy]
         · exact result_isRefinedBy (RuntimeValue.byte_isRefinedBy_byte.mpr
             (LLVM.Byte.lshr_isRefinedBy hb (int_cast_isRefinedBy
-              (by rcases hrhs with rfl | ⟨_, rfl, rfl⟩ <;> simp [isRefinedBy]) _) _)) _
+              (by rcases hrhs with rfl | ⟨_, rfl, rfl⟩ <;> simp [Data.LLVM.Int.isRefinedBy]) _) _)) _
       | _ => simp [Interp.isRefinedBy]
     · simp [Interp.isRefinedBy]
 
@@ -504,9 +513,9 @@ instance llvm_monotone_trunc : InterpretOp'Monotone (.llvm .trunc) where
 
 /-- The pointer at an integer address: poison for poison. -/
 private theorem ptrFromInt_isRefinedBy {mem : MemoryState} {x x' : LLVM.Int 64}
-    (h : isRefinedBy x x') :
+    (h : Data.LLVM.Int.isRefinedBy x x') :
     RuntimeValue.addr (mem.ptrFromInt x) ⊒ RuntimeValue.addr (mem.ptrFromInt x') := by
-  cases x <;> cases x' <;> simp_all [isRefinedBy, MemoryState.ptrFromInt, RuntimeValue.isRefinedBy,
+  cases x <;> cases x' <;> simp_all [Data.LLVM.Int.isRefinedBy, MemoryState.ptrFromInt, RuntimeValue.isRefinedBy,
     LLVM.Ptr.isRefinedBy]
 
 /-- A bitcast of a refined value refines. -/
@@ -586,42 +595,40 @@ instance llvm_contextuallyMonotone_switch : InterpretOp'ContextuallyMonotone (.l
         obtain ⟨v', h0, hv⟩ := RuntimeValue.getElem?_of_arrayIsRefinedBy h heq
         simp only [h0]
         split
-        · split
-          · split
-            · simp [Interp.isRefinedBy]
-            · split
-              · next bw v =>
-                obtain rfl := RuntimeValue.int_val_isRefinedBy_iff.mp hv
-                simp only
-                refine Interp.isRefinedBy_bind
-                  (R := fun (s s' : Option (Array RuntimeValue × MemoryState ×
-                      Option ControlFlowAction) × Nat) => s.2 = s'.2 ∧
-                    ((s.1 = none ∧ s'.1 = none) ∨
-                      ∃ a a', s.1 = some a ∧ s'.1 = some a' ∧
-                        OperationResult.isRefinedBy a a'))
-                  (Interp.forIn_range_isRefinedBy _ _ _ _ (fun i b b' hb => ?_) _ _ (by simp)) ?_
-                · obtain ⟨hsnd, -⟩ := hb
-                  rw [hsnd]
-                  split
-                  · split
-                    · split
-                      · simp only [Interp.pure_eq, Interp.isRefinedBy_ok_ok, ForInStep.rel_done]
-                        refine ⟨by simp, .inr ⟨_, _, rfl, rfl, ?_⟩⟩
-                        exact OperationResult.isRefinedBy_def.mpr
-                          ⟨by simp, hMem, by simp [ControlFlowAction.optionIsRefinedBy,
-                            ControlFlowAction.isRefinedBy, RuntimeValue.arrayIsRefinedBy_extract h]⟩
-                      · simp [Interp.isRefinedBy, Bind.bind]
-                    · simp [Interp.isRefinedBy]
-                  · simp [Interp.isRefinedBy, Bind.bind]
-                · rintro ⟨r, base⟩ ⟨r', base'⟩ ⟨rfl, hr⟩
-                  rcases hr with ⟨rfl, rfl⟩ | ⟨a, a', rfl, rfl, ha⟩
-                  · simp only [Interp.pure_eq, Interp.isRefinedBy_ok_ok]
+        · cases value <;> try (simp [Interp.isRefinedBy]; done)
+          rename_i bw x
+          cases x <;> try (simp [Interp.isRefinedBy]; done)
+          rename_i v
+          obtain rfl := RuntimeValue.int_val_isRefinedBy_iff.mp hv
+          simp only
+          split
+          · refine Interp.isRefinedBy_bind
+              (R := fun (s s' : Option (Array RuntimeValue × MemoryState ×
+                  Option ControlFlowAction) × Nat) => s.2 = s'.2 ∧
+                ((s.1 = none ∧ s'.1 = none) ∨
+                  ∃ a a', s.1 = some a ∧ s'.1 = some a' ∧
+                    OperationResult.isRefinedBy a a'))
+              (Interp.forIn_range_isRefinedBy _ _ _ _ (fun i b b' hb => ?_) _ _ (by simp)) ?_
+            · obtain ⟨hsnd, -⟩ := hb
+              rw [hsnd]
+              split
+              · split
+                · split
+                  · simp only [Interp.pure_eq, Interp.isRefinedBy_ok_ok, ForInStep.rel_done]
+                    refine ⟨by simp, .inr ⟨_, _, rfl, rfl, ?_⟩⟩
                     exact OperationResult.isRefinedBy_def.mpr
                       ⟨by simp, hMem, by simp [ControlFlowAction.optionIsRefinedBy,
                         ControlFlowAction.isRefinedBy, RuntimeValue.arrayIsRefinedBy_extract h]⟩
-                  · simpa [Interp.isRefinedBy] using ha
-              · simp [Interp.isRefinedBy]
-              · simp [Interp.isRefinedBy]
+                  · simp [Interp.isRefinedBy, Bind.bind]
+                · simp [Interp.isRefinedBy]
+              · simp [Interp.isRefinedBy, Bind.bind]
+            · rintro ⟨r, base⟩ ⟨r', base'⟩ ⟨rfl, hr⟩
+              rcases hr with ⟨rfl, rfl⟩ | ⟨a, a', rfl, rfl, ha⟩
+              · simp only [Interp.pure_eq, Interp.isRefinedBy_ok_ok]
+                exact OperationResult.isRefinedBy_def.mpr
+                  ⟨by simp, hMem, by simp [ControlFlowAction.optionIsRefinedBy,
+                    ControlFlowAction.isRefinedBy, RuntimeValue.arrayIsRefinedBy_extract h]⟩
+              · simpa [Interp.isRefinedBy] using ha
           · simp [Interp.isRefinedBy]
         · simp [Interp.isRefinedBy]
       · simp [Interp.isRefinedBy]

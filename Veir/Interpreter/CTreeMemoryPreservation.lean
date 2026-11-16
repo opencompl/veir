@@ -276,6 +276,12 @@ theorem GMIR.interpretOpCTree_memory_of_noEffects
       | rcases h with ⟨_, h⟩
     all_goals try simp [Veir.fail, CTree.trigger_def] at h
     all_goals grind
+  · repeat first
+      | split at h
+      | simp only [PureOrErr.CanInterpretTo.pure_iff] at h
+      | rcases h with ⟨_, h⟩
+    all_goals try simp [Veir.fail, CTree.trigger_def] at h
+    all_goals grind
   · simp only [GMIR.getEffects] at effects
     split at effects <;> contradiction
   · exact GMIR.interpretOp'_memory_of_noEffects code properties types operands successors

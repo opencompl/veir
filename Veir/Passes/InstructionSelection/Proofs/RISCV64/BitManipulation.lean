@@ -299,7 +299,7 @@ theorem gmirCtlz_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro s ty a p verifiedRoot hlegal hwidth v hv
-  cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, isRefinedBy, Data.LLVM.Int.ctlz, Data.RISCV.val_clz]
+  cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.ctlz, Data.RISCV.val_clz]
   all_goals simp_all -failIfUnchanged [Id.run]
 
 theorem gmirCttz_pattern_valid :
@@ -309,7 +309,7 @@ theorem gmirCttz_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro s ty a p verifiedRoot hlegal hwidth v hv
-  cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, isRefinedBy, Data.LLVM.Int.cttz, Data.RISCV.val_ctz]
+  cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.cttz, Data.RISCV.val_ctz]
   all_goals simp_all -failIfUnchanged [Id.run]
 
 theorem gmirCtpop_pattern_valid :
@@ -319,7 +319,7 @@ theorem gmirCtpop_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro s ty a p verifiedRoot hlegal hwidth v hv
-  cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, isRefinedBy, Data.LLVM.Int.ctpop, Data.RISCV.val_cpop]
+  cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.ctpop, Data.RISCV.val_cpop]
   all_goals simp_all -failIfUnchanged [Id.run]
 
 theorem gmirCpopw_pattern_valid :
@@ -333,12 +333,12 @@ theorem gmirCpopw_pattern_valid :
   cases a with
   | poison =>
       simp [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.zext,
-        Data.LLVM.Int.ctpop, isRefinedBy, Id.run]
+        Data.LLVM.Int.ctpop, Data.LLVM.Int.isRefinedBy, Id.run]
   | val x =>
       have hv := hv x rfl
       by_cases hn : p.nneg = true ∧ x.msb = true <;>
         simp [hn, RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.zext,
-          Data.LLVM.Int.ctpop, isRefinedBy, Id.run, pure] <;>
+          Data.LLVM.Int.ctpop, Data.LLVM.Int.isRefinedBy, Id.run, pure] <;>
         veir_bv_decide
 
 theorem gmirBswap_pattern_valid :

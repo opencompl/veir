@@ -20,10 +20,10 @@ attribute [local implicit_reducible] TypeAttr
 
 theorem lowerStore_reg_sb_of (store_refines : StorePrimitiveRefines 1) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 1 .sb) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics]
-  intro ty width value conforms argType arg harg props verified memory
+  intro ty value conforms argType arg harg props verified width memory
   have types := memAccessWidth_cases width
   rcases types with (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩)
   · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -39,7 +39,7 @@ theorem lowerStore_reg_sb_of (store_refines : StorePrimitiveRefines 1) :
       cases hs : memory.llvmStore p (.int 8 x) <;> simp [ctree_semantics]
       intro ra hra rv hrv
       have href := store_refines memory p (TypeAttr.of IntegerType ⟨8, sign⟩) (.int 8 x) rv width
-        (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+        (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
       rw [hs] at href
       simpa [hra, riscvEffectiveAddr, RISCVMemProperties.imm12, MemoryState.decode,
         OperationResult.isRefinedBy] using
@@ -48,10 +48,10 @@ theorem lowerStore_reg_sb_of (store_refines : StorePrimitiveRefines 1) :
 
 theorem lowerStore_reg_sh_of (store_refines : StorePrimitiveRefines 2) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 2 .sh) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics]
-  intro ty width value conforms argType arg harg props verified memory
+  intro ty value conforms argType arg harg props verified width memory
   have types := memAccessWidth_cases width
   rcases types with (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩)
   · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -67,7 +67,7 @@ theorem lowerStore_reg_sh_of (store_refines : StorePrimitiveRefines 2) :
       cases hs : memory.llvmStore p (.int 16 x) <;> simp [ctree_semantics]
       intro ra hra rv hrv
       have href := store_refines memory p (TypeAttr.of IntegerType ⟨16, sign⟩) (.int 16 x) rv width
-        (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+        (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
       rw [hs] at href
       simpa [hra, riscvEffectiveAddr, RISCVMemProperties.imm12, MemoryState.decode,
         OperationResult.isRefinedBy] using
@@ -76,10 +76,10 @@ theorem lowerStore_reg_sh_of (store_refines : StorePrimitiveRefines 2) :
 
 theorem lowerStore_reg_sw_of (store_refines : StorePrimitiveRefines 4) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 4 .sw) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics]
-  intro ty width value conforms argType arg harg props verified memory
+  intro ty value conforms argType arg harg props verified width memory
   have types := memAccessWidth_cases width
   rcases types with (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩)
   · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -95,7 +95,7 @@ theorem lowerStore_reg_sw_of (store_refines : StorePrimitiveRefines 4) :
       cases hs : memory.llvmStore p (.int 32 x) <;> simp [ctree_semantics]
       intro ra hra rv hrv
       have href := store_refines memory p (TypeAttr.of IntegerType ⟨32, sign⟩) (.int 32 x) rv width
-        (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+        (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
       rw [hs] at href
       simpa [hra, riscvEffectiveAddr, RISCVMemProperties.imm12, MemoryState.decode,
         OperationResult.isRefinedBy] using
@@ -105,10 +105,10 @@ theorem lowerStore_reg_sw_of (store_refines : StorePrimitiveRefines 4) :
 set_option maxHeartbeats 800000 in
 theorem lowerStore_reg_sd_of (store_refines : StorePrimitiveRefines 8) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 8 .sd) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
+  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics]
-  intro ty width value conforms argType arg harg props verified memory
+  intro ty value conforms argType arg harg props verified width memory
   have types := memAccessWidth_cases width
   rcases types with (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩)
   · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -124,7 +124,7 @@ theorem lowerStore_reg_sd_of (store_refines : StorePrimitiveRefines 8) :
       cases hs : memory.llvmStore p (.int 64 x) <;> simp [ctree_semantics]
       intro ra hra rv hrv
       have href := store_refines memory p (TypeAttr.of IntegerType ⟨64, sign⟩) (.int 64 x) rv width
-        (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
+        (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Int.isRefinedBy])
       rw [hs] at href
       rw [store_fullWidth] at href
       simpa [hra, riscvEffectiveAddr, RISCVMemProperties.imm12, MemoryState.decode,

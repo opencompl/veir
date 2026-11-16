@@ -1799,7 +1799,7 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
 
   The operations the lowering leaves alone see refined operands, as a register
   holds no poison, so the module must consist of opcodes proved monotone
-  (`OpCode.monotoneProved`): gMIR but `g_store`, RISC-V, `llvm.load`, `func` and
+  (`OpCode.monotoneProved`): gMIR but `g_store` and `g_freeze`, RISC-V, `llvm.load`, `func` and
   `builtin.module`. A `g_store` of a refined value stores other bytes, and the
   proof in `Interp` keeps the memories equal.
 -/

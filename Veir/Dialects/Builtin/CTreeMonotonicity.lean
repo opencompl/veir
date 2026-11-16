@@ -41,7 +41,7 @@ the source can choose to give a refined integer.
 -/
 theorem sim_byteToIntCTree {w : Nat} {b b' : Data.LLVM.Byte w} (hb : b ⊒ b') {RR : α → β → Prop}
     {k : Data.LLVM.Int w → Tree β} {k' : Data.LLVM.Int w → Tree α}
-    (hk : ∀ x x', isRefinedBy x x' → Sim RR (k' x') (k x)) :
+    (hk : ∀ x x', Data.LLVM.Int.isRefinedBy x x' → Sim RR (k' x') (k x)) :
     Sim RR (Builtin.byteToIntCTree b' >>= k') (Builtin.byteToIntCTree b >>= k) := by
   simp only [Builtin.byteToIntCTree]
   by_cases hp : b.poison = BitVec.allOnes w

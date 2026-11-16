@@ -27,6 +27,9 @@ public section
 
 namespace Veir.Data.RISCV
 
+/-- `li 0` is the value of `x0`. -/
+theorem li_zero_to_x0 : li 0#64 = ⟨0#64⟩ := by simp [li]
+
 /-! ## Conventions
 
 Each lemma in this namespace that is named after a combine is the local correctness statement of
@@ -1097,8 +1100,7 @@ local macro "proveShiftAmountMaskValid" equality:ident : tactic => `(tactic| (
   cases (interprets_reg_iff fun _ => rfl).mp hprod
   cases (interprets_reg_iff fun _ => rfl).mp hshift
   refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
-  simp only [RISCVImmediateProperties.immField]
-  rw [$equality hmask]
+  rw [$equality (by simpa using hmask)]
   exact RuntimeValue.isRefinedBy_refl _))
 
 local macro "proveShiftAmountZextValid" equality:ident : tactic => `(tactic| (

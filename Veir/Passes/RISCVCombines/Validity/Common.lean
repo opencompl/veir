@@ -13,7 +13,7 @@ import all Veir.Dialects.RISCV.Interpreter
 import all Veir.IR.Attribute
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Lemmas
-import all Veir.Data.Refinement
+import all Veir.Data.LLVM.Int.Basic
 import Veir.PatternRewriter.Puddle.Definitions
 import Veir.PatternRewriter.Puddle.Validity
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics

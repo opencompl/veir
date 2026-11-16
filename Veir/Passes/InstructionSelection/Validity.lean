@@ -30,7 +30,6 @@ import all Veir.IR.Attribute
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.Casting
-import all Veir.Data.Refinement
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
@@ -183,14 +182,14 @@ theorem trunc_narrow {w : Nat} (hw : w ≤ 64) (a : BitVec w) (tb : Nat) (h : w 
 the round trip, and kept by the truncation to `i128`. -/
 theorem trunc_wide : ¬ TruncRoundTrip := fun h => by
   have := h (1#129 <<< 100) 128 (by omega) false false
-  simp [Data.LLVM.Int.trunc, RISCV.Reg.toInt, isRefinedBy, Id.run] at this
+  simp [Data.LLVM.Int.trunc, RISCV.Reg.toInt, Data.LLVM.Int.isRefinedBy, Id.run] at this
 
 /-- A `g_anyext` of an operand of at most 64 bits may choose zero high bits, which is what the
 round trip through a register produces. -/
 theorem anyext_narrow {w : Nat} (hw : w ≤ 64) (a : BitVec w) (tb : Nat) (h : w < tb) :
     ∃ msb, (Data.LLVM.Int.val a).ext tb msb h ⊒ RISCV.Reg.toInt ⟨BitVec.setWidth 64 a⟩ tb := by
   refine ⟨0, ?_⟩
-  simp only [Data.LLVM.Int.ext, RISCV.Reg.toInt, isRefinedBy, Data.LLVM.Int.cast, Id.run]
+  simp only [Data.LLVM.Int.ext, RISCV.Reg.toInt, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.cast, Id.run]
   apply BitVec.eq_of_getElem_eq
   intro i hi
   simp only [BitVec.getElem_cast, BitVec.getElem_append, BitVec.getElem_setWidth, BitVec.getLsbD_setWidth,
@@ -204,7 +203,7 @@ through a register drops. -/
 theorem anyext_wide_msb (msb : BitVec 1) :
     ¬ ((Data.LLVM.Int.val (1#128 <<< 100)).ext 129 msb (by omega) ⊒
       RISCV.Reg.toInt ⟨BitVec.setWidth 64 (1#128 <<< 100)⟩ 129) := by
-  simp [Data.LLVM.Int.ext, RISCV.Reg.toInt, isRefinedBy, Data.LLVM.Int.cast, Id.run, BitVec.cast_eq]
+  simp [Data.LLVM.Int.ext, RISCV.Reg.toInt, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.cast, Id.run, BitVec.cast_eq]
   bv_decide
 
 theorem anyext_wide : ¬ AnyextRoundTrip := fun h =>
@@ -295,7 +294,7 @@ branch do, and `getelementptr` the address lemmas of that branch. -/
 reads. -/
 theorem toInt_trunc_toInt (r : Data.RISCV.Reg) (tb : Nat) (h : 64 > tb) :
     RISCV.Reg.toInt r tb ⊒ (RISCV.Reg.toInt r 64).trunc tb false false h := by
-  simp [RISCV.Reg.toInt, Data.LLVM.Int.trunc, isRefinedBy, Id.run,
+  simp [RISCV.Reg.toInt, Data.LLVM.Int.trunc, Data.LLVM.Int.isRefinedBy, Id.run,
     BitVec.setWidth_setWidth_of_le r.val (by omega : tb ≤ 64)]
 
 /-- The argument lowering reduces to `toInt_trunc_toInt`: the matcher bounds the narrow width

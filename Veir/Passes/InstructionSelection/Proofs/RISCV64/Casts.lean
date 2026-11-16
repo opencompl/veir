@@ -103,7 +103,7 @@ theorem trunc_pattern_valid :
     simp [ctree_semantics, ←Attribute.integerType_eq_of, Nat.not_le.mpr hlt]
     intro r hr
     have h := Data.RISCV.trunc_refinement_le64 hle (x := x) (nsw := props.nsw) (nuw := props.nuw) (h := hlt)
-    cases x <;> simp_all [ctree_semantics, Data.LLVM.Int.trunc, RISCV.Reg.toInt, LLVM.Int.toReg, Id.run, RuntimeValue.isRefinedBy, isRefinedBy]
+    cases x <;> simp_all [ctree_semantics, Data.LLVM.Int.trunc, RISCV.Reg.toInt, LLVM.Int.toReg, Id.run, RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]
   · simp only [RuntimeValue.Conforms.byteType] at hc
     rcases hc with ⟨x,rfl⟩
     simp [ctree_semantics,  ←Attribute.byteType_eq_of, Nat.not_le.mpr hlt]
@@ -120,8 +120,10 @@ private theorem xor_not_and_allOnes (x : BitVec w) :
   ext i
   simp
 
-private theorem byte_resolved_mask (v p b : BitVec w) :
-    p ||| (v ^^^ ~~~(v ||| p &&& b)) &&& BitVec.allOnes w = BitVec.allOnes w := by
+private theorem byte_resolved_mask (v p b : BitVec w) (h : v &&& p = 0)
+    (h' : (v ||| p &&& b) &&& 0#w = 0) :
+    (⟨v, p, h⟩ : Data.LLVM.Byte w) ⊒ ⟨v ||| p &&& b, 0#w, h'⟩ := by
+  simp only [Data.LLVM.Byte.isRefinedBy]
   ext i
   simp
   veir_bv_decide
@@ -171,10 +173,9 @@ theorem bitcast_pattern_valid :
   all_goals cases x <;> simp_all [ctree_semantics, RuntimeValue.isRefinedBy,
     Data.LLVM.Byte.fromInt, Data.LLVM.Byte.toInt, Data.LLVM.Ptr.toInt,
     Data.LLVM.Ptr.toByte]
-  all_goals try (split <;> simp_all [isRefinedBy])
-  all_goals try (ext i; simp [Data.LLVM.Byte.allPoison]; all_goals veir_bv_decide)
-  all_goals rename_i reg bits val poison hp hr
-  all_goals exact byte_resolved_mask val poison bits
+  all_goals try (split <;> simp_all [Data.LLVM.Int.isRefinedBy])
+  all_goals try (ext i; simp; all_goals veir_bv_decide)
+  all_goals exact byte_resolved_mask _ _ _ _ _
 
 end
 
@@ -185,15 +186,15 @@ private theorem trunc_reg_refinement {src dst : Nat} (hw : dst ≤ 64) (hlt : ds
     (hr : ∀ bits, x = .val bits → reg.val = bits.setWidth 64) (nsw nuw : Bool) :
     x.trunc dst nsw nuw hlt ⊒ RISCV.Reg.toInt reg dst := by
   cases x with
-  | poison => simp [Data.LLVM.Int.trunc, isRefinedBy, Id.run]
+  | poison => simp [Data.LLVM.Int.trunc, Data.LLVM.Int.isRefinedBy, Id.run]
   | val bits =>
     have hreg := hr bits rfl
     simp [Data.LLVM.Int.trunc, RISCV.Reg.toInt, hreg, Id.run,
       BitVec.setWidth_setWidth_of_le bits hw]
     by_cases hs : nsw = true ∧ ¬(bits.setWidth dst).signExtend src = bits
-    · simp [hs, isRefinedBy, pure]
+    · simp [hs, Data.LLVM.Int.isRefinedBy, pure]
     · by_cases hu : nuw = true ∧ ¬(bits.setWidth dst).setWidth src = bits <;>
-        simp [hs,hu,isRefinedBy,pure]
+        simp [hs,hu,Data.LLVM.Int.isRefinedBy,pure]
 
 /-- If the source fits in a register, any-extension may choose the register's
     existing high bits, including for results wider than a register. -/
@@ -202,7 +203,7 @@ private theorem anyext_reg_refinement {src dst : Nat} (hw : src ≤ 64) (hlt : s
     (hr : ∀ bits, x = .val bits → reg.val = bits.setWidth 64) :
     ∃ msb, x.ext dst msb hlt ⊒ RISCV.Reg.toInt reg dst := by
   cases x with
-  | poison => exact ⟨0,by simp [Data.LLVM.Int.ext, isRefinedBy, Id.run]⟩
+  | poison => exact ⟨0,by simp [Data.LLVM.Int.ext, Data.LLVM.Int.isRefinedBy, Id.run]⟩
   | val bits =>
     have hreg := hr bits rfl
     have hx : RISCV.Reg.toInt reg src = .val bits := by
@@ -284,7 +285,7 @@ theorem gmirAnyextOfReg_pattern_valid :
     simp only [CTree.tau_def, Sim.pure_tau]
     rename_i srcTy dstTy hlt
     refine ⟨reg.val.extractLsb' srcTy.bitwidth (dstTy.bitwidth - srcTy.bitwidth), ?_⟩
-    simp [ctree_semantics, RuntimeValue.isRefinedBy, isRefinedBy]
+    simp [ctree_semantics, RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]
     simp only [Data.LLVM.Int.cast]
     ext i
     simp
@@ -407,7 +408,7 @@ theorem sextInRegShift_pattern_valid :
   have hamount : ((64#64 - props.sz).setWidth 6).toNat = 64 - props.sz.toNat := by
     rw [BitVec.toNat_setWidth, BitVec.toNat_sub_of_le (BitVec.le_def.mpr (Nat.le_of_lt hlt))]
     exact Nat.mod_eq_of_lt (Nat.sub_lt (by veir_bv_decide) hpos)
-  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run, isRefinedBy]
+  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run, Data.LLVM.Int.isRefinedBy]
   all_goals rw [sext_low_shift _ _ hpos (Nat.le_of_lt hlt)]
   all_goals simp [Data.RISCV.srai, Data.RISCV.slli, hamount, hr]
 

@@ -18,7 +18,6 @@ import all Veir.Data.RISCV.Reg.Lemmas
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Ptr.Basic
 import all Veir.Data.Casting
-import all Veir.Data.Refinement
 import all Veir.Interpreter.Memory
 import all Init.Data.Array.Basic
 
@@ -215,20 +214,20 @@ attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
 theorem reg_i64_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRegToI64RoundTrip) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
 theorem reg_ptr_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRiscvRegToPtrCast) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
 theorem mod_arith_int_valid :
     Puddle.CTree.Pattern.Valid (reconcilePairingCast isPreservingModArithToIntCast) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType

@@ -15,10 +15,11 @@ public section
 /-!
 # Monotonicity of the gMIR opcodes in CTrees
 
-Every gMIR opcode but `g_anyext` and `g_load` runs its `Interp` semantics in CTrees, which is
-monotone in its operands and its memory. `g_anyext` and `g_load` choose the high bits of their
-result. The source chooses the same high bits as the target: the result of the source extends a
-refined value, and so refines the result of the target, poison staying poison.
+Every gMIR opcode but `g_anyext`, `g_freeze` and `g_load` runs its `Interp` semantics in CTrees,
+which is monotone in its operands and its memory. `g_anyext` and `g_load` choose the high bits of
+their result. The source chooses the same high bits as the target: the result of the source
+extends a refined value, and so refines the result of the target, poison staying poison.
+`g_freeze` chooses what poison becomes: the source chooses what the target's poison became.
 -/
 
 open CTree
@@ -26,8 +27,9 @@ open Veir.Data
 
 namespace Veir.CTree
 
-/-- A gMIR opcode but `g_anyext` and `g_load` runs its `Interp` semantics. -/
+/-- A gMIR opcode but `g_anyext`, `g_freeze` and `g_load` runs its `Interp` semantics. -/
 theorem interpretOp'_gmir_of_lift {op : GMIR} (h₁ : op ≠ .g_anyext) (h₂ : op ≠ .g_load)
+    (h₃ : op ≠ .g_freeze)
     (properties : propertiesOf (OpCode.gmir op)) (resultTypes : Array TypeAttr)
     (operands : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState)
     (regions : Array RegionPtr) :
@@ -45,7 +47,7 @@ private theorem Interp.isRefinedBy_and {R : α → β → Prop} {P : β → Prop
 /-- The values that a single integer refines are a single integer. -/
 private theorem toList_int1_of_isRefinedBy_target {a b : Array RuntimeValue} (h : a ⊒ b) {w : Nat}
     {x' : LLVM.Int w} (hb : b.toList = [.int w x']) :
-    ∃ x, a.toList = [.int w x] ∧ _root_.isRefinedBy x x' := by
+    ∃ x, a.toList = [.int w x] ∧ LLVM.Int.isRefinedBy x x' := by
   obtain rfl : b = #[.int w x'] := List.eq_toArray_iff.mpr hb
   have hsize : a.size = 1 := h.1
   obtain ⟨v, rfl⟩ : ∃ v, a = #[v] := by
@@ -69,7 +71,51 @@ types of the values, or nothing.
 private def IntsAlike (Q : Array RuntimeValue → Prop) : Prop :=
   ∀ w (x y : LLVM.Int w), Q #[.int w x] → Q #[.int w y]
 
-/-! ## `g_anyext` and `g_load` -/
+/-! ## `g_anyext`, `g_freeze` and `g_load` -/
+
+/-- `g_freeze` is monotone in CTrees: the source chooses what the target's poison became. -/
+private theorem sim_g_freeze {Q : Array RuntimeValue → Prop} (hQ : IntsAlike Q)
+    (properties : propertiesOf (OpCode.gmir .g_freeze)) (resultTypes : Array TypeAttr)
+    {operands operands' : Array RuntimeValue} (blockOperands : Array BlockPtr)
+    {mem mem' : MemoryState} (regions : Array RegionPtr) (h : operands ⊒ operands')
+    (hMem : mem ⊒ mem')
+    (hTyped : ∀ vals m a, Veir.interpretOp' (.gmir .g_freeze) properties resultTypes operands'
+      blockOperands mem' = .ok (vals, m, a) → Q vals) :
+    Sim (fun t s => OperationResult.isRefinedBy s t ∧ Q t.1)
+      (interpretOp' (.gmir .g_freeze) properties resultTypes operands' blockOperands mem' regions)
+      (interpretOp' (.gmir .g_freeze) properties resultTypes operands blockOperands mem
+        regions) := by
+  rw [interpretOp'_regions, interpretOp'_regions]
+  simp only [interpretOp', GMIR.interpretOpCTree]
+  simp only [Veir.interpretOp', GMIR.interpretOp'] at hTyped
+  rcases hs : operands.toList with _ | ⟨v, _ | ⟨_, _⟩⟩
+  · simp
+  rotate_left
+  · simp
+  obtain ⟨v', hs', hv⟩ := toList_eq_singleton_of_isRefinedBy h hs
+  simp only [hs'] at hTyped ⊢
+  cases v with
+  | int w x =>
+    obtain ⟨x', rfl, hx⟩ := RuntimeValue.int_of_isRefinedBy hv
+    have hQ' : ∀ y : LLVM.Int w, Q #[.int w y] := fun y => hQ w _ y (hTyped _ _ _ rfl)
+    have hres : ∀ y : LLVM.Int w, OperationResult.isRefinedBy (#[.int w y], mem, none)
+        (#[.int w y], mem', none) := fun y =>
+      OperationResult.isRefinedBy_def.mpr ⟨RuntimeValue.arrayIsRefinedBy_refl _, hMem,
+        ControlFlowAction.optionIsRefinedBy_refl _⟩
+    cases x with
+    | val a =>
+      obtain rfl : x' = .val a := by
+        have := RuntimeValue.int_val_isRefinedBy_iff.mp hv; simpa using this
+      exact (Sim.pure _ _ _).mpr ⟨hres _, hQ' _⟩
+    | poison =>
+      cases x' with
+      | val a =>
+        simp only
+        exact sim_choose_right _ a ((Sim.pure _ _ _).mpr ⟨hres _, hQ' _⟩)
+      | poison =>
+        refine sim_choose_left _ fun bits => sim_choose_right _ bits ?_
+        exact (Sim.pure _ _ _).mpr ⟨hres _, hQ' _⟩
+  | _ => simp
 
 /-- `g_anyext` is monotone in CTrees: the source extends with the high bits of the target. -/
 private theorem sim_g_anyext {Q : Array RuntimeValue → Prop} (hQ : IntsAlike Q)
@@ -195,8 +241,10 @@ private theorem gmir_sim {op : GMIR} {Q : Array RuntimeValue → Prop} (hQ : Int
   · subst h₁; exact sim_g_anyext hQ _ _ _ _ h hMem hTyped
   by_cases h₂ : op = .g_load
   · subst h₂; exact sim_g_load hQ _ _ _ _ h hMem hTyped
-  have := gmir_interpretOp'ContextuallyMonotone op
-  rw [interpretOp'_gmir_of_lift h₁ h₂, interpretOp'_gmir_of_lift h₁ h₂]
+  by_cases h₃ : op = .g_freeze
+  · subst h₃; exact sim_g_freeze hQ _ _ _ _ h hMem hTyped
+  have := gmir_interpretOp'ContextuallyMonotone h₃
+  rw [interpretOp'_gmir_of_lift h₁ h₂ h₃, interpretOp'_gmir_of_lift h₁ h₂ h₃]
   exact sim_monadLift_of_isRefinedBy (Interp.isRefinedBy_and
     (this.monotone properties resultTypes operands operands' blockOperands mem mem' h hMem)
     fun ⟨vals, m, a⟩ hok => hTyped vals m a hok)

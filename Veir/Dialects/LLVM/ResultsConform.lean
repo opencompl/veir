@@ -356,6 +356,12 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
   case and => rc_binop OperationPtr.Verified.llvm_and
   case or => rc_binop OperationPtr.Verified.llvm_or
   case xor => rc_binop OperationPtr.Verified.llvm_xor
+  case intr__smulh => rc_binop OperationPtr.Verified.llvm_intr__smulh
+  case intr__umulh => rc_binop OperationPtr.Verified.llvm_intr__umulh
+  case intr__scmp | intr__ucmp =>
+    rc_peel
+    all_goals (obtain rfl := single_of_ok h
+               exact results_toList ‹_› (int_conforms_of_val ‹_› rfl))
   case intr__smax => rc_binop OperationPtr.Verified.llvm_intr__smax
   case intr__smin => rc_binop OperationPtr.Verified.llvm_intr__smin
   case intr__umax => rc_binop OperationPtr.Verified.llvm_intr__umax

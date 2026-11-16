@@ -7,7 +7,6 @@ import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR_RISCV.OpInfo
 import all Veir.Dialects.GMIR_RISCV.Semantics
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 import all Veir.Interpreter.Refinement.Basic
 import all Veir.Interpreter.Interp
 
@@ -29,6 +28,10 @@ namespace Veir
 private theorem base_ne (op : GMIR_RISCV) : op.base ≠ .g_store := by
   cases op <;> simp [GMIR_RISCV.base]
 
+/-- The base opcode of a `gmir_riscv` opcode is not a freeze. -/
+private theorem base_ne_freeze (op : GMIR_RISCV) : op.base ≠ .g_freeze := by
+  cases op <;> simp [GMIR_RISCV.base]
+
 /-- Running the base opcode on refined operands, then sign-extending its one result. -/
 private theorem isRefinedBy_base {op : GMIR_RISCV} {props} {rt}
     {a a' : Array RuntimeValue} (h : a ⊒ a') (mem : MemoryState) :
@@ -42,7 +45,7 @@ private theorem isRefinedBy_base {op : GMIR_RISCV} {props} {rt}
         let (results, mem, _) ← GMIR.interpretOp' op.base props rt a' #[] mem
         let [.int 32 result] := results.toList | none
         return (#[RuntimeValue.int 64 (Data.LLVM.Int.sext result 64 (by decide))], mem, none)) := by
-  have := (gmir_interpretOp'Monotone (base_ne op)).monotone props rt a a' #[] mem h
+  have := (gmir_interpretOp'Monotone (base_ne op) (base_ne_freeze op)).monotone props rt a a' #[] mem h
   refine Interp.isRefinedBy_bind this fun r r' hr => ?_
   obtain ⟨⟨hres, -, -⟩, hmem⟩ := hr
   rcases r with ⟨res, m, act⟩
@@ -55,7 +58,7 @@ private theorem isRefinedBy_base {op : GMIR_RISCV} {props} {rt}
     simp only [hT]
     rcases h1 with rfl | ⟨_, rfl, rfl⟩
     · simp [Interp.isRefinedBy, OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy,
-        RuntimeValue.isRefinedBy, _root_.isRefinedBy, LLVM.Int.sext, Id.run]
+        RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy, LLVM.Int.sext, Id.run]
     · exact Interp.isRefinedBy_refl_operationResult_sameMemory _
   · simp [Interp.isRefinedBy]
 
@@ -71,13 +74,13 @@ instance gmirRiscv_monotone (op : GMIR_RISCV) : InterpretOp'Monotone (.gmir_risc
       simp only [hT, Interp.pure_eq, Interp.bind_ok]
       refine isRefinedBy_base ?_ mem
       rcases h1 with rfl | ⟨_, rfl, rfl⟩ <;>
-        simp [RuntimeValue.isRefinedBy, _root_.isRefinedBy, LLVM.Int.trunc, Id.run]
+        simp [RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy, LLVM.Int.trunc, Id.run]
     · next x y heq =>
       obtain ⟨x', y', hT, h1, h2⟩ := RuntimeValue.toList_int2_of_isRefinedBy h heq
       simp only [hT, Interp.pure_eq, Interp.bind_ok]
       refine isRefinedBy_base ?_ mem
       rcases h1 with rfl | ⟨_, rfl, rfl⟩ <;> rcases h2 with rfl | ⟨_, rfl, rfl⟩ <;> split <;>
-        simp [RuntimeValue.isRefinedBy, _root_.isRefinedBy, LLVM.Int.trunc, Id.run,
+        simp [RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy, LLVM.Int.trunc, Id.run,
           GMIR_RISCV.wordShiftAmount, LLVM.Int.and]
     · simp [Interp.isRefinedBy]
 

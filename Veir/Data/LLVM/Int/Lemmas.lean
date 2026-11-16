@@ -61,11 +61,6 @@ theorem IntPred.eq_cases (p : IntPred) :
       p = .sgt ∨ p = .sge ∨ p = .slt ∨ p = .sle := by
   cases p <;> simp
 
-@[simp]
-theorem poison_ext {w₁ w₂ : Nat} {msb : BitVec (w₂-w₁)} {h : w₁ < w₂} :
-    (poison : Int w₁).ext w₂ msb h = poison := by
-  rfl
-
 @[simp, grind =]
 theorem IntPred.eval_eq {w : Nat} (x y : BitVec w) :
     IntPred.eq.eval x y = (x == y) := by

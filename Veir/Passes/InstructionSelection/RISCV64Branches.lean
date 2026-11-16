@@ -205,10 +205,10 @@ public theorem compareBranch_holds {pred : Data.LLVM.IntPred} {lhs rhs : ValuePt
       Data.LLVM.IntPred.eval pred (value (some lhs)) (value (some rhs)) := by
   unfold compareBranch
   split
-  all_goals simp only [compareHolds, hNone, Data.LLVM.IntPred.eval_eq, Data.LLVM.IntPred.eval_ne,
-    Data.LLVM.IntPred.eval_ugt, Data.LLVM.IntPred.eval_uge, Data.LLVM.IntPred.eval_ult,
-    Data.LLVM.IntPred.eval_ule, Data.LLVM.IntPred.eval_sgt, Data.LLVM.IntPred.eval_sge,
-    Data.LLVM.IntPred.eval_slt, Data.LLVM.IntPred.eval_sle]
+  all_goals simp only [compareHolds, hNone, Data.LLVM.Int.IntPred.eval_eq, Data.LLVM.Int.IntPred.eval_ne,
+    Data.LLVM.Int.IntPred.eval_ugt, Data.LLVM.Int.IntPred.eval_uge, Data.LLVM.Int.IntPred.eval_ult,
+    Data.LLVM.Int.IntPred.eval_ule, Data.LLVM.Int.IntPred.eval_sgt, Data.LLVM.Int.IntPred.eval_sge,
+    Data.LLVM.Int.IntPred.eval_slt, Data.LLVM.Int.IntPred.eval_sle]
   · rw [hConstant (-1) rfl]
     bv_decide
   · rw [hConstant 1 rfl]
