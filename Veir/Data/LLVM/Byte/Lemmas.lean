@@ -108,11 +108,13 @@ theorem shl_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
   cases y with
   | poison => exact allPoison_isRefinedBy _
   | val s =>
-    simp [Int.isRefinedBy_eq] at hy
+    simp only [Int.isRefinedBy_eq] at hy
     split at hy
     · case _ i i' v v' heq =>
-      simp [isRefinedBy] at hx
-      simp [isRefinedBy, heq, hy, poison_shl, val_shl]
+      simp only [isRefinedBy] at hx
+      simp only [isRefinedBy, heq, hy, poison_shl, isPoison_of_val, getValueD_val,
+        BitVec.natCast_eq_ofNat, ge_iff_le, Bool.false_or, decide_eq_true_eq, BitVec.shiftLeft_eq',
+        BitVec.ushiftRight_eq', ne_eq, val_shl]
       subst hy
       by_cases hs : BitVec.ofNat w w ≤ v
       <;> by_cases hv : nuw = true ∧ ¬x.val <<< v.toNat >>> v.toNat = x.val
@@ -158,11 +160,13 @@ theorem lshr_isRefinedBy_of_isRefinedBy {w : Nat} {x x' : Byte w} {y y' : Int w}
   cases y with
   | poison => rw [lshr_poison]; exact allPoison_isRefinedBy _
   | val s =>
-    simp [Int.isRefinedBy_eq] at hy
+    simp only [Int.isRefinedBy_eq] at hy
     split at hy
     · case _ i i' v v' heq =>
-      simp [isRefinedBy] at hx
-      simp [isRefinedBy, heq, hy, poison_lshr, val_lshr]
+      simp only [isRefinedBy] at hx
+      simp only [isRefinedBy, heq, hy, poison_lshr, isPoison_of_val, getValueD_val,
+        BitVec.natCast_eq_ofNat, ge_iff_le, Bool.false_or, decide_eq_true_eq,
+        BitVec.ushiftRight_eq', BitVec.shiftLeft_eq', ne_eq, val_lshr]
       subst hy
       by_cases hs : BitVec.ofNat w w ≤ v
       <;> by_cases hv : exact = true ∧ ¬x.val >>> v.toNat <<< v.toNat = x.val
@@ -214,13 +218,15 @@ theorem toInt_isRefinedBy {w : Nat} {x x' : Byte w} (h : x ⊒ x') :
       ext k hk
       have ⟨_, h⟩ := h
       have := congrArg (·.getLsbD k) h
-      simp [hk] at this
+      simp only [hk, BitVec.getLsbD_eq_getElem, BitVec.getElem_not, BitVec.getElem_allOnes,
+        Bool.not_eq_eq_eq_not, Bool.not_true] at this
       simp [this]
     simp only [this, ↓reduceIte, hnp, isRefinedBy_eq]
     ext k hk
     have ⟨h, _⟩ := h
     have := congrArg (·.getLsbD k) h
-    simp [hk] at this
+    simp only [hk, BitVec.getLsbD_eq_getElem, BitVec.getElem_xor, BitVec.getElem_not, Bool.bne_not,
+      BitVec.getElem_allOnes, Bool.not_eq_eq_eq_not, Bool.not_true, bne_eq_false_iff_eq] at this
     simp [this]
 
 theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : i ⊒ i') :
