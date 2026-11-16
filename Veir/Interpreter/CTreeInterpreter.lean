@@ -2,7 +2,6 @@ module
 
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.CTree
-public import Veir.Interfaces.CallInterfaces
 public import Veir.Dialects.Builtin.Interpreter
 public import Veir.Dialects.LLVM.Interpreter
 public import Veir.Dialects.GMIR.Interpreter
@@ -18,7 +17,8 @@ namespace CTree
 set_option linter.unusedVariables false in
 /--
 Interpret an opcode given its properties, result types, and runtime operands.
-Regions may be called using the `runRegion` function, which triggers a `RunRegionE` effect.
+Regions may be called using the `runRegion` function, which triggers a `RunRegionE` effect, and
+functions using `interpretCall`, which triggers a `CallE` effect.
 
 This calls the dialect-specific interpreters, which can be either CTree-based or Interp-based.
 -/
@@ -26,7 +26,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (blockOperands : Array BlockPtr) (mem : MemoryState)
     (regions : Array RegionPtr := #[])
-    : CTree ((ErrorE ⊕ₑ UBE)) FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+    : FunctionTree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .llvm opType =>
     Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem
@@ -36,6 +36,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     Riscv.interpretOpCTree opType properties resultTypes operands blockOperands mem
   | .builtin opType =>
     Builtin.interpretOpCTree opType properties resultTypes operands blockOperands mem
+  | .func .call => interpretCall Func.callInterface properties operands mem
+  | .riscv_cf .call => interpretCall Riscv_Cf.callInterface properties operands mem
   /- Other dialects rely on lifting the `Interp`-based interpreter. -/
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
@@ -45,35 +47,12 @@ end CTree
 /-- CTree counterpart of `OperationPtr.interpret`, with the operation's IR metadata fixed. -/
 def OperationPtr.interpretCTree {ctx : WfIRContext OpCode} (op : OperationPtr)
     (opIn : op.InBounds ctx.raw) (operands : Array RuntimeValue) (memory : MemoryState) :
-    Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+    FunctionTree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
   let code := op.getOpType ctx.raw opIn
   CTree.interpretOp' code (op.getProperties ctx.raw code) (op.getResultTypes ctx.raw)
     operands (op.getSuccessors ctx.raw) memory (op.getRegions ctx.raw)
 
 namespace CTree
-
-/--
-Interpret a call-like operation by triggering a `CallE` effect on the symbol of its callee. Calling
-a pointer that does not point to the start of a global is undefined behavior.
--/
-def interpretCall (op : OperationPtr) {ctx : WfIRContext OpCode} (callOp : CallOp ctx.raw op)
-    (operands : Array RuntimeValue) (state : InterpreterState ctx)
-    (inBounds : op.InBounds ctx.raw := by grind)
-    : RegionTree ctx (InterpreterState ctx) (InterpreterState ctx × Option ControlFlowAction) := do
-  let properties := op.getProperties! ctx.raw (op.getOpType! ctx.raw)
-  let callee ← match callOp.callOpInterface.getCallableForCallee? properties operands with
-    | some (.symbol ref) => do
-      let some name := ref.getName? >>= String.fromUTF8? | fail
-      pure ("@" ++ name)
-    | some (.value (.addr (.val ptr))) => do
-      let some callee := state.memory.globalAt? ptr | ub
-      pure callee
-    | some (.value (.addr .poison)) => ub
-    | _ => fail
-  let arguments := callOp.callOpInterface.getArgOperands properties operands
-  let (memory, results) ← CTree.trigger (SubE := CallE) ⟨callee, arguments, state.memory⟩
-  let some variables := state.variables.setResultValues? op results inBounds | fail
-  return (⟨variables, memory⟩, none)
 
 /-- Interpret an operation given an operation pointer and an interpreter state. -/
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
@@ -81,9 +60,6 @@ def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
     : RegionTree ctx (InterpreterState ctx) (InterpreterState ctx × Option ControlFlowAction) := do
   let some operands := state.variables.getOperandValues op
     | fail
-  /- Calls are handled here, as dialect interpreters cannot trigger `CallE`. -/
-  if let some callOp := CallOp.of? op ctx.raw then
-    return ← interpretCall op callOp operands state
   let opType := op.getOpType ctx.raw inBounds
   let opCTree := (interpretOp' opType (op.getProperties ctx.raw opType)
     (op.getResultTypes ctx.raw) operands (op.getSuccessors ctx.raw) state.memory

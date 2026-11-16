@@ -8,6 +8,7 @@ public import CTree.Sim
 
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.RuntimeValue
+public import Veir.IR.SymbolRef
 
 public section
 
@@ -120,6 +121,27 @@ abbrev CallE (_ : CallEIn) : Type :=
 /-- Trees whose function calls have not yet been interpreted. -/
 abbrev FunctionTree (α : Type) :=
   CTree (CallE ⊕ₑ (ErrorE ⊕ₑ UBE)) FreezeC α
+
+/--
+Interpret a call-like operation by triggering a `CallE` effect on the symbol of its callee. Calling
+a pointer that does not point to the start of a global is undefined behavior.
+-/
+def interpretCall {EIn CIn} {E : EIn → Type} {C : CIn → Type} {P : Type} [CallE -< E]
+    [ErrorE -< E] [UBE -< E] (callOpInterface : CallOpInterface P) (properties : P)
+    (operands : Array RuntimeValue) (mem : MemoryState)
+    : CTree E C (Array RuntimeValue × MemoryState × Option ControlFlowAction) := do
+  let callee ← match callOpInterface.getCallableForCallee? properties operands with
+    | some (.symbol ref) => do
+      let some name := ref.getName? >>= String.fromUTF8? | fail
+      pure ("@" ++ name)
+    | some (.value (.addr (.val ptr))) => do
+      let some callee := mem.globalAt? ptr | ub
+      pure callee
+    | some (.value (.addr .poison)) => ub
+    | _ => fail
+  let arguments := callOpInterface.getArgOperands properties operands
+  let (mem, results) ← CTree.trigger (SubE := CallE) ⟨callee, arguments, mem⟩
+  return (results, mem, none)
 
 /-! ## Region Runner Effect -/
 
