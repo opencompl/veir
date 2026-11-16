@@ -1,3 +1,4 @@
+import Veir.Parser.LoweringInitial
 import Veir.Parser.NameResolutionSketch
 import Veir.Parser.DecidableInBounds
 import Veir.Rewriter.WfRewriter
@@ -760,18 +761,871 @@ def reverseModule (ctx : WfIRContext OpCode) (root : OperationPtr) :
   let block ← reverseBody ctx root
   return ⟨← (← reverseOps ctx block).mapM (reverseFunction ctx)⟩
 
-def equivalent_modulo_renaming_rearranging (ctx1 : WfIRContext OpCode) (root1 : OperationPtr)
+/-! Rooted isomorphism: two graphs agree on everything reachable from their roots, up to a
+renaming of pointers. Unreachable operations, allocation order and use-lists are ignored. -/
+
+section Isomorphism
+
+/-- `op` is `root`, or lies in a block of a region of a reachable operation. -/
+inductive Reaches (ctx : WfIRContext OpCode) (root : OperationPtr) : OperationPtr → Prop
+  | root : Reaches ctx root root
+  | nested {op r bs b os o} : Reaches ctx root op → r ∈ op.getRegions! ctx.raw →
+      r.BlockChain ctx.raw bs → b ∈ bs → b.OpChain ctx.raw os → o ∈ os → Reaches ctx root o
+
+/-- Lift a renaming of operations and blocks to values: results and arguments keep their index. -/
+def renameValue (φ : OperationPtr → OperationPtr) (β : BlockPtr → BlockPtr) : ValuePtr → ValuePtr
+  | .opResult r => .opResult { r with op := φ r.op }
+  | .blockArgument a => .blockArgument { a with block := β a.block }
+
+/-- A renaming of the graph reachable from `root₁` onto the one reachable from `root₂`: every
+reachable op looks the same after renaming, and its regions' block and op chains map pointwise. -/
+def RootedIso (ctx₁ : WfIRContext OpCode) (root₁ : OperationPtr)
+    (ctx₂ : WfIRContext OpCode) (root₂ : OperationPtr) : Prop :=
+  ∃ (φ : OperationPtr → OperationPtr) (β : BlockPtr → BlockPtr), φ root₁ = root₂ ∧
+    (∀ o o', Reaches ctx₁ root₁ o → Reaches ctx₁ root₁ o' → φ o = φ o' → o = o') ∧
+    ∀ o, Reaches ctx₁ root₁ o → (∀ code : OpCode, (φ o).getProperties! ctx₂.raw code = o.getProperties! ctx₁.raw code) ∧
+      ((φ o).getOpType! ctx₂.raw, (φ o).getResultTypes! ctx₂.raw, (φ o).getNumSuccessors! ctx₂.raw,
+        (φ o).getAttributes! ctx₂.raw, (φ o).getOperands! ctx₂.raw, ((φ o).getRegions! ctx₂.raw).size) =
+      (o.getOpType! ctx₁.raw, o.getResultTypes! ctx₁.raw, o.getNumSuccessors! ctx₁.raw,
+        o.getAttributes! ctx₁.raw, (o.getOperands! ctx₁.raw).map (renameValue φ β), (o.getRegions! ctx₁.raw).size) ∧
+      ∀ rs ∈ (o.getRegions! ctx₁.raw).zip ((φ o).getRegions! ctx₂.raw), ∀ bs, rs.1.BlockChain ctx₁.raw bs →
+        rs.2.BlockChain ctx₂.raw (bs.map β) ∧ ∀ b ∈ bs, (β b).getArgumentTypes! ctx₂.raw = b.getArgumentTypes! ctx₁.raw ∧
+          ∀ os, b.OpChain ctx₁.raw os → (β b).OpChain ctx₂.raw (os.map φ)
+
+end Isomorphism
+
+def equivalent_modulo_renaming (ctx1 : WfIRContext OpCode) (root1 : OperationPtr)
     (ctx2 : WfIRContext OpCode) (root2 : OperationPtr) : Prop :=
-  sorry
+  RootedIso ctx1 root1 ctx2 root2
+
+/-! Totality follows from reference bounds and freshness of allocated identifiers. -/
+
+section Completeness
+
+set_option maxRecDepth 4000
+set_option maxHeartbeats 800000
+
+variable {ctx ctx' ctx'' : WfIRContext OpCode} {block : BlockPtr}
+
+attribute [local simp] StateT.run StateT.bind StateT.get StateT.set StateT.pure StateT.lift
+  bind pure get getThe MonadState.get MonadStateOf.get set MonadStateOf.set
+  Except.pure Except.bind throw throwThe MonadExceptOf.throw
+
+theorem emit_total (hs : AllocationSafe ctx.raw) (hb : block.InBounds ctx.raw)
+    {code : Llvm} {props : propertiesOf code} (insert : Bool)
+    (hv : ∀ v ∈ vs, v.InBounds ctx.raw) (hr : ∀ r ∈ rs, r.InBounds ctx.raw)
+    (hp : ∀ r ∈ rs, r.getParent! ctx.raw = none) (hn : rs.size ≤ 1) :
+    ∃ op ctx', (emit code ts vs rs props block insert).run ctx = .ok (op, ctx') ∧
+      AllocationSafe ctx'.raw ∧ ∀ r, r ∉ rs → r.getParent! ctx'.raw = r.getParent! ctx.raw := by
+  obtain ⟨raw, op, hc, hs⟩ := hs.createOp_total (ts := ts) (insert := insert) ctx.wellFormed.inBounds code props (fun _ => hb) hv hr hp hn
+  let ctx' : WfIRContext OpCode := ⟨raw, by grind [Rewriter.createOp_WellFormed]⟩
+  have he := createOp_of_raw (ctx' := ctx') hc
+  refine ⟨op, ctx', ?_, hs, by grind⟩
+  simp [emit]; simp [ show (if insert then some (InsertPoint.atEnd block) else none).maybe InsertPoint.InBounds ctx.raw by cases insert <;> grind, he]
+  rw [ite_eq_left hv, ite_eq_left hr]; rfl
+
+theorem MatchesOp.result_inBounds {code : Llvm} {props : propertiesOf code}
+    (h : MatchesOp ctx op code #[ty] vs rs props) : (ValuePtr.opResult (op.getResult 0)).InBounds ctx.raw := by
+  simp only [MatchesOp, Prod.mk.injEq] at h
+  have hn : op.getNumResults! ctx.raw = 1 := by simpa [OperationPtr.getResultTypes!.size_eq_getNumResults!] using congrArg Array.size h.2.2.2.1
+  grind [OperationPtr.getResult, OpResultPtr.inBounds_def]
+
+theorem lowerValue_total (hs : AllocationSafe ctx.raw) (hb : block.InBounds ctx.raw)
+    (hv : ∀ v ∈ results, v.InBounds ctx.raw)
+    (hvalid : ValidResolvedValue (block.getNumArguments! ctx.raw) results.size value) :
+    ∃ v ctx', (lowerValue block results ty value).run ctx = .ok (v, ctx') ∧
+      AllocationSafe ctx'.raw ∧ v.InBounds ctx'.raw ∧ ∀ r : RegionPtr, r.getParent! ctx'.raw = r.getParent! ctx.raw := by
+  rcases value with ⟨i | i⟩ | n
+  · refine ⟨.blockArgument (block.getArgument i), ctx, ?_, hs, by grind [ValidResolvedValue], fun _ => rfl⟩
+    change i < block.getNumArguments! ctx.raw at hvalid
+    simp [lowerValue]; rw [ite_eq_left hvalid]; rfl
+  · have hi : i < results.size := hvalid; exact ⟨results[i], ctx, by simp [lowerValue, hi], hs, hv _ (by simp), fun _ => rfl⟩
+  · cases ty with | int w =>
+    obtain ⟨op, c, he, hs, hr⟩ := emit_total (ctx := ctx) (code := .mlir__constant) (vs := #[]) (rs := #[]) (ts := #[lowerType (.int w)])
+      (props := { value := .integer (IntegerAttr.ofInt n (.signless w)) }) hs hb true (by simp) (by simp) (by simp) (by simp)
+    refine ⟨.opResult (op.getResult 0), c, ?_, hs, (emit_spec he).2.1.result_inBounds, fun r => hr r (by simp)⟩
+    simp only [lowerValue, run_bind, run_pure]; exact ⟨op, c, he, rfl⟩
+
+theorem lowerInst_total (hs : AllocationSafe ctx.raw) (hb : block.InBounds ctx.raw) :
+    ∃ op ctx', (lowerInst block inst).run ctx = .ok (op, ctx') ∧
+      AllocationSafe ctx'.raw ∧ Frame ctx ctx' [] block ∧ ∀ r : RegionPtr, r.getParent! ctx'.raw = r.getParent! ctx.raw := by
+  rcases inst with ⟨opc, ty, l, r⟩
+  obtain ⟨op, c, he, hs, hr⟩ := emit_total (ctx := ctx) (code := binOpcode opc) (props := default)
+    (ts := #[lowerType ty]) (vs := #[]) (rs := #[]) hs hb false (by simp) (by simp) (by simp) (by simp)
+  refine ⟨op, c, ?_, hs, (emit_spec he).1, fun r => hr r (by simp)⟩; cases opc <;> exact he
+
+theorem allocate_total {insts : List ResolvedAST} (hs : AllocationSafe ctx.raw) (hb : block.InBounds ctx.raw) :
+    ∃ ops ctx', (insts.mapM (lowerInst block)).run ctx = .ok (ops, ctx') ∧
+      AllocationSafe ctx'.raw ∧ ∀ r : RegionPtr, r.getParent! ctx'.raw = r.getParent! ctx.raw := by
+  induction insts generalizing ctx with
+  | nil => exact ⟨[], ctx, by simp, hs, fun _ => rfl⟩
+  | cons inst insts ih =>
+    obtain ⟨op, c, he, hs, hf, hr⟩ := lowerInst_total (inst := inst) hs hb
+    obtain ⟨ops, c', he', hs', hr'⟩ := ih hs (hf.bounds (.block block) hb)
+    refine ⟨op :: ops, c', ?_, hs', fun r => (hr' r).trans (hr r)⟩
+    simp only [List.mapM_cons, run_bind, run_pure]; exact ⟨op, c, he, ops, c', he', rfl⟩
+
+theorem pushValue_total (hs : AllocationSafe ctx.raw) (ho : op.InBounds ctx.raw) (hv : v.InBounds ctx.raw) :
+    ∃ ctx', (pushValue op v).run ctx = .ok ((), ctx') ∧ AllocationSafe ctx'.raw ∧
+      ∀ r : RegionPtr, r.getParent! ctx'.raw = r.getParent! ctx.raw := by
+  refine ⟨WfRewriter.pushOperand ctx op v ho hv, ?_, hs.pushOperand, ?_⟩
+  · simp [pushValue]; rw [dite_eq_left ho, dite_eq_left hv]; rfl
+  · intro r; grind [WfRewriter.pushOperand]
+
+theorem insertOp_of_raw (h : Rewriter.insertOp ctx.raw op ip ho hi (by grind) = some ctx'.raw) :
+    WfRewriter.insertOp ctx op ip ho hi = some ctx' := by
+  unfold WfRewriter.insertOp; split <;> simp_all
+
+theorem attachInst_total (hs : AllocationSafe ctx.raw) (ho : op.InBounds ctx.raw)
+    (hb : block.InBounds ctx.raw) (hp : op.getParent! ctx.raw = none) :
+    ∃ ctx', (attachInst block op).run ctx = .ok ((), ctx') ∧ AllocationSafe ctx'.raw ∧
+      ∀ r : RegionPtr, r.getParent! ctx'.raw = r.getParent! ctx.raw := by
+  obtain ⟨raw, hi⟩ := insertOp_total ctx.wellFormed.inBounds ho hb hp
+  let c : WfIRContext OpCode := ⟨raw, by grind [Rewriter.insertOp_WellFormed]⟩
+  have he := insertOp_of_raw (ctx' := c) hi
+  refine ⟨c, ?_, hs.insertOp hi, by grind⟩
+  simp [attachInst]; rw [dite_eq_left ho, dite_eq_left hb]; simp [he]
+
+theorem lowerOperand_total {code : Llvm} {props : propertiesOf code}
+    (hs : AllocationSafe ctx.raw) (hm : MatchesOp ctx op code ts vs rs props)
+    (hb : block.OpChain ctx.raw os) (hv : ∀ v ∈ results, v.InBounds ctx.raw)
+    (hvalid : ValidResolvedValue (block.getNumArguments! ctx.raw) results.size value) :
+    ∃ v c₁ c₂, (lowerValue block results ty value).run ctx = .ok (v, c₁) ∧
+      (pushValue op v).run c₁ = .ok ((), c₂) ∧ AllocationSafe c₂.raw ∧ Frame ctx c₂ [op] block ∧
+      MatchesOp c₂ op code ts (vs.push v) rs props ∧ op.getParent! c₂.raw = op.getParent! ctx.raw ∧
+      ∃ os', block.OpChain c₂.raw os' ∧ ∀ r : RegionPtr, r.getParent! c₂.raw = r.getParent! ctx.raw := by
+  obtain ⟨v, c₁, hl, hs₁, hv₁, hr₁⟩ := lowerValue_total (ty := ty) hs hb.blockInBounds hv hvalid
+  have hf := (lowerValue_spec hb hl).1
+  obtain ⟨c₂, hp, hs₂, hr₂⟩ := pushValue_total hs₁ (hf.bounds (.operation op) hm.1) hv₁
+  obtain ⟨cs, -, hm', hparent, hchain, hf', -⟩ := lowerOperand_sound hm hb hl hp
+  exact ⟨v, c₁, c₂, hl, hp, hs₂, hf', hm', hparent, _, hchain, fun r => (hr₂ r).trans (hr₁ r)⟩
+
+theorem wireInst_total (hs : AllocationSafe ctx.raw) (ha : Allocated ctx inst op)
+    (hb : block.OpChain ctx.raw os) (hv : ∀ v ∈ results, v.InBounds ctx.raw)
+    (hvalid : ValidResolvedInst (block.getNumArguments! ctx.raw) results.size inst) :
+    ∃ ctx', (wireInst block results (inst, op)).run ctx = .ok ((), ctx') ∧ AllocationSafe ctx'.raw ∧
+      ∀ r : RegionPtr, r.getParent! ctx'.raw = r.getParent! ctx.raw := by
+  rcases inst with ⟨opc, ty, lhs, rhs⟩
+  obtain ⟨vl, c₁, c₂, hl, hpl, hs₂, hf₂, hm₂, hp₂, os₂, hb₂, hr₂⟩ := lowerOperand_total (ty := ty) hs ha.1 hb hv hvalid.1
+  obtain ⟨vr, c₃, c₄, hr, hpr, hs₄, hf₄, hm₄, hp₄, os₄, hb₄, hr₄⟩ := lowerOperand_total (ty := ty) hs₂ hm₂ hb₂
+    (fun v hv' => hf₂.bounds (.value v) (hv v hv')) (by simpa [hf₂.numArgs hb.blockInBounds] using hvalid.2)
+  obtain ⟨c₅, hi, hs₅, hr₅⟩ := attachInst_total hs₄ hm₄.1 hb₄.blockInBounds (hp₄.trans (hp₂.trans ha.2))
+  refine ⟨c₅, ?_, hs₅, fun r => (hr₅ r).trans ((hr₄ r).trans (hr₂ r))⟩
+  simp only [wireInst, run_bind]; exact ⟨vl, c₁, hl, (), c₂, hpl, vr, c₃, hr, (), c₄, hpr, hi⟩
+
+theorem wire_total (hs : AllocationSafe ctx.raw) (hb : block.OpChain ctx.raw os)
+    (ha : ResolvesList (Ready ctx results) entries ops) (hn : ops.Nodup)
+    (hv : ∀ v ∈ results, v.InBounds ctx.raw)
+    (hvalid : ∀ e ∈ entries, ValidResolvedInst (block.getNumArguments! ctx.raw) results.size e.1) :
+    ∃ ctx', ((entries.map Prod.fst).zip ops |>.forM (wireInst block results)).run ctx = .ok ((), ctx') ∧
+      AllocationSafe ctx'.raw ∧ ∀ r : RegionPtr, r.getParent! ctx'.raw = r.getParent! ctx.raw := by
+  induction entries generalizing ctx ops os with
+  | nil => cases ha; exact ⟨ctx, by simp, hs, fun _ => rfl⟩
+  | cons e entries ih =>
+    cases ha with | cons he ha =>
+    obtain ⟨hno, hnt⟩ := List.nodup_cons.mp hn; obtain ⟨c, hw, hs', hr⟩ := wireInst_total hs he.1 hb hv (hvalid e (by simp))
+    obtain ⟨tile, -, hc, hf, -⟩ := wireInst_sound he.1 hb he.2 hw
+    obtain ⟨c', hw', hs'', hr'⟩ := ih hs' hc
+      (resolvesList_mono ha fun _ p hp he => ⟨he.1.frame hf (by grind), he.2⟩) hnt
+      (fun v hv' => hf.bounds (.value v) (hv v hv')) (fun e he => by simpa [hf.numArgs hb.blockInBounds] using hvalid e (by simp [he]))
+    refine ⟨c', ?_, hs'', fun r => (hr' r).trans (hr r)⟩; simp only [List.map_cons, List.zip_cons_cons, List.forM_eq_forM, List.forM_cons, run_bind]; exact ⟨(), c, hw, hw'⟩
+
+theorem allocated_result_inBounds (ha : Allocated ctx inst op) :
+    (ValuePtr.opResult (op.getResult 0)).InBounds ctx.raw := by
+  cases inst; exact ha.1.result_inBounds
+
+theorem allocated_results_inBounds (ha : ResolvesList (Allocated ctx) insts ops) :
+    ∀ v ∈ ops.toArray.map (fun op => ValuePtr.opResult (op.getResult 0)), v.InBounds ctx.raw := by
+  intro v hv; obtain ⟨op, hop, rfl⟩ := Array.mem_map.mp hv
+  obtain ⟨_, h⟩ := ha.mem_right (by simpa using hop); exact allocated_result_inBounds h
+
+theorem lowerInsts_total (hs : AllocationSafe ctx.raw) (hb : block.OpChain ctx.raw os)
+    (hvalid : ∀ inst ∈ insts, ValidResolvedInst (block.getNumArguments! ctx.raw) insts.length inst) :
+    ∃ results ctx', (lowerInsts block insts).run ctx = .ok (results, ctx') ∧ AllocationSafe ctx'.raw ∧
+      (∀ v ∈ results, v.InBounds ctx'.raw) ∧ ∀ r : RegionPtr, r.getParent! ctx'.raw = r.getParent! ctx.raw := by
+  obtain ⟨ops, c₁, ha, hs₁, hr₁⟩ := allocate_total (insts := insts) hs hb.blockInBounds; obtain ⟨hf, hal, hd, hn, hc⟩ := allocate_sound ha
+  let results := ops.toArray.map fun op => ValuePtr.opResult (op.getResult 0)
+  have hv : ∀ v ∈ results, v.InBounds c₁.raw := allocated_results_inBounds hal
+  have hready : ResolvesList (Ready c₁ results) insts.zipIdx ops := resolvesList_mono (hal.zipIdx []) fun _ _ _ ⟨h₁, h₂⟩ => ⟨h₁, by simp at h₂; simp [results, h₂]⟩
+  obtain ⟨c₂, hw, hs₂, hr₂⟩ := wire_total hs₁ (hc os hb)
+    hready hd hv
+    (by simpa [results, hal.length, hf.numArgs hb.blockInBounds] using fun e (he : e ∈ insts.zipIdx) => hvalid e.1 (by simpa only [List.zipIdx_map_fst] using List.mem_map_of_mem (f := Prod.fst) he))
+  have hw' : ((insts.zip ops).forM (wireInst block results)).run c₁ = .ok ((), c₂) := by simpa only [List.zipIdx_map_fst] using hw
+  obtain ⟨hf', -, -, hc'⟩ := wire_sound (hc os hb) hready hd hw
+  refine ⟨results, c₂, ?_, hs₂, fun v hv' => hf'.bounds (.value v) (hv v hv'), fun r => (hr₂ r).trans (hr₁ r)⟩; simp only [lowerInsts, run_bind, run_pure]; exact ⟨ops, c₁, ha, (), c₂, hw', rfl⟩
+
+theorem createRegion_of_raw (h : Rewriter.createRegion ctx.raw = some (ctx'.raw, r)) :
+    WfRewriter.createRegion ctx = some (ctx', r) := by
+  unfold WfRewriter.createRegion; split <;> simp_all
+
+theorem regionParent_insertBlock {raw raw' : IRContext OpCode} {r : RegionPtr}
+    {b : BlockPtr} {ip : BlockInsertPoint} {hb : b.InBounds raw} {hi : ip.InBounds raw} {hx : raw.FieldsInBounds}
+    (h : Rewriter.insertBlock raw b ip hb hi hx = some raw') :
+    r.getParent! raw' = r.getParent! raw := by
+  unfold Rewriter.insertBlock at h; split at h <;> grind
+
+theorem regionParent_createBlock {raw raw' : IRContext OpCode} {r : RegionPtr}
+    {b : BlockPtr} {ip : Option BlockInsertPoint} {ts : Array TypeAttr} {hx : raw.FieldsInBounds} {hi : ip.maybe BlockInsertPoint.InBounds raw}
+    (h : Rewriter.createBlock raw ts ip hx hi = some (raw', b)) :
+    r.getParent! raw' = r.getParent! raw := by
+  unfold Rewriter.createBlock at h
+  simp only [Option.bind_eq_bind, Option.bind] at h
+  split at h <;> try contradiction
+  split at h
+  · split at h <;> try contradiction
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; rcases h with ⟨rfl, rfl⟩
+    grind [regionParent_insertBlock]
+  · simp only [Option.some.injEq, Prod.mk.injEq] at h; rcases h with ⟨rfl, rfl⟩; grind
+
+theorem createBody_total (hs : AllocationSafe ctx.raw) :
+    ∃ region body ctx', (createBody ts).run ctx = .ok ((region, body), ctx') ∧ AllocationSafe ctx'.raw ∧
+      region.getParent! ctx'.raw = none := by
+  obtain ⟨raw₁, r, hr, hs₁⟩ := hs.allocateRegion
+  let c₁ : WfIRContext OpCode := ⟨raw₁, by grind [IRContext.wellFormed_Rewriter_createRegion]⟩
+  obtain ⟨raw₂, b, hb, hs₂⟩ := hs₁.createBlock_total (ts := ts) (by grind) (show r.InBounds raw₁ by grind)
+  let c₂ : WfIRContext OpCode := ⟨raw₂, by have := c₁.wellFormed; grind [Rewriter.createBlock_WellFormed]⟩
+  have hr' := createRegion_of_raw (ctx' := c₁) hr
+  have hb' := createBlock_of_raw (ctx := c₁) (ctx' := c₂) hb
+  refine ⟨r, b, c₂, ?_, hs₂, (regionParent_createBlock hb).trans (by grind)⟩
+  simp [createBody, hr']; rw [dite_eq_left (show (BlockInsertPoint.atEnd r).InBounds c₁.raw by grind)]; simp [hb']
+
+theorem lowerFunction_total (hs : AllocationSafe ctx.raw) (hb : moduleBlock.OpChain ctx.raw os)
+    (hvalid : ValidResolvedFunction f) :
+    ∃ op ctx', (lowerFunction moduleBlock f).run ctx = .ok (op, ctx') ∧ AllocationSafe ctx'.raw := by
+  obtain ⟨region, body, c₁, hcreate, hs₁, hparent⟩ := createBody_total (ts := f.header.params.toArray.map (lowerType ·.ty)) hs
+  obtain ⟨hF₁, -, hblocks, hchain, htypes⟩ := createBody_spec (block := body) hcreate; have hbin : body.InBounds c₁.raw := hchain.blockInBounds
+  have hnum : body.getNumArguments! c₁.raw = f.header.params.length := by simpa [← BlockPtr.getArgumentTypes!.size_eq_getNumArguments!] using congrArg Array.size htypes
+  obtain ⟨results, c₂, hi, hs₂, hv, hr₂⟩ := lowerInsts_total hs₁ hchain (by simpa [hnum] using hvalid.1); obtain ⟨hF₂, hsize, -, tiles, -, hci⟩ := lowerInsts_sound hchain hi
+  obtain ⟨v, c₃, hval, hs₃, hvin, hr₃⟩ := lowerValue_total (ty := f.header.retType) hs₂ hci.blockInBounds hv (by simpa [hsize, hF₂.numArgs hbin, hnum] using hvalid.2)
+  have hF₃ := (lowerValue_spec hci hval).1; obtain ⟨ret, c₄, hret, hs₄, hr₄⟩ := emit_total (code := .return) (props := ()) (ts := #[]) (vs := #[v]) (rs := #[]) hs₃ (hF₃.bounds (.block body) hci.blockInBounds) true (by simpa) (by simp) (by simp) (by simp)
+  have hF₄ := (emit_spec hret).1; have hF := hF₁.trans (hF₂.trans (hF₃.trans hF₄)); have hdet : region.getParent! c₄.raw = none := (hr₄ region (by simp)).trans ((hr₃ region).trans ((hr₂ region).trans hparent))
+  obtain ⟨op, c₅, hfunc, hs₅, -⟩ := emit_total (code := .func) (ts := #[]) (vs := #[]) (rs := #[region]) (props := { sym_name := ⟨f.header.name.toUTF8⟩, function_type := { inputs := (f.header.params.toArray.map (lowerType ·.ty)).map Subtype.val, outputs := #[(lowerType f.header.retType).val] }, extra := .empty })
+    hs₄ (hF.bounds (.block moduleBlock) hb.blockInBounds) true (by simp) (by simpa using (hF₂.trans (hF₃.trans hF₄)).bounds (.region region) hblocks.inBounds) (by simpa using hdet) (by simp)
+  refine ⟨op, c₅, ?_, hs₅⟩; simp only [lowerFunction, run_bind]; exact ⟨(region, body), c₁, hcreate, results, c₂, hi, v, c₃, hval, ret, c₄, hret, hfunc⟩
+
+theorem lowerFunctions_total (hs : AllocationSafe ctx.raw) (hb : block.OpChain ctx.raw os)
+    (hvalid : ∀ f ∈ fs, ValidResolvedFunction f) :
+    ∃ ctx', (lowerFunctions block fs).run ctx = .ok ((), ctx') ∧ AllocationSafe ctx'.raw := by
+  induction fs generalizing ctx os with
+  | nil => exact ⟨ctx, by simp [lowerFunctions], hs⟩
+  | cons f fs ih =>
+    obtain ⟨op, c, he, hs'⟩ := lowerFunction_total hs hb (hvalid f (by simp))
+    obtain ⟨-, -, hc⟩ := lowerFunction_sound hb he
+    obtain ⟨c', he', hs''⟩ := ih hs' hc (by simp_all)
+    refine ⟨c', ?_, hs''⟩
+    simp only [lowerFunctions, List.forM_eq_forM, List.forM_cons, run_bind, run_pure]
+    exact ⟨(), c, ⟨op, c, he, rfl⟩, he'⟩
+
+theorem resolvesList_mem_left {R : α → β → Prop} {as : List α} {bs : List β}
+    (h : ResolvesList R as bs) (ha : a ∈ as) : ∃ b, R a b := by
+  induction h with
+  | nil => simp at ha
+  | cons hab _ ih => exact (List.mem_cons.mp ha).elim (fun he => ⟨_, he ▸ hab⟩) ih
+
+theorem LowersModule.valid (h : LowersModule ctx m root) : ∀ f ∈ m.funcs, ValidResolvedFunction f := by
+  obtain ⟨_, _, _, _, _, _, _, _, hfs⟩ := h
+  intro f hf; obtain ⟨_, hfun⟩ := resolvesList_mem_left hfs hf; exact hfun.1
+
+theorem lowerModule_total (hvalid : ∀ f ∈ m.funcs, ValidResolvedFunction f) :
+    ∃ ctx root, lowerModule m = .ok (ctx, root) := by
+  obtain ⟨ctx, root, hcreate, hs⟩ := createModule_total
+  obtain ⟨region, b, hm, hr, hb, -, -⟩ := createModule_sound hcreate
+  have hfirst : (root.getRegion! ctx.raw 0).getFirstBlock! ctx.raw = some b := by
+    rw [← OperationPtr.getRegions!.getElem!_eq_getRegion!, show root.getRegions! ctx.raw = #[region] by grind [MatchesOp]]
+    simpa using hr.first
+  obtain ⟨ctx', hfs, -⟩ := lowerFunctions_total hs hb hvalid
+  exact ⟨ctx', root, by simp [lowerModule, hcreate, hfirst, show lowerFunctions b m.funcs ctx = .ok ((), ctx') from hfs]⟩
+
+end Completeness
+
+/-! Two witnesses of the same module specify the same rooted graph, up to pointer renaming. -/
+
+section CompletenessIsomorphism
+
+set_option maxRecDepth 4000
+set_option maxHeartbeats 800000
+variable {ctx₁ ctx₂ : WfIRContext OpCode}
+variable {D : Type} [HasOpInfo D] [HasDialect OpCode D]
+variable {code : D} {props : propertiesOf code}
+
+theorem MatchesOp.properties_eq (h₁ : MatchesOp ctx₁ o₁ code ts₁ vs₁ rs₁ props)
+    (h₂ : MatchesOp ctx₂ o₂ code ts₂ vs₂ rs₂ props) :
+    ∀ c : OpCode, o₂.getProperties! ctx₂.raw c = o₁.getProperties! ctx₁.raw c := by
+  simp only [MatchesOp, Prod.mk.injEq] at *
+  intro c
+  unfold OperationPtr.getOpType! at h₁ h₂
+  unfold OperationPtr.getProperties! at *
+  grind [HasDialect.ofDialectProperties_toDialectProperties]
+
+/-- The observable fields of a pair of corresponding operations. -/
+def SameFields (ctx₁ ctx₂ : WfIRContext OpCode) (φ : OperationPtr → OperationPtr)
+    (β : BlockPtr → BlockPtr) (o₁ o₂ : OperationPtr) : Prop :=
+  (∀ c : OpCode, o₂.getProperties! ctx₂.raw c = o₁.getProperties! ctx₁.raw c) ∧
+  (o₂.getOpType! ctx₂.raw, o₂.getResultTypes! ctx₂.raw, o₂.getNumSuccessors! ctx₂.raw,
+    o₂.getAttributes! ctx₂.raw, o₂.getOperands! ctx₂.raw, (o₂.getRegions! ctx₂.raw).size) =
+  (o₁.getOpType! ctx₁.raw, o₁.getResultTypes! ctx₁.raw, o₁.getNumSuccessors! ctx₁.raw,
+    o₁.getAttributes! ctx₁.raw, (o₁.getOperands! ctx₁.raw).map (renameValue φ β), (o₁.getRegions! ctx₁.raw).size)
+
+theorem MatchesOp.fields (h₁ : MatchesOp ctx₁ o₁ code ts vs₁ rs₁ props)
+    (h₂ : MatchesOp ctx₂ o₂ code ts vs₂ rs₂ props)
+    (hv : vs₂ = vs₁.map (renameValue φ β)) (hr : rs₂.size = rs₁.size) :
+    SameFields ctx₁ ctx₂ φ β o₁ o₂ := by
+  refine ⟨h₁.properties_eq h₂, ?_⟩
+  simp only [MatchesOp, Prod.mk.injEq] at *; grind
+
+def literalCount : ResolvedValue → Nat
+  | .ref _ => 0
+  | .intConst _ => 1
+
+def instructionSize : ResolvedAST → Nat
+  | .bin _ _ lhs rhs => literalCount lhs + literalCount rhs + 1
+
+theorem OperandTile.length (h : OperandTile ctx values ty value v cs) : cs.length = literalCount value := by
+  cases value with
+  | ref => simp_all [OperandTile, literalCount]
+  | intConst => cases ty; obtain ⟨c, rfl, -⟩ := h; rfl
+
+theorem LowersInstTile.length {id : ValueId} (h : LowersInstTile ctx values id inst tile) : tile.length = instructionSize inst := by
+  cases inst; obtain ⟨_, _, _, _, _, rfl, hl, hr, -⟩ := h
+  simp [instructionSize, hl.length, hr.length, Nat.add_assoc]
+
+theorem LowersInstTile.definition_map {id : ValueId} (h₁ : LowersInstTile ctx₁ values₁ id inst tile₁)
+    (h₂ : LowersInstTile ctx₂ values₂ id inst tile₂) (hm : tile₁.map φ = tile₂)
+    (hv₁ : values₁ id = some v₁) (hv₂ : values₂ id = some v₂) : renameValue φ β v₁ = v₂ := by
+  cases inst; obtain ⟨vl₁, vr₁, cl₁, cr₁, o₁, rfl, hl₁, hr₁, hd₁, -⟩ := h₁
+  obtain ⟨vl₂, vr₂, cl₂, cr₂, o₂, rfl, hl₂, hr₂, hd₂, -⟩ := h₂
+  have hh := (List.append_inj' (s₁ := cl₁.map φ ++ cr₁.map φ) (s₂ := cl₂ ++ cr₂)
+    (t₁ := [φ o₁]) (t₂ := [o₂]) (by simpa only [List.map_append, List.map_cons, List.map_nil, List.append_assoc] using hm) rfl).2
+  have ho : φ o₁ = o₂ := by simpa using hh
+  obtain rfl : v₁ = .opResult (o₁.getResult 0) := Option.some.inj (hv₁.symm.trans hd₁)
+  obtain rfl : v₂ = .opResult (o₂.getResult 0) := Option.some.inj (hv₂.symm.trans hd₂)
+  simp [renameValue, OperationPtr.getResult, ho]
+
+theorem instTiles_map {entries : List (ResolvedAST × Nat)}
+    (h₁ : ResolvesList (fun (inst, i) => LowersInstTile ctx₁ values₁ (.inst i) inst) entries tiles₁)
+    (h₂ : ResolvesList (fun (inst, i) => LowersInstTile ctx₂ values₂ (.inst i) inst) entries tiles₂)
+    (hm : tiles₁.flatten.map φ = tiles₂.flatten) : tiles₁.map (List.map φ) = tiles₂ := by
+  induction h₁ generalizing tiles₂ with
+  | nil => cases h₂; rfl
+  | cons hh ht ih =>
+    cases h₂ with | cons hh' ht' =>
+    obtain ⟨he, ht⟩ := List.append_inj (by simpa [List.map_append] using hm) (by simp [hh.length, hh'.length])
+    simp [he, ih ht' (by simpa only [List.map_flatten] using ht)]
+
+theorem resolvesList_and_map {R : α → β → Prop} {S : α → γ → Prop} {f : β → γ}
+    (h₁ : ResolvesList R as bs) (h₂ : ResolvesList S as (bs.map f)) :
+    ResolvesList (fun a b => R a b ∧ S a (f b)) as bs := by
+  induction h₁ with
+  | nil => exact .nil
+  | cons hr ht ih => cases h₂ with | cons hs ht' => exact .cons ⟨hr, hs⟩ (ih ht')
+
+noncomputable def pairRename [Inhabited γ] (pairs : List (α × γ)) (a : α) : γ :=
+  Classical.epsilon (fun b => (a, b) ∈ pairs)
+
+theorem pair_left_unique {pairs : List (α × γ)} (hn : (pairs.map Prod.fst).Nodup)
+    (h₁ : (a, b) ∈ pairs) (h₂ : (a, b') ∈ pairs) : b = b' := by
+  induction pairs generalizing a b b' with
+  | nil => simp at h₁
+  | cons p ps ih =>
+    simp only [List.map_cons, List.nodup_cons] at hn
+    simp only [List.mem_cons] at h₁ h₂
+    rcases h₁ with rfl | h₁ <;> rcases h₂ with he | h₂ <;> grind
+
+theorem pairRename_eq [Inhabited γ] {pairs : List (α × γ)}
+    (hn : (pairs.map Prod.fst).Nodup) (h : (a, b) ∈ pairs) : pairRename pairs a = b := by
+  exact pair_left_unique hn (Classical.epsilon_spec (show ∃ b, (a, b) ∈ pairs from ⟨b, h⟩)) h
+
+theorem OperandTile.correspond
+    (h₁ : OperandTile ctx₁ values₁ ty value v₁ cs₁) (h₂ : OperandTile ctx₂ values₂ ty value v₂ cs₂)
+    (hm : cs₁.map φ = cs₂) (hvalid : ValidResolvedValue np ni value)
+    (hvalues : ∀ id v₁ v₂, ValidResolvedValue np ni (.ref id) →
+      values₁ id = some v₁ → values₂ id = some v₂ → renameValue φ β v₁ = v₂) :
+    renameValue φ β v₁ = v₂ ∧ ∀ c ∈ cs₁, SameFields ctx₁ ctx₂ φ β c (φ c) := by
+  cases value with
+  | ref id => obtain ⟨hv₁, rfl⟩ := h₁; obtain ⟨hv₂, rfl⟩ := h₂; exact ⟨hvalues id _ _ hvalid hv₁ hv₂, by simp⟩
+  | intConst => cases ty; obtain ⟨c₁, rfl, rfl, hc₁⟩ := h₁; obtain ⟨c₂, rfl, rfl, hc₂⟩ := h₂
+                obtain rfl : c₂ = φ c₁ := by simpa using hm.symm
+                exact ⟨by simp [renameValue, OperationPtr.getResult], by simpa using hc₁.fields (φ := φ) (β := β) hc₂ (by simp) rfl⟩
+
+theorem LowersInstTile.correspond {id : ValueId}
+    (h₁ : LowersInstTile ctx₁ values₁ id inst tile₁) (h₂ : LowersInstTile ctx₂ values₂ id inst tile₂)
+    (hm : tile₁.map φ = tile₂) (hvalid : ValidResolvedInst np ni inst)
+    (hvalues : ∀ id v₁ v₂, ValidResolvedValue np ni (.ref id) →
+      values₁ id = some v₁ → values₂ id = some v₂ → renameValue φ β v₁ = v₂) :
+    ∀ o ∈ tile₁, SameFields ctx₁ ctx₂ φ β o (φ o) := by
+  rcases inst with ⟨opc, ty, lhs, rhs⟩; obtain ⟨vl₁, vr₁, cl₁, cr₁, o₁, rfl, hl₁, hr₁, -, ho₁⟩ := h₁
+  obtain ⟨vl₂, vr₂, cl₂, cr₂, o₂, rfl, hl₂, hr₂, -, ho₂⟩ := h₂
+  obtain ⟨hm', ho⟩ := List.append_inj' (s₁ := cl₁.map φ ++ cr₁.map φ) (s₂ := cl₂ ++ cr₂)
+    (t₁ := [φ o₁]) (t₂ := [o₂]) (by simpa only [List.map_append, List.map_cons, List.map_nil, List.append_assoc] using hm) rfl
+  obtain ⟨hcl, hcr⟩ := List.append_inj hm' (by simp [hl₁.length, hl₂.length])
+  obtain ⟨hvl, hfl⟩ := hl₁.correspond hl₂ hcl hvalid.1 hvalues; obtain ⟨hvr, hfr⟩ := hr₁.correspond hr₂ hcr hvalid.2 hvalues
+  have hop : φ o₁ = o₂ := by simpa using ho
+  have hfo := ho₁.fields (φ := φ) (β := β) ho₂ (by simp [hvl, hvr]) rfl
+  intro o ho; simp only [List.mem_append, List.mem_singleton] at ho
+  rcases ho with (ho | ho) | rfl <;> first | exact hfl _ ho | exact hfr _ ho | simpa only [hop] using hfo
+
+theorem OperandTile.regions (h : OperandTile ctx values ty value v cs) (hc : c ∈ cs) : c.getRegions! ctx.raw = #[] := by
+  cases value with
+  | ref => simp_all [OperandTile]
+  | intConst =>
+    cases ty; obtain ⟨op, rfl, -, hm⟩ := h
+    have he : c = op := by simpa using hc
+    subst c; grind [MatchesOp]
+
+theorem LowersInstTile.regions {id : ValueId} (h : LowersInstTile ctx values id inst tile) (ho : o ∈ tile) :
+    o.getRegions! ctx.raw = #[] := by
+  cases inst; obtain ⟨vl, vr, cl, cr, op, rfl, hl, hr, -, hm⟩ := h
+  simp only [List.mem_append, List.mem_singleton] at ho
+  rcases ho with (ho | ho) | rfl
+  · exact hl.regions ho
+  · exact hr.regions ho
+  · grind [MatchesOp]
+
+theorem MatchesOp.region_parent (h : MatchesOp ctx o code ts vs rs props) (hr : r ∈ rs) :
+    r.getParent! ctx.raw = some o := by
+  have hm : r ∈ o.getRegions! ctx.raw := by grind [MatchesOp]
+  have hi := OperationPtr.getRegions!.mem_iff_exists_index.mp hm
+  exact ((ctx.wellFormed.operations o h.1).region_parent r (by have := h.1; grind)).mp hi
+
+/-- Data witnessing the existential layout in `LowersFunctionTiles`. -/
+structure FunctionWitness (ctx : WfIRContext OpCode) (f : ResolvedFunction) (op : OperationPtr) where
+  region : RegionPtr
+  block : BlockPtr
+  tiles : List (List OperationPtr)
+  constants : List OperationPtr
+  ret : OperationPtr
+  result : ValuePtr
+  values : ValueMap
+  valid : ValidResolvedFunction f
+  func : MatchesOp ctx op Llvm.func #[] #[] #[region]
+    (LLVMFuncProperties.mk ⟨f.header.name.toUTF8⟩
+      { inputs := f.header.params.toArray.map (fun p => (lowerType p.ty).val)
+        outputs := #[(lowerType f.header.retType).val] } .empty)
+  blocks : region.BlockChain ctx.raw #[block]
+  args : block.getArgumentTypes! ctx.raw = f.header.params.toArray.map (lowerType ·.ty)
+  params : ∀ i, values (.param i) = (block.getArguments! ctx.raw)[i]?
+  insts : ResolvesList (fun (inst, i) => LowersInstTile ctx values (.inst i) inst) f.insts.zipIdx tiles
+  resultTile : OperandTile ctx values f.header.retType f.result result constants
+  returnOp : MatchesOp ctx ret Llvm.return #[] #[result] #[] ()
+  chain : block.OpChain ctx.raw (tiles.flatten ++ constants ++ [ret]).toArray
+
+def FunctionWitness.operations (w : FunctionWitness ctx f op) : List OperationPtr :=
+  w.tiles.flatten ++ w.constants ++ [w.ret]
+
+theorem LowersFunctionTiles.witness (h : LowersFunctionTiles ctx f op) : Nonempty (FunctionWitness ctx f op) := by
+  obtain ⟨hv, r, b, tiles, cs, ret, v, values, hf, hb, ha, hp, hi, hval, hret, hc⟩ := h
+  exact ⟨⟨r, b, tiles, cs, ret, v, values, hv, hf, hb, ha, hp, hi, hval, hret, hc⟩⟩
+
+theorem instTiles_length {entries : List (ResolvedAST × Nat)}
+    (h₁ : ResolvesList (fun (inst, i) => LowersInstTile ctx₁ values₁ (.inst i) inst) entries tiles₁)
+    (h₂ : ResolvesList (fun (inst, i) => LowersInstTile ctx₂ values₂ (.inst i) inst) entries tiles₂) :
+    tiles₁.flatten.length = tiles₂.flatten.length := by
+  induction h₁ generalizing tiles₂ with
+  | nil => cases h₂; rfl
+  | cons hh ht ih => cases h₂ with | cons hh' ht' => simpa [hh.length, hh'.length] using ih ht'
+
+theorem FunctionWitness.length_eq (w₁ : FunctionWitness ctx₁ f op₁) (w₂ : FunctionWitness ctx₂ f op₂) :
+    w₁.operations.length = w₂.operations.length := by
+  simp only [operations, List.length_append, List.length_singleton]
+  rw [instTiles_length w₁.insts w₂.insts, w₁.resultTile.length, w₂.resultTile.length]
+
+theorem FunctionWitness.numArgs (w : FunctionWitness ctx f op) : w.block.getNumArguments! ctx.raw = f.header.params.length := by
+  simpa [← BlockPtr.getArgumentTypes!.size_eq_getNumArguments!] using congrArg Array.size w.args
+
+theorem FunctionWitness.params_correspond (w₁ : FunctionWitness ctx₁ f op₁) (w₂ : FunctionWitness ctx₂ f op₂)
+    (hb : β w₁.block = w₂.block) (hvalid : i < f.header.params.length)
+    (h₁ : w₁.values (.param i) = some v₁) (h₂ : w₂.values (.param i) = some v₂) : renameValue φ β v₁ = v₂ := by
+  have hi₁ : i < w₁.block.getNumArguments! ctx₁.raw := by simpa [w₁.numArgs] using hvalid
+  have hi₂ : i < w₂.block.getNumArguments! ctx₂.raw := by simpa [w₂.numArgs] using hvalid
+  rw [w₁.params] at h₁; rw [w₂.params] at h₂
+  simp [BlockPtr.getArguments!, hi₁, hi₂] at h₁ h₂
+  subst v₁; subst v₂; simp [renameValue, BlockPtr.getArgument, hb]
+
+theorem FunctionWitness.values_correspond {id : ValueId} (w₁ : FunctionWitness ctx₁ f op₁) (w₂ : FunctionWitness ctx₂ f op₂)
+    (hm : w₁.tiles.flatten.map φ = w₂.tiles.flatten) (hb : β w₁.block = w₂.block)
+    (hvalid : ValidResolvedValue f.header.params.length f.insts.length (.ref id))
+    (h₁ : w₁.values id = some v₁) (h₂ : w₂.values id = some v₂) : renameValue φ β v₁ = v₂ := by
+  cases id with
+  | param i => exact w₁.params_correspond w₂ hb hvalid h₁ h₂
+  | inst i =>
+    have hi : i < f.insts.length := hvalid
+    have ht := instTiles_map w₁.insts w₂.insts hm
+    have hboth := resolvesList_and_map w₁.insts (show ResolvesList _ _ (w₁.tiles.map (List.map φ)) from ht.symm ▸ w₂.insts)
+    obtain ⟨tile, htile₁, htile₂⟩ := resolvesList_mem_left hboth (show (f.insts[i], i) ∈ f.insts.zipIdx by simp [List.mk_mem_zipIdx_iff_getElem?, hi])
+    exact htile₁.definition_map htile₂ rfl h₁ h₂
+
+theorem resolvesList_mem_right {R : α → γ → Prop} {as : List α} {bs : List γ}
+    (h : ResolvesList R as bs) (hb : b ∈ bs) : ∃ a, a ∈ as ∧ R a b := by
+  induction h with
+  | nil => simp at hb
+  | cons hab ht ih =>
+    rcases List.mem_cons.mp hb with rfl | hb
+    · exact ⟨_, by simp, hab⟩
+    · obtain ⟨a, ha, hr⟩ := ih hb; exact ⟨a, by simp [ha], hr⟩
+
+theorem FunctionWitness.instruction_fields (w₁ : FunctionWitness ctx₁ f op₁) (w₂ : FunctionWitness ctx₂ f op₂)
+    (hm : w₁.tiles.flatten.map φ = w₂.tiles.flatten) (hb : β w₁.block = w₂.block) :
+    ∀ o ∈ w₁.tiles.flatten, SameFields ctx₁ ctx₂ φ β o (φ o) := by
+  have ht := instTiles_map w₁.insts w₂.insts hm
+  have hboth := resolvesList_and_map w₁.insts (show ResolvesList _ _ (w₁.tiles.map (List.map φ)) from ht.symm ▸ w₂.insts)
+  intro o ho; obtain ⟨tile, htile, ho⟩ := List.mem_flatten.mp ho
+  obtain ⟨e, he, ht₁, ht₂⟩ := resolvesList_mem_right hboth htile
+  exact ht₁.correspond ht₂ rfl (w₁.valid.1 e.1 (by simpa only [List.zipIdx_map_fst] using List.mem_map_of_mem (f := Prod.fst) he))
+    (fun _ _ _ hv h₁ h₂ => w₁.values_correspond w₂ hm hb hv h₁ h₂) o ho
+
+theorem FunctionWitness.fields (w₁ : FunctionWitness ctx₁ f op₁) (w₂ : FunctionWitness ctx₂ f op₂)
+    (hm : w₁.operations.map φ = w₂.operations) (hb : β w₁.block = w₂.block) :
+    ∀ o ∈ w₁.operations, SameFields ctx₁ ctx₂ φ β o (φ o) := by
+  obtain ⟨hflat, htail⟩ := List.append_inj (s₁ := w₁.tiles.flatten.map φ) (s₂ := w₂.tiles.flatten)
+    (t₁ := w₁.constants.map φ ++ [φ w₁.ret]) (t₂ := w₂.constants ++ [w₂.ret]) (by simpa only [operations, List.map_append, List.map_cons, List.map_nil, List.append_assoc] using hm)
+    (by simpa only [List.length_map] using instTiles_length w₁.insts w₂.insts)
+  obtain ⟨hcs, hret⟩ := List.append_inj htail (by simp [w₁.resultTile.length, w₂.resultTile.length])
+  obtain ⟨hv, hconstants⟩ := w₁.resultTile.correspond w₂.resultTile hcs w₁.valid.2
+    (fun _ _ _ hv h₁ h₂ => w₁.values_correspond w₂ hflat hb hv h₁ h₂)
+  have hr : φ w₁.ret = w₂.ret := by simpa using hret
+  intro o ho; simp only [operations, List.mem_append, List.mem_singleton] at ho
+  rcases ho with (ho | ho) | rfl <;> first | exact w₁.instruction_fields w₂ hflat hb _ ho | exact hconstants _ ho | simpa only [hr] using w₁.returnOp.fields (φ := φ) (β := β) w₂.returnOp (by simp [hv]) rfl
+
+theorem FunctionWitness.leaf (w : FunctionWitness ctx f op) (ho : o ∈ w.operations) : o.getRegions! ctx.raw = #[] := by
+  simp only [operations, List.mem_append, List.mem_singleton] at ho
+  rcases ho with (ho | ho) | rfl
+  · obtain ⟨tile, ht, ho⟩ := List.mem_flatten.mp ho
+    obtain ⟨e, -, htile⟩ := resolvesList_mem_right w.insts ht; exact htile.regions ho
+  · exact w.resultTile.regions ho
+  · have := w.returnOp; grind [MatchesOp]
+
+def blockOwner (ctx : WfIRContext OpCode) (b : BlockPtr) : Option OperationPtr :=
+  (b.getParent! ctx.raw).bind (fun r => r.getParent! ctx.raw)
+
+/-- The ordered, single-block shape of a specified function. -/
+structure FunctionShape (ctx : WfIRContext OpCode) where
+  op : OperationPtr
+  region : RegionPtr
+  block : BlockPtr
+  operations : List OperationPtr
+  regions : op.getRegions! ctx.raw = #[region]
+  parent : region.getParent! ctx.raw = some op
+  blocks : region.BlockChain ctx.raw #[block]
+  chain : block.OpChain ctx.raw operations.toArray
+  leaves : ∀ o ∈ operations, o.getRegions! ctx.raw = #[]
+
+def FunctionShape.ofWitness {op : OperationPtr} (w : FunctionWitness ctx f op) : FunctionShape ctx :=
+  ⟨op, w.region, w.block, w.operations, by have := w.func; grind [MatchesOp],
+    w.func.region_parent (by simp), w.blocks, w.chain, fun _ h => w.leaf h⟩
+
+theorem FunctionShape.owner (g : FunctionShape ctx) (ho : o ∈ g.operations) : o.getParentOp! ctx.raw = some g.op := by
+  apply OperationPtr.getParentOp!_eq_some_iff.mpr
+  exact ⟨g.block, g.region, g.chain.opParent (by simpa using ho), g.blocks.opParent (by simp), g.parent⟩
+
+theorem FunctionShape.block_owner (g : FunctionShape ctx) : blockOwner ctx g.block = some g.op := by
+  have hb : g.block.getParent! ctx.raw = some g.region := g.blocks.opParent (by simp)
+  simp [blockOwner, hb, g.parent]
+
+theorem FunctionShape.nodup (g : FunctionShape ctx) : g.operations.Nodup := by
+  simpa using BlockPtr.OpChain_array_toList_Nodup g.chain
+
+structure FunctionPair (ctx₁ ctx₂ : WfIRContext OpCode) where
+  left : FunctionShape ctx₁
+  right : FunctionShape ctx₂
+  length : left.operations.length = right.operations.length
+  args : right.block.getArgumentTypes! ctx₂.raw = left.block.getArgumentTypes! ctx₁.raw
+  fields : ∀ φ β, SameFields ctx₁ ctx₂ φ β left.op right.op
+  body : ∀ φ β, left.operations.map φ = right.operations → β left.block = right.block →
+    ∀ o ∈ left.operations, SameFields ctx₁ ctx₂ φ β o (φ o)
+
+theorem functionPair_of_specs (h₁ : LowersFunctionTiles ctx₁ f op₁) (h₂ : LowersFunctionTiles ctx₂ f op₂) :
+    ∃ p : FunctionPair ctx₁ ctx₂, p.left.op = op₁ ∧ p.right.op = op₂ := by
+  obtain ⟨w₁⟩ := h₁.witness; obtain ⟨w₂⟩ := h₂.witness
+  exact ⟨⟨.ofWitness w₁, .ofWitness w₂, w₁.length_eq w₂, w₂.args.trans w₁.args.symm,
+    fun φ β => w₁.func.fields w₂.func (by simp) rfl, fun _ _ hm hb => w₁.fields w₂ hm hb⟩, rfl, rfl⟩
+
+theorem functionPairs_of_specs (h₁ : ResolvesList (LowersFunctionTiles ctx₁) fs ops₁)
+    (h₂ : ResolvesList (LowersFunctionTiles ctx₂) fs ops₂) :
+    ∃ ps : List (FunctionPair ctx₁ ctx₂), ps.map (·.left.op) = ops₁ ∧ ps.map (·.right.op) = ops₂ := by
+  induction h₁ generalizing ops₂ with
+  | nil => cases h₂; exact ⟨[], rfl, rfl⟩
+  | cons hf ht ih =>
+    cases h₂ with | cons hf' ht' =>
+    obtain ⟨p, hp₁, hp₂⟩ := functionPair_of_specs hf hf'; obtain ⟨ps, hs₁, hs₂⟩ := ih ht'
+    exact ⟨p :: ps, by simp [hp₁, hs₁], by simp [hp₂, hs₂]⟩
+
+theorem pair_right_unique {pairs : List (α × γ)} (hn : (pairs.map Prod.snd).Nodup)
+    (h₁ : (a, b) ∈ pairs) (h₂ : (a', b) ∈ pairs) : a = a' := by
+  induction pairs generalizing a a' b with
+  | nil => simp at h₁
+  | cons p ps ih =>
+    simp only [List.map_cons, List.nodup_cons] at hn
+    simp only [List.mem_cons] at h₁ h₂
+    rcases h₁ with rfl | h₁ <;> rcases h₂ with he | h₂ <;> grind
+
+theorem pairRename_inj [Inhabited γ] {pairs : List (α × γ)}
+    (h₁ : (pairs.map Prod.fst).Nodup) (h₂ : (pairs.map Prod.snd).Nodup)
+    (ha : a ∈ pairs.map Prod.fst) (ha' : a' ∈ pairs.map Prod.fst)
+    (he : pairRename pairs a = pairRename pairs a') : a = a' := by
+  obtain ⟨⟨a, b⟩, hp, rfl⟩ := List.mem_map.mp ha
+  obtain ⟨⟨a', b'⟩, hp', rfl⟩ := List.mem_map.mp ha'
+  rw [pairRename_eq h₁ hp, pairRename_eq h₁ hp'] at he
+  subst b'; exact pair_right_unique h₂ hp hp'
+
+theorem map_eq_of_zip {as : List α} {bs : List γ} {f : α → γ}
+    (hlen : as.length = bs.length) (h : ∀ p ∈ as.zip bs, f p.1 = p.2) : as.map f = bs := by
+  induction as generalizing bs with
+  | nil => cases bs <;> simp_all
+  | cons a as ih => cases bs with
+    | nil => simp at hlen
+    | cons b bs =>
+      have ht : ∀ p ∈ as.zip bs, f p.1 = p.2 := fun p hp => h p (by simp only [List.zip_cons_cons, List.mem_cons]; exact .inr hp)
+      have hh := h (a, b) (by simp)
+      simp only [List.map_cons]; rw [hh, ih (by simpa using hlen) ht]
+
+theorem grouped_nodup {gs : List γ} {root : α} {head : γ → α} {tail : γ → List α}
+    {owner : α → Option α} (hr : owner root = none)
+    (hh : ∀ g ∈ gs, owner (head g) = some root) (ht : ∀ g ∈ gs, ∀ x ∈ tail g, owner x = some (head g))
+    (hn : (gs.map head).Nodup) (hd : ∀ g ∈ gs, (tail g).Nodup) :
+    (root :: gs.flatMap (fun g => head g :: tail g)).Nodup := by
+  have hnr : ∀ g ∈ gs, head g ≠ root := by intros g hg he; have := hh g hg; grind
+  refine List.nodup_cons.mpr ⟨?_, ?_⟩
+  · simp only [List.mem_flatMap, List.mem_cons]; rintro ⟨g, hg, he | he⟩ <;> grind
+  · apply List.pairwise_flatMap.mpr; refine ⟨?_, ?_⟩
+    · intro g hg; apply List.nodup_cons.mpr; exact ⟨by intro he; have := ht g hg _ he; have := hh g hg; grind, hd g hg⟩
+    · apply List.Pairwise.imp_of_mem (R := fun g g' => head g ≠ head g') _ (List.pairwise_map.mp hn)
+      intro g g' hg hg' hne x hx y hy; simp only [List.mem_cons] at hx hy
+      rcases hx with rfl | hx <;> rcases hy with rfl | hy <;> grind
+
+structure ModulePair (ctx₁ ctx₂ : WfIRContext OpCode) (root₁ root₂ : OperationPtr) where
+  region₁ : RegionPtr
+  region₂ : RegionPtr
+  block₁ : BlockPtr
+  block₂ : BlockPtr
+  functions : List (FunctionPair ctx₁ ctx₂)
+  module₁ : MatchesOp ctx₁ root₁ Builtin.module #[] #[] #[region₁] default
+  module₂ : MatchesOp ctx₂ root₂ Builtin.module #[] #[] #[region₂] default
+  blocks₁ : region₁.BlockChain ctx₁.raw #[block₁]
+  blocks₂ : region₂.BlockChain ctx₂.raw #[block₂]
+  chain₁ : block₁.OpChain ctx₁.raw (functions.map (·.left.op)).toArray
+  chain₂ : block₂.OpChain ctx₂.raw (functions.map (·.right.op)).toArray
+  parent₁ : root₁.getParent! ctx₁.raw = none
+  parent₂ : root₂.getParent! ctx₂.raw = none
+  args₁ : block₁.getArgumentTypes! ctx₁.raw = #[]
+  args₂ : block₂.getArgumentTypes! ctx₂.raw = #[]
+
+theorem modulePair_of_specs (h₁ : LowersModule ctx₁ m root₁) (h₂ : LowersModule ctx₂ m root₂) :
+    Nonempty (ModulePair ctx₁ ctx₂ root₁ root₂) := by
+  obtain ⟨r₁, b₁, fs₁, hm₁, hb₁, hc₁, hp₁, ha₁, hf₁⟩ := h₁
+  obtain ⟨r₂, b₂, fs₂, hm₂, hb₂, hc₂, hp₂, ha₂, hf₂⟩ := h₂
+  obtain ⟨ps, hps₁, hps₂⟩ := functionPairs_of_specs hf₁ hf₂
+  exact ⟨⟨r₁, r₂, b₁, b₂, ps, hm₁, hm₂, hb₁, hb₂, by simpa only [hps₁] using hc₁,
+    by simpa only [hps₂] using hc₂, hp₁, hp₂, ha₁, ha₂⟩⟩
+
+def FunctionPair.operationPairs (p : FunctionPair ctx₁ ctx₂) : List (OperationPtr × OperationPtr) :=
+  (p.left.op, p.right.op) :: p.left.operations.zip p.right.operations
+
+def ModulePair.operationPairs (g : ModulePair ctx₁ ctx₂ root₁ root₂) : List (OperationPtr × OperationPtr) :=
+  (root₁, root₂) :: g.functions.flatMap (·.operationPairs)
+
+def ModulePair.blockPairs (g : ModulePair ctx₁ ctx₂ root₁ root₂) : List (BlockPtr × BlockPtr) :=
+  (g.block₁, g.block₂) :: g.functions.map (fun p => (p.left.block, p.right.block))
+
+theorem FunctionPair.operationPairs_left (p : FunctionPair ctx₁ ctx₂) :
+    p.operationPairs.map Prod.fst = p.left.op :: p.left.operations := by
+  simp only [operationPairs, List.map_cons, List.map_fst_zip (Nat.le_of_eq p.length)]
+
+theorem FunctionPair.operationPairs_right (p : FunctionPair ctx₁ ctx₂) :
+    p.operationPairs.map Prod.snd = p.right.op :: p.right.operations := by
+  simp only [operationPairs, List.map_cons, List.map_snd_zip (Nat.le_of_eq p.length.symm)]
+
+theorem ModulePair.operations_left (g : ModulePair ctx₁ ctx₂ root₁ root₂) :
+    g.operationPairs.map Prod.fst = root₁ :: g.functions.flatMap (fun p => p.left.op :: p.left.operations) := by
+  simp [operationPairs, List.map_flatMap, FunctionPair.operationPairs_left]
+
+theorem ModulePair.operations_right (g : ModulePair ctx₁ ctx₂ root₁ root₂) :
+    g.operationPairs.map Prod.snd = root₂ :: g.functions.flatMap (fun p => p.right.op :: p.right.operations) := by
+  simp [operationPairs, List.map_flatMap, FunctionPair.operationPairs_right]
+
+theorem ModulePair.function_owner₁ (g : ModulePair ctx₁ ctx₂ root₁ root₂) (hp : p ∈ g.functions) :
+    p.left.op.getParentOp! ctx₁.raw = some root₁ := by
+  apply OperationPtr.getParentOp!_eq_some_iff.mpr
+  exact ⟨g.block₁, g.region₁, g.chain₁.opParent (by simpa using List.mem_map_of_mem (f := fun p => p.left.op) hp),
+    g.blocks₁.opParent (by simp), g.module₁.region_parent (by simp)⟩
+
+theorem ModulePair.function_owner₂ (g : ModulePair ctx₁ ctx₂ root₁ root₂) (hp : p ∈ g.functions) :
+    p.right.op.getParentOp! ctx₂.raw = some root₂ := by
+  apply OperationPtr.getParentOp!_eq_some_iff.mpr
+  exact ⟨g.block₂, g.region₂, g.chain₂.opParent (by simpa using List.mem_map_of_mem (f := fun p => p.right.op) hp),
+    g.blocks₂.opParent (by simp), g.module₂.region_parent (by simp)⟩
+
+theorem ModulePair.root_owner₁ (g : ModulePair ctx₁ ctx₂ root₁ root₂) : root₁.getParentOp! ctx₁.raw = none := by
+  simp [OperationPtr.getParentOp!, OperationPtr.getParentRegion!, g.parent₁]
+
+theorem ModulePair.root_owner₂ (g : ModulePair ctx₁ ctx₂ root₁ root₂) : root₂.getParentOp! ctx₂.raw = none := by
+  simp [OperationPtr.getParentOp!, OperationPtr.getParentRegion!, g.parent₂]
+
+theorem ModulePair.operations_left_nodup (g : ModulePair ctx₁ ctx₂ root₁ root₂) : (g.operationPairs.map Prod.fst).Nodup := by
+  rw [g.operations_left]
+  exact grouped_nodup g.root_owner₁ (fun p hp => g.function_owner₁ hp) (fun p _ _ ho => p.left.owner ho)
+    (by simpa using BlockPtr.OpChain_array_toList_Nodup g.chain₁) (fun p _ => p.left.nodup)
+
+theorem ModulePair.operations_right_nodup (g : ModulePair ctx₁ ctx₂ root₁ root₂) : (g.operationPairs.map Prod.snd).Nodup := by
+  rw [g.operations_right]
+  exact grouped_nodup g.root_owner₂ (fun p hp => g.function_owner₂ hp) (fun p _ _ ho => p.right.owner ho)
+    (by simpa using BlockPtr.OpChain_array_toList_Nodup g.chain₂) (fun p _ => p.right.nodup)
+
+theorem nodup_map_of {as : List α} {f : α → γ} {g : α → δ} (hn : (as.map f).Nodup)
+    (h : ∀ a ∈ as, ∀ b ∈ as, g a = g b → f a = f b) : (as.map g).Nodup := by
+  apply List.pairwise_map.mpr
+  apply (List.pairwise_map.mp hn).imp_of_mem
+  intro a b ha hb hne he; exact hne (h a ha b hb he)
+
+theorem ModulePair.blocks_left_nodup (g : ModulePair ctx₁ ctx₂ root₁ root₂) : (g.blockPairs.map Prod.fst).Nodup := by
+  have hn : (g.functions.map (·.left.op)).Nodup := by simpa using BlockPtr.OpChain_array_toList_Nodup g.chain₁
+  have hbn := nodup_map_of (g := fun p => p.left.block) hn (fun p _ q _ he => by have := p.left.block_owner; have := q.left.block_owner; grind)
+  simp only [blockPairs, List.map_cons, List.map_map]; apply List.nodup_cons.mpr; refine ⟨?_, hbn⟩
+  rintro he; obtain ⟨p, hp, he⟩ := List.mem_map.mp he
+  have hb : blockOwner ctx₁ g.block₁ = some root₁ := by
+    have hb : g.block₁.getParent! ctx₁.raw = some g.region₁ := g.blocks₁.opParent (by simp)
+    have hr : g.region₁.getParent! ctx₁.raw = some root₁ := g.module₁.region_parent (by simp)
+    simp [blockOwner, hb, hr]
+  have := p.left.block_owner; have := g.function_owner₁ hp; have := g.root_owner₁; grind
+
+noncomputable def ModulePair.opRename (g : ModulePair ctx₁ ctx₂ root₁ root₂) : OperationPtr → OperationPtr :=
+  pairRename g.operationPairs
+
+noncomputable def ModulePair.blockRename (g : ModulePair ctx₁ ctx₂ root₁ root₂) : BlockPtr → BlockPtr :=
+  pairRename g.blockPairs
+
+theorem ModulePair.rename_root (g : ModulePair ctx₁ ctx₂ root₁ root₂) : g.opRename root₁ = root₂ :=
+  pairRename_eq g.operations_left_nodup (by simp [operationPairs])
+
+theorem ModulePair.rename_function (g : ModulePair ctx₁ ctx₂ root₁ root₂) (hp : p ∈ g.functions) :
+    g.opRename p.left.op = p.right.op := by
+  apply pairRename_eq g.operations_left_nodup
+  exact List.mem_cons_of_mem _ (List.mem_flatMap.mpr ⟨p, hp, List.mem_cons_self⟩)
+
+theorem ModulePair.rename_body (g : ModulePair ctx₁ ctx₂ root₁ root₂) (hp : p ∈ g.functions) :
+    p.left.operations.map g.opRename = p.right.operations := by
+  apply map_eq_of_zip p.length; intro pair hpair
+  apply pairRename_eq g.operations_left_nodup
+  exact List.mem_cons_of_mem _ (List.mem_flatMap.mpr ⟨p, hp, List.mem_cons_of_mem _ hpair⟩)
+
+theorem ModulePair.rename_moduleBlock (g : ModulePair ctx₁ ctx₂ root₁ root₂) : g.blockRename g.block₁ = g.block₂ :=
+  pairRename_eq g.blocks_left_nodup (by simp [blockPairs])
+
+theorem ModulePair.rename_block (g : ModulePair ctx₁ ctx₂ root₁ root₂) (hp : p ∈ g.functions) :
+    g.blockRename p.left.block = p.right.block := by
+  apply pairRename_eq g.blocks_left_nodup
+  exact List.mem_cons_of_mem _ (List.mem_map.mpr ⟨p, hp, rfl⟩)
+
+theorem ModulePair.rename_functions (g : ModulePair ctx₁ ctx₂ root₁ root₂) :
+    (g.functions.map (·.left.op)).map g.opRename = g.functions.map (·.right.op) := by
+  simp only [List.map_map]; apply List.map_congr_left; intro p hp; exact g.rename_function hp
+
+theorem nested_mem {ctx : WfIRContext OpCode} {ops : List OperationPtr}
+    {parent o : OperationPtr} {region r : RegionPtr} {block b : BlockPtr} {bs : Array BlockPtr} {os : Array OperationPtr}
+    (hregions : parent.getRegions! ctx.raw = #[region]) (hblocks : region.BlockChain ctx.raw #[block])
+    (hchain : block.OpChain ctx.raw ops.toArray) (hr : r ∈ parent.getRegions! ctx.raw)
+    (hbs : r.BlockChain ctx.raw bs) (hb : b ∈ bs) (hos : b.OpChain ctx.raw os) (ho : o ∈ os) : o ∈ ops := by
+  obtain rfl : r = region := by simpa only [hregions, Array.mem_singleton] using hr
+  obtain rfl := RegionPtr.BlockChain_unique hbs hblocks
+  obtain rfl : b = block := by simpa using hb
+  obtain rfl := BlockPtr.OpChain_unique hos hchain
+  simpa using ho
+
+theorem MatchesOp.regions_eq (h : MatchesOp ctx o code ts vs rs props) : o.getRegions! ctx.raw = rs := by grind [MatchesOp]
+
+theorem ModulePair.reaches_mem (g : ModulePair ctx₁ ctx₂ root₁ root₂) (h : Reaches ctx₁ root₁ o) :
+    o ∈ g.operationPairs.map Prod.fst := by
+  induction h with
+  | root => simp [g.operations_left]
+  | @nested parent r bs b os o hparent hr hbs hb hos ho ih =>
+    rw [g.operations_left] at ih ⊢; simp only [List.mem_cons, List.mem_flatMap] at ih ⊢
+    rcases ih with rfl | ⟨p, hp, he | he⟩
+    · obtain ⟨p, hp, rfl⟩ := List.mem_map.mp (nested_mem g.module₁.regions_eq g.blocks₁ g.chain₁ hr hbs hb hos ho)
+      exact .inr ⟨p, hp, .inl rfl⟩
+    · subst parent; exact .inr ⟨p, hp, .inr (nested_mem p.left.regions p.left.blocks p.left.chain hr hbs hb hos ho)⟩
+    · have := p.left.leaves parent he; simp_all
+
+theorem single_block_agrees {ctx₁ ctx₂ : WfIRContext OpCode} {ops₁ ops₂ : List OperationPtr}
+    {r₁ r₂ : RegionPtr} {b₁ b₂ : BlockPtr} {φ : OperationPtr → OperationPtr} {β : BlockPtr → BlockPtr}
+    (hblocks₁ : r₁.BlockChain ctx₁.raw #[b₁]) (hblocks₂ : r₂.BlockChain ctx₂.raw #[b₂])
+    (hchain₁ : b₁.OpChain ctx₁.raw ops₁.toArray) (hchain₂ : b₂.OpChain ctx₂.raw ops₂.toArray)
+    (ha : b₂.getArgumentTypes! ctx₂.raw = b₁.getArgumentTypes! ctx₁.raw)
+    (hb : β b₁ = b₂) (hm : ops₁.map φ = ops₂) :
+    ∀ bs, r₁.BlockChain ctx₁.raw bs → r₂.BlockChain ctx₂.raw (bs.map β) ∧
+      ∀ b ∈ bs, (β b).getArgumentTypes! ctx₂.raw = b.getArgumentTypes! ctx₁.raw ∧
+        ∀ os, b.OpChain ctx₁.raw os → (β b).OpChain ctx₂.raw (os.map φ) := by
+  intro bs hbs; obtain rfl := RegionPtr.BlockChain_unique hbs hblocks₁
+  refine ⟨by simpa [hb] using hblocks₂, ?_⟩
+  intro b hmem; obtain rfl : b = b₁ := by simpa using hmem
+  refine ⟨by simpa only [hb] using ha, ?_⟩
+  intro os hos; obtain rfl := BlockPtr.OpChain_unique hos hchain₁
+  simpa only [hb, List.map_toArray, hm] using hchain₂
+
+theorem region_pair_eq {ctx₁ ctx₂ : WfIRContext OpCode}
+    {o₁ o₂ : OperationPtr} {r₁ r₂ : RegionPtr} {rs : RegionPtr × RegionPtr}
+    (h₁ : o₁.getRegions! ctx₁.raw = #[r₁]) (h₂ : o₂.getRegions! ctx₂.raw = #[r₂])
+    (h : rs ∈ (o₁.getRegions! ctx₁.raw).zip (o₂.getRegions! ctx₂.raw)) : rs = (r₁, r₂) := by
+  rw [h₁, h₂] at h
+  simpa using (Array.mem_toList_iff.mpr h)
+
+def SameRegions (ctx₁ ctx₂ : WfIRContext OpCode) (φ : OperationPtr → OperationPtr)
+    (β : BlockPtr → BlockPtr) (o₁ o₂ : OperationPtr) : Prop :=
+  ∀ rs ∈ (o₁.getRegions! ctx₁.raw).zip (o₂.getRegions! ctx₂.raw), ∀ bs, rs.1.BlockChain ctx₁.raw bs →
+    rs.2.BlockChain ctx₂.raw (bs.map β) ∧ ∀ b ∈ bs, (β b).getArgumentTypes! ctx₂.raw = b.getArgumentTypes! ctx₁.raw ∧
+      ∀ os, b.OpChain ctx₁.raw os → (β b).OpChain ctx₂.raw (os.map φ)
+
+theorem single_region_agrees {ctx₁ ctx₂ : WfIRContext OpCode} {ops₁ ops₂ : List OperationPtr}
+    {o₁ o₂ : OperationPtr} {r₁ r₂ : RegionPtr} {b₁ b₂ : BlockPtr} {φ : OperationPtr → OperationPtr} {β : BlockPtr → BlockPtr}
+    (hregions₁ : o₁.getRegions! ctx₁.raw = #[r₁]) (hregions₂ : o₂.getRegions! ctx₂.raw = #[r₂])
+    (hblocks₁ : r₁.BlockChain ctx₁.raw #[b₁]) (hblocks₂ : r₂.BlockChain ctx₂.raw #[b₂])
+    (hchain₁ : b₁.OpChain ctx₁.raw ops₁.toArray) (hchain₂ : b₂.OpChain ctx₂.raw ops₂.toArray)
+    (ha : b₂.getArgumentTypes! ctx₂.raw = b₁.getArgumentTypes! ctx₁.raw)
+    (hb : β b₁ = b₂) (hm : ops₁.map φ = ops₂) : SameRegions ctx₁ ctx₂ φ β o₁ o₂ := by
+  intro rs hrs; obtain rfl := region_pair_eq hregions₁ hregions₂ hrs
+  exact single_block_agrees hblocks₁ hblocks₂ hchain₁ hchain₂ ha hb hm
+
+theorem ModulePair.fields_of_mem (g : ModulePair ctx₁ ctx₂ root₁ root₂) (ho : o ∈ g.operationPairs.map Prod.fst) :
+    SameFields ctx₁ ctx₂ g.opRename g.blockRename o (g.opRename o) := by
+  rw [g.operations_left] at ho; simp only [List.mem_cons, List.mem_flatMap] at ho
+  rcases ho with rfl | ⟨p, hp, rfl | ho⟩
+  · simpa only [g.rename_root] using g.module₁.fields (φ := g.opRename) (β := g.blockRename) g.module₂ (by simp) (by simp)
+  · simpa only [g.rename_function hp] using p.fields g.opRename g.blockRename
+  · exact p.body g.opRename g.blockRename (g.rename_body hp) (g.rename_block hp) o ho
+
+theorem ModulePair.regions_of_mem (g : ModulePair ctx₁ ctx₂ root₁ root₂) (ho : o ∈ g.operationPairs.map Prod.fst) :
+    SameRegions ctx₁ ctx₂ g.opRename g.blockRename o (g.opRename o) := by
+  rw [g.operations_left] at ho; simp only [List.mem_cons, List.mem_flatMap] at ho
+  rcases ho with rfl | ⟨p, hp, rfl | ho⟩
+  · apply single_region_agrees g.module₁.regions_eq (show (g.opRename o).getRegions! ctx₂.raw = #[g.region₂] by rw [g.rename_root]; exact g.module₂.regions_eq)
+      g.blocks₁ g.blocks₂ g.chain₁ g.chain₂ (g.args₂.trans g.args₁.symm) g.rename_moduleBlock g.rename_functions
+  · apply single_region_agrees p.left.regions (show (g.opRename p.left.op).getRegions! ctx₂.raw = #[p.right.region] by rw [g.rename_function hp]; exact p.right.regions)
+      p.left.blocks p.right.blocks p.left.chain p.right.chain p.args (g.rename_block hp) (g.rename_body hp)
+  · intro rs hrs; have := p.left.leaves o ho
+    have hlist := Array.mem_toList_iff.mpr hrs
+    simp_all
+
+theorem ModulePair.iso (g : ModulePair ctx₁ ctx₂ root₁ root₂) : RootedIso ctx₁ root₁ ctx₂ root₂ := by
+  refine ⟨g.opRename, g.blockRename, g.rename_root, ?_, ?_⟩
+  · intro o o' ho ho' he
+    exact pairRename_inj g.operations_left_nodup g.operations_right_nodup (g.reaches_mem ho) (g.reaches_mem ho') he
+  · intro o ho; obtain ⟨hp, hf⟩ := g.fields_of_mem (g.reaches_mem ho)
+    exact ⟨hp, hf, g.regions_of_mem (g.reaches_mem ho)⟩
+
+theorem LowersModule.iso (h₁ : LowersModule ctx₁ m root₁) (h₂ : LowersModule ctx₂ m root₂) :
+    RootedIso ctx₁ root₁ ctx₂ root₂ := by
+  obtain ⟨g⟩ := modulePair_of_specs h₁ h₂; exact g.iso
+
+end CompletenessIsomorphism
 
 theorem lowerModule_complete : LowersModule ctx m root  → ∃ ctx2 root2, lowerModule m = .ok (ctx2, root2) ∧
-  equivalent_modulo_renaming_rearranging ctx root ctx2 root2 := sorry
+  equivalent_modulo_renaming ctx root ctx2 root2 := by
+  intro h; obtain ⟨ctx2, root2, he⟩ := lowerModule_total h.valid
+  exact ⟨ctx2, root2, he, h.iso (lowerModule_sound he)⟩
 
 /-- MLIR → LLVM → MLIR recovers the specified rooted graph up to renaming. -/
 theorem lower_reverseModule : LowersModule ctx m root →
     ∃ m' ctx' root', reverseModule ctx root = .ok m' ∧
       lowerModule m' = .ok (ctx', root') ∧
-      equivalent_modulo_renaming_rearranging ctx root ctx' root' := sorry
+      equivalent_modulo_renaming ctx root ctx' root' := sorry
 
 /--
 info: define i32 @demorgan_or (i32 %arg0, i32 %arg1) {
