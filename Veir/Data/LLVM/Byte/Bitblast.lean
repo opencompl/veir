@@ -259,16 +259,20 @@ theorem getLsbD_poison_allPoison (i : Nat) :
 /-! ## cast -/
 
 theorem val_cast {w₁ w₂ : Nat} (x : Byte w₁) (h : w₁ = w₂) :
-    (x.cast h).val = x.val.cast h := by simp [Byte.cast]
+    (x.cast h).val = x.val.cast h := by
+  simp [Byte.cast]
 
 theorem poison_cast {w₁ w₂ : Nat} (x : Byte w₁) (h : w₁ = w₂) :
-    (x.cast h).poison = x.poison.cast h := by simp [Byte.cast]
+    (x.cast h).poison = x.poison.cast h := by
+  simp [Byte.cast]
 
 theorem getLsbD_val_cast {w₁ w₂ : Nat} (x : Byte w₁) (h : w₁ = w₂) (i : Nat) :
-    (x.cast h).val.getLsbD i = x.val.getLsbD i := by simp [val_cast]
+    (x.cast h).val.getLsbD i = x.val.getLsbD i := by
+  simp [val_cast]
 
 theorem getLsbD_poison_cast {w₁ w₂ : Nat} (x : Byte w₁) (h : w₁ = w₂) (i : Nat) :
-    (x.cast h).poison.getLsbD i = x.poison.getLsbD i := by simp [poison_cast]
+    (x.cast h).poison.getLsbD i = x.poison.getLsbD i := by
+  simp [poison_cast]
 
 
 /-! ## and -/
