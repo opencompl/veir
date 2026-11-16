@@ -17,6 +17,9 @@ attribute [local ctree_semantics]
 
 attribute [local implicit_reducible] TypeAttr
 
+/- Keep the source lifted, as `sim_store` expects it. -/
+attribute [-ctree_semantics] CTree.Sim.bind_monadLift_right_iff
+
 theorem drop_zextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sw) := by
   proveStoreValid Data.RISCV.drop_zextw_sw

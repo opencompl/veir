@@ -20,5 +20,5 @@ register_simp_attr is_terminator
 /- Simp set for simplifying CTree-based semantics. -/
 register_simp_attr ctree_semantics
 
-/- Simp set for simplifying CTree-based semantics. -/
+/- Simp set unfolding the RISC-V combine patterns. -/
 register_simp_attr riscv_pattern

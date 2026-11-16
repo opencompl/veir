@@ -17,6 +17,7 @@ import all Veir.Data.LLVM.Byte.Bitblast
 import Veir.PatternRewriter.Puddle.Definitions
 import Veir.PatternRewriter.Puddle.Validity
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
+import Veir.PatternRewriter.CtreeSemanticsProofs
 import Veir.Passes.RISCVCombines.Proofs
 
 /-! Shared imports, tactics and semantic lemmas for the CTree validity proofs of the RISC-V
@@ -28,30 +29,6 @@ namespace Veir.RISCV.CTreeProofs
 
 open Puddle
 open _root_.CTree
-
-/-- Bind a type equation introduced by a `TypeAttr` matcher.
-Copied from `math-fehr/puddle-ctree-wip` (`InstructionSelection/Proofs/Utils.lean`). -/
-@[simp, ctree_semantics]
-theorem TypeAttr.forall_of_eq_imp_iff {T : Type} [IsTypeAttr T] {P : TypeAttr → T → Prop} :
-    (∀ (type : TypeAttr) (x : T), TypeAttr.of T x = type → P type x) ↔
-      (∀ (x : T), P (TypeAttr.of T x) x) := by
-  grind
-
-/-- Expose the outcome of an `Interp` computation forming the entire source tree.
-Copied from `math-fehr/puddle-ctree-wip` (`InstructionSelection/Proofs/Utils.lean`), where it is
-tagged `ctree_semantics`. Here it is passed explicitly by `simpCombineSemantics`, because the
-store proofs must keep the source lifted. -/
-theorem Sim.bind_monadLift_right_iff {EIn : Type} {E : EIn → Type}
-    [HasUB EIn] [ErrorE -< E] [UBE -< E]
-    {CIn C'In : Type} {C : CIn → Type} {C' : C'In → Type}
-    {α β : Type} (relation : α → β → Prop)
-    (other : CTree E C α) (func : Interp β) :
-    CTree.Sim relation other (monadLift func : CTree E C' β) ↔
-      match func with
-      | .ok value => CTree.Sim relation other (pure value : CTree E C' β)
-      | .ub _ => CTree.Sim relation other (ub : CTree E C' β)
-      | .fail _ => CTree.Sim relation other (fail : CTree E C' β) := by
-  cases func <;> rfl
 
 open Lean Meta in
 /-- Case-split, recursively in every resulting goal, each local runtime value `v` that has a
@@ -95,7 +72,7 @@ elab "casesAnds" : tactic => do
 
 /-- Unfold the operation semantics of a goal produced by `simpPuddleValid`. -/
 macro "simpCombineSemantics" : tactic => `(tactic|
-  simp [ctree_semantics, Sim.bind_monadLift_right_iff])
+  simp [ctree_semantics])
 
 /-- Split the matched inputs of a normalized combine validity goal, then substitute the results
 of the matched operations. Each round resolves one more level of nested matched operations:
@@ -126,7 +103,7 @@ A store writes a little-endian prefix of its value register. The local lemmas
 
 /-- A root store and a created store that write the same bytes simulate each other.
 The statement keeps the source as a lifted `Interp` computation, so that it can be transported
-into a normalized goal through `Sim.bind_monadLift_right_iff` without rewriting below the
+into a normalized goal through `CTree.Sim.bind_monadLift_right_iff` without rewriting below the
 dependent size proof of `MemoryState.store`. -/
 theorem sim_store {R : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
       (Array RuntimeValue × MemoryState × Option ControlFlowAction) → Prop}
@@ -171,7 +148,9 @@ macro "closeStoreValid" bytes:term : tactic => `(tactic| (
       _ _ _ _ _ _ _ $bytes))
 
 /-- Prove the validity of a store combine, given the local
-lemma `bytes` showing that the dropped extension does not change the stored bytes. -/
+lemma `bytes` showing that the dropped extension does not change the stored bytes.
+The caller must erase `CTree.Sim.bind_monadLift_right_iff` from `ctree_semantics`, so that the
+source stays lifted for `closeStoreValid`. -/
 macro "proveStoreValid" bytes:term : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
