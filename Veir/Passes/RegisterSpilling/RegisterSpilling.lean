@@ -1,41 +1,40 @@
 module
 
 public import Veir.Pass
-public import Veir.Passes.RegisterAllocation.RegisterAllocator
-public import Veir.Passes.RegisterAllocation.Helper
-public import Veir.Dialects.RISCV.OpInfo
-public import Veir.Dialects.RISCV_Stack.OpInfo
-public import Std.Data.HashMap
-public import Std.Data.HashSet
-
+import Veir.Passes.RegisterAllocation.Helper
+import Veir.Rewriter.WfRewriter
+import Std.Data.HashSet
 
 namespace Veir
-
-public section
-
-
-
 
 namespace RegisterSpilling
 
 /-!
-  Pass that ensure that all blocks can be allocated in k registers by inserting loads and stores.
+  Pass that ensure that all blocks can be allocated in `numberRegisters` (currently hardcoded to 28) registers by inserting loads and stores.
 
-  High-level algorithm for each basic block:
-  1. Do backwards walk on block and record for every op which SSA values are last used ("die" at that op)
-  2. Do forward walk on block.
-     state.loadedValues holds SSA values that are currently in a register
-     state.slots: Map from SSA value that was spilled to the new SSA value that is returned by the alloca op that was used to put the original value on the stack
-     For every op:
-     2.1 Check if (loadedValues union srcOperands) are larger than number of available registers
-         If so, evict random currently loadedValues (not values that are used as operands!) to memory
-     2.2 Check if all operands are in loadedValues.
-         If not, instert load operations (throw error if there is not slot that holds the value)
-     2.3 Check which SSA values are last used at an op. Remove them from loadedValues
-     2.1 Check if (loadedValues union opResults) are larger than number of available registers
-         If so, evict random currently loadedValues (not values that are used as operands!) to memory
+  High-level algorithm for each basic block:
+  1. Do backwards walk on block and record for every op which SSA values are last used ("die" at that op)
+  2. Do forward walk on block.
+     state.loadedValues holds SSA values that are currently in a register
+     state.slots: Map from SSA value that was spilled to the new SSA value that is returned by the alloca op that was used to put the original value on the stack
+     For every op:
+     2.1 Check if (loadedValues union srcOperands) are larger than number of available registers
+         If so, evict random currently loadedValues (not values that are used as operands!) to memory
+     2.2 Check if all operands are in loadedValues.
+         If not, insert load operations (throw error if there is no slot that holds the value)
+     2.3 Check which SSA values are last used at an op. Remove them from loadedValues
+     2.4 Check if (loadedValues union opResults) are larger than number of available registers
+         If so, evict random currently loadedValues (not values that are used as operands!) to memory
 -/
 
+/-- The spiller's state while walking a block forward. -/
+structure SpillState where
+  /-- Values currently assumed to be in a register. -/
+  loadedValues : Std.HashSet ValuePtr := ∅
+  /-- The stack slot (alloca result) of every value spilled so far. -/
+  slots : Std.HashMap ValuePtr ValuePtr := ∅
+  /-- For a reloaded value, the `ld` result that currently holds it. -/
+  current : Std.HashMap ValuePtr ValuePtr := ∅
 
 /--
   Spill `value` to risc.stack with alloca. insert that operation before op
@@ -55,28 +54,34 @@ def insertSpill (ctx : WfIRContext OpCode) (op : OperationPtr) (value: ValuePtr)
     | throw "register spilling could not create a spill store"
   return (ctx, slot)
 
-
-/-- The spiller's state while walking a block forward. -/
-structure SpillState where
-  /-- Values currently assumed to be in a register. -/
-  loadedValues : Std.HashSet ValuePtr := ∅
-  /-- The stack slot (alloca result) of every value spilled so far. -/
-  slots : Std.HashMap ValuePtr ValuePtr := ∅
-
-    /-- For a reloaded value, the `ld` result that currently holds it. -/
-  current : Std.HashMap ValuePtr ValuePtr := ∅
-
 /--
 Evict `value` from the registers before `op`: store it to a fresh slot unless it already has
 one, in which case the slot still holds it and no store is needed.
 -/
-def evict (ctx : WfIRContext OpCode) (state : SpillState) (op : OperationPtr)
+def evictValue (ctx : WfIRContext OpCode) (state : SpillState) (op : OperationPtr)
     (value : ValuePtr) : Except String (WfIRContext OpCode × SpillState) := do
   let state := { state with loadedValues := state.loadedValues.erase value }
   if state.slots.contains value then return (ctx, state)
   let (ctx, slot) ← insertSpill ctx op value
   return (ctx, { state with slots := state.slots.insert value slot })
 
+/--
+Evict loaded values before `op` until `needed` fits in the registers next to what stays
+loaded. Values in `needed` are never evicted.
+-/
+def evict (ctx : WfIRContext OpCode) (state : SpillState) (op : OperationPtr)
+    (needed : Std.HashSet ValuePtr) (numRegisters : Nat) :
+    Except String (WfIRContext OpCode × SpillState) := do
+  let numberToEvict := (state.loadedValues.union needed).size - numRegisters
+  let evictable := state.loadedValues.toArray.filter (!needed.contains ·)
+  if evictable.size < numberToEvict then
+    throw s!"register spilling: operation needs more than {numRegisters} registers"
+  -- Future work: use sensible heuristic for choosing which values to evict
+  let mut ctx := ctx
+  let mut state := state
+  for value in evictable.take numberToEvict do
+    (ctx, state) ← evictValue ctx state op value
+  return (ctx, state)
 
 /--
 Reload the value stored in `slot` before `op`. The operands of `op` are left as they are;
@@ -103,17 +108,9 @@ def spillOp (ctx : WfIRContext OpCode) (state : SpillState)
   let mut state := state
 
   let operands := Std.HashSet.ofArray (op.getOperands! ctx.raw)
-  let numberToEvict := (state.loadedValues.union operands).size - numRegisters
-  let evictable := state.loadedValues.toArray.filter (!operands.contains ·)
 
-  if evictable.size < numberToEvict then
-    throw s!"register spilling: operation needs more than {numRegisters} registers"
-  -- Future work: use sensible heuristic for choosing which values to evict
-  let chosen := evictable.take numberToEvict
-  for valueToEvict in chosen do
-    let (ctx', state') <- evict ctx state op valueToEvict
-    ctx := ctx'
-    state := state'
+  -- evict enough values that all operands fit into registers
+  (ctx, state) <- evict ctx state op operands numRegisters
 
   -- Reload operands, if needed
   let missing := operands.diff state.loadedValues
@@ -136,19 +133,9 @@ def spillOp (ctx : WfIRContext OpCode) (state : SpillState)
   for value in lastUses.getD op ∅ do
     state := { state with loadedValues := state.loadedValues.erase value }
 
-  -- Make room for the results, then record them.
+  -- evict enough values that all results fit into registers
   let results := Std.HashSet.ofArray (op.getResults! ctx.raw)
-
-  let numberToEvict := (state.loadedValues.union results).size - numRegisters
-  let evictable := state.loadedValues.toArray.filter (!results.contains ·)
-
-  -- Futur work: use sensible heuristic for choosing which values to evict
-  let chosen := evictable.take numberToEvict
-  for valueToEvict in chosen do
-    let (ctx', state') <- evict ctx state op valueToEvict
-    ctx := ctx'
-    state := state'
-
+  (ctx, state) <- evict ctx state op results numRegisters
 
   -- add results to loadedValues (if they have uses, otherwise they can just be discarded)
   for result in op.getResults! ctx.raw do
@@ -194,21 +181,22 @@ def spillBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
   return (ctx, state.slots)
 
 end RegisterSpilling
+
 /-- RV64 has 32 registers, but we don't allocate x0 (zero), x1 (ra), x3 (gp) and x4 (tp)
 TODO: As spilling is integrated with the register allocation pass and calling convention/ control flow is supported, this will become a dynamic value  -/
 def rv64NumRegisters : Nat := 28
 
-/-- The pass entry point: `spillModule`, lifted into the pass monad. -/
 def RegisterSpillingPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-    let entries ← allocatableBlocks ctx op
-    let mut ctx := ctx
-    for entry in entries do
-        (ctx, _) ← RegisterSpilling.spillBlock ctx entry rv64NumRegisters
-    return ctx
+  (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+  let entries ← allocatableBlocks ctx op
+  let mut ctx := ctx
+  for entry in entries do
+      (ctx, _) ← RegisterSpilling.spillBlock ctx entry rv64NumRegisters
+  return ctx
 
 public def RegisterSpillingPass : Pass OpCode :=
   { name := "register-spilling-riscv64"
-    description := "Spill values to the stack so that single-block riscv functions never \
-                    have more live values than RV64 has registers."
+    description := "Spill values to the stack to ensure the number of live values never exceeds the number of registers."
     run := fun _ => RegisterSpillingPass.impl }
+
+end Veir
