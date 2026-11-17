@@ -1,8 +1,8 @@
 // RUN: veir-opt %s -p=postlegalizer-combiner-riscv64 | filecheck %s
 
-// `binop(C1, C2)` with two constant operands folds to a single constant. Only
-// opcodes well-defined over unbounded integers are folded here: add, sub, mul,
-// smin, smax.
+// `binop(C1, C2)` with two constant operands folds to a single constant: add,
+// sub, mul, smin, smax and shl. As in LLVM, a shl by an amount out of range,
+// which is poison, folds to 0.
 
 "builtin.module"() ({
   // add(5, 7) = 12
@@ -39,6 +39,24 @@
     %r = "gmir.g_smin"(%a, %b) : (i32, i32) -> i32
     "func.return"(%r) : (i32) -> ()
   }) : () -> ()
+
+  // shl(1, 2) = 4
+  "func.func"() <{function_type = () -> i32, sym_name = "shl"}> ({
+  ^bb0():
+    %a = "gmir.g_constant"() <{value = 1 : i32}> : () -> i32
+    %b = "gmir.g_constant"() <{value = 2 : i32}> : () -> i32
+    %r = "gmir.g_shl"(%a, %b) : (i32, i32) -> i32
+    "func.return"(%r) : (i32) -> ()
+  }) : () -> ()
+
+  // shl(1, 32) at i32 is out of range: 0
+  "func.func"() <{function_type = () -> i32, sym_name = "shl_out_of_range"}> ({
+  ^bb0():
+    %a = "gmir.g_constant"() <{value = 1 : i32}> : () -> i32
+    %b = "gmir.g_constant"() <{value = 32 : i32}> : () -> i32
+    %r = "gmir.g_shl"(%a, %b) : (i32, i32) -> i32
+    "func.return"(%r) : (i32) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // add folds to 12.
@@ -60,3 +78,13 @@
 // CHECK:      func.func @baz() -> i32 {
 // CHECK-NOT:  "gmir.g_smin"
 // CHECK:      "func.return"(%{{.*}}) : (i32) -> ()
+
+// shl folds to 4.
+// CHECK-LABEL: func.func @shl() -> i32 {
+// CHECK-NEXT: %[[SHL:.*]] = "gmir.g_constant"() <{"value" = 4 : i32}> : () -> i32
+// CHECK-NEXT: "func.return"(%[[SHL]]) : (i32) -> ()
+
+// An out-of-range shl folds to 0.
+// CHECK-LABEL: func.func @shl_out_of_range() -> i32 {
+// CHECK-NEXT: %[[ZERO:.*]] = "gmir.g_constant"() <{"value" = 0 : i32}> : () -> i32
+// CHECK-NEXT: "func.return"(%[[ZERO]]) : (i32) -> ()

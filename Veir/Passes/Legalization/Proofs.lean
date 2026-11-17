@@ -360,6 +360,35 @@ theorem sdiv_by_pow2_neg {w : Nat} (x : LLVM.Int w) (k : Nat) (hk0 : 0 < k) (hk 
   grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
     BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_neg_one_shl_eq_neg_biased_sshiftRight]
 
+/-! ### `constant_fold_binop`
+
+The folds are proved for every width, whatever the flags of the folded operation.
+-/
+
+theorem constant_fold_add {w : Nat} (a b : BitVec w) (nsw nuw : Bool) :
+    LLVM.Int.add (.val a) (.val b) nsw nuw ⊒ .val (a + b) := by
+  veir_bv_normalize
+
+theorem constant_fold_sub {w : Nat} (a b : BitVec w) (nsw nuw : Bool) :
+    LLVM.Int.sub (.val a) (.val b) nsw nuw ⊒ .val (a - b) := by
+  veir_bv_normalize
+
+theorem constant_fold_mul {w : Nat} (a b : BitVec w) (nsw nuw : Bool) :
+    LLVM.Int.mul (.val a) (.val b) nsw nuw ⊒ .val (a * b) := by
+  veir_bv_normalize
+
+theorem constant_fold_smin {w : Nat} (a b : BitVec w) :
+    LLVM.Int.smin (.val a) (.val b) ⊒ .val (if a.sle b then a else b) := by
+  veir_bv_normalize
+
+theorem constant_fold_smax {w : Nat} (a b : BitVec w) :
+    LLVM.Int.smax (.val a) (.val b) ⊒ .val (if a.sle b then b else a) := by
+  veir_bv_normalize
+
+theorem constant_fold_shl {w : Nat} (a b : BitVec w) (nsw nuw : Bool) :
+    LLVM.Int.shl (.val a) (.val b) nsw nuw ⊒ .val (a <<< b) := by
+  veir_bv_normalize
+
 /-! ### `tryFoldSelectOfConstants`
 
 The combines are proved for every width `w` wider than the `i1` condition.
