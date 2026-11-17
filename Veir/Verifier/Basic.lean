@@ -80,7 +80,7 @@ def OperationPtr.verifyOperandTypesMatchTypeArray
   for h : j in [0:expected.size] do
     let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
     if !Attribute.branchArgCompatible opTy.val expected[j] then
-      throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, expected {expected[j]}"
+      throw s!"{errPrefix} type mismatch at {j}th argument: operand has type {opTy}, expected {expected[j]}"
 
 /--
   Check that the operands forwarded to a successor block match the types of that
@@ -219,34 +219,58 @@ def OperationPtr.getEnclosingFunctionOp (op : OperationPtr)
   | some funcOp => pure funcOp
   | none => throw s!"Expected {opName} to have an enclosing function operation"
 
-/--
-  Walk up from `op` to find the nearest enclosing ancestor matching `target`.
-  Walks up at most `maxDistance` times.
--/
-def OperationPtr.getMatchingAncestorOp?
-    {OpInfo : Type} [IsOpCode OpInfo]
-    {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
-    (op : OperationPtr) (ctx : IRContext OpInfo) (target : Dialect) (maxDistance : Nat) : Option (OperationPtr × propertiesOf target) :=
-  match maxDistance with
-    | 0 => none
-    | dist + 1 => match op.getParentOp! ctx with
-      | none => none
-      | some parent =>
-        if parent.getOpType! ctx = target then
-          some (parent, parent.getProperties! ctx target)
-        else
-          parent.getMatchingAncestorOp? ctx target dist
+/-- A family of types indexed by opcode, inhabited exactly at the opcodes of interest. -/
+class OpcodeFamily {Dialect : Type} (P : Dialect → Type) where
+  classify : (t : Dialect) → Option (P t)
+
+/-- An ancestor operation whose opcode belongs to the family `P`. -/
+structure AncestorOp {Dialect : Type} [IsOpCode Dialect] (P : Dialect → Type) where
+  {opType : Dialect}
+  kind  : P opType
+  op    : OperationPtr
+  props : propertiesOf opType
 
 /--
-  Same as getMatchingAncestorOp, but without a traversal bound.
+  Walk up from `op` to find the `n`th nearest enclosing ancestor matching `P`'s instance
+  of `OpcodeFamily.classify`. Walks at most `maxDistance` ancestor nodes.
 -/
-def OperationPtr.getMatchingAncestorOpUnbounded?
+def OperationPtr.getNthMatchingAncestorOp?
     {OpInfo : Type} [IsOpCode OpInfo]
     {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
-    (op : OperationPtr) (ctx : IRContext OpInfo) (target : Dialect) : Option (OperationPtr × propertiesOf target) :=
+    (P : Dialect -> Type) [OpcodeFamily P]
+    (op : OperationPtr) (ctx : IRContext OpInfo) (n : Nat) (maxDistance : Nat) : Option (AncestorOp P) := do
+  let parentOp ← op.getParentOp! ctx
+  let ancestor : Option (AncestorOp P) := do
+    let parentType ← toDialect? Dialect (parentOp.getOpType! ctx)
+    let kind ← OpcodeFamily.classify parentType
+    return { kind, op := parentOp, props := parentOp.getProperties! ctx parentType }
+  match ancestor, n, maxDistance with
+    | some a, 0,   _      => some a
+    | _,      _,   0      => none
+    | some a, n+1, dist+1 => a.op.getNthMatchingAncestorOp? P ctx n dist
+    | none,   n,   dist+1 => parentOp.getNthMatchingAncestorOp? P ctx n dist
+
+/--
+  Walk up from `op` exactly `n` ancestors that must match `P`'s instance of `OpcodeFamily.classify`.
+-/
+def OperationPtr.getNthAncestorOpInMatchingChain?
+    {OpInfo : Type} [IsOpCode OpInfo]
+    {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
+    (P : Dialect -> Type) [OpcodeFamily P]
+    (op : OperationPtr) (ctx : IRContext OpInfo) (n : Nat) : Option (AncestorOp P) :=
+  op.getNthMatchingAncestorOp? P ctx n n
+
+/--
+  Same as `OperationPtr.getMatchingAncestorOp`, but without a maximum node traversal bound.
+-/
+def OperationPtr.getNthMatchingAncestorOpUnbounded?
+    {OpInfo : Type} [IsOpCode OpInfo]
+    {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
+    (P : Dialect -> Type) [OpcodeFamily P]
+    (op : OperationPtr) (ctx : IRContext OpInfo) (n : Nat) : Option (AncestorOp P) :=
   -- In practice there can be no more than ctx.operations.size
   -- operations to traverse, so we implicitly bound by that
-  op.getMatchingAncestorOp? ctx target ctx.operations.size
+  op.getNthMatchingAncestorOp? P ctx n ctx.operations.size
 
 def TypeAttr.verifyIntegerType
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
@@ -293,7 +317,7 @@ def TypeAttr.verifyI1
 def TypeAttr.verifyI32
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
-  | .integerType { bitwidth := 64, .. } => pure ()
+  | .integerType { bitwidth := 32, .. } => pure ()
   | _ => throw errMsg
 
 def TypeAttr.verifyI64

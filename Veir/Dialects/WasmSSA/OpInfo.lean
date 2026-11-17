@@ -47,7 +47,7 @@ inductive WasmSSA where
 -- | gt
 | gt_si
 | gt_ui
--- | if
+| if
 -- | import_func
 -- | import_global
 -- | import_mem
@@ -59,7 +59,7 @@ inductive WasmSSA where
 -- | local_get
 -- | local_set
 -- | local_tee
--- | loop
+| loop
 -- | lt
 | lt_si
 | lt_ui
@@ -79,7 +79,7 @@ inductive WasmSSA where
 | return
 | rotl
 | rotr
--- | select
+| select
 | shl
 | shr_s
 | shr_u
@@ -130,8 +130,10 @@ def WasmSSA.fromAttrDict
   | .ge_ui
   | .gt_si
   | .gt_ui
+  | .if
   | .le_si
   | .le_ui
+  | .loop
   | .lt_si
   | .lt_ui
   | .mul
@@ -143,6 +145,7 @@ def WasmSSA.fromAttrDict
   | .return
   | .rotl
   | .rotr
+  | .select
   | .shl
   | .shr_s
   | .shr_u
@@ -165,6 +168,28 @@ instance : IsOpCode WasmSSA where
   fromAttrDict := WasmSSA.fromAttrDict
   toAttrDict := WasmSSA.toAttrDict
 
+inductive IsFunc : WasmSSA → Type
+  | func : IsFunc .func
+instance : OpcodeFamily IsFunc where
+  classify := fun t => match t with | .func => some .func | _ => none
+
+inductive LabelLevelOp : WasmSSA → Type
+  | block : LabelLevelOp .block
+  | loop : LabelLevelOp .loop
+  | if : LabelLevelOp .if
+
+-- def LabelLevelOp.getLabelTarget
+--   (ctx : IRContext WasmSSA) (index : Nat) : BlockPtr := do
+--   match
+--   sorry
+
+instance : OpcodeFamily LabelLevelOp where
+  classify := fun t => match t with
+    | .block => some .block
+    | .if => some .if
+    | .loop => some .loop
+    | _ => none
+
 /--
 Verify the local invariants of a `wasmssa` operation in any operation-info type
 containing the `wasmssa` dialect.
@@ -180,6 +205,7 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     {(op.getAttributes ctx.raw opIn).entries.size} attributes, \
     {(op.getRegions ctx.raw opIn).size} regions, \
     {(op.getSuccessors ctx.raw opIn).size} successors"
+  
   match opType with
   | .add | .sub | .mul -- <-- TODO: split out and account for float ops when support added
   | .and | .or | .xor | .div_si | .div_ui | .rem_si | .rem_ui
@@ -190,50 +216,79 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .eq | .ne -- <-- TODO: split out and add float checks when support added
   | .lt_si | .lt_ui | .le_si | .le_ui | .gt_si | .gt_ui | .ge_si | .ge_ui => do
       op.verifyCmpResultGeneric ctx opIn (IntegerType.signless 32)
-  | .block => do
-    -- `block` is a terminator of the enclosing block that owns a body region.
-    -- Its `inputs` seed the body's entry-block arguments, and `target` is
-    -- where control resumes once the body exits via `block_return`.
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "wasmssa.block: Expected 1 region"
+  | .block | .loop | .if => do
+    let opName := opType.name
+    if opType = .if then
+      if op.getNumOperands! ctx.raw ≠ 1 then
+        throw "wasmssa.if: Expected 'condition' operand"
+      else
+        if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ≠ .integerType (IntegerType.signless 32) then
+          throw "wasmssa.if: Expected 'condition' to be a 32-bit signless integer"
+    else
+      if op.getNumOperands! ctx.raw ≠ 0 then
+        throw s!"{opName}: Expected 0 operands"
     if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "wasmssa.block: Expected 0 results"
+      throw s!"{opName}: Expected 0 results"
     if op.getNumSuccessors ctx.raw opIn ≠ 1 then
-      throw "wasmssa.block: Expected 1 successor"
-    let body := op.getRegion! ctx.raw 0
-    let some entry := body.getFirstBlock! ctx.raw
-      | throw "wasmssa.block: Expected a non-empty body region"
-    if entry.getNumArguments! ctx.raw ≠ op.getNumOperands ctx.raw opIn then
-      throw s!"wasmssa.block: Expected the body entry block to take \
-        {op.getNumOperands ctx.raw opIn} argument(s) (one per input), \
-        got {entry.getNumArguments! ctx.raw}"
-    op.verifyOperandTypesMatchTypeArray ctx 0 ((entry.getArgumentTypes! ctx.raw).map (·.val)) "wasmssa.block: body entry block"
+      throw s!"{opName}: Expected 1 successor 'target' block"
+    let expectedRegions := if opType = .if then 2 else 1
+    if op.getNumRegions ctx.raw opIn ≠ expectedRegions then
+      throw s!"{opName}: Expected {expectedRegions} region(s)"
+    let operandOffset := if opType = .if then 1 else 0
+
+    let some entry := (op.getRegion! ctx.raw 0).getFirstBlock! ctx.raw
+      | throw s!"{opName}: Expected a non-empty region"
+    if entry.getNumArguments! ctx.raw + operandOffset ≠ op.getNumOperands ctx.raw opIn then
+      throw s!"{opName}: Expected {entry.getNumArguments! ctx.raw + 1} operand(s) \
+      to match the nested block's arguments (including 'condition'), got {op.getNumOperands ctx.raw opIn} operands instead"
+    op.verifyOperandTypesMatchTypeArray ctx operandOffset ((entry.getArgumentTypes! ctx.raw).map (·.val)) s!"{opName}: region entry block"
+
+    if opType = .if then
+      if let some secondEntry := (op.getRegion! ctx.raw 0).getFirstBlock! ctx.raw then
+        if secondEntry.getNumArguments! ctx.raw + operandOffset ≠ op.getNumOperands ctx.raw opIn then
+          throw s!"{opName}: Expected {secondEntry.getNumArguments! ctx.raw + 1} operand(s) \
+          to match the nested block's arguments (including 'condition'), got {op.getNumOperands ctx.raw opIn} operands instead"
+        op.verifyOperandTypesMatchTypeArray ctx operandOffset ((secondEntry.getArgumentTypes! ctx.raw).map (·.val)) s!"{opName}: region entry block"
+
   | .block_return => do
     op.verifyTerminatorCounts ctx opIn 0
-    let some parent := op.getParentOp! ctx.raw
-      | throw "wasmssa.block_return: Expected to be nested in a 'wasmssa.block'"
-    if toDialect? WasmSSA (parent.getOpType! ctx.raw) ≠ some WasmSSA.block then
-      throw "wasmssa.block_return: Expected to be nested in a 'wasmssa.block'"
-    if parent.getNumSuccessors! ctx.raw ≠ 1 then
-      throw "wasmssa.block_return: Expected the enclosing 'wasmssa.block' to have 1 successor"
-    let target := parent.getSuccessor! ctx.raw 0
+    let some labelLevelParentOp := op.getNthAncestorOpInMatchingChain? LabelLevelOp ctx.raw 0
+      | throw "wasmssa.block_return: Expected to be nested in a LabelLevelOp ('wasmssa.block', 'wasmssa.if', 'wasmssa.loop')"
+    if labelLevelParentOp.op.getNumSuccessors! ctx.raw ≠ 1 then
+      throw "wasmssa.block_return: Expected the enclosing LavelLevelOp to have 1 successor"
+    let target := labelLevelParentOp.op.getSuccessor! ctx.raw 0
     if op.getNumOperands ctx.raw opIn ≠ target.getNumArguments! ctx.raw then
       throw s!"wasmssa.block_return: Expected {target.getNumArguments! ctx.raw} operand(s) \
-        to match the target's block arguments, got {op.getNumOperands ctx.raw opIn}"
+        to match the target's arguments, got {op.getNumOperands ctx.raw opIn} operands instead"
     op.verifyOperandTypesMatchTypeArray ctx 0 ((target.getArgumentTypes! ctx.raw).map (·.val)) "wasmssa.block_return: target"
   | .branch_if => do
     op.verifyTerminatorCounts ctx opIn 1
-    let some parent := op.getParentOp! ctx.raw
-      | throw "wasmssa.block_return: Expected to be nested in a 'wasmssa.block'"
-    if toDialect? WasmSSA (parent.getOpType! ctx.raw) ≠ some WasmSSA.block then
-      throw "wasmssa.block_return: Expected to be nested in a 'wasmssa.block'"
-    if parent.getNumSuccessors! ctx.raw ≠ 1 then
-      throw "wasmssa.block_return: Expected the enclosing 'wasmssa.block' to have 1 successor"
-    let target := parent.getSuccessor! ctx.raw 0
-    if op.getNumOperands ctx.raw opIn ≠ target.getNumArguments! ctx.raw then
-      throw s!"wasmssa.block_return: Expected {target.getNumArguments! ctx.raw} operand(s) \
-        to match the target's block arguments, got {op.getNumOperands ctx.raw opIn}"
-    op.verifyOperandTypesMatchTypeArray ctx 0 ((target.getArgumentTypes! ctx.raw).map (·.val)) "wasmssa.block_return: target"
+    -- We know from WasmSSABranchIfProperties.fromAttrDict that it is a non-negative integer
+    let expectedNesting := (op.getProperties! ctx.raw WasmSSA.branch_if).exitLevel.value.natAbs
+    let some frameOp := op.getNthAncestorOpInMatchingChain? LabelLevelOp ctx.raw expectedNesting
+      | throw s!"wasmssa.branch_if: Expected to be nested {expectedNesting}-deep in LabelLevelOps (`wasmssa.block`, `wasmssa.if`, `wasmssa.loop`)"
+    -- The branch target is the successor in the case of `if` or `block`,
+    -- but the body in the case of `loop`.
+    let target : BlockPtr ← match frameOp with
+      | ⟨.block, frameOp, props⟩
+      | ⟨.if, frameOp, props⟩ =>
+        if frameOp.getNumSuccessors! ctx.raw ≠ 1 then
+          throw "wasmssa.branch_if: Expected the targetted LabelLevelOp to have 1 successor"
+        else
+          pure (frameOp.getSuccessor! ctx.raw 0)
+      | ⟨.loop, loopOp, props⟩ =>
+        if loopOp.getNumRegions! ctx.raw ≠ 1 then
+          throw "wasmssa.branch_if: expected targetted `loop` to have 1 region"
+        else
+          let some target := (loopOp.getRegion! ctx.raw 0).getFirstBlock! ctx.raw
+            | throw "wasmssa.branch_if: expected targetted `loop` to have a nonempty region"
+          pure target
+    if op.getNumOperands ctx.raw opIn ≠ target.getNumArguments! ctx.raw + 1 then
+      throw s!"wasmssa.branch_if: Expected {target.getNumArguments! ctx.raw + 1} operand(s) \
+        to match the target's arguments (including 'conditioin'), got {op.getNumOperands ctx.raw opIn} operands instead"
+    if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ≠ .integerType (IntegerType.signless 32) then
+      throw "wasmssa.branch_if: expected 'condition' to be a signless 32-bit integer"
+    op.verifyOperandTypesMatchTypeArray ctx 1 ((target.getArgumentTypes! ctx.raw).map (·.val)) "wasmssa.branch_if: target"
   | .call => do
     -- Upstream wasmssa doesn't seem to bother checking whether calls
     -- match callee signatures, and it's non-obvious how to do that
@@ -256,7 +311,7 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"wasmssa.const: Expected value and result types to match ({const_type} ≠ {result_type})"
   | .eqz => do
     op.verifyPlainOpCounts ctx opIn 1 1
-    let operand := op.getOperand! ctx.raw 1
+    let operand := op.getOperand! ctx.raw 0
     let bitness_error_msg := "wasmssa.eqz: Expected i32 or i64 operand type"
     ((operand.getType! ctx.raw).verifyI32 bitness_error_msg) <|> ((operand.getType! ctx.raw).verifyI64 bitness_error_msg)
     op.verifyResultTypeMatches ctx (IntegerType.signless 32) "wasmssa.eqz: Expected i32 result type"
@@ -278,12 +333,26 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "wasmssa.func: Expected 0 successors"
   | .return => do
     op.verifyTerminatorCounts ctx opIn 0
-    if let some (_, props) := op.getMatchingAncestorOpUnbounded? ctx.raw WasmSSA.func then
+    if let some ⟨.func, ancestor, props⟩ := op.getNthMatchingAncestorOpUnbounded? IsFunc ctx.raw 0 then
         let funcOutputType := props.function_type.outputs
         let opOperandCount := op.getNumOperands ctx.raw opIn
         if opOperandCount ≠ funcOutputType.size then
           throw s!"wasmssa.return: Expected wasmssa.return operand count ({opOperandCount}) to match enclosing function ({funcOutputType.size})"
         op.verifyOperandTypesMatchTypeArray ctx 0 funcOutputType "wasmssa.return"
+  | .select => do
+    op.verifyPlainOpCounts ctx opIn 3 1
+    if ((op.getOperand! ctx.raw 2).getType! ctx.raw).val ≠ .integerType (IntegerType.signless 32) then
+      throw "wasmssa.select: Expected 'condition' to be a 32-bit signless integer"
+    let true_value_type := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+    let false_value_type := ((op.getOperand! ctx.raw 1).getType! ctx.raw).val
+    let result_type := ((op.getResult 0).getType! ctx.raw).val
+    if true_value_type ≠ false_value_type || true_value_type ≠ result_type then
+      throw s!"wasmssa.select: Expected 'true_value', 'false_value' and 'result' \
+        to have matching types, but found `{true_value_type}`, `{false_value_type}` and `{result_type}`"
+    match true_value_type with
+      | .integerType _ => .ok ()
+      | _ => throw s!"wasmssa.select: Expected 'true_value', 'false_value' and 'result' \
+        to have integer types, but found type `{true_value_type}`"
 
 @[get_effects]
 def WasmSSA.getEffects
@@ -338,7 +407,7 @@ def WasmSSA.hasSSADominance (_op : WasmSSA) (_index : Nat) : Bool :=
 @[is_terminator]
 def WasmSSA.isTerminator (op : WasmSSA) : Bool :=
   match op with
-  | .block | .block_return | .branch_if | .return => true
+  | .block | .block_return | .branch_if | .if | .loop | .return => true
   | _ => false
 
 def WasmSSA.isIsolatedFromAbove (op : WasmSSA) : Bool :=

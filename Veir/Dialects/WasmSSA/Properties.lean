@@ -17,8 +17,10 @@ def WasmSSABranchIfProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Att
     Except String WasmSSABranchIfProperties := do
   let exitLevel ← match attrDict["exitLevel".toUTF8]? with
     | some (.integerAttr n) => pure n
-    | some attr => throw s!"wasmssa.branch_if: expected 'exitLevel' to be an integer, but got {attr}"
-    | none => throw "wasmssa.branch_if: missing 'exitLevel' property"
+    | some attr => throw s!"wasmssa.branch_if: Expected 'exitLevel' to be an integer, but got {attr}"
+    | none => throw "wasmssa.branch_if: Missing 'exitLevel' property"
+  if exitLevel.type.signedness ≠ .unsigned || exitLevel.value < 0 then
+    throw s!"wasmssa.branch_if: Expected unsigned 'exitLevel' value"
   return { exitLevel }
 
 def WasmSSABranchIfProperties.toAttrDict (props : WasmSSABranchIfProperties) : Std.HashMap ByteArray Attribute :=
