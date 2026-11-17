@@ -18,7 +18,8 @@
     "func.return"(%s63, %sm1, %smin, %z63, %zmax) : (i64, i64, i64, i64, i64) -> ()
   }) : () -> ()
 
-  // Negative cases: the truncation changes the value.
+  // Negative cases: the truncation changes the value, so the constant is not folded (the
+  // extensions become a `g_sext_inreg` and a `g_and`, see `ext_of_trunc.mlir`).
   "func.func"() <{function_type = () -> (i64, i64), sym_name = "keep"}> ({
     %big = "gmir.g_constant"() <{value = 2147483648 : i64}> : () -> i64
     %neg = "gmir.g_constant"() <{value = -1 : i64}> : () -> i64
@@ -40,6 +41,6 @@
 // CHECK:       "func.return"(%[[C63]], %[[CM1]], %[[CMIN]], %[[C63]], %[[CMAX]])
 
 // CHECK-LABEL: func.func @keep
-// CHECK:       %[[SBIG:.*]] = "gmir.g_sext"
-// CHECK:       %[[ZNEG:.*]] = "gmir.g_zext"
+// CHECK:       %[[SBIG:.*]] = "gmir.g_sext_inreg"
+// CHECK:       %[[ZNEG:.*]] = "gmir.g_and"
 // CHECK:       "func.return"(%[[SBIG]], %[[ZNEG]])

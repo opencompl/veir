@@ -27,14 +27,32 @@ def createConstantWith {Inputs : Type} [IsMetadataTuple OpCode Inputs]
     (value : MetadataValues OpCode Inputs → Int) : CreateProg.Builder CreatedOpHandle := do
   let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant)))
       (type, inputs) fun (type, inputs) => do
-        let .integerType type := type.val | none
-        return { value := .ofInt (value inputs) type }
+        let valueType ← match type.val with
+          | .integerType type => some type
+          | .llvmPointerType _ => some (IntegerType.signless 64)
+          | _ => none
+        return { value := .ofInt (value inputs) valueType }
   CreateProg.operation (.gmir .g_constant) #[] #[type] props
 
 /-- Create a `g_constant` of `type` with the value `value`. -/
 def createConstant (type : Handle OpCode .type) (value : Int) :
     CreateProg.Builder CreatedOpHandle :=
   createConstantWith type () fun () => value
+
+/-- Creates the `g_constant` `value srcWidth` of type `type`, where `srcWidth` is the width of the
+integer type `srcType`. -/
+def widthConstant (srcType type : Handle OpCode .type) (value : Nat → Int) :
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type srcType fun srcType => value (srcType.cast? IntegerType).get!.bitwidth
+
+/-- Creates the `g_sext_inreg` of `x` of type `type` with the width of the integer type `srcType`. -/
+def createSextInReg (x : Handle OpCode .value) (srcType type : Handle OpCode .type) :
+    CreateProg.Builder CreatedOpHandle := do
+  let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_sext_inreg)))
+      srcType fun srcType => do
+        let .integerType srcType := srcType.val | none
+        return { sz := BitVec.ofNat 64 srcType.bitwidth }
+  CreateProg.operation (.gmir .g_sext_inreg) #[x] #[type] props
 
 end
 
@@ -107,12 +125,6 @@ private def matchUnary (opcode : GMIR) (srcWidth resWidth : Nat → Bool := fun 
   let _ ← MatchProg.root (.gmir opcode) #[src] #[resType]
   return (srcType, resType, src)
 
-/-- Creates the `g_constant` `value srcWidth` of type `type`, where `srcWidth` is the width of the
-integer type `srcType`. -/
-private def widthConstant (srcType type : Handle OpCode .type) (value : Nat → Int) :
-    CreateProg.Builder CreatedOpHandle :=
-  createConstantWith type srcType fun srcType => value (srcType.cast? IntegerType).get!.bitwidth
-
 /--
 Widens the operand of `g_ctlz` to `width` bits. The operand is zero-extended, so the count is too
 large by the number of added bits, which are subtracted from it, as in LLVM's
@@ -183,11 +195,7 @@ def lowerSext : Pattern OpCode :=
     (fun (srcType, resType, src) => do
       let extProps ← CreateProg.property (.gmir .g_anyext) default
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType] extProps
-      let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_sext_inreg)))
-          srcType fun type => match type.val with
-            | .integerType type => some (SextInRegProperties.mk (BitVec.ofNat 64 type.bitwidth))
-            | _ => none
-      CreateProg.operation (.gmir .g_sext_inreg) #[ext.res[0]!] #[resType] props)
+      createSextInReg ext.res[0]! srcType resType)
     (fun op => op)
 
 /-- Lowers `g_zext` to a `g_anyext` followed by a `g_and` with the mask of the source width, which
