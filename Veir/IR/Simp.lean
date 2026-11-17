@@ -16,3 +16,6 @@ register_simp_attr properties_of
 /- Simp sets for reducing operation memory effects and terminator information. -/
 register_simp_attr get_effects
 register_simp_attr is_terminator
+
+/- Simp set unfolding the RISC-V combine patterns. -/
+register_simp_attr riscv_pattern
