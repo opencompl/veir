@@ -10,6 +10,7 @@ import all Veir.Dialects.RISCV.Interpreter
 import all Veir.IR.Attribute
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
 public import Veir.PatternRewriter.Puddle.Simp
+public import Veir.Passes.RISCVCombines.Simp
 
 /-!
 # Correctness of the RISC-V combines
@@ -17,7 +18,7 @@ public import Veir.PatternRewriter.Puddle.Simp
 The CTree validity proofs (`Puddle.CTree.Pattern.Valid`) of the `riscv-combine` patterns in
 `Combine.lean`. Each proof unfolds its pattern with the `riscv_pattern` simp set, discharges the
 structural obligations with `simpPuddleValid`, normalizes the semantics down to a register
-equality and bit-blasts that equality under the matcher's guards.
+equality with the `riscv_combine` simp set and bit-blasts that equality under the matcher's guards.
 
 Register operations take their operands as `(rs2, rs1)`, the reverse of the SSA operand order,
 because that is how `Riscv.interpretOp'` applies them.
@@ -30,12 +31,50 @@ open _root_.CTree
 
 attribute [local puddle]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
-  Riscv.interpretOp' Riscv.interpretOpCTree Rv64.interpretOp'
+  Riscv.interpretOp' Riscv.interpretOpCTree
+
+/-! ### The `riscv_combine` simp set
+
+After `simpPuddleValid` and `puddle`, a combine validity goal quantifies over the matched input
+values and states the refinement between the interpreted root and replacement. The
+`riscv_combine` simp set substitutes the results of matched loads and `rv64.get_register`,
+unfolds the refinement of register values, and restates the matcher's guards on immediates as
+bit-vector facts. Together with `forall_conforms_iff`, which splits each matched input value by
+constructor (RISC-V operations fail on non-register operands, so only the register case
+survives), it reduces the goal to register equalities under the guards. -/
+
+attribute [local riscv_combine]
+  RuntimeValue.isRefinedBy
+
+/-- Split a matched input value, i.e. a value with a `Conforms` hypothesis, by constructor. -/
+theorem forall_conforms_iff {t : TypeAttr} {P : RuntimeValue → Prop} :
+    (∀ v : RuntimeValue, v.Conforms t → P v) ↔
+      (∀ bw x, (RuntimeValue.int bw x).Conforms t → P (.int bw x)) ∧
+      (∀ bw x, (RuntimeValue.byte bw x).Conforms t → P (.byte bw x)) ∧
+      (∀ ty x, (RuntimeValue.float ty x).Conforms t → P (.float ty x)) ∧
+      (∀ x, (RuntimeValue.addr x).Conforms t → P (.addr x)) ∧
+      (∀ x, (RuntimeValue.reg x).Conforms t → P (.reg x)) ∧
+      (∀ ty x, (RuntimeValue.felt ty x).Conforms t → P (.felt ty x)) := by
+  constructor
+  · intro h
+    exact ⟨fun _ _ => h _, fun _ _ => h _, fun _ _ => h _, fun _ => h _, fun _ => h _,
+      fun _ _ => h _⟩
+  · rintro ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ v
+    cases v <;> simp_all
+
+/-- `rv64.get_register` with a register result type reads `x0` as zero. -/
+@[riscv_combine]
+theorem rv64_interpretOp'_get_register (property : propertiesOf Rv64.get_register)
+    (reg : RegisterType) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr) :
+    Rv64.interpretOp' .get_register property #[TypeAttr.of RegisterType reg] operands
+        blockOperands =
+      if reg.index = some 0 then some (#[.reg ⟨0⟩], none) else none := by
+  simp [Rv64.interpretOp', TypeAttr.of, Attribute.of, -Attribute.registerType_eq_of]
 
 /-! ### Signed immediate guards
 
 Combine guards compare `value.toInt` with integer literals. `bv_decide` does not see these `Int`
-facts, so they are restated as signed bit-vector comparisons. -/
+facts, so they are restated as signed bit-vector comparisons, in the `riscv_combine` simp set. -/
 
 section toInt
 
@@ -59,71 +98,17 @@ theorem toInt_eq_iff_eq_ofInt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
 
 end toInt
 
-/-- Normalize the matcher guards on immediates into bit-vector facts, then bit-blast. -/
-macro "guarded_bv_decide" : tactic => `(tactic| (
-  try simp_all [_root_.Veir.RISCV.liFitsSImm12, RISCVImmediateProperties.immField,
-    le_toInt_iff_sle, toInt_le_iff_sle, toInt_lt_iff_slt, toInt_eq_iff_eq_ofInt]
-  all_goals veir_bv_decide))
+attribute [local riscv_combine] _root_.Veir.RISCV.liFitsSImm12 RISCVImmediateProperties.immField
+  le_toInt_iff_sle toInt_le_iff_sle toInt_lt_iff_slt toInt_eq_iff_eq_ofInt
 
-open Lean Meta in
-/-- Case-split, recursively in every resulting goal, each local runtime value `v` that has a
-hypothesis `v.Conforms _`. These are the matched input values; the results of matched
-operations are then fixed by their interpretation equations. -/
-meta partial def casesConformingValues (goal : MVarId) : MetaM (List MVarId) :=
-  goal.withContext do
-    for decl in ← getLCtx do
-      if decl.isImplementationDetail then continue
-      let type ← instantiateMVars decl.type
-      unless type.isAppOfArity ``RuntimeValue.Conforms 2 do continue
-      let .fvar value := type.appFn!.appArg! | continue
-      let subgoals ← goal.cases value
-      return (← subgoals.toList.mapM fun subgoal => casesConformingValues subgoal.mvarId).flatten
-    return [goal]
-
-open Lean Elab Tactic in
-/-- Case-split every matched input value of a normalized Puddle validity goal. -/
-elab "casesConformingValues" : tactic => do
-  let goals ← getGoals
-  setGoals (← goals.flatMapM fun goal => casesConformingValues goal)
-
-open Lean Meta in
-/-- Split, recursively, each local conjunction and existential, such as the result and memory
-equations of a matched operation (see `Puddle.CTree.CanInterpretTo`) or the bytes a load read. -/
-meta partial def casesAnds (goal : MVarId) : MetaM (List MVarId) :=
-  goal.withContext do
-    for decl in ← getLCtx do
-      if decl.isImplementationDetail then continue
-      let type ← instantiateMVars decl.type
-      unless type.isAppOfArity ``And 2 || type.isAppOfArity ``Exists 2 do continue
-      let subgoals ← goal.cases decl.fvarId
-      return (← subgoals.toList.mapM fun subgoal => casesAnds subgoal.mvarId).flatten
-    return [goal]
-
-open Lean Elab Tactic in
-/-- Split every local conjunction and existential. -/
-elab "casesAnds" : tactic => do
-  let goals ← getGoals
-  setGoals (← goals.flatMapM fun goal => casesAnds goal)
-
-/-- Split the matched inputs of a normalized combine validity goal, then substitute the results
-of the matched operations. Each round resolves one more level of nested matched operations:
-an operation's result equation only appears once its operands are known registers. -/
-macro "normalizeCombineValid" : tactic => `(tactic| (
-  intros
-  casesConformingValues
-  iterate 4 (
-    all_goals (try simp_all [RuntimeValue.isRefinedBy])
-    all_goals (try casesAnds)
-    all_goals (try subst_vars))))
-
-/-- Prove the validity of a combine pattern, closing each remaining register equality by
-bit-blasting it under the matcher's guards. -/
+/-- Prove the validity of a combine pattern: unfold it, discharge the structural obligations,
+normalize the semantics to register equalities under the matcher's guards, and bit-blast them.
+The simp call is contextual, so that each guard rewrites the conclusion it guards. -/
 macro "proveCombineValid" : tactic => `(tactic| (
-  simp [riscv_pattern]
+  simp only [riscv_pattern]
   simpPuddleValid
-  simp [puddle]
-  normalizeCombineValid
-  all_goals guarded_bv_decide))
+  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
+  all_goals veir_bv_decide))
 
 /-! ### Stores
 
@@ -192,8 +177,8 @@ from `puddle`, so that both store computations stay lifted for `sim_store`. -/
 macro "proveStoreValid" bytes:term : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
-  simp [puddle]
-  normalizeCombineValid
+  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
+  all_goals intros
   all_goals
     exact sim_store
       (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
@@ -205,11 +190,7 @@ macro "proveStoreValid" bytes:term : tactic => `(tactic| (
     materialized constant to `0#64`. -/
 theorem right_identity_zero_add_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_add_pattern) := by
-  simp only [riscv_pattern]
-  simpPuddleValid
-  simp only [puddle]
-  normalizeCombineValid
-  veir_bv_decide
+  proveCombineValid
 
 /-- `riscv.add x (riscv.li c) -> riscv.addi x c` (`add_li_to_addi`): the signed bounds from
     `liFitsSImm12` ensure that truncating `c` to 12 bits and sign-extending recovers `c`. -/
@@ -236,13 +217,7 @@ theorem and_li_to_zextw_commuted_valid :
 /-- The created `rv64.get_register` reads `x0`, whose value is zero. -/
 theorem li_zero_to_x0_valid :
     Puddle.CTree.Pattern.Valid li_zero_to_x0_pattern := by
-  simp only [riscv_pattern]
-  simpPuddleValid
-  simp [puddle]
-  normalizeCombineValid
-  all_goals simp [TypeAttr.of, Attribute.of, liftM, monadLift, MonadLift.monadLift,
-    Data.RISCV.li,
-    -Attribute.registerType_eq_of]
+  proveCombineValid
 
 /-! ## Shift amounts
 
@@ -437,7 +412,7 @@ def LoadsBits (mem : MemoryState) (p : Data.Pointer) (n : Nat) (x : BitVec (8 * 
 
 /-- A RISC-V load CTree that succeeds returns the bits it read, extended to a register, and leaves
 memory unchanged. -/
-@[local simp] theorem riscvLoadCTree_canInterpretTo_ok {EIn : Type} {E : EIn → Type}
+theorem riscvLoadCTree_canInterpretTo_ok {EIn : Type} {E : EIn → Type}
     [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
     {mem mem' : MemoryState} {n : Nat} {ext : LoadExtension} {v : RuntimeValue} :
     PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
@@ -453,6 +428,24 @@ memory unchanged. -/
     exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp, rfl⟩
   · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
     exact ⟨b, hb, ⟨bits, by cases ext <;> simp⟩, rfl⟩
+
+/-- `riscvLoadCTree_canInterpretTo_ok` for the matched result of a load, which the validity goal
+quantifies over together with the input and output memories: the result is substituted by the
+extended loaded bits and the output memory by the input memory. -/
+@[local riscv_combine] theorem forall_riscvLoadCTree_canInterpretTo_ok {EIn : Type}
+    {E : EIn → Type} [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
+    {n : Nat} {ext : LoadExtension} {P : RuntimeValue → MemoryState → MemoryState → Prop} :
+    (∀ v mem mem', PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
+        (.ok (#[v], mem', none)) → P v mem mem') ↔
+      ∀ mem x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x →
+        P (.reg ⟨match ext with
+          | .signExt => x.signExtend 64
+          | .zeroExt => x.setWidth 64⟩) mem mem := by
+  simp only [riscvLoadCTree_canInterpretTo_ok]
+  constructor
+  · exact fun h mem x hx => h _ _ _ ⟨x, hx, rfl, rfl⟩
+  · rintro h v mem mem' ⟨x, hx, rfl, rfl⟩
+    exact h _ x hx
 
 /-! ## Byte-load and byte-packing combines.
 

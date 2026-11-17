@@ -325,6 +325,16 @@ theorem map_iff {X} (f : X → R) (t : CTree E C X) (r : Interp R) :
   simpa only [map_eq_pure_bind, Bind.bind, pure_iff] using
     (bind_iff t (fun x => pure (f x)) r)
 
+/-- An interpreter failure has no successful outcome. -/
+@[simp, grind =]
+theorem fail_ok_iff (v : R) : CanInterpretTo (Veir.fail : CTree E C R) (.ok v) ↔ False := by
+  simp [Veir.fail, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
+
+/-- Undefined behavior has no successful outcome. -/
+@[simp, grind =]
+theorem ub_ok_iff (v : R) : CanInterpretTo (Veir.ub : CTree E C R) (.ok v) ↔ False := by
+  simp [Veir.ub, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
+
 end PureOrErr.CanInterpretTo
 
 end Veir
