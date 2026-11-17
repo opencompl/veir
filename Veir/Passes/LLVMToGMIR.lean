@@ -12,6 +12,7 @@ import Veir.Passes.LLVMToGMIR.Switches
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
+import Veir.PatternRewriter.Choice
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -31,8 +32,9 @@ namespace Veir
   - Some information represented as operation properties (e.g. the icmp condition code) is
     represented as special operands in upstream gMIR. This includes all operands with type `immediate`
     or `unknown` in upstream's llvm/include/llvm/Target/GenericOpcodes.td.
-  - GEP indices are normalized here, but GEP address arithmetic remains in the LLVM dialect
-    until instruction selection. The currently supported pointer index width is 64 bits.
+  - A GEP becomes `g_ptr_add`s without flags, since our GEP does not model `nuw`, `nusw` or
+    `inbounds`. The currently supported pointer index width is 64 bits. Unlike LLVM, dynamic
+    indices that are constants are not folded here, but by the combiner.
   - Only naturally aligned loads and stores of `i8`/`i16`/`i32`/`i64` and pointers become
     `g_load` and `g_store`; the others stay in the LLVM dialect (see `memOperand?`). We do not
     support misaligned loads and stores.
@@ -249,42 +251,78 @@ def g_zext := (lowerIntegerCast .zext .g_zext).compile
 
 def g_trunc := (lowerIntegerCast .trunc .g_trunc).compile
 
+/-! ### `getelementptr` -/
+
+/-- The width of a pointer index. We only support 64-bit indices. -/
+def gepIndexWidth : Nat := 64
+
+/-- `DataLayout.gepSteps` of a `getelementptr` over `elemType` with the raw constant indices `raw`
+  and dynamic indices of the bit widths `widths`. The step of each dynamic index holds its width. -/
+def gepSteps? (raw : Array Int) (elemType : Attribute) (widths : Array Nat) :
+    Option (Array (GEPStep Nat) × Int) := do
+  let indices := GEPIndex.decode raw widths
+  guard ((indices.filter (· matches .dynamic _)).size = widths.size)
+  DataLayout.riscv64.gepSteps elemType indices
+
+/-- Sign-extend or truncate the `width`-bit `index` to `indexType`, as LLVM's `buildSExtOrTrunc`. -/
+def gepSExtOrTrunc (indexType : Puddle.Handle OpCode .type) (index : Puddle.Handle OpCode .value)
+    (width : Nat) : Puddle.CreateProg.Builder (Puddle.Handle OpCode .value) := do
+  if width < gepIndexWidth then
+    return (← Puddle.CreateProg.operation (.gmir .g_sext) #[index] #[indexType]).res[0]!
+  if width > gepIndexWidth then
+    return (← Puddle.CreateProg.operation (.gmir .g_trunc) #[index] #[indexType]).res[0]!
+  return index
+
 /--
-  Normalize dynamic GEP indices to the current 64-bit pointer index type, as in
-  LLVM's `IRTranslator::translateGetElementPtr`: sign-extend narrower indices
-  and truncate wider ones before scaling them. Rewrite a dynamic index that is a
-  constant as an `i64` constant instead. Preserve constant indices and GEP flags. Plain truncation may refine poison from a violated GEP no-wrap flag.
+  `llvm.getelementptr` -> `g_ptr_add`s of the offset before each of its `steps` and of the index
+  times its stride, then of the offset `after` them, as in `IRTranslator::translateGetElementPtr`.
+  Unlike LLVM, dynamic indices that are constants are folded by the combiner instead.
 -/
-private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
-  let some (ptr, indices, props) := matchGetelementptrIndices op ctx.raw | return (ctx, none)
-  let mut ctx := ctx
-  let mut ops := #[]
-  let mut operands := #[ptr]
-  for index in indices do
-    if let .integerType type := (index.getType! ctx.raw).val then
-      if type.bitwidth ≠ 0 && type.bitwidth ≠ 64 then
-        /- Fold a constant index into an `i64` `g_constant`, so that load/store selection can
-           still fold it into the access's immediate offset. -/
-        let constant := matchConstantIntVal index ctx.raw <|> matchGConstantIntVal index ctx.raw
-        let (ctx', castOp) ← if let some value := constant then
-            WfRewriter.createOp! ctx GMIR.g_constant #[IntegerType.signless 64] #[] #[] #[]
-                (GMIRConstantProperties.mk (.ofInt (BitVec.ofInt 64 value).toInt (.signless 64)))
-                none
-          else if type.bitwidth < 64 then
-            WfRewriter.createOp! ctx GMIR.g_sext #[IntegerType.signless 64]
-                #[index] #[] #[] () none
-          else
-            WfRewriter.createOp! ctx GMIR.g_trunc #[IntegerType.signless 64]
-                #[index] #[] #[] (NswNuwProperties.mk false false) none
-        ctx := ctx'
-        ops := ops.push castOp
-        operands := operands.push (castOp.getResult 0)
-        continue
-    operands := operands.push index
-  if ops.isEmpty then return (ctx, none)
-  let (ctx', gep) ← WfRewriter.createOp! ctx Llvm.getelementptr (op.getResultTypes! ctx.raw)
-      operands #[] #[] props none
-  return (ctx', some (ops.push gep, #[gep.getResult 0]))
+def lowerGetelementptr (steps : Array (GEPStep Nat)) (after : Int) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let base ← Puddle.MatchProg.value (← Puddle.MatchProg.type (Attr := TypeAttr))
+      let indices ← steps.mapM fun step => do
+        let type ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = step.index)
+        Puddle.MatchProg.value type
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let _ ← Puddle.MatchProg.root (.llvm .getelementptr) (#[base] ++ indices) #[resultType]
+        fun gep => gepSteps? gep.rawConstantIndices.values gep.elem_type.val (steps.map (·.index)) =
+          some (steps, after)
+      return (base, indices, resultType))
+    (fun (base, indices, resultType) => do
+      let i64 ← Puddle.CreateProg.type (IntegerType.signless gepIndexWidth)
+      let ptrAdd addr offset := do
+        let op ← Puddle.CreateProg.operation (.gmir .g_ptr_add) #[addr, offset] #[resultType]
+        return op.res[0]!
+      /- As in LLVM, a zero offset and a stride of one add no operation. -/
+      let ptrAddConst addr offset := do
+        if offset = 0 then return addr
+        ptrAdd addr (← createConstant i64 offset).res[0]!
+      let mul index stride := do
+        if stride = 1 then return index
+        let size ← createConstant i64 stride
+        return (← Puddle.CreateProg.operation (.gmir .g_mul) #[index, size.res[0]!] #[i64]).res[0]!
+      let mut addr := base
+      for (step, index) in steps.zip indices do
+        addr ← ptrAddConst addr step.before
+        addr ← ptrAdd addr (← mul (← gepSExtOrTrunc i64 index step.index) step.stride)
+      ptrAddConst addr after)
+    (fun addr => addr)
+
+/-- The `lowerGetelementptr` rule for the `llvm.getelementptr` `op`, and no rule for any other
+  operation. -/
+def getelementptrRules (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    List (Puddle.Pattern OpCode) := Id.run do
+  let some (_, indices, props) := matchGetelementptrIndices op ctx.raw | return []
+  let width? (index : ValuePtr) : Option Nat := do
+    let .integerType type := (index.getType! ctx.raw).val | none
+    guard (type.bitwidth ≠ 0)
+    return type.bitwidth
+  let some widths := indices.mapM width? | return []
+  let some (steps, after) := gepSteps? props.rawConstantIndices.values props.elem_type.val widths
+    | return []
+  return [lowerGetelementptr steps after]
 
 /--
   The properties of the fixed RISC-V stack object for the `llvm.alloca` `op`, or `none` if it is
@@ -646,7 +684,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run,
     g_constant.run, g_zero.run, g_poison.run, g_bytePoison.run, g_freeze.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
-    .fromLocalRewrite normalizeGEPIndices,
+    RewritePattern.ofRules getelementptrRules,
     lowerStaticAlloca.run, g_load.run, g_store.run,
     g_ptrtoint.run, g_inttoptr.run,
     intToByteRoundTrip.run

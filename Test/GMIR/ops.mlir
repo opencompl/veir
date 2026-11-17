@@ -17,6 +17,7 @@
   %ashr = "gmir.g_ashr"(%a, %b) : (i32, i32) -> i32
   %inttoptr = "gmir.g_inttoptr"(%c) : (i64) -> !llvm.ptr
   %ptrtoint = "gmir.g_ptrtoint"(%p) : (!llvm.ptr) -> i64
+  %ptr_add = "gmir.g_ptr_add"(%p, %c) : (!llvm.ptr, i64) -> !llvm.ptr
   %bswap = "gmir.g_bswap"(%a) : (i32) -> i32
   %bitreverse = "gmir.g_bitreverse"(%a) : (i32) -> i32
   %saddsat = "gmir.g_saddsat"(%a, %b) : (i32, i32) -> i32

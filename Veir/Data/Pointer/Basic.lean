@@ -21,6 +21,13 @@ def null : Pointer := ⟨0⟩
 def addBytes (p : Pointer) (i : Nat) : Pointer :=
   ⟨p.address + i.toUInt64⟩
 
+/-- Adding `a` and then `b` bytes adds `a + b` bytes, as the address wraps around. -/
+theorem addBytes_addBytes (p : Pointer) (a b : BitVec 64) :
+    (p.addBytes a.toNat).addBytes b.toNat = p.addBytes (a + b).toNat := by
+  simp only [addBytes, Pointer.mk.injEq, ← UInt64.toNat_inj, UInt64.toNat_add, Nat.toUInt64_eq,
+    UInt64.toNat_ofNat', BitVec.toNat_add]
+  omega
+
 /-- `p'` refines `p` if it is `p`. -/
 def isRefinedBy (p p' : Pointer) : Prop := p' = p
 

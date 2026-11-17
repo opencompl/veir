@@ -20,11 +20,11 @@
     "func.return"() : () -> ()
   }) : () -> ()
 
-  // A constant `getelementptr` offset is folded into the immediate: i32 element, index 2 -> 8.
+  // A constant `g_ptr_add` offset is folded into the immediate.
   "func.func"() <{function_type = (!llvm.ptr) -> (), sym_name = "offset"}> ({
   ^bb0(%p: !llvm.ptr):
-    %i = "gmir.g_constant"() <{value = 2 : i64}> : () -> i64
-    %g = "llvm.getelementptr"(%p, %i) <{elem_type = i32, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+    %i = "gmir.g_constant"() <{value = 8 : i64}> : () -> i64
+    %g = "gmir.g_ptr_add"(%p, %i) : (!llvm.ptr, i64) -> !llvm.ptr
     // CHECK:      "riscv.lw"(%{{.*}}) <{"value" = 8 : i64}> : (!riscv.reg) -> !riscv.reg
     %v = "gmir.g_load"(%g) <{alignment = 4 : i64, size = 32 : i64}> : (!llvm.ptr) -> i64
     "test.test"(%v) : (i64) -> ()

@@ -45,6 +45,7 @@ inductive GMIR where
 | g_constant
 | g_inttoptr
 | g_ptrtoint
+| g_ptr_add
 | g_bswap
 | g_bitreverse
 | g_brev8
@@ -99,7 +100,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_brcond => GMIRBrCondProperties
   | .g_select | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
-  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
+  | .g_inttoptr | .g_ptrtoint | .g_ptr_add | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_scmp | .g_ucmp | .g_abs
   | .g_smulh | .g_umulh
@@ -124,7 +125,7 @@ def GMIR.fromAttrDict
   case g_brcond => exact GMIRBrCondProperties.fromAttrDict attrDict
   case g_select | g_anyext | g_sext
      | g_and | g_xor | g_srem | g_urem
-     | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse | g_brev8
+     | g_inttoptr | g_ptrtoint | g_ptr_add | g_bswap | g_bitreverse | g_brev8
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_scmp | g_ucmp | g_abs
      | g_smulh | g_umulh
@@ -166,7 +167,7 @@ def GMIR.toAttrDict
       "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
   | .g_select | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
-  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
+  | .g_inttoptr | .g_ptrtoint | .g_ptr_add | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_scmp | .g_ucmp | .g_abs | .g_br
   | .g_smulh | .g_umulh
@@ -212,7 +213,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_smulh | .g_umulh =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 0] }
-  | .g_shl | .g_lshr | .g_ashr | .g_sshlsat | .g_ushlsat | .g_rotl | .g_rotr =>
+  | .g_shl | .g_lshr | .g_ashr | .g_sshlsat | .g_ushlsat | .g_rotl | .g_rotr | .g_ptr_add =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 1] }
   | .g_fshl | .g_fshr =>
@@ -630,6 +631,9 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     if resBw.bitwidth = 64 then return (#[.int 64 val.toInt], mem, none) else .fail none
+  | .g_ptr_add => do
+    let [.addr ptr, .int 64 offset] := operands.toList | none
+    return (#[.addr (GMIR.ptrAdd ptr offset)], mem, none)
   | .g_load => do
     let [.addr addr] := operands.toList | none
     let [type] := resultTypes.toList | none
@@ -882,6 +886,16 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       "gmir.g_ptrtoint: Expected operand 0 to have !llvm.ptr type"
     ((opPtr.getResult 0).getType! ctx.raw).verifyIntegerType
       "gmir.g_ptrtoint: Expected result to have integer type"
+  | .g_ptr_add =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    ((opPtr.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
+      "gmir.g_ptr_add: Expected operand 0 to have !llvm.ptr type"
+    -- As in LLVM, the offset has the index width of the pointer.
+    let offsetType := (opPtr.getOperand! ctx.raw 1).getType! ctx.raw
+    if offsetType.val ≠ .integerType (.signless 64) then
+      throw s!"gmir.g_ptr_add: Expected operand 1 to have type i64, but got {offsetType}"
+    ((opPtr.getResult 0).getType! ctx.raw).verifyLlvmPointerType
+      "gmir.g_ptr_add: Expected result to have !llvm.ptr type"
   | .g_sext_inreg =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
@@ -943,7 +957,7 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
   | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
   | .g_shl | .g_lshr | .g_ashr
-  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
+  | .g_inttoptr | .g_ptrtoint | .g_ptr_add | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_scmp | .g_ucmp | .g_abs
   | .g_smulh | .g_umulh

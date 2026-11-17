@@ -255,24 +255,20 @@ def addressof_pattern : Pattern OpCode :=
 def addressof : Puddle.CompiledPattern OpCode := addressof_pattern.compile
 
 /--
-  The signed 12-bit immediate offset of a load/store address `getelementptr base, c*`, with
-  properties `gep` and constant `i64` dynamic indices `c*` with properties `idxs`, when it can
-  be folded into the access, mirroring the `isBaseWithConstantOffset` case of LLVM's
-  [`RISCVDAGToDAGISel::SelectAddrRegImm`](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/RISCV/RISCVISelDAGToDAG.cpp#L3175-L3206).
+  The constant `offset` of a load or store address `g_ptr_add base, offset`, if it fits the signed
+  12-bit immediate, as in the `isBaseWithConstantOffset` case of LLVM's `SelectAddrRegImm`.
 -/
-def selectAddrRegImm (gep : GetelementptrProperties) (idxs : Array GMIRConstantProperties) :
-    Option Int := do
-  let idxs := idxs.map fun idx => (BitVec.ofInt 64 idx.value.value).toInt
-  let indices := GEPIndex.decode gep.rawConstantIndices.values idxs
-  let (offset, dynamic) ← DataLayout.riscv64.gepOffsets gep.elem_type.val indices
-  let offset := dynamic.foldl (init := offset) fun offset (c, stride) => offset + c * stride
+def selectAddrRegImm (offset : GMIRConstantProperties) : Option Int := do
+  let offset := offset.bits.toInt
   guard (-2048 ≤ offset ∧ offset ≤ 2047)
   return offset
 
+/-- How the address of a load or store is split into a base register and an offset. -/
 inductive AddrMode where
+  /-- The address is the base register, with offset `0`. -/
   | reg
-  | gepIndex
-  | gepConst
+  /-- The address is `g_ptr_add base, c`, with a signed 12-bit constant `c` as the offset. -/
+  | ptrAdd
 
 /-- `riscv.lb` / `riscv.lh` / `riscv.lw` / `riscv.ld`, for a `width`-byte load. -/
 def createLoadLocal (ctx : WfIRContext OpCode) (width : Nat) (addr : ValuePtr)
@@ -292,48 +288,37 @@ def createStoreLocal (ctx : WfIRContext OpCode) (width : Nat) (val addr : ValueP
   | 4 => WfRewriter.createOp! ctx Riscv.sw #[] #[val, addr] #[] #[] props none
   | _ => WfRewriter.createOp! ctx Riscv.sd #[] #[val, addr] #[] #[] props none
 
-abbrev FoldedGEPProperties :=
-  Handle OpCode (.prop (.llvm .getelementptr)) ×
-    Option (Handle OpCode (.prop (.gmir .g_constant)))
-
-/-- Match the address of a load or store of `base`, split into a base register and a signed
-  12-bit offset as `mode` says (see `AddrMode`). -/
+/-- Match the address of a load or store of `base`, split as `mode` says (see `AddrMode`). Also
+  return the properties of the offset's `g_constant`, if there is one. -/
 def matchAddr (mode : AddrMode) (base : Handle OpCode .value) :
-    MatchProg.Builder (Handle OpCode .value × Option FoldedGEPProperties) :=
+    MatchProg.Builder
+      (Handle OpCode .value × Option (Handle OpCode (.prop (.gmir .g_constant)))) :=
   match mode with
   | .reg => pure (base, none)
-  | .gepIndex => do
-    let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
-    let idxOp ← MatchProg.operation (.gmir .g_constant) #[] #[idxType]
+  | .ptrAdd => do
+    let offsetType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+    let offset ← MatchProg.operation (.gmir .g_constant) #[] #[offsetType]
+      fun offset => (selectAddrRegImm offset).isSome
     let addrType ← MatchProg.type (Attr := TypeAttr)
-    let gepOp ← MatchProg.operation (.llvm .getelementptr) #[base, idxOp.res[0]!] #[addrType]
-    MatchProg.matchNative (gepOp.properties, idxOp.properties)
-        fun (gep, idx) => (selectAddrRegImm gep #[idx]).isSome
-    pure (gepOp.res[0]!, some (gepOp.properties, some idxOp.properties))
-  | .gepConst => do
-    let addrType ← MatchProg.type (Attr := TypeAttr)
-    let gepOp ← MatchProg.operation (.llvm .getelementptr) #[base] #[addrType]
-    MatchProg.matchNative gepOp.properties fun gep => (selectAddrRegImm gep #[]).isSome
-    pure (gepOp.res[0]!, some (gepOp.properties, none))
+    let ptrAdd ← MatchProg.operation (.gmir .g_ptr_add) #[base, offset.res[0]!] #[addrType]
+    pure (ptrAdd.res[0]!, some offset.properties)
 
 /-- The `riscvOp` properties of a load or store with properties `access` at an address
   matched by `matchAddr`: the folded offset, and the access's volatility. Volatility carries
   over since, although the riscv op encodes the same access, the flag keeps later passes
   from deleting or duplicating it. -/
 def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties)
-    {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool) (gep? : Option FoldedGEPProperties)
+    {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool)
+    (offset? : Option (Handle OpCode (.prop (.gmir .g_constant))))
     (access : Handle OpCode (.prop accessOp)) :
     CreateProg.Builder (Handle OpCode (.prop (.riscv riscvOp))) :=
   let memProps (offset? : Option Int) (props : propertiesOf accessOp) :=
     offset?.map fun offset =>
       cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) (volatile props))
-  match gep? with
-  | some (gepProps, some idxProps) =>
-    CreateProg.applyNative (gepProps, idxProps, access)
-      fun (gep, idx, props) => memProps (selectAddrRegImm gep #[idx]) props
-  | some (gepProps, none) =>
-    CreateProg.applyNative (gepProps, access)
-      fun (gep, props) => memProps (selectAddrRegImm gep #[]) props
+  match offset? with
+  | some offset =>
+    CreateProg.applyNative (offset, access)
+      fun (offset, props) => memProps (selectAddrRegImm offset) props
   | none => CreateProg.applyNative access fun props => memProps (some 0) props
 
 /--
@@ -349,17 +334,17 @@ def lowerLoadOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
     (do
       let baseType ← MatchProg.type (Attr := TypeAttr)
       let base ← MatchProg.value baseType
-      let (addr, gep?) ← matchAddr mode base
+      let (addr, offset?) ← matchAddr mode base
       let resType ← MatchProg.type (Attr := TypeAttr)
       let root ← MatchProg.root accessOp #[addr] #[resType]
       guard resType baseType root.properties
-      return (resType, base, gep?, root.properties))
-    (fun (resType, base, gep?, loadProps) => do
+      return (resType, base, offset?, root.properties))
+    (fun (resType, base, offset?, loadProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[base] #[regType]
-      let memProps ← addrMemProps riscvOp h (accessOp := accessOp) volatile gep? loadProps
+      let memProps ← addrMemProps riscvOp h (accessOp := accessOp) volatile offset? loadProps
       let ldOp ← CreateProg.operation (.riscv riscvOp)
           #[baseCastOp.res[0]!] #[regType] memProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -379,15 +364,14 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
 
 /--
   llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8).
-  The patterns folding a constant `getelementptr` offset into the immediate come first.
+  The address is split as `mode` says (see `AddrMode`).
   The high bits of the register holding a loaded `i8` are unspecified, so either byte load
   would do; like LLVM (`LdPat<extloadi8, LBU>`), take `lbu`, whose result `riscv-combine`
   can then use for a zero-extension without a mask.
 -/
-def load : Array (Puddle.CompiledPattern OpCode) :=
-  #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[lowerLoad mode 1 .lbu, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
-      lowerLoad mode 8 .ld].map (·.compile)
+def load (mode : AddrMode) : Array (Puddle.CompiledPattern OpCode) :=
+  #[lowerLoad mode 1 .lbu, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
+    lowerLoad mode 8 .ld].map (·.compile)
 
 /--
   Lower the store `accessOp` to `riscvOp` if `guard` accepts its value type, address type and
@@ -404,11 +388,11 @@ def lowerStoreOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
       let val ← MatchProg.value valType
       let baseType ← MatchProg.type (Attr := TypeAttr)
       let base ← MatchProg.value baseType
-      let (addr, gep?) ← matchAddr mode base
+      let (addr, offset?) ← matchAddr mode base
       let root ← MatchProg.root accessOp #[val, addr] #[]
       guard valType baseType root.properties
-      return (val, base, gep?, root.properties))
-    (fun (val, base, gep?, storeProps) => do
+      return (val, base, offset?, root.properties))
+    (fun (val, base, offset?, storeProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -417,7 +401,7 @@ def lowerStoreOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType]
       /- The store writes the low `width` bytes of the value register. -/
-      let memProps ← addrMemProps riscvOp h (accessOp := accessOp) volatile gep? storeProps
+      let memProps ← addrMemProps riscvOp h (accessOp := accessOp) volatile offset? storeProps
       let _ ← CreateProg.operation (.riscv riscvOp)
           #[valCastOp.res[0]!, baseCastOp.res[0]!] #[] memProps
       return ())
@@ -435,102 +419,11 @@ def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
 
 /--
   llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8).
-  The patterns folding a constant `getelementptr` offset into the immediate come first.
+  The address is split as `mode` says (see `AddrMode`).
 -/
-def store : Array (Puddle.CompiledPattern OpCode) :=
-  #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[lowerStore mode 1 .sb, lowerStore mode 2 .sh, lowerStore mode 4 .sw,
-      lowerStore mode 8 .sd].map (·.compile)
-
-/--
-  Create the detached ops computing `pReg + iReg * scale`, returning them and the
-  register holding the sum.
--/
-def addScaledLocal (ctx : WfIRContext OpCode) (pReg iReg : ValuePtr) (scale : Nat) :
-    Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
-  match scale with
-  | 1 =>
-    /- ptr + idx -/
-    let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, iReg]
-    pure (ctx, #[addOp], addOp.getResult 0)
-  | 2 =>
-    /- (idx << 1) + ptr -/
-    let (ctx, addOp) ← createRISCVUnitLocal ctx .sh1add rfl #[iReg, pReg]
-    pure (ctx, #[addOp], addOp.getResult 0)
-  | 4 =>
-    /- (idx << 2) + ptr -/
-    let (ctx, addOp) ← createRISCVUnitLocal ctx .sh2add rfl #[iReg, pReg]
-    pure (ctx, #[addOp], addOp.getResult 0)
-  | 8 =>
-    /- (idx << 3) + ptr -/
-    let (ctx, addOp) ← createRISCVUnitLocal ctx .sh3add rfl #[iReg, pReg]
-    pure (ctx, #[addOp], addOp.getResult 0)
-  | _ =>
-    /- `0 < scale` excludes zero-sized element types, for which `Nat.log2 0 = 0` would give
-       `ptr + idx`, and `Nat.log2 scale < 64` excludes shifts that do not fit the 6-bit
-       immediate. Both take the `li`/`mul` form, which truncates modulo `2^64` exactly as the
-       source does. -/
-    if 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64 then
-      /- scale is a power of two: ptr + (idx << log2 scale) -/
-      let (ctx, slliOp) ← createRISCVImmLocal ctx .slli rfl #[iReg] (Nat.log2 scale)
-      let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, slliOp.getResult 0]
-      pure (ctx, #[slliOp, addOp], addOp.getResult 0)
-    else
-      /- arbitrary scale: ptr + idx * scale -/
-      let (ctx, liOp) ← createRISCVImmLocal ctx .li rfl #[] scale
-      let (ctx, mulOp) ← createRISCVUnitLocal ctx .mul rfl #[iReg, liOp.getResult 0]
-      let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, mulOp.getResult 0]
-      pure (ctx, #[liOp, mulOp, addOp], addOp.getResult 0)
-
-/--
-  Lower a `llvm.getelementptr` to the address `gepOffsets` decomposes it into:
-  the base, plus `idx * stride` for each dynamic index, plus a constant offset.
-  Dynamic indices must have been normalized to `i64` by LLVM-to-GMIR.
--/
-def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (ptr, idxs, properties) := matchGetelementptrIndices op ctx.raw | return (ctx, none)
-  let indices := GEPIndex.decode properties.rawConstantIndices.values idxs
-  let some (offset, dynamic) := DataLayout.riscv64.gepOffsets properties.elem_type.val indices
-    | return (ctx, none)
-  for (idx, _) in dynamic do
-    let .integerType itype := (idx.getType! ctx.raw).val | return (ctx, none)
-    if itype.bitwidth ≠ 64 then return (ctx, none)
-  let (ctx, pcastOp) ← castToRegLocal ctx ptr
-  let mut ctx := ctx
-  let mut ops := #[pcastOp]
-  let mut addr : ValuePtr := pcastOp.getResult 0
-  for (idx, stride) in dynamic do
-    let (ctx', icastOp) ← castToRegLocal ctx idx
-    ops := ops.push icastOp
-    ctx := ctx'
-    let (ctx', addOps, sum) ← addScaledLocal ctx addr (icastOp.getResult 0) stride
-    ops := ops ++ addOps
-    addr := sum
-    ctx := ctx'
-  if offset ≠ 0 then
-    if -2048 ≤ offset ∧ offset ≤ 2047 then
-      let (ctx', addiOp) ← createRISCVImmLocal ctx .addi rfl #[addr] offset
-      ops := ops.push addiOp
-      addr := addiOp.getResult 0
-      ctx := ctx'
-    else
-      let (ctx', liOp) ← createRISCVImmLocal ctx .li rfl #[] offset
-      let (ctx', addOp) ← createRISCVUnitLocal ctx' .add rfl #[addr, liOp.getResult 0]
-      ops := ops ++ #[liOp, addOp]
-      addr := addOp.getResult 0
-      ctx := ctx'
-  /- Cast the resulting register back to `!llvm.ptr`. -/
-  let (ctx', castOp) ← replaceWithRegLocal ctx op addr
-  some (ctx', some (ops.push castOp, #[castOp.getResult 0]))
-
-/--
-  Lower a `llvm.getelementptr` to the address `gepOffsets` decomposes it into
-  (see `getelementptr_local`).
--/
-def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite getelementptr_local rewriter op opInBounds
+def store (mode : AddrMode) : Array (Puddle.CompiledPattern OpCode) :=
+  #[lowerStore mode 1 .sb, lowerStore mode 2 .sh, lowerStore mode 4 .sw,
+    lowerStore mode 8 .sd].map (·.compile)
 
 /-! ## Zbb min/max and rotate intrinsics
 
@@ -1029,10 +922,9 @@ def gmirLoad_pattern (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
   The `gmirLoad_pattern`s. A widened `g_load` is an any-extending load, which LLVM selects as `lbu`,
   `lh` and `lw` (`LdPat<extloadi8, LBU>`, `LdPat<extloadi16, LH>`, `LdPat<extloadi32, LW, i64>`).
 -/
-def gmirLoad : Array (Puddle.CompiledPattern OpCode) :=
-  #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[gmirLoad_pattern mode 1 .lbu, gmirLoad_pattern mode 2 .lh, gmirLoad_pattern mode 4 .lw,
-      gmirLoad_pattern mode 8 .ld].map (·.compile)
+def gmirLoad (mode : AddrMode) : Array (Puddle.CompiledPattern OpCode) :=
+  #[gmirLoad_pattern mode 1 .lbu, gmirLoad_pattern mode 2 .lh, gmirLoad_pattern mode 4 .lw,
+    gmirLoad_pattern mode 8 .ld].map (·.compile)
 
 /--
   gmir.g_store -> riscv.sd / riscv.sw / riscv.sh / riscv.sb, for a legal `width`-byte store.
@@ -1048,10 +940,9 @@ def gmirStore_pattern (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
 
 /-- The `gmirStore_pattern`s, as LLVM's `StPat<truncstorei8, SB>`, `StPat<truncstorei16, SH>` and
   `StPat<truncstorei32, SW, i64>`. -/
-def gmirStore : Array (Puddle.CompiledPattern OpCode) :=
-  #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[gmirStore_pattern mode 1 .sb, gmirStore_pattern mode 2 .sh, gmirStore_pattern mode 4 .sw,
-      gmirStore_pattern mode 8 .sd].map (·.compile)
+def gmirStore (mode : AddrMode) : Array (Puddle.CompiledPattern OpCode) :=
+  #[gmirStore_pattern mode 1 .sb, gmirStore_pattern mode 2 .sh, gmirStore_pattern mode 4 .sw,
+    gmirStore_pattern mode 8 .sd].map (·.compile)
 
 /-! ## Zicond branchless `g_select` lowering
 
@@ -1458,6 +1349,44 @@ def lowerBinaryImm (srcOp : OpCode) (riscvOp : Riscv)
 def gmirAddi_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_add) .addi rfl (-2048) 2047 (guard := matchLegal .g_add)
 
+/--
+  `gmir.g_ptr_add` -> `riscv.add`, as LLVM selects the `G_ADD` that `preISelLower` makes of it.
+  TODO: Prove that `add` and `addi` refine `g_ptr_add`.
+-/
+def gmirPtrAdd_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      let offsetType ← MatchProg.type (Attr := TypeAttr)
+      let base ← MatchProg.value ptrType
+      let offset ← MatchProg.value offsetType
+      let root ← MatchProg.root (.gmir .g_ptr_add) #[base, offset] #[ptrType]
+      matchLegal .g_ptr_add ptrType root.properties (type₁ := offsetType)
+      return (ptrType, base, offset))
+    (fun (ptrType, base, offset) => createRegOp ptrType #[base, offset] .add (.inl ()))
+    (fun castBackOp => castBackOp)
+
+/-- `gmir.g_ptr_add` with a simm12 constant offset -> `riscv.addi`, as `gmirAddi`. -/
+def gmirPtrAddi_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      let offsetType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let base ← MatchProg.value ptrType
+      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[offsetType]
+      let root ← MatchProg.root (.gmir .g_ptr_add) #[base, constant.res[0]!] #[ptrType]
+      matchLegal .g_ptr_add ptrType root.properties (type₁ := offsetType)
+      MatchProg.matchNative constant.properties fun constant =>
+        let imm := constant.bits.toInt
+        imm ≥ -2048 && imm ≤ 2047
+      return (ptrType, base, constant.properties))
+    (fun (ptrType, base, constProps) => do
+      let immProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .addi))) constProps fun constant =>
+        some (mkRISCVImm constant.bits.toInt)
+      createRegOp ptrType #[base] .addi (.inr immProps))
+    (fun castBackOp => castBackOp)
+
 /-- `gmir.g_and` (`i64`) with a simm12 constant rhs -> `riscv.andi`. -/
 def gmirAndi_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_and) .andi rfl (-2048) 2047 (guard := matchLegal .g_and)
@@ -1525,6 +1454,8 @@ def gmirRiscvSraiw_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir_riscv .g_sraw) .sraiw rfl 0 31
 
 def gmirAddi : Puddle.CompiledPattern OpCode := gmirAddi_pattern.compile
+def gmirPtrAdd : Puddle.CompiledPattern OpCode := gmirPtrAdd_pattern.compile
+def gmirPtrAddi : Puddle.CompiledPattern OpCode := gmirPtrAddi_pattern.compile
 def gmirAndi : Puddle.CompiledPattern OpCode := gmirAndi_pattern.compile
 def gmirZexth : Puddle.CompiledPattern OpCode := gmirZexth_pattern.compile
 def gmirZextw : Puddle.CompiledPattern OpCode := gmirZextw_pattern.compile
@@ -1738,6 +1669,27 @@ def gmirCpopw_pattern (masked : Bool) : Pattern OpCode :=
     (fun (type, x) => createRegOp type #[x] .cpopw (.inl ()))
     (fun castBackOp => castBackOp)
 
+/--
+  `gmir.g_ptr_add b, (g_shl i, k)` -> `riscv.sh{k}add i, b` for `k` ∈ {1, 2, 3}, as LLVM's Zba
+  pattern `(add (shl x, k), y)`. As in LLVM, the `g_shl` may have other uses.
+-/
+def gmirPtrShAdd_pattern (k : Nat) (riscvOp : Riscv) (props : propertiesOf (OpCode.riscv riscvOp)) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      let offsetType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let base ← MatchProg.value ptrType
+      let index ← MatchProg.value offsetType
+      let amount ← MatchProg.operation (.gmir .g_constant) #[] #[offsetType]
+        fun amount => amount.bits.toInt = k
+      let shl ← MatchProg.operation (.gmir .g_shl) #[index, amount.res[0]!] #[offsetType]
+      let root ← MatchProg.root (.gmir .g_ptr_add) #[base, shl.res[0]!] #[ptrType]
+      matchLegal .g_ptr_add ptrType root.properties (type₁ := offsetType)
+      return (ptrType, base, index))
+    (fun (ptrType, base, index) => createRegOp ptrType #[index, base] riscvOp (.inl props))
+    (fun castBackOp => castBackOp)
+
 /-- The composed patterns, in the order they are tried. -/
 def gmirComposed : Array (Puddle.CompiledPattern OpCode) :=
   let binopNot := #[false, true].flatMap fun notLhs =>
@@ -1745,8 +1697,10 @@ def gmirComposed : Array (Puddle.CompiledPattern OpCode) :=
       gmirBinopNot_pattern .g_xor .xnor () notLhs]
   let zext32 := #[false, true].flatMap fun masked =>
     #[gmirSlliuw_pattern masked, gmirCpopw_pattern masked]
+  let shAdd := #[gmirPtrShAdd_pattern 1 .sh1add (), gmirPtrShAdd_pattern 2 .sh2add (),
+    gmirPtrShAdd_pattern 3 .sh3add ()]
   (binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++ #[gmirBexti_pattern] ++
-    zext32).map (·.compile)
+    zext32 ++ shAdd).map (·.compile)
 
 /-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
 def gmirMul_pattern : Pattern OpCode :=
@@ -2111,8 +2065,11 @@ def gmirSlti : Array (Puddle.CompiledPattern OpCode) :=
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   /- Composed loop: select expressions of several gMIR operations into one instruction, before
-     the later loops select their inner operations. -/
-  let composed := RewritePattern.GreedyRewritePattern <| gmirComposed.map (·.run)
+     the later loops select their inner operations. This includes the loads and stores that fold
+     a `g_ptr_add` offset, before `gmirPtrAddi` selects it. -/
+  let composed := RewritePattern.GreedyRewritePattern <|
+    (gmirComposed ++ load .ptrAdd ++ gmirLoad .ptrAdd ++ store .ptrAdd ++ gmirStore .ptrAdd).map
+      (·.run)
   let ctx ← match RewritePattern.applyToFunctions composed ctx op with
   | none => throw "Error while applying composed instruction-selection patterns"
   | some ctx => pure ctx
@@ -2120,13 +2077,13 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
      lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic, .fromLocalRewrite splitLoad_local,
-    .fromLocalRewrite splitStore_local] ++ load.map (·.run) ++ gmirLoad.map (·.run) ++
-    store.map (·.run) ++ gmirStore.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++
+    .fromLocalRewrite splitStore_local] ++ (load .reg).map (·.run) ++ (gmirLoad .reg).map (·.run) ++
+    (store .reg).map (·.run) ++ (gmirStore .reg).map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++
     gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
-    gmirZexth.run, gmirZextw.run,
+    gmirZexth.run, gmirZextw.run, gmirPtrAddi.run,
     gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
     gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
   let ctx ← match RewritePattern.applyToFunctions early ctx op with
@@ -2140,11 +2097,11 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
     zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
-    load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++
-    gmirStore.map (·.run) ++ #[
+    (load .reg).map (·.run) ++ (gmirLoad .reg).map (·.run) ++ (store .reg).map (·.run) ++
+    (gmirStore .reg).map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     gmirPoison.run, gmirFreeze.run,
-    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirPtrToInt.run, gmirIntToPtr.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
+    gmirAdd.run, gmirPtrAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirPtrToInt.run, gmirIntToPtr.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSmulh.run, gmirUmulh.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirRiscvAddw.run, gmirRiscvSubw.run, gmirRiscvMulw.run,

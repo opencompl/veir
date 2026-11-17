@@ -14,6 +14,7 @@ import all Veir.Data.LLVM.Int.Basic
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR_RISCV.Semantics
+import all Veir.Data.Pointer.Basic
 
 public section
 
@@ -388,6 +389,33 @@ theorem constant_fold_smax {w : Nat} (a b : BitVec w) :
 theorem constant_fold_shl {w : Nat} (a b : BitVec w) (nsw nuw : Bool) :
     LLVM.Int.shl (.val a) (.val b) nsw nuw ⊒ .val (a <<< b) := by
   veir_bv_normalize
+
+/-! ### `g_ptr_add` combines
+
+The combines are proved for every pointer and offset, as the address of a `g_ptr_add` wraps around.
+-/
+
+theorem ptr_add_immed_chain (b : LLVM.Ptr) (c₁ c₂ : BitVec 64) :
+    GMIR.ptrAdd (GMIR.ptrAdd b (.val c₁)) (.val c₂) ⊒ GMIR.ptrAdd b (.val (c₁ + c₂)) := by
+  cases b <;> simp [GMIR.ptrAdd, Pointer.addBytes_addBytes]
+
+theorem reassoc_ptradd_inner_lhs (x : LLVM.Ptr) (c : BitVec 64) (y : LLVM.Int 64) :
+    GMIR.ptrAdd (GMIR.ptrAdd x (.val c)) y ⊒ GMIR.ptrAdd (GMIR.ptrAdd x y) (.val c) := by
+  cases x <;> cases y <;> simp [GMIR.ptrAdd, Pointer.addBytes_addBytes, BitVec.add_comm]
+
+theorem reassoc_ptradd_inner_rhs (b : LLVM.Ptr) (x : LLVM.Int 64) (c : BitVec 64)
+    (nsw nuw : Bool) :
+    GMIR.ptrAdd b (LLVM.Int.add x (.val c) nsw nuw) ⊒ GMIR.ptrAdd (GMIR.ptrAdd b x) (.val c) := by
+  cases x with
+  | poison => cases b <;> simp [GMIR.ptrAdd, LLVM.Int.add, Id.run]
+  | val x =>
+    have h := constant_fold_add x c nsw nuw
+    generalize LLVM.Int.add (.val x) (.val c) nsw nuw = sum at h ⊢
+    cases sum <;> cases b <;> simp_all [GMIR.ptrAdd, LLVM.Int.isRefinedBy, Pointer.addBytes_addBytes]
+
+theorem right_identity_zero_ptr_add (x : LLVM.Ptr) :
+    GMIR.ptrAdd x (LLVM.Int.constant 64 0) ⊒ x := by
+  cases x <;> simp [GMIR.ptrAdd, LLVM.Int.constant, Pointer.addBytes]
 
 /-! ### `tryFoldSelectOfConstants`
 

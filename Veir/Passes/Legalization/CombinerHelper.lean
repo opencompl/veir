@@ -5,6 +5,7 @@ public import Veir.PatternRewriter.Puddle.Execution
 public import Veir.PatternRewriter.Puddle.Builders
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Passes.Legalization.LegalizerHelper
+import Veir.Passes.Matching.GMIR.Basic
 
 /-!
 # Combines
@@ -143,11 +144,11 @@ def redundant_and_select : Array (CompiledPattern OpCode) :=
 
 /-! ### identity_combines -/
 
-/-- `x op 0` → `x`, for `op` ∈ {`g_sub`, `g_add`, `g_or`, `g_xor`, `g_shl`, `g_ashr`, `g_lshr`}. -/
+/-- `x op 0` → `x`, for an `op` with right identity `0`. -/
 def right_identity_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := TypeAttr)
       let rhsType ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value type
       let zero ← matchConstant rhsType (·.bits = 0)
@@ -575,6 +576,99 @@ def NotAPlusNegOne_pattern : Pattern OpCode :=
       let subProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_sub)))
           addProps fun props => some { nsw := props.nsw, nuw := props.nuw }
       CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, x] #[type] subProps)
+    (fun op => op)
+
+/-! ### ptr_add_immed_chain and reassoc_ptradd
+
+Unlike in LLVM, `g_ptr_add` has no flags to carry over. A RISC-V load or store takes a signed
+12-bit offset, whatever it accesses, which is what LLVM's `isLegalAddressingMode` checks.
+-/
+
+/-- Whether `offset` fits the signed 12-bit offset of a RISC-V load or store. -/
+private def isSImm12 (offset : Int) : Bool := -2048 ≤ offset && offset ≤ 2047
+
+/--
+Rejects folding `ptr_add (ptr_add b, c₁), c₂` to `ptr_add b, (c₁ + c₂)` when a load or store would
+lose its offset: `c₂` fits the 12-bit offset, `c₁ + c₂` does not, and `ptr_add b, c₁` has other
+uses. LLVM folds in all other cases, through `ptr_add_immed_chain` or `reassoc_ptradd`.
+-/
+private def keepsAddressingMode (ctx : IRContext OpCode) (op : OperationPtr) : Option Unit := do
+  let inner := op.getOperand! ctx 0
+  let .opResult innerResult := inner | none
+  let c₁ ← matchGConstantIntVal (innerResult.op.getOperand! ctx 1) ctx
+  let c₂ ← matchGConstantIntVal (op.getOperand! ctx 1) ctx
+  let folded := (BitVec.ofInt 64 (c₁ + c₂)).toInt
+  let accessed := ((op.getResult 0 : ValuePtr).users! ctx).any fun user =>
+    let opType := user.getOpType! ctx
+    opType = .gmir .g_load || opType = .gmir .g_store
+  let innerHasOneUse := inner.hasOneUse! ctx
+  guard (innerHasOneUse || !accessed || !isSImm12 c₂ || isSImm12 folded)
+
+/--
+`ptr_add (ptr_add b, c₁), c₂` → `ptr_add b, (c₁ + c₂)`, unless a load or store would lose its
+offset (see `keepsAddressingMode`). This covers LLVM's `ptr_add_immed_chain` and the
+`matchReassocFoldConstantsInSubTree` case of `reassoc_ptradd`.
+-/
+def ptr_add_immed_chain_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      let offsetType ← MatchProg.type (Attr := IntegerType)
+      let b ← MatchProg.value ptrType
+      let c₁ ← matchConstant offsetType
+      let inner ← MatchProg.operation (.gmir .g_ptr_add) #[b, c₁.res[0]!] #[ptrType]
+      let c₂ ← matchConstant offsetType
+      let root ← MatchProg.root (.gmir .g_ptr_add) #[inner.res[0]!, c₂.res[0]!] #[ptrType]
+      let () ← MatchProg.inspectOperation (Outputs := Unit) root.op keepsAddressingMode
+      return (ptrType, offsetType, b, c₁.properties, c₂.properties))
+    (fun (ptrType, offsetType, b, c₁, c₂) => do
+      let folded ← createConstantWith offsetType (c₁, c₂) fun (c₁, c₂) =>
+        c₁.bits.toInt + c₂.bits.toInt
+      CreateProg.operation (.gmir .g_ptr_add) #[b, folded.res[0]!] #[ptrType])
+    (fun op => op)
+
+/--
+`ptr_add (ptr_add x, c), y` → `ptr_add (ptr_add x, y), c` if `ptr_add x, c` has one use, so that a
+load or store can fold `c`. This is the `matchReassocConstantInnerLHS` case of LLVM's
+`reassoc_ptradd`. When `y` is a constant, `ptr_add_immed_chain_pattern` folds it first.
+-/
+def reassoc_ptradd_inner_lhs_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      let offsetType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value ptrType
+      let c ← matchConstant offsetType
+      let inner ← MatchProg.operation (.gmir .g_ptr_add) #[x, c.res[0]!] #[ptrType]
+      let y ← MatchProg.value offsetType
+      let _ ← MatchProg.root (.gmir .g_ptr_add) #[inner.res[0]!, y] #[ptrType]
+      let () ← MatchProg.inspectOperation (Outputs := Unit) inner.op fun ctx op =>
+        guard ((op.getResult 0 : ValuePtr).hasOneUse! ctx)
+      return (ptrType, x, c.res[0]!, y))
+    (fun (ptrType, x, c, y) => do
+      let sum ← CreateProg.operation (.gmir .g_ptr_add) #[x, y] #[ptrType]
+      CreateProg.operation (.gmir .g_ptr_add) #[sum.res[0]!, c] #[ptrType])
+    (fun op => op)
+
+/--
+`ptr_add b, (x + c)` → `ptr_add (ptr_add b, x), c`, so that a load or store can fold `c`. This is
+the `matchReassocConstantInnerRHS` case of LLVM's `reassoc_ptradd`, which allows the `g_add` to
+have other uses.
+-/
+def reassoc_ptradd_inner_rhs_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      let offsetType ← MatchProg.type (Attr := IntegerType)
+      let b ← MatchProg.value ptrType
+      let x ← MatchProg.value offsetType
+      let c ← matchConstant offsetType
+      let add ← MatchProg.operation (.gmir .g_add) #[x, c.res[0]!] #[offsetType]
+      let _ ← MatchProg.root (.gmir .g_ptr_add) #[b, add.res[0]!] #[ptrType]
+      return (ptrType, b, x, c.res[0]!))
+    (fun (ptrType, b, x, c) => do
+      let sum ← CreateProg.operation (.gmir .g_ptr_add) #[b, x] #[ptrType]
+      CreateProg.operation (.gmir .g_ptr_add) #[sum.res[0]!, c] #[ptrType])
     (fun op => op)
 
 /-! ### hoist_logic_op_with_same_opcode_hands
@@ -1296,7 +1390,8 @@ def combines : Array (CompiledPattern OpCode) :=
   #[sub_add_reg_x_add_y_sub_y_pattern, sub_add_reg_x_add_y_sub_x_pattern,
     sub_add_reg_negate_pattern false, sub_add_reg_negate_pattern true,
     xor_of_and_with_same_reg_pattern, trunc_of_ext_pattern .g_zext,
-    add_shift_pattern false, add_shift_pattern true] ++
+    add_shift_pattern false, add_shift_pattern true, ptr_add_immed_chain_pattern,
+    reassoc_ptradd_inner_lhs_pattern, reassoc_ptradd_inner_rhs_pattern] ++
   (#[GMIR.g_add, .g_sub, .g_xor].flatMap fun opcode =>
       #[Data.LLVM.IntPred.eq, .ne].map (redundant_binop_in_equality_pattern opcode ·)) ++
   #[not_cmp_fold_pattern .eq .ne, not_cmp_fold_pattern .ne .eq,
@@ -1325,7 +1420,8 @@ def combines : Array (CompiledPattern OpCode) :=
     constant_fold_binop_pattern .g_smax fun a b => if a.sle b then b else a,
     constant_fold_binop_pattern .g_shl (· <<< ·)] ++
   #[sub_minus_one_pattern] ++
-  #[GMIR.g_sub, .g_add, .g_or, .g_xor, .g_shl, .g_ashr, .g_lshr].map right_identity_zero_pattern ++
+  #[GMIR.g_sub, .g_add, .g_or, .g_xor, .g_shl, .g_ashr, .g_lshr, .g_ptr_add].map
+    right_identity_zero_pattern ++
   #[right_identity_one_int_pattern, binop_same_val_pattern .g_and, binop_same_val_pattern .g_or,
     same_val_zero_pattern .g_sub, same_val_zero_pattern .g_xor, binop_right_to_zero_pattern,
     mul_by_neg_one_pattern, or_and_xor_to_or_pattern .g_or .g_and,
