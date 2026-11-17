@@ -4,21 +4,11 @@ public meta import Lean
 import all Veir.Passes.RISCVCombines.Combine
 import all Veir.Dialects.RISCV.Properties
 import all Veir.Dialects.RV64.OpInfo
-import all Veir.Interpreter.Basic
+import all Veir.GlobalOpInfo
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.IR.Attribute
-import all Veir.Data.RISCV.Reg.Basic
-import all Veir.Data.RISCV.Reg.Lemmas
-import all Veir.Data.LLVM.Byte.Bitblast
-import Veir.PatternRewriter.Puddle.Definitions
-import Veir.PatternRewriter.Puddle.Validity
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
-import Veir.Meta.Tactic.BVDecide
-import Std.Tactic.BVDecide
-meta import Veir.Meta.Tactic.BVDecide
-meta import Std.Tactic.BVDecide
-meta import Std.Tactic.BVDecide.Reflect
 
 /-!
 # Correctness of the RISC-V combines
@@ -58,10 +48,6 @@ theorem toInt_le_iff_sle (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
     x.toInt ≤ c ↔ x.sle (BitVec.ofInt 64 c) := by
   rw [BitVec.sle_iff_toInt_le, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
 
-theorem lt_toInt_iff_slt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    c < x.toInt ↔ (BitVec.ofInt 64 c).slt x := by
-  rw [BitVec.slt_iff_toInt_lt, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
 theorem toInt_lt_iff_slt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
     x.toInt < c ↔ x.slt (BitVec.ofInt 64 c) := by
   rw [BitVec.slt_iff_toInt_lt, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
@@ -75,7 +61,7 @@ end toInt
 /-- Normalize the matcher guards on immediates into bit-vector facts, then bit-blast. -/
 macro "guarded_bv_decide" : tactic => `(tactic| (
   try simp_all [_root_.Veir.RISCV.liFitsSImm12, RISCVImmediateProperties.immField,
-    le_toInt_iff_sle, toInt_le_iff_sle, lt_toInt_iff_slt, toInt_lt_iff_slt, toInt_eq_iff_eq_ofInt]
+    le_toInt_iff_sle, toInt_le_iff_sle, toInt_lt_iff_slt, toInt_eq_iff_eq_ofInt]
   all_goals veir_bv_decide))
 
 open Lean Meta in
