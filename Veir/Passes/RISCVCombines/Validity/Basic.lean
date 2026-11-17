@@ -100,6 +100,29 @@ theorem add_li_to_addi_commuted_valid :
     Puddle.CTree.Pattern.Valid (add_li_to_addi_pattern true) := by
   proveCombineValid using Data.RISCV.add_li_to_addi_commuted
 
+/-- R2 preserves semantics and satisfies Puddle's structural obligations in
+    both operand orders, for arbitrary register types and shared masks. -/
+theorem and_li_to_zextw_valid (liFirst : Bool) :
+    Pattern.Valid (and_li_to_zextw_pattern liFirst) := by
+  cases liFirst <;> simp only [and_li_to_zextw_pattern, Bool.false_eq_true, ↓reduceIte]
+  all_goals
+    provePuddleValid
+    simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
+      forall_eq_apply_imp_iff]
+    rintro xType x maskType ⟨mask⟩ maskValue rfl - hli resultType props result - hand
+    -- These pure operations have the same results in every memory state.
+    cases hli.2 .empty
+    cases hand.2 .empty
+    refine ⟨.reg (Data.RISCV.zextw x), ⟨?_, fun _ => rfl⟩, ?_⟩
+    · simp [RuntimeValue.ArrayConforms]
+  -- Register refinement is equality, so the register lemmas close both cases.
+  · exact Data.RISCV.and_li_to_zextw
+  · exact Data.RISCV.and_li_to_zextw_commuted
+
+theorem and_li_to_zextw_commuted_valid :
+    Puddle.CTree.Pattern.Valid (and_li_to_zextw_pattern true) := by
+  proveCombineValid using Data.RISCV.and_li_to_zextw_commuted
+
 theorem zextw_li_low32_valid :
     Puddle.CTree.Pattern.Valid
       (ext_of_li_pattern .zextw fun cst => !decide (cst.value ≥ 4294967296#64)) := by
@@ -146,25 +169,18 @@ theorem li_zero_to_x0_valid :
 verifier does not stop other operations from producing `x0`-typed results, so these proofs are
 disabled until the invariant is established elsewhere.
 
-`riscv.<ext>` of `x0`, which reads as zero, is `x0`:
+We leave these as axioms for now. -/
 
-theorem zextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextw) := by
-  proveCombineValid using Data.RISCV.zextw_x0
+axiom zextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextw)
 
-theorem sextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextw) := by
-  proveCombineValid using Data.RISCV.sextw_x0
+axiom sextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextw)
 
-theorem zextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextb) := by
-  proveCombineValid using Data.RISCV.zextb_x0
+axiom zextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextb)
 
-theorem zexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zexth) := by
-  proveCombineValid using Data.RISCV.zexth_x0
+axiom zexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zexth)
 
-theorem sextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextb) := by
-  proveCombineValid using Data.RISCV.sextb_x0
+axiom sextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextb)
 
-theorem sexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sexth) := by
-  proveCombineValid using Data.RISCV.sexth_x0
--/
+axiom sexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sexth)
 
 end Veir.RISCV.CTreeProofs

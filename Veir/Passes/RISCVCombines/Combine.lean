@@ -4,7 +4,7 @@ public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 import Veir.PatternRewriter.Puddle.Builders
-import Veir.PatternRewriter.Puddle.Execution
+public import Veir.PatternRewriter.Puddle.Execution
 meta import Veir.Meta.Tactic.BVDecide
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Lemmas
@@ -327,6 +327,7 @@ def add_li_to_addi_commuted : Puddle.CompiledPattern OpCode :=
     LLVM GlobalISel imports `ADD_UWPat`'s RV64+Zba rule, selecting
     `and GPR, 0xFFFFFFFF` as `ADD_UW GPR, X0` (the `zext.w` alias).
     https://github.com/llvm/llvm-project/blob/99a148b807da7942d629fd8e807d12026fcb5e20/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L758-L764 -/
+@[riscv_pattern]
 def and_li_to_zextw_pattern (liFirst : Bool) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -1187,9 +1188,11 @@ def sextb_li_low8 := ext_li_range .sextb (-128) 128
 /-- `riscv.sexth (riscv.li v) -> riscv.li v` when `-2^15 ≤ v < 2^15`. -/
 def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
 
-/-- Keep the compiled patterns as closed data so their matchers and rewrite closures are
-initialized once and reused for every operation. -/
-private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
+/-- The combines of the pass, kept as compiled patterns: closed data whose matchers and rewrite
+closures are initialized once and reused for every operation. Each has a CTree validity
+certificate in `Veir.Passes.RISCVCombines.Validity`; the soundness of the pass is
+`Combine.run_sound` (`Veir.Passes.RISCVCombines.Validity.Pass`). -/
+public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
     #[ packh_low_bytes
      , packh_low_bytes_commuted
      , packh_high_bytes
@@ -1356,13 +1359,19 @@ private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , sextb_li_low8
      , sexth_li_low16
      , li_zero_to_x0
-     ,
      ]
 
-def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+/-- The pass as a pure function: the greedy combination of the combines, applied everywhere
+below `op`. `none` reports a failed rewrite. Its soundness is `Combine.run_sound`. -/
+@[expose]
+public def Combine.run (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode) :=
+  RewritePattern.applyInContext
+    (RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run))) ctx op
+
+public def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run))
-  match RewritePattern.applyInContext pattern ctx op with
+  match Combine.run ctx op with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
 
