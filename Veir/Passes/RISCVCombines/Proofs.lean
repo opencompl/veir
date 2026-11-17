@@ -1,12 +1,9 @@
 module
 
 public meta import Lean
-public import Veir.IR.Simp
 import all Veir.Passes.RISCVCombines.Combine
-import all Veir.Dialects.RISCV.OpInfo
 import all Veir.Dialects.RISCV.Properties
 import all Veir.Dialects.RV64.OpInfo
-import all Veir.GlobalOpInfo
 import all Veir.Interpreter.Basic
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.RISCV.Interpreter
@@ -17,11 +14,11 @@ import all Veir.Data.LLVM.Byte.Bitblast
 import Veir.PatternRewriter.Puddle.Definitions
 import Veir.PatternRewriter.Puddle.Validity
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
-public import Veir.Meta.Tactic.BVDecide
-public import Std.Tactic.BVDecide
-public meta import Veir.Meta.Tactic.BVDecide
-public meta import Std.Tactic.BVDecide
-public meta import Std.Tactic.BVDecide.Reflect
+import Veir.Meta.Tactic.BVDecide
+import Std.Tactic.BVDecide
+meta import Veir.Meta.Tactic.BVDecide
+meta import Std.Tactic.BVDecide
+meta import Std.Tactic.BVDecide.Reflect
 
 /-!
 # Correctness of the RISC-V combines
@@ -39,8 +36,6 @@ namespace Veir.RISCV.CTreeProofs
 
 open Puddle
 open _root_.CTree
-
-set_option linter.unusedSimpArgs false
 
 attribute [local puddle]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
@@ -83,15 +78,6 @@ macro "guarded_bv_decide" : tactic => `(tactic| (
     le_toInt_iff_sle, toInt_le_iff_sle, lt_toInt_iff_slt, toInt_lt_iff_slt, toInt_eq_iff_eq_ofInt]
   all_goals veir_bv_decide))
 
-@[simp, puddle]
-theorem forall_gmirConstantProperties (P : propertiesOf (OpCode.gmir GMIR.g_constant) → Prop) :
-    (∀ (property : propertiesOf (OpCode.gmir GMIR.g_constant)), P property) ↔
-      (∀ (value : IntegerAttr), P { value := value }) := by
-  constructor
-  · grind
-  · intro h ⟨prop⟩
-    grind
-
 open Lean Meta in
 /-- Case-split, recursively in every resulting goal, each local runtime value `v` that has a
 hypothesis `v.Conforms _`. These are the matched input values; the results of matched
@@ -132,10 +118,6 @@ elab "casesAnds" : tactic => do
   let goals ← getGoals
   setGoals (← goals.flatMapM fun goal => casesAnds goal)
 
-/-- Unfold the operation semantics of a goal produced by `simpPuddleValid`. -/
-macro "simpCombineSemantics" : tactic => `(tactic|
-  simp [puddle])
-
 /-- Split the matched inputs of a normalized combine validity goal, then substitute the results
 of the matched operations. Each round resolves one more level of nested matched operations:
 an operation's result equation only appears once its operands are known registers. -/
@@ -152,7 +134,7 @@ bit-blasting it under the matcher's guards. -/
 macro "proveCombineValid" : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
-  simpCombineSemantics
+  simp [puddle]
   normalizeCombineValid
   all_goals guarded_bv_decide))
 
@@ -216,59 +198,19 @@ theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target :
     CTree.Sim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
   simp [monadLift, MonadLift.monadLift]
 
-/-- Close a store-combine validity goal, normalized by `simp [puddle]`, given a proof `bytes`
-that the dropped extension does not change the stored bytes. -/
-macro "closeStoreValid" bytes:term : tactic => `(tactic| (
+/-- Prove the validity of a store combine, given a proof `bytes` that the dropped extension
+does not change the stored bytes, such as `toByteArrayLE_extract_four (by veir_bv_decide)`.
+The caller must erase `Veir.Sim.bind_monadLift_left_iff` and `Veir.Sim.monadLift_right_iff`
+from `puddle`, so that both store computations stay lifted for `sim_store`. -/
+macro "proveStoreValid" bytes:term : tactic => `(tactic| (
+  simp only [riscv_pattern]
+  simpPuddleValid
+  simp [puddle]
   normalizeCombineValid
   all_goals
     exact sim_store
       (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
       _ _ _ _ _ _ _ $bytes))
-
-/-- Prove the validity of a store combine, given a proof `bytes` that the dropped extension
-does not change the stored bytes, such as `toByteArrayLE_extract_four (by veir_bv_decide)`.
-The caller must erase `Veir.Sim.bind_monadLift_left_iff` and `Veir.Sim.monadLift_right_iff`
-from `puddle`, so that both store computations stay lifted for `closeStoreValid`. -/
-macro "proveStoreValid" bytes:term : tactic => `(tactic| (
-  simp only [riscv_pattern]
-  simpPuddleValid
-  simp [puddle]
-  closeStoreValid $bytes))
-
-/-! ### Loads -/
-
-section Load
-
-attribute [local implicit_reducible] TypeAttr
-
-/-- `x` is a value a RISC-V load of `n` bytes at `p` can produce: the bits stored at `p`, with each
-poison bit frozen to some concrete value. It is kept folded, so that the validity proofs treat the
-loaded value as an arbitrary bitvector. -/
-def LoadsBits (mem : MemoryState) (p : Data.Pointer) (n : Nat) (x : BitVec (8 * n)) : Prop :=
-  ∃ b, mem.loadByte p (8 * n) = .ok b ∧ ∃ bits, x = b.val ||| (b.poison &&& bits)
-
-/-- A RISC-V load CTree that succeeds returns the bits it read, extended to a register, and leaves
-memory unchanged. -/
-theorem riscvLoadCTree_canInterpretTo_ok {EIn : Type} {E : EIn → Type}
-    [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
-    {mem mem' : MemoryState} {n : Nat} {ext : LoadExtension} {v : RuntimeValue} :
-    PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
-        (.ok (#[v], mem', none)) ↔
-      ∃ x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x ∧
-        v = .reg ⟨match ext with
-          | .signExt => x.signExtend 64
-          | .zeroExt => x.setWidth 64⟩ ∧
-        mem' = mem := by
-  simp [riscvLoadCTree, Bind.bind, PureOrErr.CanInterpretTo.bind_iff, LoadsBits]
-  constructor
-  · rintro ⟨b, hb, ⟨bits, rfl⟩, rfl⟩
-    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp, rfl⟩
-  · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
-    exact ⟨b, hb, ⟨bits, by cases ext <;> simp⟩, rfl⟩
-
-end Load
-
-section
 
 /-! ## Identities, booleans and immediates -/
 
@@ -305,17 +247,11 @@ theorem li_zero_to_x0_valid :
     Puddle.CTree.Pattern.Valid li_zero_to_x0_pattern := by
   simp only [riscv_pattern]
   simpPuddleValid
-  simpCombineSemantics
+  simp [puddle]
   normalizeCombineValid
   all_goals simp [TypeAttr.of, Attribute.of, liftM, monadLift, MonadLift.monadLift,
-    RuntimeValue.isRefinedBy, ControlFlowAction.optionIsRefinedBy, Data.RISCV.li,
+    Data.RISCV.li,
     -Attribute.registerType_eq_of]
-
-end
-
-section
-
-attribute [local implicit_reducible] TypeAttr
 
 /-! ## Shift amounts
 
@@ -370,10 +306,6 @@ theorem drop_zextw_srlw_rs2_valid :
 theorem drop_zextw_sraw_rs2_valid :
     Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .sraw 2 1) := by
   proveCombineValid
-
-end
-
-section
 
 /--
   `riscv.srli 63 (riscv.srai _ x) -> riscv.srli 63 x` (`srl_sra_signbit`): an arithmetic right
@@ -504,13 +436,32 @@ theorem sexth_li_low16_valid :
       !decide (cst.value.toInt < (-32768) ∨ cst.value.toInt ≥ 32768)) := by
   proveCombineValid
 
-end
-
 section
 
-attribute [local implicit_reducible] TypeAttr
+/-- `x` is a value a RISC-V load of `n` bytes at `p` can produce: the bits stored at `p`, with each
+poison bit frozen to some concrete value. It is kept folded, so that the validity proofs treat the
+loaded value as an arbitrary bitvector. -/
+def LoadsBits (mem : MemoryState) (p : Data.Pointer) (n : Nat) (x : BitVec (8 * n)) : Prop :=
+  ∃ b, mem.loadByte p (8 * n) = .ok b ∧ ∃ bits, x = b.val ||| (b.poison &&& bits)
 
-attribute [local simp] riscvLoadCTree_canInterpretTo_ok
+/-- A RISC-V load CTree that succeeds returns the bits it read, extended to a register, and leaves
+memory unchanged. -/
+@[local simp] theorem riscvLoadCTree_canInterpretTo_ok {EIn : Type} {E : EIn → Type}
+    [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
+    {mem mem' : MemoryState} {n : Nat} {ext : LoadExtension} {v : RuntimeValue} :
+    PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
+        (.ok (#[v], mem', none)) ↔
+      ∃ x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x ∧
+        v = .reg ⟨match ext with
+          | .signExt => x.signExtend 64
+          | .zeroExt => x.setWidth 64⟩ ∧
+        mem' = mem := by
+  simp [riscvLoadCTree, Bind.bind, PureOrErr.CanInterpretTo.bind_iff, LoadsBits]
+  constructor
+  · rintro ⟨b, hb, ⟨bits, rfl⟩, rfl⟩
+    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp, rfl⟩
+  · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
+    exact ⟨b, hb, ⟨bits, by cases ext <;> simp⟩, rfl⟩
 
 /-! ## Byte-load and byte-packing combines.
 
@@ -582,10 +533,6 @@ theorem sextw_lbu_valid (h : IsSignExtendingOpW .lbu 1 fun _ => true) :
   proveCombineValid
 
 end
-
-section
-
-attribute [local implicit_reducible] TypeAttr
 
 /-! ## Extensions of bitwise operations
 
@@ -677,11 +624,7 @@ theorem sexth_xor_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sexth .xor true true) := by
   proveCombineValid
 
-end
-
 section
-
-attribute [local implicit_reducible] TypeAttr
 
 /- Keep both store computations lifted, as `sim_store` expects them. -/
 attribute [-puddle] Veir.Sim.bind_monadLift_left_iff Veir.Sim.monadLift_right_iff
@@ -726,8 +669,6 @@ theorem drop_sextw_sb_valid :
 
 end
 
-section
-
 /-! ## Extensions of `x0`
 
 `riscv.<ext> x0 -> x0` (`ext_x0_pattern`) is valid only if every value of the
@@ -748,12 +689,6 @@ axiom zexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zexth)
 axiom sextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextb)
 
 axiom sexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sexth)
-
-end
-
-section
-
-attribute [local implicit_reducible] TypeAttr
 
 /-! ## `sextw` of a sign-extending producer
 
@@ -919,12 +854,6 @@ theorem sextw_ori_valid
     (h : IsSignExtendingOpW .ori 1 (fun p => (p.immField 12).msb)) :
     Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .ori 1 _ h) := by
   proveCombineValid
-
-end
-
-section
-
-attribute [local implicit_reducible] TypeAttr
 
 /-! ## Extensions of an operand the consumer ignores
 
@@ -1184,7 +1113,5 @@ theorem drop_sextw_cpopw_valid :
 theorem drop_sextw_zextw_valid :
     Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .zextw 1 0) := by
   proveCombineValid
-
-end
 
 end Veir.RISCV.CTreeProofs
