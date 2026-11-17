@@ -32,6 +32,7 @@ import Veir.Interpreter.CTreeRefinement.Normalization
 import Veir.Interpreter.CTreeRefinement.OpList
 import Veir.Interpreter.CTreeRefinement.Refines
 import Veir.Dialects.ProvedMonotone
+import Veir.Dialects.Builtin.InterpreterLemmas
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.CheckedDriver
