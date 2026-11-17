@@ -56,6 +56,24 @@ info: 'Veir.gmir_interpretCTreeMonotone_not_assumed' depends on axioms: [propext
 #guard_msgs in
 #print axioms gmir_interpretCTreeMonotone_not_assumed
 
+/-- Instance resolution proves, rather than assumes, every RISC-V opcode monotone in CTrees. -/
+theorem riscv_interpretCTreeMonotone_not_assumed (op : Riscv) :
+    InterpretCTreeMonotone (.riscv op) :=
+  inferInstance
+
+/--
+info: 'Veir.riscv_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
+ CTree.Sim,
+ Classical.choice,
+ Quot.sound,
+ CTree.Sim.ret,
+ CTree.Sim.tau_l,
+ CTree.Sim.tau_r,
+ CTree.Sim.ub]
+-/
+#guard_msgs in
+#print axioms riscv_interpretCTreeMonotone_not_assumed
+
 /--
 info: 'Veir.OpCode.interpretCTree_monotone_of_opCode' depends on axioms: [propext,
  CTree.Sim,
