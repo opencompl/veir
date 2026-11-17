@@ -15,22 +15,23 @@ namespace RegisterSpilling
   High-level algorithm for each basic block:
   1. Do backwards walk on block and record for every op which SSA values are last used ("die" at that op)
   2. Do forward walk on block.
-     state.loadedValues holds SSA values that are currently in a register
+     state.loadedValues holds SSA values that are currently in a register, ordered by when they were loaded (oldest first)
      state.slots: Map from SSA value that was spilled to the new SSA value that is returned by the alloca op that was used to put the original value on the stack
      For every op:
      2.1 Check if (loadedValues union srcOperands) are larger than number of available registers
-         If so, evict random currently loadedValues (not values that are used as operands!) to memory
+         If so, evict the loadedValues that were loaded first (FIFO) (not values that are used as operands!) to memory
      2.2 Check if all operands are in loadedValues.
          If not, insert load operations (throw error if there is no slot that holds the value)
      2.3 Check which SSA values are last used at an op. Remove them from loadedValues
      2.4 Check if (loadedValues union opResults) are larger than number of available registers
-         If so, evict random currently loadedValues (not values that are used as operands!) to memory
+         If so, evict the loadedValues that were loaded first (FIFO) (not values that are used as operands!) to memory
 -/
 
 /-- The spiller's state while walking a block forward. -/
 structure SpillState where
-  /-- Values currently assumed to be in a register. -/
-  loadedValues : Std.HashSet ValuePtr := ∅
+  /--  Values currently assumed to be in a register, in the order they were loaded,
+  meaning the value at `loadedValues[0]` has been in the register file the longest.   -/
+  loadedValues : Array ValuePtr := #[]
   /-- The stack slot (alloca result) of every value spilled so far. -/
   slots : Std.HashMap ValuePtr ValuePtr := ∅
   /-- For a reloaded value, the `ld` result that currently holds it. -/
@@ -66,17 +67,17 @@ def evictValue (ctx : WfIRContext OpCode) (state : SpillState) (op : OperationPt
   return (ctx, { state with slots := state.slots.insert value slot })
 
 /--
-Evict loaded values before `op` until `needed` fits in the registers next to what stays
-loaded. Values in `needed` are never evicted.
+Evict loaded values until all values `needed` by `op` fit in the registers.
+FIFO is used for evicting from the `loadedValues`. Values in `needed` are never evicted.
 -/
 def evict (ctx : WfIRContext OpCode) (state : SpillState) (op : OperationPtr)
     (needed : Std.HashSet ValuePtr) (numRegisters : Nat) :
     Except String (WfIRContext OpCode × SpillState) := do
-  let numberToEvict := (state.loadedValues.union needed).size - numRegisters
-  let evictable := state.loadedValues.toArray.filter (!needed.contains ·)
+  let evictable := state.loadedValues.filter (!needed.contains ·)
+  let numberToEvict := needed.size + evictable.size - numRegisters
   if evictable.size < numberToEvict then
     throw s!"register spilling: operation needs more than {numRegisters} registers"
-  -- Future work: use sensible heuristic for choosing which values to evict
+  -- Future work: choose better eviction heuristic than FIFO
   let mut ctx := ctx
   let mut state := state
   for value in evictable.take numberToEvict do
@@ -113,14 +114,14 @@ def spillOp (ctx : WfIRContext OpCode) (state : SpillState)
   (ctx, state) <- evict ctx state op operands numRegisters
 
   -- Reload operands, if needed
-  let missing := operands.diff state.loadedValues
-  for value in missing do
+  for value in op.getOperands! ctx.raw do
+    if state.loadedValues.contains value then continue
     let some slot := state.slots[value]?
       | throw "register spilling found an operand that is neither in a register nor spilled"
     let (ctx', reloaded) ← insertReload ctx op slot
     ctx := ctx'
     state := { state with
-              loadedValues := state.loadedValues.insert value
+              loadedValues := state.loadedValues.push value
               current := state.current.insert value reloaded }
 
   -- Point the operands of `op` at their reloaded copies.
@@ -140,7 +141,7 @@ def spillOp (ctx : WfIRContext OpCode) (state : SpillState)
   -- add results to loadedValues (if they have uses, otherwise they can just be discarded)
   for result in op.getResults! ctx.raw do
     if result.hasUses! ctx.raw then
-      state := { state with loadedValues := state.loadedValues.insert result }
+      state := { state with loadedValues := state.loadedValues.push result }
 
   return (ctx, state)
 
