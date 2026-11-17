@@ -38,8 +38,11 @@ def createConstantWith {Inputs : Type} [IsMetadataTuple OpCode Inputs]
     (value : MetadataValues OpCode Inputs → Int) : CreateProg.Builder CreatedOpHandle := do
   let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant)))
       (type, inputs) fun (type, inputs) => do
-        let .integerType type := type.val | none
-        return { value := .ofInt (value inputs) type }
+        let valueType ← match type.val with
+          | .integerType type => some type
+          | .llvmPointerType _ => some (IntegerType.signless 64)
+          | _ => none
+        return { value := .ofInt (value inputs) valueType }
   CreateProg.operation (.gmir .g_constant) #[] #[type] props
 
 /-- Create a `g_constant` of `type` with the value `value`. -/

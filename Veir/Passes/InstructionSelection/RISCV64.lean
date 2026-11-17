@@ -99,14 +99,6 @@ def constant_pattern : Pattern OpCode :=
 /-- llvm.constant -> riscv.li -/
 def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
 
-/-- The width of an `icmp` operand of type `t` once it is in a register: integers keep their
-    width, and an `!llvm.ptr` is a full 64-bit register, compared exactly like an `i64`. -/
-def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
-  match t.val with
-  | .integerType t => some t.bitwidth
-  | .llvmPointerType _ => some 64
-  | _ => none
-
 /--
   Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
   byte types, and the result is strictly narrower than the operand.
@@ -842,23 +834,6 @@ def gmirPoison_pattern : Pattern OpCode :=
     (do
       let resType ← MatchProg.type (Attr := TypeAttr)
       let _ ← MatchProg.root (.gmir .g_poison) #[] #[resType]
-      return resType)
-    (fun resType => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
-      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
-def zeroConst_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let resType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => (icmpTypeWidth? t).any (· ≤ 64))
-      let _ ← MatchProg.root (.llvm .mlir__zero) #[] #[resType]
       return resType)
     (fun resType => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -1854,11 +1829,23 @@ def gmirRiscvClzw_pattern : Pattern OpCode :=
 def gmirRiscvCtzw_pattern : Pattern OpCode :=
   lowerUnary (.gmir_riscv .g_ctzw) 64 .ctzw ()
 
-/-- `gmir.g_constant` (`i64`) -> `riscv.li`. -/
+def gmirRiscvAddw : Puddle.CompiledPattern OpCode := gmirRiscvAddw_pattern.compile
+def gmirRiscvSubw : Puddle.CompiledPattern OpCode := gmirRiscvSubw_pattern.compile
+def gmirRiscvMulw : Puddle.CompiledPattern OpCode := gmirRiscvMulw_pattern.compile
+def gmirRiscvDivw : Puddle.CompiledPattern OpCode := gmirRiscvDivw_pattern.compile
+def gmirRiscvDivuw : Puddle.CompiledPattern OpCode := gmirRiscvDivuw_pattern.compile
+def gmirRiscvRemuw : Puddle.CompiledPattern OpCode := gmirRiscvRemuw_pattern.compile
+def gmirRiscvSllw : Puddle.CompiledPattern OpCode := gmirRiscvSllw_pattern.compile
+def gmirRiscvSrlw : Puddle.CompiledPattern OpCode := gmirRiscvSrlw_pattern.compile
+def gmirRiscvSraw : Puddle.CompiledPattern OpCode := gmirRiscvSraw_pattern.compile
+def gmirRiscvClzw : Puddle.CompiledPattern OpCode := gmirRiscvClzw_pattern.compile
+def gmirRiscvCtzw : Puddle.CompiledPattern OpCode := gmirRiscvCtzw_pattern.compile
+
+/-- `gmir.g_constant` (`i64` or pointer) -> `riscv.li`. -/
 def gmirConstant_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := TypeAttr)
       let root ← MatchProg.root (.gmir .g_constant) #[] #[type]
       matchLegal .g_constant type root.properties
       return (type, root.properties))
@@ -2127,70 +2114,54 @@ def gmirSltiPatterns : Array (Pattern OpCode) :=
 
 /-! # Pass implementation
 
-The pass runs, through the module-filtered driver, three selection loops whose patterns are all
-proved or assumed to refine the module (`Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass`).
-The main loop also chooses, per `llvm.getelementptr`, the instance of `getelementptr_pattern` that
-lowers it (`getelementptrRules`); its validity is assumed (`getelementptr_valid`: the address
-lemmas are not written), as is that of the memory-intrinsic libcalls (`memIntrinsicCall_valid`:
-the call has no semantics). The inline memory-intrinsic expansion and the split loads and stores
-are unproven and no loop runs them: an input that needs one of those keeps the operation
-unselected. -/
-
-/-- The composed loop: select expressions of several gMIR operations into one instruction, before
-the later loops select their inner operations. -/
-public def iselComposedPatterns : Array (Pattern OpCode) := gmirComposedPatterns
-
-/-- The early loop: fold composed intrinsics and inspect constants before the per-op lowerings
-consume them. -/
-public def iselEarlyPatterns : Array (Pattern OpCode) :=
-  #[lowerLifetime .intr__lifetime__start, lowerLifetime .intr__lifetime__end] ++
-  loadPatterns ++ gmirLoadPatterns ++ storePatterns ++ gmirSelectZeroOfSetccPatterns ++
-  gmirSelectZeroPatterns ++ #[
-    lowerFshConst true 64, lowerFshConst true 32, lowerFshConst false 64, lowerFshConst false 32,
-    lowerFshConst true 32 true, lowerFshConst false 32 true,
-    gmirAddi_pattern, gmirAndi_pattern, gmirOri_pattern, gmirXori_pattern, gmirSlli_pattern,
-    gmirSrli_pattern, gmirSrai_pattern,
-    gmirRiscvAddiw_pattern, gmirRiscvSlliw_pattern, gmirRiscvSrliw_pattern, gmirRiscvSraiw_pattern,
-    gmirCpopw_pattern, gmirBseti_pattern, gmirBinvi_pattern, gmirBclri_pattern] ++
-  gmirSltiPatterns
-
-/-- The main loop: the per-op lowerings. -/
-public def iselMainPatterns : Array (Pattern OpCode) :=
-  #[gmirSelect_pattern, constant_pattern, addressof_pattern,
-    sext32_pattern, sext16_pattern, sextInRegExt_pattern 8 .sextb (),
-    sextInRegExt_pattern 16 .sexth (), sextInRegExt_pattern 32 .sextw (), sextInRegShift_pattern,
-    zext32_pattern, zext16_pattern, trunc_pattern, bitcast_pattern] ++
-  loadPatterns ++ gmirLoadPatterns ++ storePatterns ++ #[
-    fshl64_pattern, fshl32_pattern, fshr64_pattern, fshr32_pattern, lowerFshlGeneral 64,
-    lowerFshlGeneral 32, lowerFshrGeneral 64, lowerFshrGeneral 32,
-    gmirPoison_pattern, zeroConst_pattern, gmirFreeze_pattern,
-    gmirAdd_pattern, gmirSub_pattern, gmirTrunc_pattern, gmirAnyextOfReg_pattern,
-    gmirAnyext_pattern, gmirPtrIntCast_pattern .g_ptrtoint, gmirPtrIntCast_pattern .g_inttoptr,
-    gmirShl_pattern, gmirLshr_pattern, gmirAshr_pattern,
-    gmirAnd_pattern, gmirOr_pattern, gmirXor_pattern,
-    gmirMul_pattern, gmirSdiv_pattern, gmirUdiv_pattern, gmirSrem_pattern, gmirUrem_pattern,
-    gmirRiscvAddw_pattern, gmirRiscvSubw_pattern, gmirRiscvMulw_pattern,
-    gmirRiscvDivw_pattern, gmirRiscvDivuw_pattern, gmirRiscvRemuw_pattern, gmirRiscvSllw_pattern,
-    gmirRiscvSrlw_pattern, gmirRiscvSraw_pattern, gmirRiscvClzw_pattern, gmirRiscvCtzw_pattern,
-    gmirConstant_pattern,
-    gmirCtlz_pattern, gmirCttz_pattern, gmirCtpop_pattern, gmirBswap_pattern, gmirBrev8_pattern,
-    gmirBitreverse_pattern,
-    gmirSmax_pattern, gmirSmin_pattern, gmirUmax_pattern, gmirUmin_pattern,
-    memIntrinsicCallPattern false, memIntrinsicCallPattern true] ++
-  gmirIcmpPatterns
-
-/-- The pass: the three loops, through the module-filtered driver. Its soundness is
-`ISelPass.run_sound`. -/
-public def ISelPass.run : PurePass :=
-  checkedFunctionsPasses "isel-riscv64" [
-    RewritePattern.GreedyRewritePattern (iselComposedPatterns.map fun rule => rule.compile.run),
-    RewritePattern.GreedyRewritePattern (iselEarlyPatterns.map fun rule => rule.compile.run),
-    RewritePattern.GreedyRewritePattern ((iselMainPatterns.map fun rule => rule.compile.run) ++
-      #[RewritePattern.ofRules getelementptrRules])]
-
-public def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
-    ExceptT String IO (WfIRContext OpCode) :=
-  ExceptT.mk (pure (ISelPass.run ctx op))
+def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+    ExceptT String IO (WfIRContext OpCode) := do
+  /- Composed loop: select expressions of several gMIR operations into one instruction, before
+     the later loops select their inner operations. -/
+  let composed := RewritePattern.GreedyRewritePattern <| gmirComposed.map (·.run)
+  let ctx ← match RewritePattern.applyToFunctions composed ctx op with
+  | none => throw "Error while applying composed instruction-selection patterns"
+  | some ctx => pure ctx
+  /- Early loop: fold composed intrinsics and inspect constants before the per-op
+     lowerings consume them. -/
+  let early := RewritePattern.GreedyRewritePattern <|
+    #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic, .fromLocalRewrite splitLoad_local,
+    .fromLocalRewrite splitStore_local] ++ load.map (·.run) ++ gmirLoad.map (·.run) ++
+    store.map (·.run) ++ gmirStore.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++
+    gmirSelectZero.map (·.run) ++ #[
+    fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
+    fshlConst32Trunc.run, fshrConst32Trunc.run,
+    gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
+    gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
+    gmirCpopw.run, gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
+  let ctx ← match RewritePattern.applyToFunctions early ctx op with
+  | none => throw "Error while applying early memory-lowering patterns"
+  | some ctx => pure ctx
+  /- Main loop: the existing per-op lowerings. -/
+  let pattern := RewritePattern.GreedyRewritePattern <|
+    #[gmirSelect.run,
+    constant.run, addressof.run] ++
+    #[
+    sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
+    zext32.run, zext16.run, trunc.run,
+    bitcast.run] ++
+    load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++
+    gmirStore.map (·.run) ++ #[
+    fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
+    gmirPoison.run, gmirFreeze.run,
+    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirPtrToInt.run, gmirIntToPtr.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
+    gmirAnd.run, gmirOr.run, gmirXor.run,
+    gmirMul.run, gmirSmulh.run, gmirUmulh.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
+    gmirRiscvAddw.run, gmirRiscvSubw.run, gmirRiscvMulw.run,
+    gmirRiscvDivw.run, gmirRiscvDivuw.run, gmirRiscvRemuw.run, gmirRiscvSllw.run, gmirRiscvSrlw.run,
+    gmirRiscvSraw.run, gmirRiscvClzw.run, gmirRiscvCtzw.run,
+    gmirConstant.run,
+    gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
+    gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
+    gmirIcmp.map (·.run)
+  match RewritePattern.applyToFunctions pattern ctx op with
+  | none => throw "Error while applying main instruction-selection patterns"
+  | some ctx => pure ctx
 
 public def IselRISCV64 : Pass OpCode :=
   { name := "isel-riscv64"
