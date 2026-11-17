@@ -133,7 +133,7 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_byte_iff
         BitVec.setWidth 64 a.val ||| BitVec.setWidth 64 a.poison &&& BitVec.setWidth 64 x
       ⟩], memory, none)) other := by
   simp only [Builtin.interpretUnrealizedConversionCastCTree_reg_byte, Builtin.byteToRegCTree,
-    bind_pure_comp]
+    Data.LLVM.Byte.fillPoison, bind_pure_comp]
   by_cases h : a.poison = 0#bitwidth
   · simp [h]
   simp [Functor.map, h, CTree.choose_def, CTree.tau_def]

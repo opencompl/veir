@@ -376,6 +376,20 @@ theorem getLsbD_poison_freeze (x : Byte w) (i : Nat) :
   simp
 
 
+/-! ## fillPoison -/
+
+@[veir_bv_normalize]
+theorem fillPoison_eq (x : Byte w) (chosen : BitVec w) :
+    x.fillPoison chosen = x.val ||| (x.poison &&& chosen) := by
+  simp [Byte.fillPoison]
+
+@[simp]
+theorem getLsbD_fillPoison (x : Byte w) (chosen : BitVec w) (i : Nat) :
+    (x.fillPoison chosen).getLsbD i =
+      (x.val.getLsbD i || (x.poison.getLsbD i && chosen.getLsbD i)) := by
+  simp [fillPoison_eq]
+
+
 /-! ## fromInt, fromBitVec, fromUInt64 -/
 
 @[simp]
