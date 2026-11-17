@@ -56,4 +56,20 @@ instance (opType : Riscv) : InterpretOp'Monotone (.riscv opType) where
     simp only [interpretOp']
     exact Riscv.interpretOp'_monotone h
 
+/--
+The RISC-V opcodes that load from memory. It is reducible, so that instance resolution decides it
+for a concrete opcode.
+-/
+@[reducible]
+def Riscv.isLoad : Riscv → Bool
+  | .ld | .lw | .lwu | .lh | .lhu | .lb | .lbu => true
+  | _ => false
+
+/-- Unfold `Riscv.isLoad`, whose body modules importing this one do not see. -/
+theorem Riscv.isLoad_eq (opT : Riscv) :
+    opT.isLoad = match opT with
+      | .ld | .lw | .lwu | .lh | .lhu | .lb | .lbu => true
+      | _ => false := by
+  cases opT <;> rfl
+
 end Veir

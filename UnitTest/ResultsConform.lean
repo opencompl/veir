@@ -22,4 +22,13 @@ info: 'Veir.gmir_resultsConform_not_assumed' depends on axioms: [propext, Classi
 #guard_msgs in
 #print axioms gmir_resultsConform_not_assumed
 
+theorem riscv_resultsConform_not_assumed (op : Riscv) : ResultsConform (.riscv op) :=
+  inferInstance
+
+/--
+info: 'Veir.riscv_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms riscv_resultsConform_not_assumed
+
 end Veir
