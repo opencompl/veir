@@ -15,6 +15,11 @@ variable {ctx : WfIRContext OpInfo}
 
 namespace RuntimeValue
 
+/-- Number of elements of a statically shaped tensor: the product of its dimensions. -/
+@[expose]
+def _root_.Veir.TensorType.numElements (type : TensorType) : Nat :=
+  type.shape.foldl Nat.mul 1
+
 /--
   A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
   of a given `TypeAttr`.
@@ -31,67 +36,115 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
     fieldType = expectedType ∧ FeltSemantics.IsCanonical fieldType value
+  | .tensor elements, ⟨.tensorType tensorType, _⟩ =>
+    if h : tensorType.elementType.isType then
+      elements.size = tensorType.numElements ∧
+        ∀ i : Fin elements.size, Conforms elements[i] ⟨tensorType.elementType, h⟩
+    else False
   | _, _ => False
+termination_by val
 
-instance : Decidable (Conforms val ty) := by
+/-- Decide conformance recursively, including tensor sizes and element types. -/
+def decidableConforms (val : RuntimeValue) (ty : TypeAttr) : Decidable (Conforms val ty) := by
   unfold Conforms
-  split <;> infer_instance
+  split <;> try infer_instance
+  · next elements tensorType _ =>
+      have (h) (i : Fin elements.size) := decidableConforms elements[i] ⟨tensorType.elementType, h⟩
+      infer_instance
+termination_by val
+
+instance : Decidable (Conforms val ty) := decidableConforms val ty
 
 @[simp, grind =]
 theorem Conforms.integerType :
     Conforms runtimeValue (.of IntegerType intType) ↔
     ∃ val, runtimeValue = .int intType.bitwidth val := by
-  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue <;> unfold Conforms <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    constructor <;> rintro ⟨⟩ <;> grind
 
 @[simp, grind =]
 theorem Conforms.byteType {runtimeValue byteType} :
     Conforms runtimeValue (.of LLVM.ByteType byteType) ↔
     ∃ val, runtimeValue = .byte byteType.bitwidth val := by
-  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue <;> unfold Conforms <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    constructor <;> rintro ⟨⟩ <;> grind
 
 @[simp, grind =]
 theorem Conforms.floatType :
     Conforms runtimeValue (.of FloatType fltType) ↔
     ∃ val, runtimeValue = .float fltType val := by
-  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue <;> unfold Conforms <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    constructor <;> rintro ⟨⟩ <;> grind
 
 @[simp, grind =]
 theorem Conforms.modArithType {runtimeValue modArithType} :
     Conforms runtimeValue (.of ModArithType modArithType) ↔
     ∃ val, runtimeValue = .int modArithType.modulus.type.bitwidth val := by
-  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue <;> unfold Conforms <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    constructor <;> rintro ⟨⟩ <;> grind
 
 @[simp, grind =]
 theorem Conforms.indexType :
     Conforms runtimeValue (.of IndexType idxType) ↔
     ∃ val, runtimeValue = .int IndexType.bitwidth val := by
-  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue <;> unfold Conforms <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    constructor <;> rintro ⟨⟩ <;> grind
 
 @[simp, grind =]
 theorem Conforms.registerType :
     Conforms runtimeValue (.of RegisterType regType) ↔
     ∃ val, runtimeValue = .reg val := by
-  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue <;> unfold Conforms <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    constructor <;> rintro ⟨⟩ <;> grind
 
 @[simp, grind =]
 theorem Conforms.llvmPointerType :
     Conforms runtimeValue (.of LLVM.PointerType ptrType) ↔
     ∃ val, runtimeValue = .addr val := by
-  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  cases runtimeValue <;> grind
+  cases runtimeValue <;> unfold Conforms <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    constructor <;> rintro ⟨⟩ <;> grind
 
 @[simp, grind =]
 theorem Conforms.feltType {runtimeValue feltTy} :
     Conforms runtimeValue (.of FeltType feltTy) ↔
     ∃ val, runtimeValue = .felt feltTy val ∧ FeltSemantics.IsCanonical feltTy val := by
-  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  cases runtimeValue <;> simp_all <;> grind
+  cases runtimeValue <;> unfold Conforms <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    constructor <;> rintro ⟨⟩ <;> grind
+
+/--
+  A tensor value is a row-major `.tensor` with one element per entry of the shape's
+  product, every element conforming to the element type.
+-/
+@[simp, grind =]
+theorem Conforms.tensorType {runtimeValue tensorType} :
+    Conforms runtimeValue (.of TensorType tensorType) ↔
+    ∃ elements, runtimeValue = .tensor elements ∧ elements.size = tensorType.numElements ∧
+      ∃ h : tensorType.elementType.isType,
+        ∀ e ∈ elements, Conforms e ⟨tensorType.elementType, h⟩ := by
+  cases runtimeValue <;> unfold Conforms <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, reduceCtorEq, false_and,
+      exists_false]
+  next elements =>
+    simp only [RuntimeValue.tensor.injEq, exists_eq_left']
+    split
+    · next h =>
+      simp only [h, exists_true_left, and_congr_right_iff]
+      intro _
+      constructor
+      · intro hall e he
+        obtain ⟨i, hi, rfl⟩ := Array.mem_iff_getElem.mp he
+        exact hall ⟨i, hi⟩
+      · intro hall i
+        exact hall _ (Array.getElem_mem i.isLt)
+    · next h => simp [h]
 
 @[expose]
 def ArrayConforms (source : Array RuntimeValue) (target : Array TypeAttr) : Prop :=

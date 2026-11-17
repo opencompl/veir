@@ -22,16 +22,43 @@ inductive RuntimeValue where
 | reg (value : Data.RISCV.Reg)
 /-- A canonical natural-number representative in the field identified by `fieldType`. -/
 | felt (fieldType : FeltType) (value : Nat)
-deriving Inhabited, BEq, DecidableEq
+/--
+  Elements of a ranked tensor, flattened in row-major order.
+  The shape is carried by the IR type, not by the value.
+-/
+| tensor (elems : Array RuntimeValue)
+deriving Inhabited, BEq
+
+def RuntimeValue.decEq (a b : RuntimeValue) : Decidable (a = b) := by
+  cases a <;> cases b
+  all_goals simp only [reduceCtorEq, RuntimeValue.int.injEq, RuntimeValue.byte.injEq,
+    RuntimeValue.float.injEq, RuntimeValue.addr.injEq, RuntimeValue.reg.injEq,
+    RuntimeValue.felt.injEq, RuntimeValue.tensor.injEq]
+  case int.int w x w' y | byte.byte w x w' y | float.float w x w' y =>
+    by_cases h : w = w'
+    · subst w'; simp only [true_and, heq_eq_eq]; infer_instance
+    · exact isFalse (by simp [h])
+  case tensor.tensor xs ys =>
+    exact Array.instDecidabelEq' xs ys (fun x y _ _ => RuntimeValue.decEq x y)
+  all_goals infer_instance
+termination_by a
+
+instance : DecidableEq RuntimeValue := RuntimeValue.decEq
+
+def RuntimeValue.toString : RuntimeValue → String
+  | .int _ val => ToString.toString val
+  | .byte _ val => ToString.toString val
+  | .float _ val => ToString.toString val
+  | .addr val => ToString.toString val
+  | .reg val => ToString.toString val
+  | .felt fieldType val => s!"{val} : {fieldType}"
+  | .tensor elems =>
+    let elemsStr := ",".intercalate (elems.map RuntimeValue.toString).toList
+    s!"tensor[{elemsStr}]"
+termination_by v => v
 
 instance : ToString RuntimeValue where
-  toString
-    | .int _ val => ToString.toString val
-    | .byte _ val => ToString.toString val
-    | .float _ val => ToString.toString val
-    | .addr val => ToString.toString val
-    | .reg val => ToString.toString val
-    | .felt fieldType val => s!"{val} : {fieldType}"
+  toString := RuntimeValue.toString
 
 /--
   Whether a runtime value is wholly poison. A `byte` is wholly poison when
