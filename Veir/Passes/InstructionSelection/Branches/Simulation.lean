@@ -673,10 +673,7 @@ theorem ConstantsHold.interpretOp {op : OperationPtr} {opIn : op.InBounds ctx.ra
   · subst hEq
     simp only [OperationPtr.interpret] at hInterp
     rw [interpretOp'_opType_cast hType (OperationPtr.getProperties!_cast hType)] at hInterp
-    obtain ⟨type', t', hType', hVal', rfl, -, -⟩ := interpretOp'_gmir_g_constant_eq_ok hInterp
-    rw [hResultType] at hType'
-    obtain rfl := Option.some.inj hType'
-    obtain rfl : t = t' := Attribute.integerType.inj (hVal.symm.trans hVal')
+    obtain ⟨rfl, -, -⟩ := interpretOp'_gmir_g_constant_eq_ok hInterp hResultType hVal
     rw [VariableState.getVar?_setResultValues? hSet] at hValue
     have hNum : 0 < constant.getNumResults! ctx.raw := by
       rw [← OperationPtr.getResultTypes!.size_eq_getNumResults!]

@@ -106,7 +106,10 @@ theorem gmirSelectZeroOfSetcc_valid (zeroFalse neq zeroRhs : Bool) :
           all_goals veir_bv_normalize
           all_goals simp -failIfUnchanged only [*]
           all_goals veir_bv_decide
-        · simp [ctree_semantics, ←Attribute.llvmPointerType_eq_of] at hb
+        · simp [ctree_semantics, ←Attribute.llvmPointerType_eq_of] at ha hb
+          obtain ⟨a, rfl⟩ := ha
+          subst b
+          simp [ctree_semantics] at hcmp
       · have impossible := congrArg (fun t : TypeAttr => t.val) hd
         change Attribute.integerType ty = Attribute.llvmPointerType ptr at impossible
         cases impossible

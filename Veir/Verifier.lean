@@ -1340,7 +1340,9 @@ theorem gmir_riscv_ctzw_types {operands results : Array TypeAttr} {props}
   wordCount_types (.inr rfl) h
 
 
-theorem gmir_constant_result_type {ty : TypeAttr} {props} (h : IsFromVerifiedOp (.gmir .g_constant) #[] #[ty] props) :
+theorem gmir_constant_result_type {ty : TypeAttr} {props}
+    (h : IsFromVerifiedOp (.gmir .g_constant) #[] #[ty] props)
+    (hty : ∀ p, ty.val ≠ .llvmPointerType p) :
     props.value.type = ty.val := by
   rcases h with ⟨ctx, op, hin, hv, hop, hargs, hresults, hprops⟩
   simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
@@ -1361,17 +1363,22 @@ theorem gmir_constant_result_type {ty : TypeAttr} {props} (h : IsFromVerifiedOp 
     simpa [OperationPtr.getResultTypes!.getElem!_eq hn] using he
   have hp : op.getProperties! ctx.raw GMIR.g_constant = props := by
     exact hprops
+  rw [hr] at hv
+  split at hv
+  · exact absurd ‹_› (hty _)
+  simp only [Bool.false_eq_true, ↓reduceIte] at hv
   split at hv
   · simp [bind, Except.bind, throw] at hv
   · rename_i he
-    simpa only [hp, hr] using Classical.not_not.mp he
+    simpa only [hp] using Classical.not_not.mp he
 
 @[simp]
 theorem gmir_constant_type {ty : IntegerType} {props}
     (h : IsFromVerifiedOp (.gmir .g_constant) #[] #[TypeAttr.of IntegerType ty] props) :
     props.value.type = ty := by
   apply IsAttr.of_injective
-  simpa only [TypeAttr.of_def] using gmir_constant_result_type h
+  simpa only [TypeAttr.of_def] using gmir_constant_result_type h (fun _ h => by
+    simp [←Attribute.integerType_eq_of, -Attribute.llvmPointerType_eq_of] at h)
 
 theorem gmir_sext_inreg_type_eq {src dst : TypeAttr} {props}
     (h : IsFromVerifiedOp (.gmir .g_sext_inreg) #[src] #[dst] props) : src = dst := by

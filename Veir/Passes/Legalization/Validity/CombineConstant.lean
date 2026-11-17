@@ -95,18 +95,22 @@ macro "proveConstValid" "using" ls:term,+ : tactic => `(tactic| (
   normalizeConstants
   all_goals closeConstWith $ls,*))
 
-/-- Normalize a combine whose types are `TypeAttr`s, as the funnel shifts: also split each type, so
-that the type of the constant, which `matchConstant` equates, substitutes, and normalize again. -/
-macro "normalizeTypedConstants" : tactic => `(tactic| (
-  conv => arg 1; cbv
-  simpPuddleValid
-  simpLegalSemantics
+/-- The steps of `normalizeTypedConstants` after `simpLegalSemantics`. -/
+macro "normalizeTypedConstantsAfterSemantics" : tactic => `(tactic| (
   normalizeLegalValid
   normalizeConstants
   all_goals (casesLocalsOf Subtype)
   all_goals (try subst_vars)
   all_goals (try simp_all)
   normalizeLegalValid))
+
+/-- Normalize a combine whose types are `TypeAttr`s, as the funnel shifts: also split each type, so
+that the type of the constant, which `matchConstant` equates, substitutes, and normalize again. -/
+macro "normalizeTypedConstants" : tactic => `(tactic| (
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+  normalizeTypedConstantsAfterSemantics))
 
 /-! ### Shifts by a matched zero
 
@@ -929,7 +933,16 @@ set_option maxHeartbeats 4000000 in
 @[combine_valid, proof_manual]
 theorem combine_funnel_shift_overshift_l_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_overshift_pattern .g_fshl) := by
-  normalizeTypedConstants
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+  /- The created `g_constant` reads its type `amtType` as an integer or a pointer type: substitute
+  the integer type the matched constant gives it before `simp_all` rewrites with that equation. -/
+  intros
+  all_goals (casesLocalsOf Subtype)
+  all_goals (try dsimp only at *)
+  all_goals (try subst_vars)
+  normalizeTypedConstantsAfterSemantics
   all_goals (obtain ⟨t, rfl⟩ := overshiftAmount?_isSome ‹_›)
   all_goals (simp only [RuntimeValue.Conforms] at *)
   all_goals subst_vars
@@ -943,7 +956,16 @@ set_option maxHeartbeats 4000000 in
 @[combine_valid, proof_manual]
 theorem combine_funnel_shift_overshift_r_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_overshift_pattern .g_fshr) := by
-  normalizeTypedConstants
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+  /- The created `g_constant` reads its type `amtType` as an integer or a pointer type: substitute
+  the integer type the matched constant gives it before `simp_all` rewrites with that equation. -/
+  intros
+  all_goals (casesLocalsOf Subtype)
+  all_goals (try dsimp only at *)
+  all_goals (try subst_vars)
+  normalizeTypedConstantsAfterSemantics
   all_goals (obtain ⟨t, rfl⟩ := overshiftAmount?_isSome ‹_›)
   all_goals (simp only [RuntimeValue.Conforms] at *)
   all_goals subst_vars

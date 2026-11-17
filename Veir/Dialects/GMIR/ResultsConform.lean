@@ -464,7 +464,7 @@ theorem GMIR.interpretOp'_results_conform (opT : GMIR)
     rc_same 1 0
   case g_select => rc_same 1 1
   case g_uaddo | g_uadde | g_usubo | g_usube | g_saddo | g_ssubo => rc_carry
-  case g_anyext | g_sext | g_zext | g_trunc | g_constant | g_ptrtoint
+  case g_anyext | g_sext | g_zext | g_trunc | g_ptrtoint
      | g_ctlz | g_cttz | g_ctlz_zero_poison | g_cttz_zero_poison | g_ctpop => rc_restype
   case g_icmp =>
     rc_common 1
@@ -486,7 +486,7 @@ theorem GMIR.interpretOp'_results_conform (opT : GMIR)
     rc_peel
     all_goals (obtain rfl := vals_of_ok h
                exact results_toList ‹_› (int_conforms_of_val ‹_› rfl))
-  case g_poison =>
+  case g_poison | g_constant =>
     rc_common 1
     rc_peel
     all_goals (obtain rfl := vals_of_ok h

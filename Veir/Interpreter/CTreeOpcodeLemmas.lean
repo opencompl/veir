@@ -92,7 +92,8 @@ theorem Builtin.interpretOpCTree_pureOrErr (code : Builtin) (properties : proper
   | exact PureOrErr.ret _
   | exact PureOrErr.fail (E := ErrorE ⊕ₑ UBE) (C := FreezeC)
   | split
-  | simp only [Builtin.byteToIntCTree, CTree.choose_def, CTree.tau_def, Bind.bind,
+  | simp only [Builtin.byteToIntCTree, Builtin.intToRegCTree, Builtin.byteToRegCTree,
+      CTree.choose_def, CTree.tau_def, Bind.bind,
       _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret,
       Pure.pure, Veir.fail, CTree.trigger_def, _root_.CTree.CTree.bind_vis]
   | apply PureOrErr.tau; intro

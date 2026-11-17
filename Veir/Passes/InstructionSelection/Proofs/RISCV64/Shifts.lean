@@ -176,9 +176,9 @@ theorem gmirRiscvSraiw_pattern_valid :
 
 @[proof_bv]
 theorem gmirSlliuw_pattern_valid :
-    Puddle.CTree.Pattern.Valid gmirSlliuw_pattern := by
+    Puddle.CTree.Pattern.Valid (gmirSlliuw_pattern false) := by
   unfold gmirSlliuw_pattern
-  simp only [matchLegal, createRegOp]
+  simp only [matchLegal, createRegOp, matchZext32, Bool.false_eq_true, ↓reduceIte]
   simpPuddleValid
   simp [ctree_semantics]
   intro s t a p _hzext value mem₀ mem₁ heval ⟨c⟩ hrange _hconstant other mem₂ mem₃ hc q _hverified hlegal mem
@@ -192,6 +192,31 @@ theorem gmirSlliuw_pattern_valid :
   generalize BitVec.ofInt 64 c.value = bits at *
   intro v hv
   cases a <;> simp_all [shiftAmount] <;>
+    (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
+
+@[proof_bv]
+theorem gmirSlliuw_masked_pattern_valid :
+    Puddle.CTree.Pattern.Valid (gmirSlliuw_pattern true) := by
+  unfold gmirSlliuw_pattern
+  simp only [matchLegal, createRegOp, matchZext32, matchConstant64, ↓reduceIte]
+  simpPuddleValid
+  simp [ctree_semantics]
+  intro s a ⟨m⟩ hmask _hmaskConstant maskValue mem₀ mem₁ hm p _hand value mem₂ mem₃ hand
+    ⟨c⟩ hrange _hconstant other mem₄ mem₅ hc q _hverified hlegal mem
+  simp only [decide_eq_true_eq] at hmask
+  simp only [←Attribute.integerType_eq_of] at hm hc
+  simp at hm hc
+  obtain ⟨rfl, rfl⟩ := hm
+  obtain ⟨rfl, rfl⟩ := hc
+  simp at hand
+  obtain ⟨rfl, rfl⟩ := hand
+  simp [ctree_semantics, RuntimeValue.isRefinedBy, mkRISCVImm, RISCVImmediateProperties.immField]
+  have hr : (decide (0 ≤ (BitVec.ofInt 64 c.value).toInt) && decide ((BitVec.ofInt 64 c.value).toInt ≤ 31)) = true := by
+    simpa only [BitVec.toInt_ofInt] using hrange
+  generalize BitVec.ofInt 64 c.value = bits at *
+  intro v hv
+  simp only [hmask]
+  cases a <;> simp_all [shiftAmount, Data.LLVM.Int.and, Id.run] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
 @[proof_bv]

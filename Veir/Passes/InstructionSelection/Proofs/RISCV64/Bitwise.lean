@@ -102,6 +102,28 @@ theorem gmirXori_pattern_valid :
   all_goals veir_bv_decide
 
 @[proof_bv]
+theorem gmirZexth_pattern_valid :
+    Puddle.CTree.Pattern.Valid gmirZexth_pattern := by
+  dsimp only [gmirZexth_pattern, gmirAndMask_pattern, matchConstant64, matchLegal, createRegOp]
+  simpPuddleValid
+  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  rintro s a ⟨c⟩ mask _verifiedConst p _verified legal x hx
+  simp only [decide_eq_true_eq] at mask
+  cases a <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
+
+@[proof_bv]
+theorem gmirZextw_pattern_valid :
+    Puddle.CTree.Pattern.Valid gmirZextw_pattern := by
+  dsimp only [gmirZextw_pattern, gmirAndMask_pattern, matchConstant64, matchLegal, createRegOp]
+  simpPuddleValid
+  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  rintro s a ⟨c⟩ mask _verifiedConst p _verified legal x hx
+  simp only [decide_eq_true_eq] at mask
+  cases a <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
+
+@[proof_bv]
 theorem gmirAndn_rhs_valid :
     Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_and .andn () false) := by
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]

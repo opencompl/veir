@@ -342,9 +342,9 @@ theorem gmirCtpop_pattern_valid :
 
 @[proof_bv]
 theorem gmirCpopw_pattern_valid :
-    Puddle.CTree.Pattern.Valid gmirCpopw_pattern := by
+    Puddle.CTree.Pattern.Valid (gmirCpopw_pattern false) := by
   unfold gmirCpopw_pattern
-  simp only [matchLegal, createRegOp]
+  simp only [matchLegal, createRegOp, matchZext32, Bool.false_eq_true, ↓reduceIte]
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
@@ -359,6 +359,21 @@ theorem gmirCpopw_pattern_valid :
         simp [hn, RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.zext,
           Data.LLVM.Int.ctpop, Data.LLVM.Int.isRefinedBy, Id.run, pure] <;>
         veir_bv_decide
+
+@[proof_bv]
+theorem gmirCpopw_masked_pattern_valid :
+    Puddle.CTree.Pattern.Valid (gmirCpopw_pattern true) := by
+  unfold gmirCpopw_pattern
+  simp only [matchLegal, createRegOp, matchZext32, matchConstant64, ↓reduceIte]
+  simpPuddleValid
+  simp [ctree_semantics]
+  simp [←Attribute.integerType_eq_of]
+  rintro s a ⟨c⟩ mask _verifiedMask p _verifiedAnd q _verifiedRoot legal v hv
+  simp only [decide_eq_true_eq] at mask
+  cases a <;> simp_all -failIfUnchanged [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.and,
+    Data.LLVM.Int.ctpop, Data.LLVM.Int.isRefinedBy, Id.run]
+  rw [← hv]
+  veir_bv_decide
 
 @[proof_bv]
 theorem gmirBswap_pattern_valid :

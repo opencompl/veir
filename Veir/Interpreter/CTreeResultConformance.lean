@@ -163,15 +163,18 @@ theorem Builtin.interpretOpCTree_result_shape
   simp only [Builtin.interpretUnrealizedConversionCastCTree] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.map_iff,
-      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
+      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree, Builtin.intToRegCTree,
+      Builtin.byteToRegCTree] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.map_iff] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
-      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
+      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree, Builtin.intToRegCTree,
+      Builtin.byteToRegCTree] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
-      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
+      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree, Builtin.intToRegCTree,
+      Builtin.byteToRegCTree] at h
   all_goals simp_all only [Veir.interpretOp', Bind.bind, Pure.pure]
   all_goals try
     obtain ⟨choice, choices, hresults, hmemory, haction⟩ := h

@@ -116,6 +116,24 @@ theorem artifact_unmerge_merge_valid : Puddle.CTree.Pattern.Valid combineUnmerge
 theorem artifact_zext_trunc_icmp_valid : Puddle.CTree.Pattern.Valid combineZExtOfTruncOfICmp := by
   proveLegalValid using Data.LLVM.zext_trunc_zext_bit
 
+@[proof_manual]
+theorem artifact_sext_trunc_valid : Puddle.CTree.Pattern.Valid (combineSExtOfTrunc false) := by
+  proveLegalValid using Data.LLVM.sext_trunc_sext_inreg
+
+@[proof_manual]
+theorem artifact_sext_trunc_of_trunc_valid :
+    Puddle.CTree.Pattern.Valid (combineSExtOfTrunc true) := by
+  proveLegalValid using Data.LLVM.sext_trunc_sext_inreg_of_trunc
+
+@[proof_manual]
+theorem artifact_zext_trunc_valid : Puddle.CTree.Pattern.Valid (combineZExtOfTrunc false) := by
+  proveLegalValid using Data.LLVM.zext_trunc_and
+
+@[proof_manual]
+theorem artifact_zext_trunc_of_trunc_valid :
+    Puddle.CTree.Pattern.Valid (combineZExtOfTrunc true) := by
+  proveLegalValid using Data.LLVM.zext_trunc_and_of_trunc
+
 /-! ## Status of every artifact combine -/
 
 @[legalization_status]
@@ -147,6 +165,26 @@ theorem artifact_5_status :
 theorem artifact_6_status :
     Status Unproven (combineExtOfTruncOfConstant true) :=
   .proven artifact_sext_trunc_constant_valid
+
+@[legalization_status]
+theorem artifact_9_status :
+    Status Unproven (combineSExtOfTrunc false) :=
+  .proven artifact_sext_trunc_valid
+
+@[legalization_status]
+theorem artifact_10_status :
+    Status Unproven (combineSExtOfTrunc true) :=
+  .proven artifact_sext_trunc_of_trunc_valid
+
+@[legalization_status]
+theorem artifact_11_status :
+    Status Unproven (combineZExtOfTrunc false) :=
+  .proven artifact_zext_trunc_valid
+
+@[legalization_status]
+theorem artifact_12_status :
+    Status Unproven (combineZExtOfTrunc true) :=
+  .proven artifact_zext_trunc_of_trunc_valid
 
 @[legalization_status]
 theorem artifact_8_status :

@@ -184,11 +184,14 @@ theorem zext_and_anyext (n m : Nat) (h : n < m) (x : LLVM.Int n) (nneg : Bool)
 
 /--
 Prove `combineSExtOfTrunc false` at every width: `g_sext (g_trunc x)` is refined by the
-`g_sext_inreg` of `x`, whatever the flags of the `g_trunc`.
+`g_sext_inreg` of `x`, whatever the flags of the `g_trunc`. The `g_sext_inreg` size `k` is the width
+`n` of the `g_trunc` as the combine computes it, through a 64-bit size.
 -/
-theorem sext_trunc_sext_inreg {w n : Nat} (h : n < w) (x : LLVM.Int w) (nsw nuw : Bool) :
+theorem sext_trunc_sext_inreg {w n k : Nat} (hk : k = n) (h : n < w) (h' : k < w) (x : LLVM.Int w)
+    (nsw nuw : Bool) :
     LLVM.Int.sext (LLVM.Int.trunc x n nsw nuw h) w h ⊒
-      LLVM.Int.sext (LLVM.Int.trunc x n false false h) w h := by
+      LLVM.Int.sext (LLVM.Int.trunc x k false false h') w h' := by
+  subst hk
   veir_bv_normalize
   simp
 
@@ -205,12 +208,13 @@ theorem zext_trunc_and {w n : Nat} (h : n < w) (x : LLVM.Int w) (nsw nuw nneg : 
 
 /--
 Prove `combineSExtOfTrunc true` at every width: when `x` is wider than the `g_sext`, it is truncated
-to its type first.
+to its type first. As in `sext_trunc_sext_inreg`, `k` is the `g_sext_inreg` size.
 -/
-theorem sext_trunc_sext_inreg_of_trunc {w m n : Nat} (hn : n < m) (hm : m < w) (x : LLVM.Int w)
-    (nsw nuw : Bool) :
+theorem sext_trunc_sext_inreg_of_trunc {w m n k : Nat} (hk : k = n) (hn : n < m) (hk' : k < m)
+    (hm : m < w) (x : LLVM.Int w) (nsw nuw : Bool) :
     LLVM.Int.sext (LLVM.Int.trunc x n nsw nuw (by omega)) m hn ⊒
-      LLVM.Int.sext (LLVM.Int.trunc (LLVM.Int.trunc x m false false hm) n false false hn) m hn := by
+      LLVM.Int.sext (LLVM.Int.trunc (LLVM.Int.trunc x m false false hm) k false false hk') m hk' := by
+  subst hk
   veir_bv_normalize
   simp [BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hn)]
 

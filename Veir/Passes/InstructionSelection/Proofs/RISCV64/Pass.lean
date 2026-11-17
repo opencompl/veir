@@ -169,7 +169,8 @@ theorem gmirComposedPatterns_valid :
   intro pattern member
   simp only [gmirComposedPatterns, Array.mem_append, List.mem_range, Array.mem_flatMap,
     Array.mem_map, List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at member
-  rcases member with (⟨notLhs, notMember, rfl | rfl | rfl⟩ | ⟨y, bound, rfl⟩) | rfl | rfl
+  rcases member with ((⟨notLhs, notMember, rfl | rfl | rfl⟩ | ⟨y, bound, rfl⟩) | rfl) |
+    ⟨masked, maskedMember, rfl | rfl⟩
   · rcases notMember with rfl | rfl
     · exact gmirAndn_rhs_valid
     · exact gmirAndn_lhs_valid
@@ -181,7 +182,12 @@ theorem gmirComposedPatterns_valid :
     · exact gmirXnor_lhs_valid
   · exact gmirOrcb_valid y bound
   · exact gmirBexti_pattern_valid
-  · exact gmirSlliuw_pattern_valid
+  · rcases maskedMember with rfl | rfl
+    · exact gmirSlliuw_pattern_valid
+    · exact gmirSlliuw_masked_pattern_valid
+  · rcases maskedMember with rfl | rfl
+    · exact gmirCpopw_pattern_valid
+    · exact gmirCpopw_masked_pattern_valid
 
 public section
 
@@ -197,7 +203,7 @@ theorem iselEarlyPatterns_valid : ∀ pattern ∈ iselEarlyPatterns, Pattern.Val
   rcases member with
     (((((((rfl | rfl) | load) | gmirLoad) | store) | setcc) | zero) |
       (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-        rfl | rfl | rfl | rfl | rfl | rfl)) | slti
+        rfl | rfl | rfl | rfl | rfl | rfl | rfl)) | slti
   · exact lifetimeStart_valid
   · exact lifetimeEnd_valid
   · exact loadPatterns_valid pattern load
@@ -218,11 +224,12 @@ theorem iselEarlyPatterns_valid : ∀ pattern ∈ iselEarlyPatterns, Pattern.Val
   · exact gmirSlli_pattern_valid
   · exact gmirSrli_pattern_valid
   · exact gmirSrai_pattern_valid
+  · exact gmirZexth_pattern_valid
+  · exact gmirZextw_pattern_valid
   · exact gmirRiscvAddiw_pattern_valid
   · exact gmirRiscvSlliw_pattern_valid
   · exact gmirRiscvSrliw_pattern_valid
   · exact gmirRiscvSraiw_pattern_valid
-  · exact gmirCpopw_pattern_valid
   · exact gmirBseti_pattern_valid
   · exact gmirBinvi_pattern_valid
   · exact gmirBclri_pattern_valid
@@ -265,7 +272,6 @@ theorem iselMainPatterns_valid : ∀ pattern ∈ iselMainPatterns, Pattern.Valid
   · exact fshrGeneral64_valid
   · exact fshrGeneral32_valid
   · exact gmirPoison_pattern_valid
-  · exact zeroConst_pattern_valid
   · exact freeze_pattern_valid
   · exact gmirAdd_pattern_valid
   · exact gmirSub_pattern_valid

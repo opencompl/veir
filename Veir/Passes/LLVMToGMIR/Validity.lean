@@ -25,6 +25,9 @@ import all Veir.Dialects.Builtin.OpInfo
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.Casting
+import all Veir.Data.LLVM.Ptr.Basic
+import all Veir.Data.Pointer.Basic
+import all Veir.IR.Attribute
 import all Init.Data.Array.Basic
 import all Veir.Dialects.RISCV_Stack.OpInfo
 import all Veir.Dialects.Arith.OpInfo
@@ -249,6 +252,14 @@ theorem conforms_of_val_integerType {v : RuntimeValue} {t : TypeAttr} {i : Integ
 theorem constant_valid : Puddle.CTree.Pattern.Valid lowerIntegerConstant := by
   proveLegalValid with
     cases h : (‹propertiesOf (OpCode.llvm Llvm.mlir__constant)›).value <;> simp_all [Data.LLVM.Int.isRefinedBy_refl]
+
+/-- `llvm.mlir.zero` and the `g_constant 0` of its type both give the zero integer, or the null
+pointer, whose address is `0`. -/
+theorem zero_valid : Puddle.CTree.Pattern.Valid lowerZero := by
+  proveLegalValid with
+    first
+      | (simp only [IntegerAttr.ofInt, IntegerAttr.normalizeValue]; split <;> simp [Data.LLVM.Int.isRefinedBy_refl])
+      | (simp [Data.LLVM.Ptr.null, Data.Pointer.null])
 
 attribute [local simp] conforms_of_val_integerType in
 @[proof_manual]
@@ -805,6 +816,7 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .proven cttz_zero_poison_valid <|
   .proven ctpop_valid <|
   .proven constant_valid <|
+  .proven zero_valid <|
   .proven poison_valid <|
   .proven freeze_valid <|
   .proven byte_poison_valid <|

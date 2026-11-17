@@ -74,23 +74,21 @@ theorem interpretOp'_gmir_g_icmp_eq_ok {properties : propertiesOf (OpCode.gmir .
       simp at this
       omega
 
-/-- `g_constant` gives the integer of its result type that its value attribute holds. -/
+/-- A `g_constant` of integer type gives the integer that its value attribute holds. -/
 theorem interpretOp'_gmir_g_constant_eq_ok {properties : propertiesOf (OpCode.gmir .g_constant)}
     {resultTypes : Array TypeAttr} {operands : Array RuntimeValue} {successors : Array BlockPtr}
     {mem mem' : MemoryState} {layout : DataLayout} {results : Array RuntimeValue}
     {action : Option ControlFlowAction}
     (h : interpretOp' (.gmir .g_constant) properties resultTypes operands successors mem layout =
-      .ok (results, mem', action)) :
-    ∃ type : TypeAttr, ∃ t : IntegerType, resultTypes[0]? = some type ∧
-      type.val = .integerType t ∧
-      results = #[.int t.bitwidth (.val (BitVec.ofInt t.bitwidth properties.value.value))] ∧
+      .ok (results, mem', action))
+    {type : TypeAttr} {t : IntegerType} (hType : resultTypes[0]? = some type)
+    (hVal : type.val = .integerType t) :
+    results = #[.int t.bitwidth (.val (BitVec.ofInt t.bitwidth properties.value.value))] ∧
       mem' = mem ∧ action = none := by
-  simp only [interpretOp', GMIR.interpretOp'] at h
-  repeat' split at h
-  all_goals (try simp at h)
-  rename_i resType hType _ t hVal
+  simp only [interpretOp', GMIR.interpretOp', hType, hVal] at h
+  simp at h
   obtain ⟨rfl, rfl, rfl⟩ := h
-  exact ⟨resType, t, hType, hVal, rfl, rfl, rfl⟩
+  exact ⟨rfl, rfl, rfl⟩
 
 /-- A `g_load` does not branch or return. -/
 theorem gmir_g_load_action {properties : propertiesOf (OpCode.gmir .g_load)}

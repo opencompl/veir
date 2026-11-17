@@ -59,7 +59,8 @@ def provedPatterns : Array {pattern : Puddle.Pattern OpCode // Puddle.CTree.Patt
   ⟨gmirCtlz_pattern, gmirCtlz_pattern_valid⟩,
   ⟨gmirCttz_pattern, gmirCttz_pattern_valid⟩,
   ⟨gmirCtpop_pattern, gmirCtpop_pattern_valid⟩,
-  ⟨gmirCpopw_pattern, gmirCpopw_pattern_valid⟩,
+  ⟨(gmirCpopw_pattern false), gmirCpopw_pattern_valid⟩,
+  ⟨(gmirCpopw_pattern true), gmirCpopw_masked_pattern_valid⟩,
   ⟨gmirBswap_pattern, gmirBswap_pattern_valid⟩,
   ⟨gmirBrev8_pattern, gmirBrev8_pattern_valid⟩,
   ⟨gmirBitreverse_pattern, gmirBitreverse_pattern_valid⟩,
@@ -67,6 +68,8 @@ def provedPatterns : Array {pattern : Puddle.Pattern OpCode // Puddle.CTree.Patt
   ⟨gmirOr_pattern, gmirOr_pattern_valid⟩,
   ⟨gmirXor_pattern, gmirXor_pattern_valid⟩,
   ⟨gmirAndi_pattern, gmirAndi_pattern_valid⟩,
+  ⟨gmirZexth_pattern, gmirZexth_pattern_valid⟩,
+  ⟨gmirZextw_pattern, gmirZextw_pattern_valid⟩,
   ⟨gmirOri_pattern, gmirOri_pattern_valid⟩,
   ⟨gmirXori_pattern, gmirXori_pattern_valid⟩,
   ⟨(gmirBinopNot_pattern .g_and .andn () false), gmirAndn_rhs_valid⟩,
@@ -111,7 +114,6 @@ def provedPatterns : Array {pattern : Puddle.Pattern OpCode // Puddle.CTree.Patt
   ⟨(gmirSlti_pattern .ule), gmirSlti_ule_pattern_valid⟩,
   ⟨constant_pattern, constant_pattern_valid⟩,
   ⟨gmirPoison_pattern, gmirPoison_pattern_valid⟩,
-  ⟨zeroConst_pattern, zeroConst_pattern_valid⟩,
   ⟨gmirFreeze_pattern, freeze_pattern_valid⟩,
   ⟨gmirConstant_pattern, gmirConstant_pattern_valid⟩,
   ⟨(gmirLoad_pattern .gepConst 1 .lbu), gmirLoad_gepConst_lbu_valid⟩,
@@ -172,7 +174,8 @@ def provedPatterns : Array {pattern : Puddle.Pattern OpCode // Puddle.CTree.Patt
   ⟨gmirRiscvSlliw_pattern, gmirRiscvSlliw_pattern_valid⟩,
   ⟨gmirRiscvSrliw_pattern, gmirRiscvSrliw_pattern_valid⟩,
   ⟨gmirRiscvSraiw_pattern, gmirRiscvSraiw_pattern_valid⟩,
-  ⟨gmirSlliuw_pattern, gmirSlliuw_pattern_valid⟩,
+  ⟨(gmirSlliuw_pattern false), gmirSlliuw_pattern_valid⟩,
+  ⟨(gmirSlliuw_pattern true), gmirSlliuw_masked_pattern_valid⟩,
   ⟨gmirRiscvSllw_pattern, gmirRiscvSllw_pattern_valid⟩,
   ⟨gmirRiscvSrlw_pattern, gmirRiscvSrlw_pattern_valid⟩,
   ⟨gmirRiscvSraw_pattern, gmirRiscvSraw_pattern_valid⟩,
@@ -191,6 +194,6 @@ def provedPatterns : Array {pattern : Puddle.Pattern OpCode // Puddle.CTree.Patt
 ]
 
 /-- The coverage total is checked from the actual proof-carrying inventory. -/
-theorem provedPatterns_size : provedPatterns.size = 165 := by rfl
+theorem provedPatterns_size : provedPatterns.size = 168 := by rfl
 
 end Veir.RISCV64Proofs

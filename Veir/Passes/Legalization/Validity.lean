@@ -233,6 +233,8 @@ attribute [legalization_valid]
   artifact_anyext_trunc_narrower_valid artifact_anyext_trunc_same_valid
   artifact_anyext_trunc_wider_valid artifact_sext_trunc_constant_valid artifact_trunc_trunc_valid
   artifact_unmerge_merge_valid artifact_zext_trunc_constant_valid artifact_zext_trunc_icmp_valid
+  artifact_sext_trunc_valid artifact_sext_trunc_of_trunc_valid artifact_zext_trunc_valid
+  artifact_zext_trunc_of_trunc_valid
 
 set_option maxHeartbeats 4000000 in
 /-- Every widening rule, at every target width, is valid. -/

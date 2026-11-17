@@ -58,17 +58,6 @@ theorem gmirPoison_pattern_valid :
     Data.RISCV.val_li, MemoryState.ptrFromInt,
     MemoryState.decode, Data.LLVM.Ptr.isRefinedBy]
 
-@[proof_manual]
-theorem zeroConst_pattern_valid :
-    Puddle.CTree.Pattern.Valid zeroConst_pattern := by
-  unfold zeroConst_pattern
-  simpPuddleValid
-  simp [ctree_semantics]
-  intro ⟨attr, hattr⟩
-  cases attr <;> simp [icmpTypeWidth?, ctree_semantics, 
-    Data.RISCV.val_li, MemoryState.ptrFromInt,
-    MemoryState.decode, Data.LLVM.Ptr.null, Data.Pointer.null]
-
 -- The simp arguments below are each needed on some of the goals the `cases` produce.
 set_option linter.unusedSimpArgs false in
 theorem freeze_pattern_valid :
@@ -86,7 +75,8 @@ theorem freeze_pattern_valid :
   cases bits <;> simp [ctree_semantics, ←Attribute.integerType_eq_of, Builtin.interpretUnrealizedConversionCastCTree, ←Attribute.registerType_eq_of]
   all_goals intros
   all_goals simp_all [ctree_semantics, RISCV.Reg.toInt, BitVec.setWidth_eq, ←Attribute.integerType_eq_of,
-    ←Attribute.registerType_eq_of, Functor.map, CTree.choose_def, CTree.tau_def, Bind.bind]
+    ←Attribute.registerType_eq_of, Functor.map, CTree.choose_def, CTree.tau_def, Bind.bind,
+    Builtin.intToRegCTree]
 
 @[proof_manual]
 theorem gmirConstant_pattern_valid :
@@ -94,15 +84,18 @@ theorem gmirConstant_pattern_valid :
   unfold gmirConstant_pattern
   simp only [matchLegal]
   simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro a value _hVerified legal
-  simp only [Data.RISCV.val_li]
-  by_cases h : a.bitwidth = 64
-  · rcases a with ⟨width, signedness⟩
+  simp [ctree_semantics]
+  intro ⟨attr, hattr⟩ value _hVerified legal
+  -- `riscv64LegalizerInfo` makes `g_constant` legal only for `i64` and pointers.
+  cases attr <;> simp [ctree_semantics, RuntimeValue.isRefinedBy,
+    Data.RISCV.val_li, MemoryState.ptrFromInt, MemoryState.decode]
+  rename_i type
+  by_cases h : type.bitwidth = 64
+  · rcases type with ⟨width, signedness⟩
     cases h
     rfl
   · cbv at legal
-    by_cases hw : a.bitwidth < 64 <;>
+    by_cases hw : type.bitwidth < 64 <;>
       simp [h, hw, LegalizeRule.minScalar, LegalizeRule.widenScalarIf,
         LegalityPredicate.scalarNarrowerThan, LegalityQuery.getLLT!] at legal
 

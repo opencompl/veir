@@ -62,7 +62,7 @@ instance (op : Veir.Builtin) : InterpretOpTreeMonotone (.builtin op) where
   monotone properties resultTypes operands operands' blockOperands mem mem' regions h hMem := by
     rw [interpretOp'_regions, interpretOp'_regions]
     simp only [interpretOp', Builtin.interpretOpCTree,
-      Builtin.interpretUnrealizedConversionCastCTree]
+      Builtin.interpretUnrealizedConversionCastCTree, Builtin.intToRegCTree, Builtin.byteToRegCTree]
     cases op <;> try simp
     rcases hr : resultTypes[0]? with _ | resType
     · simp
@@ -81,15 +81,16 @@ instance (op : Veir.Builtin) : InterpretOpTreeMonotone (.builtin op) where
         | val a =>
           obtain rfl : x' = .val a := by
             have := RuntimeValue.int_val_isRefinedBy_iff.mp hv; simpa using this
+          simp only [map_pure]
           exact sim_result (RuntimeValue.isRefinedBy_refl _) hMem
         | poison =>
           cases x' with
           | val a =>
-            simp only
+            simp only [Functor.map_map, map_pure]
             exact sim_choose_right_map _ (a.setWidth 64)
               (sim_result (RuntimeValue.isRefinedBy_refl _) hMem)
           | poison =>
-            simp only
+            simp only [Functor.map_map]
             exact sim_choose_left_map _ fun bits => sim_choose_right_map _ bits
               (sim_result (RuntimeValue.isRefinedBy_refl _) hMem)
       · rename_i t
@@ -125,17 +126,19 @@ instance (op : Veir.Builtin) : InterpretOpTreeMonotone (.builtin op) where
           exact sim_fail _ _
       · by_cases hp : b.poison = 0
         · obtain rfl := LLVM.Byte.eq_of_isRefinedBy_of_poison_eq_zero hb hp
-          simp only [hp]
+          simp only [hp, BitVec.ofNat_eq_ofNat, ↓reduceIte, map_pure]
           exact sim_result (RuntimeValue.isRefinedBy_refl _) hMem
-        · simp only [show b.poison ≠ 0#w from hp, ↓reduceIte]
+        · simp only [show b.poison ≠ 0#w from hp, ↓reduceIte, Functor.map_map]
           split
           · next hp' =>
+            simp only [map_pure]
             refine sim_choose_right_map _ b'.val ?_
             have := hReg 0
             simp only [hp', BitVec.setWidth_zero, BitVec.zero_and, BitVec.or_zero] at this
-            simp only [this, LLVM.Byte.toReg_eq]
+            simp only [this]
             exact sim_result (RuntimeValue.isRefinedBy_refl _) hMem
-          · refine sim_choose_left_map _ fun bits =>
+          · simp only [Functor.map_map]
+            refine sim_choose_left_map _ fun bits =>
               sim_choose_right_map _ (b'.val ||| (b'.poison &&& bits)) ?_
             simp only [BitVec.setWidth_or, BitVec.setWidth_and, hReg]
             exact sim_result (RuntimeValue.isRefinedBy_refl _) hMem

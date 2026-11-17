@@ -51,7 +51,7 @@ set_option maxHeartbeats 1000000
 
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
-  Builtin.interpretOpCTree Builtin.interpretUnrealizedConversionCastCTree
+  Builtin.interpretOpCTree Builtin.interpretUnrealizedConversionCastCTree Builtin.intToRegCTree
   Riscv.interpretOp' Rv64.interpretOp' RISCV.Reg.toInt
 
 attribute [local simp] Builtin.getEffects

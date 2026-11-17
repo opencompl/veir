@@ -137,7 +137,8 @@ macro "normalizeIselValid" : tactic => `(tactic| (
   intros
   casesConformingValues
   all_goals (try casesLocalsOf Data.LLVM.Int)
-  all_goals (simp_all [RuntimeValue.isRefinedBy, Attribute.of, IntegerType.signless, -Attribute.integerType_eq_of])
+  all_goals (simp_all [RuntimeValue.isRefinedBy, Attribute.of, IntegerType.signless, Builtin.intToRegCTree,
+    -Attribute.integerType_eq_of])
   all_goals (try casesResultTypes)
   all_goals (try simp only [RuntimeValue.isRefinedBy, IntegerType.signless, Attribute.of, TypeAttr.of_def,
     Attribute.of_def])

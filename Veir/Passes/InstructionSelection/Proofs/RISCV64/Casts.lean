@@ -110,7 +110,7 @@ theorem trunc_pattern_valid :
     simp [ctree_semantics,  ←Attribute.byteType_eq_of, Nat.not_le.mpr hlt]
     intro r bits hr
     simp [ctree_semantics, RuntimeValue.isRefinedBy]
-    rw [hr]
+    simp only [hr]
     ext i
     simp [Data.LLVM.Byte.trunc, BitVec.getLsbD_setWidth]
     grind

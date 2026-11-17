@@ -80,20 +80,6 @@ def Builtin.interpretOpCTree {EIn : Type} {E : EIn → Type}
     Builtin.interpretUnrealizedConversionCastCTree resultTypes operands mem
   | _ => fail
 
-theorem Builtin.interpretUnrealizedConversionCastCTree_reg_int
-    {EIn : Type} {E : EIn → Type} [ErrorE -< E] [UBE -< E]
-    {bw : Nat} (value : Data.LLVM.Int bw) (mem : MemoryState) :
-  Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
-    #[RuntimeValue.int bw value] mem =
-  match value with
-  | .val value => return (#[.reg ⟨value.zeroExtend 64⟩], mem, none)
-  | .poison => (do
-    let bits : FreezeC (.mk 64) ← CTree.choose (FreezeCIn.mk 64)
-    return (#[.reg ⟨bits⟩], mem, none)) := by
-  cases value <;>
-    simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
-      -Attribute.registerType_eq_of]
-
 /-! ## The casts between values and registers -/
 
 section Casts
@@ -110,6 +96,7 @@ theorem Builtin.interpretOpCTree_cast_int_val (hType : resultTypes[0]? = some ty
       #[.int w (.val x)] blockOperands mem = pure (#[.reg ⟨x.zeroExtend 64⟩], mem, none) := by
   unfold interpretOpCTree interpretUnrealizedConversionCastCTree
   simp only [hType, hRegister]
+  simp [Builtin.intToRegCTree]
 
 /-- A poison integer is cast to any register. -/
 theorem Builtin.interpretOpCTree_cast_int_poison (hType : resultTypes[0]? = some type)
@@ -120,6 +107,7 @@ theorem Builtin.interpretOpCTree_cast_int_poison (hType : resultTypes[0]? = some
       CTree.choose (SubC := FreezeC) (FreezeCIn.mk 64) >>= fun (bits : FreezeC (.mk 64)) => pure (#[.reg ⟨bits⟩], mem, none) := by
   unfold interpretOpCTree interpretUnrealizedConversionCastCTree
   simp only [hType, hRegister]
+  simp [Builtin.intToRegCTree]
 
 /-- A byte is cast to a register that holds its bits, with any bits for its poison bits. -/
 theorem Builtin.interpretOpCTree_cast_byte (hType : resultTypes[0]? = some type)
@@ -132,6 +120,7 @@ theorem Builtin.interpretOpCTree_cast_byte (hType : resultTypes[0]? = some type)
           pure (#[.reg ⟨(b.val ||| (b.poison &&& bits)).zeroExtend 64⟩], mem, none) := by
   unfold interpretOpCTree interpretUnrealizedConversionCastCTree
   simp only [hType, hRegister]
+  by_cases h : b.poison = 0#w <;> simp [Builtin.byteToRegCTree, LLVM.Byte.toReg_eq, h]
 
 /-- A register is cast to the integer of its low bits. -/
 theorem Builtin.interpretOpCTree_cast_toInt (hType : resultTypes[0]? = some type)
