@@ -271,7 +271,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
     ]
     | .g_constant => [
       -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
-      .legalFor [s64],
+      .legalFor [s64, p0],
       .minScalar (.type 0) 64,
     ]
     | .g_poison => [
