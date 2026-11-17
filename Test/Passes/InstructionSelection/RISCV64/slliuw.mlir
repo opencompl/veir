@@ -15,4 +15,16 @@
         // CHECK-NEXT: %{{.*}} = "riscv.slliuw"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
+
+    // shl (and x, 0xFFFFFFFF) 1 -> riscv.slliuw x 1
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "bar"}> ({
+    ^bb(%a: i64):
+        %m = "llvm.mlir.constant"() <{value = 4294967295 : i64}> : () -> i64
+        %z = "llvm.and"(%a, %m) : (i64, i64) -> i64
+        %c = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+        %r = "llvm.shl"(%z, %c) : (i64, i64) -> i64
+        // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.slliuw"(%{{.*}}) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+        "func.return"(%r) : (i64) -> ()
+    }) : () -> ()
 }) : () -> ()

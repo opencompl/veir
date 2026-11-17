@@ -53,8 +53,7 @@
     // uadd.sat(x, y) = uaddo(x, y).carry ? -1 : x + y. The carry is `x + y <u y`.
     %uaddsat = "gmir.g_uaddsat"(%x, %y) : (i32, i32) -> i32
     // CHECK:      %[[SUM:.*]] = "gmir_riscv.g_addw"
-    // CHECK-NEXT: %[[SUM32:.*]] = "gmir.g_trunc"(%[[SUM]]) : (i64) -> i32
-    // CHECK-NEXT: %[[L:.*]] = "gmir.g_sext"(%[[SUM32]]) : (i32) -> i64
+    // CHECK-NEXT: %[[L:.*]] = "gmir.g_sext_inreg"(%[[SUM]]) <{"sz" = 32 : i64}> : (i64) -> i64
     // CHECK-NEXT: %[[R:.*]] = "gmir.g_sext"(%[[Y:.*]]) : (i32) -> i64
     // CHECK-NEXT: %[[CARRY:.*]] = "gmir.g_icmp"(%[[L]], %[[R]]) <{"predicate" = 6 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: %[[ALLONES:.*]] = "gmir.g_constant"() <{"value" = -1 : i64}> : () -> i64
@@ -75,8 +74,7 @@
     // CHECK:      %[[L:.*]] = "gmir.g_sext"(%[[X]]) : (i32) -> i64
     // CHECK-NEXT: %[[R:.*]] = "gmir.g_sext"(%[[Y]]) : (i32) -> i64
     // CHECK-NEXT: %[[WIDE:.*]] = "gmir.g_add"(%[[L]], %[[R]]) : (i64, i64) -> i64
-    // CHECK-NEXT: %[[SUM:.*]] = "gmir.g_trunc"(%[[WIDE]]) : (i64) -> i32
-    // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext"(%[[SUM]]) : (i32) -> i64
+    // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext_inreg"(%[[WIDE]]) <{"sz" = 32 : i64}> : (i64) -> i64
     // CHECK-NEXT: %[[OV:.*]] = "gmir.g_icmp"(%[[WIDE]], %[[EXT]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_constant"() <{"value" = 31 : i64}> : () -> i64
     // CHECK:      "gmir_riscv.g_sraw"
@@ -88,8 +86,7 @@
     // CHECK:      %[[L:.*]] = "gmir.g_sext"(%[[X]]) : (i32) -> i64
     // CHECK-NEXT: %[[R:.*]] = "gmir.g_sext"(%[[Y]]) : (i32) -> i64
     // CHECK-NEXT: %[[WIDE:.*]] = "gmir.g_sub"(%[[L]], %[[R]]) : (i64, i64) -> i64
-    // CHECK-NEXT: %[[DIFF:.*]] = "gmir.g_trunc"(%[[WIDE]]) : (i64) -> i32
-    // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext"(%[[DIFF]]) : (i32) -> i64
+    // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext_inreg"(%[[WIDE]]) <{"sz" = 32 : i64}> : (i64) -> i64
     // CHECK-NEXT: %[[OV:.*]] = "gmir.g_icmp"(%[[WIDE]], %[[EXT]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i64
     // CHECK:      "gmir_riscv.g_sraw"
     // CHECK:      %[[SAT:.*]] = "gmir_riscv.g_addw"
@@ -165,7 +162,7 @@
     // CHECK-NEXT: %[[R:.*]] = "gmir.g_sext"(%{{.*}}) : (i32) -> i64
     // CHECK-NEXT: %[[WIDE:.*]] = "gmir.g_sub"(%[[L]], %[[R]]) : (i64, i64) -> i64
     // CHECK-NEXT: %[[SSUBO:.*]] = "gmir.g_trunc"(%[[WIDE]]) : (i64) -> i32
-    // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext"(%[[SSUBO]]) : (i32) -> i64
+    // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext_inreg"(%[[WIDE]]) <{"sz" = 32 : i64}> : (i64) -> i64
     // CHECK-NEXT: %[[NE:.*]] = "gmir.g_icmp"(%[[WIDE]], %[[EXT]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: %[[SSUBO_OV:.*]] = "gmir.g_trunc"(%[[NE]]) : (i64) -> i1
     %uaddo, %uaddo_ov = "gmir.g_uaddo"(%x, %y) : (i64, i64) -> (i64, i1)
