@@ -1190,7 +1190,7 @@ def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
 
 /-- The combines of the pass, kept as compiled patterns: closed data whose matchers and rewrite
 closures are initialized once and reused for every operation. Each has a CTree validity
-certificate in `Veir.Passes.RISCVCombines.Validity`; the soundness of the pass is
+certificate in `Veir.Passes.RISCVCombines.Proofs`; the soundness of the pass is
 `Combine.run_sound` (`Veir.Passes.RISCVCombines.Validity.Pass`). -/
 public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
     #[ packh_low_bytes
