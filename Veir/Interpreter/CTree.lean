@@ -142,7 +142,7 @@ instance [ErrorE -< E] [UBE -< E] : MonadLift Interp (CTree E C) where
     | .fail _ => fail
     | .ok v => return v
 
-theorem sim_monadLift_bind_left {EIn CIn C'In} {E : EIn → Type}
+theorem Sim.bind_monadLift_left_iff {EIn CIn C'In} {E : EIn → Type}
     {C : CIn → Type} {C' : C'In → Type} [HasUB EIn] [ErrorE -< E] [UBE -< E]
     (relation : α → γ → Prop) (source : CTree E C' γ)
     (outcome : Interp β) (next : β → CTree E C α) :
@@ -152,6 +152,18 @@ theorem sim_monadLift_bind_left {EIn CIn C'In} {E : EIn → Type}
     | .ub _ => Sim relation (ub : CTree E C α) source
     | .fail _ => Sim relation (fail : CTree E C α) source := by
   cases outcome <;> simp [monadLift, MonadLift.monadLift]
+
+theorem Sim.monadLift_right_iff {EIn : Type} {E : EIn → Type}
+  [HasUB EIn] [ErrorE -< E] [UBE -< E]
+  {CIn C'In : Type} {C : CIn → Type} {C' : C'In → Type}
+  {α β : Type} (relation : α → β → Prop)
+  (target : CTree E C α) (func : Interp β) :
+  CTree.Sim relation target (monadLift func : CTree E C' β) ↔
+    match func with
+    | .ok value => CTree.Sim relation target (pure value : CTree E C' β)
+    | .ub _ => CTree.Sim relation target (ub : CTree E C' β)
+    | .fail _ => CTree.Sim relation target (fail : CTree E C' β) := by
+  cases func <;> rfl
 
 /-! ## Definition of Pure CTrees -/
 

@@ -8,6 +8,11 @@ public section
 
 namespace Veir.Data.RISCV
 
+@[simp]
+theorem forall_val_eq {P : Reg → Prop} :
+    (∀ (r : Reg), r.val = v → P r) ↔ P ⟨v⟩ := by
+  grind [cases Reg]
+
 theorem Reg.val.inj : {x y : Reg} → x.val = y.val → x = y
   | ⟨⟨_⟩⟩, ⟨⟨_⟩⟩, rfl => rfl
 
