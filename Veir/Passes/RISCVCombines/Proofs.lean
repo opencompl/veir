@@ -9,6 +9,7 @@ import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.IR.Attribute
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
+public import Veir.PatternRewriter.Puddle.Simp
 
 /-!
 # Correctness of the RISC-V combines
@@ -118,7 +119,7 @@ macro "normalizeCombineValid" : tactic => `(tactic| (
 /-- Prove the validity of a combine pattern, closing each remaining register equality by
 bit-blasting it under the matcher's guards. -/
 macro "proveCombineValid" : tactic => `(tactic| (
-  simp only [riscv_pattern]
+  simp only [riscv_pattern, puddle]
   simpPuddleValid
   simp [puddle]
   normalizeCombineValid

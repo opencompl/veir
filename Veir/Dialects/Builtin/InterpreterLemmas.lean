@@ -2,6 +2,7 @@ module
 
 public import Veir.Dialects.Builtin.Interpreter
 public import Veir.Data.Casting
+public import Veir.PatternRewriter.Puddle.Simp
 import Veir.Data.RISCV.Reg.Lemmas
 import all Veir.Dialects.Builtin.Interpreter
 import all Veir.Data.Casting
@@ -32,7 +33,7 @@ variable (other : CTree E C' (Array RuntimeValue × MemoryState × Option Contro
 These lemmas unfold the interpreter for each of the input/output type combinations.
 -/
 
-@[simp]
+@[simp, puddle]
 theorem Builtin.interpretUnrealizedConversionCastCTree_reg_int
     {bw : Nat} (value : Data.LLVM.Int bw) (mem : MemoryState) :
   Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
@@ -41,7 +42,7 @@ theorem Builtin.interpretUnrealizedConversionCastCTree_reg_int
   simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
     -Attribute.registerType_eq_of]
 
-@[simp]
+@[simp, puddle]
 theorem Builtin.interpretUnrealizedConversionCastCTree_reg_byte
     {bw : Nat} (value : Data.LLVM.Byte bw) (mem : MemoryState) :
   Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
@@ -50,7 +51,7 @@ theorem Builtin.interpretUnrealizedConversionCastCTree_reg_byte
   simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
     -Attribute.registerType_eq_of]
 
-@[simp]
+@[simp, puddle]
 theorem Builtin.interpretUnrealizedConversionCastCTree_int_reg
     (type : IntegerType) (value : Data.RISCV.Reg) (mem : MemoryState) :
   Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of IntegerType type]
@@ -59,7 +60,7 @@ theorem Builtin.interpretUnrealizedConversionCastCTree_int_reg
   simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
     -Attribute.integerType_eq_of]
 
-@[simp]
+@[simp, puddle]
 theorem Builtin.interpretUnrealizedConversionCastCTree_byte_reg
     (type : LLVM.ByteType) (value : Data.RISCV.Reg) (mem : MemoryState) :
   Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of LLVM.ByteType type]
@@ -68,7 +69,7 @@ theorem Builtin.interpretUnrealizedConversionCastCTree_byte_reg
   simp [Builtin.interpretUnrealizedConversionCastCTree, Attribute.of_def,
     -Attribute.byteType_eq_of]
 
-@[simp]
+@[simp, puddle]
 theorem Builtin.interpretUnrealizedConversionCastCTree_reg_addr
     (value : Data.LLVM.Ptr) (mem : MemoryState) :
   Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of RegisterType { }]
@@ -78,7 +79,7 @@ theorem Builtin.interpretUnrealizedConversionCastCTree_reg_addr
     simp [Builtin.interpretUnrealizedConversionCastCTree, Builtin.intToRegCTree,
       Attribute.of_def, -Attribute.registerType_eq_of, h]
 
-@[simp]
+@[simp, puddle]
 theorem Builtin.interpretUnrealizedConversionCastCTree_addr_reg
     (type : LLVM.PointerType) (value : Data.RISCV.Reg) (mem : MemoryState) :
   Builtin.interpretUnrealizedConversionCastCTree (E := E) #[TypeAttr.of LLVM.PointerType type]
@@ -96,6 +97,7 @@ These lemmas simplify simulations involving `builtin.unrealized_conversion_cast`
 variable [HasUB EIn]
 
 /-- Casting an integer to a register preserves defined bits; poison permits any register value. -/
+@[puddle]
 theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_int_iff
   (a : Data.LLVM.Int bitwidth) (memory : MemoryState) :
   (CTree.Sim f
@@ -117,6 +119,7 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_int_iff
     grind [cases Data.RISCV.Reg]
 
 /-- Casting a byte to a register preserves defined bits and resolves poisoned bits before resizing. -/
+@[puddle]
 theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_byte_iff
   (a : Data.LLVM.Byte bitwidth) (memory : MemoryState) :
   CTree.Sim (E := E) (C := FreezeC) (C' := C') f
@@ -136,6 +139,7 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_byte_iff
   simp [Functor.map, h, CTree.choose_def, CTree.tau_def]
 
 /-- Casting a register to an integer deterministically resizes its bits. -/
+@[puddle]
 theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_int_reg_iff
   (type : IntegerType) (a : Data.RISCV.Reg) (memory : MemoryState) :
   CTree.Sim (E := E) (C := FreezeC) (C' := C') f
@@ -149,6 +153,7 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_int_reg_iff
   simp [RISCV.Reg.toInt]
 
 /-- Casting a register to a byte deterministically resizes its bits and produces no poison. -/
+@[puddle]
 theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_byte_reg_iff
   (type : LLVM.ByteType) (a : Data.RISCV.Reg) (memory : MemoryState) :
   CTree.Sim (E := E) (C := FreezeC) (C' := C') f
@@ -162,6 +167,7 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_byte_reg_iff
   simp [RISCV.Reg.toByte]
 
 /-- Casting an address to a register preserves its bits; poison permits any register value. -/
+@[puddle]
 theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_addr_iff
   (a : Data.LLVM.Ptr) (memory : MemoryState) :
   CTree.Sim (E := E) (C := FreezeC) (C' := C') f
@@ -177,6 +183,7 @@ theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_reg_addr_iff
     f after other a.toInt memory
 
 /-- Casting a register to an address decodes its bits using the current memory state. -/
+@[puddle]
 theorem CTree.Sim.bind_interpretUnrealizedConversionCastCTree_addr_reg_iff
   (type : LLVM.PointerType) (a : Data.RISCV.Reg) (memory : MemoryState) :
   CTree.Sim (E := E) (C := FreezeC) (C' := C') f
