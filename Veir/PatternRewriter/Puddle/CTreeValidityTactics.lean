@@ -3,7 +3,6 @@ module
 public meta import Lean
 public import Veir.Dialects.Builtin.InterpreterLemmas
 public import Veir.PatternRewriter.Puddle.CTreeValidity
-public import Veir.PatternRewriter.Puddle.Simp
 
 /-!
 # The `puddle` simp set
@@ -15,16 +14,6 @@ CTree-based interpreters, and simulation relations that typically arise in puddl
 namespace Veir
 
 open _root_.CTree
-
-public section
-
-/- Simplifications of `forall` quantifiers introduced by matchers. -/
-attribute [puddle] TypeAttr.forall_of_eq_imp_iff IntegerType.forall_bitwidth_eq_implies_iff
-/- Simplifications of `Sim` relations. -/
-attribute [puddle] Sim.bind_monadLift_left_iff Sim.monadLift_right_iff
-  CTree.Sim.pure_bind_choose_iff
-
-end
 
 end Veir
 

@@ -4,7 +4,6 @@ public import Veir.Interpreter.RuntimeValue
 public import Veir.Interpreter.Memory
 public import Veir.Interpreter.CTree
 public import Veir.Dialects.RISCV.OpInfo
-public import Veir.PatternRewriter.Puddle.Simp
 
 public section
 
@@ -40,7 +39,6 @@ def riscvLoadCTree {EIn : Type} {E : EIn → Type} [ErrorE -< E] [UBE -< E]
   return (#[.reg ⟨extended⟩], mem, none)
 
 /-- Interpret a RISC-V operation using CTrees. -/
-@[puddle]
 def Riscv.interpretOpCTree {EIn : Type} {E : EIn → Type}
     [ErrorE -< E] [UBE -< E] (opType : Veir.Riscv) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
