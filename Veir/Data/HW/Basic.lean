@@ -4,18 +4,23 @@ namespace Veir.Data.HW
 
 public section
 
-/-- A width `w` bitvector, representing signless integer type. -/
-structure BvInt (w : Nat) where
-  val : BitVec w
-deriving DecidableEq
+/--
+  A width `w` bitvector, representing CIRCT's signless two-valued integer type.
 
-instance (w : Nat) : ToString (BvInt w) where
+  Four-value representations are not currently supported.
+-/
+structure Int (w : Nat) where
+  val : BitVec w
+deriving DecidableEq, Inhabited
+
+instance (w : Nat) : ToString (Int w) where
   toString r := toString r.val
 
-/-! # CIRCT HW Dialect Semantics -/
-
 /--
-  The constant operation produces a constant value of standard integer type without a sign.
+  The constant operation produces a constant value of integer type without a sign.
 -/
-def constant {w : Nat} (imm : BitVec w) : BvInt w :=
+def constant {w : Nat} (imm : BitVec w) : Int w :=
   ⟨imm⟩
+
+end
+end Veir.Data.HW
