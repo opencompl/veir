@@ -142,12 +142,6 @@ instance [ErrorE -< E] [UBE -< E] : MonadLift Interp (CTree E C) where
     | .fail _ => fail
     | .ok v => return v
 
-@[simp]
-theorem CTree.monadLift_interp_ok {EIn CIn R} {E : EIn → Type} {C : CIn → Type}
-    [ErrorE -< E] [UBE -< E] (a : R) :
-    ((monadLift (Interp.ok a)) : CTree E C R) = pure a := by
-  rfl
-
 theorem Sim.bind_monadLift_left_iff {EIn CIn C'In} {E : EIn → Type}
     {C : CIn → Type} {C' : C'In → Type} [HasUB EIn] [ErrorE -< E] [UBE -< E]
     (relation : α → γ → Prop) (source : CTree E C' γ)
