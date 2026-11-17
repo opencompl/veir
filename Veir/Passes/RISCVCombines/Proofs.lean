@@ -30,7 +30,7 @@ open _root_.CTree
 
 attribute [local puddle]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
-  Riscv.interpretOp' Rv64.interpretOp'
+  Riscv.interpretOp' Riscv.interpretOpCTree Rv64.interpretOp'
 
 /-! ### Signed immediate guards
 
@@ -119,7 +119,7 @@ macro "normalizeCombineValid" : tactic => `(tactic| (
 /-- Prove the validity of a combine pattern, closing each remaining register equality by
 bit-blasting it under the matcher's guards. -/
 macro "proveCombineValid" : tactic => `(tactic| (
-  simp only [riscv_pattern, puddle]
+  simp [riscv_pattern]
   simpPuddleValid
   simp [puddle]
   normalizeCombineValid
@@ -205,7 +205,11 @@ macro "proveStoreValid" bytes:term : tactic => `(tactic| (
     materialized constant to `0#64`. -/
 theorem right_identity_zero_add_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_add_pattern) := by
-  proveCombineValid
+  simp only [riscv_pattern]
+  simpPuddleValid
+  simp only [puddle]
+  normalizeCombineValid
+  veir_bv_decide
 
 /-- `riscv.add x (riscv.li c) -> riscv.addi x c` (`add_li_to_addi`): the signed bounds from
     `liFitsSImm12` ensure that truncating `c` to 12 bits and sign-extending recovers `c`. -/
