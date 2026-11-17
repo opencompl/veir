@@ -624,6 +624,22 @@ theorem zext_refinement_32_64 {x : LLVM.Int 32} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `and` lowering pattern with the mask `0xFFFF`
+-/
+theorem and_mask_zexth {x : LLVM.Int 64} :
+    (Data.LLVM.Int.and x (LLVM.Int.constant 64 0xFFFF)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zexth (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `and` lowering pattern with the mask `0xFFFFFFFF`
+-/
+theorem and_mask_zextw {x : LLVM.Int 64} :
+    (Data.LLVM.Int.and x (LLVM.Int.constant 64 0xFFFFFFFF)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zextw (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `zext` lowering pattern `i1` -> `i64`
 -/
 theorem zext_refinement_1_64 {x : LLVM.Int 1} :
