@@ -1,6 +1,6 @@
 module
 
-public import Veir.Interpreter.ResultsConform
+public import Veir.Interpreter.ResultsConformLemmas
 public import Veir.Verifier
 import all Veir.Verifier.Basic
 import all Veir.Verifier.Lemmas
@@ -72,20 +72,6 @@ theorem addr_conforms {x y : Data.LLVM.Ptr} {ty : TypeAttr}
     (h : (RuntimeValue.addr x).Conforms ty) : (RuntimeValue.addr y).Conforms ty := by
   obtain ⟨a, _⟩ := ty; cases a <;> exact h
 
-private theorem int_conforms_of_val {w : Nat} {x : Data.LLVM.Int w} {ty : TypeAttr}
-    {it : IntegerType} (h : ty.val = .integerType it) (hw : it.bitwidth = w) :
-    (RuntimeValue.int w x).Conforms ty := by
-  obtain ⟨a, _⟩ := ty; simp only at h; subst h; exact hw
-
-private theorem byte_conforms_of_val {w : Nat} {x : Data.LLVM.Byte w} {ty : TypeAttr}
-    {bt : LLVM.ByteType} (h : ty.val = .byteType bt) (hw : bt.bitwidth = w) :
-    (RuntimeValue.byte w x).Conforms ty := by
-  obtain ⟨a, _⟩ := ty; simp only at h; subst h; exact hw
-
-private theorem addr_conforms_of_val {x : Data.LLVM.Ptr} {ty : TypeAttr}
-    (h : ∃ p, ty.val = .llvmPointerType p) : (RuntimeValue.addr x).Conforms ty := by
-  obtain ⟨a, _⟩ := ty; obtain ⟨p, h⟩ := h; simp only at h; subst h; trivial
-
 private theorem float_conforms_of_val {ft : FloatType} {x : Data.Float.FloatValue ft.format}
     {ty : TypeAttr} (h : ty.val = .floatType ft) : (RuntimeValue.float ft x).Conforms ty := by
   obtain ⟨a, _⟩ := ty; simp only at h; subst h; rfl
@@ -110,12 +96,6 @@ private theorem results_getElem? {v : RuntimeValue} {t : TypeAttr}
     apply List.ext_getElem <;> simp_all
   exact results_toList this hv
 
-/-! ## Interpretation -/
-
-private theorem Interp.exists_of_bind_eq_ok {α β : Type} {x : Interp α} {f : α → Interp β}
-    {b : β} (h : (x >>= f) = .ok b) : ∃ a, x = .ok a ∧ f a = .ok b := by
-  cases x <;> simp_all
-
 /-- An invariant of every step of a loop holds after the loop. -/
 private theorem Interp.forIn_list_inv {α β : Type} (l : List α) (P : β → Prop)
     {f : α → β → Interp (ForInStep β)} (hf : ∀ a b s, P b → f a b = .ok s → P s.value)
@@ -135,23 +115,6 @@ private theorem Interp.forIn_range_inv {β : Type} (r : Std.Legacy.Range) (P : �
     {init s : β} (hi : P init) (h : forIn r init f = .ok s) : P s := by
   simp only [Std.Legacy.Range.forIn_eq_forIn_range'] at h
   exact Interp.forIn_list_inv _ P hf hi h
-
-/-- A load returns a value of the type it loads. -/
-private theorem llvmLoad_conforms {mem : MemoryState} {p : Data.Pointer} {t : TypeAttr}
-    {v : RuntimeValue} (h : mem.llvmLoad p t = .ok v) : v.Conforms t := by
-  simp only [MemoryState.llvmLoad] at h
-  split at h
-  · simp at h
-  split at h <;>
-    (repeat' (first
-      | (obtain ⟨_, -, h⟩ := Interp.exists_of_bind_eq_ok h)
-      | split at h)) <;>
-    (try simp only [Interp.pure_eq, Interp.ok.injEq] at h) <;> (try subst h) <;>
-    first
-      | (simp at h; done)
-      | exact int_conforms_of_val ‹_› rfl
-      | exact byte_conforms_of_val ‹_› rfl
-      | exact addr_conforms_of_val ⟨_, ‹_›⟩
 
 /-- A bitcast returns a value of the type it casts to. -/
 private theorem bitcastValue_conforms {mem : MemoryState} {val r : RuntimeValue}
@@ -198,19 +161,6 @@ private theorem verifyOpCounts_ok {o r g s : Nat}
 private theorem verifyPlainOpCounts_ok {o r : Nat}
     (h : op.verifyPlainOpCounts ctx opIn o r = .ok ()) : op.getNumResults! ctx.raw = r :=
   verifyOpCounts_ok h
-
-private theorem verifyLlvmPointerType_ok {ty : TypeAttr} {msg : String}
-    (h : ty.verifyLlvmPointerType msg = .ok ()) : ∃ p, ty.val = .llvmPointerType p := by
-  simp only [TypeAttr.verifyLlvmPointerType] at h
-  split at h
-  · exact ⟨_, by assumption⟩
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-
-private theorem ite_throw_ok {ε : Type} {c : Prop} [Decidable c] {e : ε}
-    (h : (if c then throw e else pure () : Except ε PUnit) = .ok ()) : ¬c := by
-  split at h
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-  · assumption
 
 private theorem verifyResultTypeMatches_ok {ty : TypeAttr} {msg : String}
     (h : op.verifyResultTypeMatches ctx ty msg = .ok ()) :
