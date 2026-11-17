@@ -267,6 +267,12 @@ theorem bind_iff {X : Type} (t : CTree E C X) (k : X → CTree E C R) (r : R) :
   · rintro ⟨x, ht, hk⟩
     induction ht <;> grind
 
+/-- `bind_iff` for the `>>=` of a `do` block. -/
+@[simp, grind =]
+theorem monadBind_iff {X : Type} (t : CTree E C X) (k : X → CTree E C R) (r : R) :
+    MayReturn (t >>= k) r ↔ ∃ x, MayReturn t x ∧ MayReturn (k x) r :=
+  bind_iff t k r
+
 /-- A failing computation returns nothing: nothing answers its effect. -/
 @[simp, grind =]
 theorem fail_iff [ErrorE -< E] (r : R) : MayReturn (Veir.fail : CTree E C R) r ↔ False := by

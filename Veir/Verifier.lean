@@ -457,6 +457,15 @@ def OperationPtr.Verified (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds ctx.raw := by grind) : Prop :=
   op.verifyLocalInvariants ctx opInBounds = .ok ()
 
+/-- A verified operation passes the local-invariant check of its opcode. -/
+theorem OperationPtr.Verified.verifyLocalInvariants_eq_ok {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {opInBounds : op.InBounds ctx.raw} {opType : OpCode}
+    (opVerify : op.Verified ctx opInBounds) (hType : op.getOpType! ctx.raw = opType) :
+    opType.verifyLocalInvariants op ctx opInBounds = .ok () := by
+  subst hType
+  rw [getOpType!_eq_getOpType opInBounds]
+  exact opVerify
+
 /-- The opcode, declared types, and properties occur together on a locally verified operation. -/
 def IsFromVerifiedOp (opcode : OpCode) (operandTypes resultTypes : Array TypeAttr)
     (properties : propertiesOf opcode) : Prop :=

@@ -39,6 +39,14 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
 
+/-- The CTree of a RISC-V opcode is that of the RISC-V CTree interpreter. -/
+theorem interpretOp'_riscv (opType : Riscv) (properties : propertiesOf (OpCode.riscv opType))
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (blockOperands : Array BlockPtr) (mem : MemoryState) (regions : Array RegionPtr) :
+    interpretOp' (.riscv opType) properties resultTypes operands blockOperands mem regions =
+      Riscv.interpretOpCTree opType properties resultTypes operands blockOperands mem := by
+  rfl
+
 end CTree
 
 /-- CTree counterpart of `OperationPtr.interpret`, with the operation's IR metadata fixed. -/
