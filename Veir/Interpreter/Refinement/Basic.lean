@@ -14,8 +14,8 @@ public section
 Defines when one program is *refined by* another across two `WfIRContext`s (which lets us
 relate a program to a rewritten or lowered version of it). Refinement is defined at three levels:
 
-* `RuntimeValue.isRefinedBy` relates two runtime values: integers refine via the `· ⊒ ·` ordering on
-  `LLVM.Int`, while other types of values must match exactly.
+* `RuntimeValue.isRefinedBy` relates two runtime values: integers, bytes, and pointers refine via
+  their poison orderings; tensors refine elementwise. Other values must match exactly.
 * `FunctionOp.isRefinedBy` relates two function-like operations: interpreting the source
   with any arguments and memory is refined by interpreting the target.
   `OperationPtr.isRefinedByAsFunction` states the same for operation pointers.
@@ -47,7 +47,10 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
         s = h ▸ t
       else
         False
+  | .tensor s, .tensor t =>
+    s.size = t.size ∧ ∀ i : Fin s.size, isRefinedBy s[i] t[i.val]!
   | _, _ => False
+termination_by source
 
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.isRefinedBy
 
