@@ -9,12 +9,6 @@ public section
 open CTree
 open Veir.Data
 
-/-!
-  # CTree-based RISC-V Interpreter
-
-  This file contains the CTree interpreter for RISC-V. The loads have CTree semantics of their own;
-  the other operations lift the semantics of the basic interpreter.
--/
 
 namespace Veir
 
