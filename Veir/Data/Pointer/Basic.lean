@@ -33,6 +33,11 @@ theorem isRefinedBy_iff {p p' : Pointer} : p ⊒ p' ↔ p' = p := Iff.rfl
 theorem isRefinedBy.address_eq {p p' : Pointer} (h : p ⊒ p') : p'.address = p.address := by
   rw [h]
 
+/-- The pointers `i` bytes past a pointer and past its refinement refine. -/
+theorem isRefinedBy.addBytes {p p' : Pointer} (h : p ⊒ p') (i : Nat) :
+    p.addBytes i ⊒ p'.addBytes i := by
+  rw [isRefinedBy_iff.mp h]; rfl
+
 instance : ToString Pointer where
   toString p := s!"ptr({p.address})"
 
