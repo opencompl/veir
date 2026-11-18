@@ -1256,14 +1256,13 @@ theorem toByteArrayLE_extract_eq_iff {a b : BitVec 64} :
     rw [Array.extract_eq_self_of_le (by simpa using hi),
       Array.extract_eq_self_of_le (by simpa using hi),
       hset]
-    simp [← UInt8.toBitVec_inj]
-    sorry
+    have := a.isLt
+    have := b.isLt
+    simp [← UInt8.toBitVec_inj, ← BitVec.toNat_inj, Nat.shiftRight_eq_div_pow]
+    omega
   · obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl :
         i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
-    all_goals
-      simp [← UInt8.toBitVec_inj]
-      all_goals sorry
-
+    all_goals simp [← UInt8.toBitVec_inj, ← BitVec.toNat_inj, Nat.shiftRight_eq_div_pow] <;> omega
 
 end BitVec
 

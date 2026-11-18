@@ -2,12 +2,9 @@ module
 
 import all Veir.Passes.RISCVCombines.Combine
 import all Veir.Dialects.RISCV.Properties
-import all Veir.Dialects.RV64.OpInfo
 import all Veir.GlobalOpInfo
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.RISCV.Interpreter
-import all Veir.IR.Attribute
-import all Veir.Data.LLVM.Byte.Basic
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
 import Veir.Passes.RISCVCombines.Simp
 
@@ -26,16 +23,9 @@ attribute [local riscv_combine]
   RuntimeValue.isRefinedBy
   forall_riscvLoadCTree_canInterpretTo_ok
   _root_.Veir.RISCV.liFitsSImm12 RISCVImmediateProperties.immField
+  rv64_interpretOp'_get_register
 
 
-/-- `rv64.get_register` with a register result type reads `x0` as zero. -/
-@[riscv_combine]
-theorem rv64_interpretOp'_get_register (property : propertiesOf Rv64.get_register)
-    (reg : RegisterType) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr) :
-    Rv64.interpretOp' .get_register property #[TypeAttr.of RegisterType reg] operands
-        blockOperands =
-      if reg.index = some 0 then some (#[.reg ⟨0⟩], none) else none := by
-  simp [Rv64.interpretOp', TypeAttr.of, Attribute.of, -Attribute.registerType_eq_of]
 
 /-- Prove the validity of a combine pattern: unfold it, discharge the structural obligations,
 normalize the semantics to register equalities under the matcher's guards, and bit-blast them.
