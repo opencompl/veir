@@ -99,6 +99,26 @@ theorem LLVM.Byte.isRefinedBy_toByte_toReg {w : Nat} (hw : w ≤ 64) (b : Veir.D
     b ⊒ RISCV.Reg.toByte (LLVM.Byte.toReg b) w := by
   grind [LLVM.Byte.toReg, BitVec.setWidth_setWidth_of_le _ hw]
 
+/-- Casting a non-poison integer to a register zero-extends its value to 64 bits. -/
+@[simp]
+theorem LLVM.Int.toReg_val {w : Nat} {x : BitVec w} :
+    LLVM.Int.toReg (.val x) = ⟨x.zeroExtend 64⟩ := by
+  simp [LLVM.Int.toReg]
+
+/-- Casting a byte to a register zero-extends its value to 64 bits and drops its poison mask. -/
+theorem LLVM.Byte.toReg_eq {w : Nat} {b : Veir.Data.LLVM.Byte w} :
+    LLVM.Byte.toReg b = ⟨b.val.zeroExtend 64⟩ := by
+  simp [LLVM.Byte.toReg]
+
+/--
+  A byte of at most 64 bits is refined by any filling of its poison bits, even after a round trip
+  through a register.
+-/
+theorem LLVM.Byte.isRefinedBy_toByte_fillPoison {w : Nat} (hw : w ≤ 64)
+    (b : Veir.Data.LLVM.Byte w) (chosen : BitVec w) :
+    b ⊒ RISCV.Reg.toByte ⟨(b.fillPoison chosen).setWidth 64⟩ w := by
+  grind [RISCV.Reg.toByte, Veir.Data.LLVM.Byte.fillPoison, BitVec.setWidth_setWidth_of_le _ hw]
+
 /--
   Cast `LLVM.Byte` to `LLVM.Int`. The result is poison only if every bit is poison, otherwise
   poison bits become zero.

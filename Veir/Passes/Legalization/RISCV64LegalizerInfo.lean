@@ -137,6 +137,10 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
+    -- As in LLVM's RISCVLegalizerInfo, lower to comparisons and boolean arithmetic.
+    | .g_scmp | .g_ucmp => [
+      .lower,
+    ]
     -- LLVM is also legal for `s32` and for floating point.
     | .g_select => [
       .legalForTypePairs [(s64, s64), (p0, s64)],
@@ -180,6 +184,13 @@ def riscv64LegalizerInfo : LegalizerInfo where
       -- LLVM widens `s32` to `s64`, and selects `mulw` later (see `GMIR_RISCV`).
       .customFor [s32],
       .minScalar (.type 0) 64,
+    ]
+    -- Multiply-high is legal at `s64` alone: the high half sits at a different
+    -- place in a wider product, so widening a narrower one is not the same
+    -- operation, and `mulh`/`mulhu` compute only the `s64` case.
+    | .g_smulh | .g_umulh => [
+      .legalFor [s64],
+      .lower,
     ]
     | .g_srem => [
       .legalFor [s64],
@@ -260,18 +271,29 @@ def riscv64LegalizerInfo : LegalizerInfo where
     ]
     | .g_constant => [
       -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
-      .legalFor [s64],
+      .legalFor [s64, p0],
       .minScalar (.type 0) 64,
     ]
     | .g_poison => [
       .legalFor [s64, p0],
       .minScalar (.type 0) 64,
     ]
-    -- Loads must be naturally aligned, as in LLVM without `+unaligned-scalar-mem`. LLVM also makes
-    -- `s16` and `s32` legal, for `flh`/`flw` We have no FPs, so we widen to `s64`.
-    -- TODO: Split odd-sized and misaligned loads, as LLVM's `lowerIfMemSizeNotByteSizePow2` and
-    -- `lower`.
-    | .g_load => [
+    | .g_freeze => [
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_ptrtoint => [
+      .legalForTypePairs [(s64, p0)],
+    ]
+    | .g_inttoptr => [
+      .legalForTypePairs [(p0, s64)],
+    ]
+    -- Loads and stores must be naturally aligned, as in LLVM without `+unaligned-scalar-mem`. LLVM
+    -- also makes `s16` and `s32` legal, for `flh`/`flw` and `fsh`/`fsw`. We have no FPs, so we widen
+    -- to `s64`. A store only writes the low `size` bits of the value.
+    -- We do not support misaligned loads and stores.
+    -- TODO: Split odd-sized loads and stores, as LLVM's `lowerIfMemSizeNotByteSizePow2`.
+    | .g_load | .g_store => [
       .legalForTypesWithMemDesc [⟨s64, p0, 8, 8⟩, ⟨s64, p0, 16, 16⟩, ⟨s64, p0, 32, 32⟩,
         ⟨s64, p0, 64, 64⟩, ⟨p0, p0, 64, 64⟩],
       .widenScalarToNextPow2 (.type 0),

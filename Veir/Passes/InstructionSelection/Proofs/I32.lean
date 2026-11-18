@@ -3,7 +3,6 @@ module
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Casting
-public import Veir.Data.Refinement
 public import Veir.Dialects.GMIR_RISCV.Semantics
 
 meta import Std.Tactic.BVDecide
@@ -17,7 +16,6 @@ import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Lemmas
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Data.Casting
-import all Veir.Data.Refinement
 import all Veir.Dialects.GMIR_RISCV.Semantics
 
 public section
@@ -146,6 +144,14 @@ theorem gmir_riscv_ctzw_refinement {x : LLVM.Int 64} :
 -/
 theorem gmir_cpopw_refinement {x : LLVM.Int 32} {nneg : Bool} :
     Data.LLVM.Int.ctpop (Data.LLVM.Int.zext x 64 nneg (by decide)) ⊒
+      RISCV.Reg.toInt (Data.RISCV.cpopw (LLVM.Int.toReg x)) 64 := by
+  veir_bv_decide
+
+/--
+  Prove `gmirCpopw_pattern true`: `ctpop (and x 0xFFFFFFFF)` is refined by `cpopw x`.
+-/
+theorem ctpop_and_mask_cpopw {x : LLVM.Int 64} :
+    Data.LLVM.Int.ctpop (Data.LLVM.Int.and x (LLVM.Int.constant 64 0xFFFFFFFF)) ⊒
       RISCV.Reg.toInt (Data.RISCV.cpopw (LLVM.Int.toReg x)) 64 := by
   veir_bv_decide
 

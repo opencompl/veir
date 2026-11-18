@@ -554,6 +554,20 @@ theorem pure_tau_proof (r : α) (i' : C1In ⊕ C'In)
   · rintro ⟨x, hx⟩
     exact tau_r RE RR i' (CTree.ret r) k' x hx
 
+@[simp]
+theorem pure_bind_choose_iff
+  {SubCIn : Type u} {SubC : SubCIn → Type u} [SubC -< C']
+  (value : α) (choice : SubCIn) (after : SubC choice → CTree E C' β) :
+    CTree.Sim RE RR (Pure.pure value : CTree E C α)
+        (CTree.bind (CTree.choose choice) after) ↔
+      ∃ chosen, CTree.Sim RE RR (Pure.pure value : CTree E C α) (after chosen) := by
+  simp only [CTree.choose_def, Subeffect.mapEff, Subeffect.mapCont, CTree.ret_pure, CTree.tau_def,
+    CTree.CTree.bind_tau, SumE.eq_inr, CTree.bind_pure, Sim.pure_tau]
+  constructor
+  · grind
+  · rintro ⟨chosen, h⟩
+    grind [Subeffect.map_surj (ε₁ := SubC) (ε₂ := C') choice chosen]
+
 theorem tau (i : C1In ⊕ CIn) (i' : C1In ⊕ C'In) (k : (C1 ⊕ₑ C) i → CTree E C α) (k' : (C1 ⊕ₑ C') i' → CTree E C' β) :
   (∀ x, ∃ y, Sim RE RR (k x) (k' y)) →
   Sim RE RR (CTree.tauG i k) (CTree.tauG i' k') := by

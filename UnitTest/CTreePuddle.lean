@@ -110,14 +110,11 @@ private def matchTwoLoads : Pattern OpCode :=
     (fun (ty, ptr, prop) => CreateProg.operation (.llvm .load) #[ptr] #[ty] prop)
     (fun result => result)
 
-/- An effectful non-root match is still forbidden, even when the root is also effectful. -/
-example : ¬ CTree.Pattern.Supported matchTwoLoads := by
+/- An effectful non-root match is supported: a pattern only reuses its results, so it keeps
+running as before (see `CTree.CanInterpretTo`). -/
+example : CTree.Pattern.Supported matchTwoLoads := by
   unfold matchTwoLoads
   unfoldPuddleBuilder
-  simp only [CTree.Pattern.Supported, is_terminator, get_effects, List.mem_cons, List.not_mem_nil,
-    or_false, ne_eq, forall_eq_or_imp, not_true_eq_false, false_implies, and_self, Handle.mk.injEq,
-    Nat.reduceEqDiff, not_false_eq_true, forall_const, true_and, forall_eq, and_true,
-    Classical.not_forall]
-  exact ⟨default, by decide⟩
+  simp [CTree.Pattern.Supported, is_terminator]
 
 end CTreeMatchPurityTest

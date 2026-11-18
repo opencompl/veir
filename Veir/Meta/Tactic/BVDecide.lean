@@ -14,10 +14,15 @@ Preprocessing happens in two stages because rewrites are generally
 easier to state with the dependently-typed `Int.getValue`, but `bv_decide` works
 better with the non-dependent `Int.getValueD`. Thus, `veir_bv_normalize_post`
 contains `Int.getValue_eq_getValueD`, which rewrites the former into the latter.
+
+The first stage also evaluates literal `Nat` and `Int` arithmetic, which discharges the side
+conditions of lemmas such as `BitVec.le_toInt_iff_sle`. These simprocs are passed explicitly,
+because builtin simprocs cannot be added to the `veir_bv_normalize` simp set.
 -/
 @[expose] macro "veir_bv_normalize" : tactic =>
   `(tactic| ((
-      simp -failIfUnchanged only [veir_bv_normalize] <;>
+      simp -failIfUnchanged only [veir_bv_normalize, Nat.reduceSub, Int.reducePow, Int.reduceNeg,
+        Int.reduceLE, Int.reduceLT] <;>
       simp +contextual -failIfUnchanged
         only [veir_bv_normalize_post, reduceIte])))
 /-

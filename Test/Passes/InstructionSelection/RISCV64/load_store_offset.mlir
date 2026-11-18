@@ -52,8 +52,8 @@
         %i = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64
         %g = "llvm.getelementptr"(%p, %i) <{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
         "llvm.store"(%x, %g) : (i8, !llvm.ptr) -> ()
-        // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
-        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (i8) -> !riscv.reg
+        // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (i8) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
         // CHECK-NEXT: "riscv.sb"({{.*}}, {{.*}}) <{"value" = 7 : i64}> : (!riscv.reg, !riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()

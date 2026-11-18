@@ -42,8 +42,15 @@
     // CHECK-NEXT: %[[C:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
     // CHECK-NEXT: %[[R:.*]] = "riscv.cpopw"(%[[C]]) : (!riscv.reg) -> !riscv.reg
     // CHECK-NEXT: "builtin.unrealized_conversion_cast"(%[[R]]) : (!riscv.reg) -> i64
+    // For the same reason, it needs no `and x, 0xFFFFFFFF`.
+    %c_ffffffff = "gmir.g_constant"() <{value = 4294967295 : i64}> : () -> i64
+    %and_ffffffff = "gmir.g_and"(%x, %c_ffffffff) : (i64, i64) -> i64
+    %cpopw_masked = "gmir.g_ctpop"(%and_ffffffff) : (i64) -> i64
+    // CHECK-NEXT: %[[C:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+    // CHECK-NEXT: %[[R:.*]] = "riscv.cpopw"(%[[C]]) : (!riscv.reg) -> !riscv.reg
+    // CHECK-NEXT: "builtin.unrealized_conversion_cast"(%[[R]]) : (!riscv.reg) -> i64
     "test.test"(%ctlz, %cttz, %ctpop, %bswap, %brev8, %bitreverse) : (i64, i64, i64, i64, i64, i64) -> ()
-    "test.test"(%clzw, %ctzw, %cpopw) : (i64, i64, i64) -> ()
+    "test.test"(%clzw, %ctzw, %cpopw, %cpopw_masked) : (i64, i64, i64, i64) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

@@ -1,7 +1,6 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
-public import Veir.Data.Refinement
 
 import Veir.ForLean
 import Veir.Meta.Tactic.BVDecide
