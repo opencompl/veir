@@ -311,6 +311,13 @@ theorem Except.ok_of_bind_ok {ε α : Type} {x : Except ε PUnit}
   | ok u => cases u; simpa [bind, Except.bind] using h
   | error e => simp [bind, Except.bind] at h
 
+/-- Peel the leading `PUnit` statement off a `do` block: it succeeded. -/
+theorem Except.ok_left_of_bind_ok {ε α : Type} {x : Except ε PUnit}
+    {f : PUnit → Except ε α} {a : α} (h : (x >>= f) = .ok a) : x = .ok () := by
+  cases x with
+  | ok u => rfl
+  | error e => simp [bind, Except.bind] at h
+
 /-- Unpack a successful `Except` bind into the success of both steps. -/
 theorem Except_bind_ok_iff {ε α β} {x : Except ε α} {f : α → Except ε β}
     {b : β} :
