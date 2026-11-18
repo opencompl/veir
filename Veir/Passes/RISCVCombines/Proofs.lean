@@ -1,6 +1,5 @@
 module
 
-public meta import Lean
 import all Veir.Passes.RISCVCombines.Combine
 import all Veir.Dialects.RISCV.Properties
 import all Veir.Dialects.RV64.OpInfo
@@ -9,8 +8,7 @@ import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.IR.Attribute
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
-public import Veir.PatternRewriter.Puddle.Simp
-public import Veir.Passes.RISCVCombines.Simp
+import Veir.Passes.RISCVCombines.Simp
 
 /-!
 # Correctness of the RISC-V combines
@@ -71,35 +69,7 @@ theorem rv64_interpretOp'_get_register (property : propertiesOf Rv64.get_registe
       if reg.index = some 0 then some (#[.reg ⟨0⟩], none) else none := by
   simp [Rv64.interpretOp', TypeAttr.of, Attribute.of, -Attribute.registerType_eq_of]
 
-/-! ### Signed immediate guards
-
-Combine guards compare `value.toInt` with integer literals. `bv_decide` does not see these `Int`
-facts, so they are restated as signed bit-vector comparisons, in the `riscv_combine` simp set. -/
-
-section toInt
-
-variable {x : BitVec 64} {c : Int}
-
-theorem le_toInt_iff_sle (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    c ≤ x.toInt ↔ (BitVec.ofInt 64 c).sle x := by
-  rw [BitVec.sle_iff_toInt_le, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-theorem toInt_le_iff_sle (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    x.toInt ≤ c ↔ x.sle (BitVec.ofInt 64 c) := by
-  rw [BitVec.sle_iff_toInt_le, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-theorem toInt_lt_iff_slt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    x.toInt < c ↔ x.slt (BitVec.ofInt 64 c) := by
-  rw [BitVec.slt_iff_toInt_lt, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-theorem toInt_eq_iff_eq_ofInt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    x.toInt = c ↔ x = BitVec.ofInt 64 c := by
-  rw [← BitVec.toInt_inj, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-end toInt
-
 attribute [local riscv_combine] _root_.Veir.RISCV.liFitsSImm12 RISCVImmediateProperties.immField
-  le_toInt_iff_sle toInt_le_iff_sle toInt_lt_iff_slt toInt_eq_iff_eq_ofInt
 
 /-- Prove the validity of a combine pattern: unfold it, discharge the structural obligations,
 normalize the semantics to register equalities under the matcher's guards, and bit-blast them.
@@ -115,23 +85,31 @@ macro "proveCombineValid" : tactic => `(tactic| (
 A store writes a little-endian prefix of its value register, which depends only on the low bits
 of the register: four bytes for `sw`, two for `sh` and one for `sb`. -/
 
-theorem toByteArrayLE_extract_four {a b : BitVec 64} (h : a.setWidth 32 = b.setWidth 32) :
-    (UInt64.ofBitVec a).toByteArrayLE.extract 0 4 = (UInt64.ofBitVec b).toByteArrayLE.extract 0 4 := by
-  apply ByteArray.ext
-  simp [ByteArray.data_extract, UInt64.toByteArrayLE, ← UInt8.toBitVec_inj]
-  bv_decide
-
-theorem toByteArrayLE_extract_two {a b : BitVec 64} (h : a.setWidth 16 = b.setWidth 16) :
-    (UInt64.ofBitVec a).toByteArrayLE.extract 0 2 = (UInt64.ofBitVec b).toByteArrayLE.extract 0 2 := by
-  apply ByteArray.ext
-  simp [ByteArray.data_extract, UInt64.toByteArrayLE, ← UInt8.toBitVec_inj]
-  bv_decide
-
-theorem toByteArrayLE_extract_one {a b : BitVec 64} (h : a.setWidth 8 = b.setWidth 8) :
-    (UInt64.ofBitVec a).toByteArrayLE.extract 0 1 = (UInt64.ofBitVec b).toByteArrayLE.extract 0 1 := by
-  apply ByteArray.ext
-  simp [ByteArray.data_extract, UInt64.toByteArrayLE, ← UInt8.toBitVec_inj]
-  bv_decide
+/-- The first `i` little-endian bytes of two registers agree iff their low `8 * i` bits do (for
+`8 ≤ i` both sides say that the registers are equal). Registered in `veir_bv_normalize`, so
+`veir_bv_decide` turns the byte equality of a store into a bitvector equality. -/
+@[veir_bv_normalize]
+theorem toByteArrayLE_extract_eq_iff {a b : BitVec 64} :
+    (UInt64.ofBitVec a).toByteArrayLE.extract 0 i = (UInt64.ofBitVec b).toByteArrayLE.extract 0 i ↔
+      a.setWidth (8 * i) = b.setWidth (8 * i) := by
+  rw [show ∀ x y : ByteArray, x = y ↔ x.data = y.data from fun _ _ => ⟨congrArg _, ByteArray.ext⟩]
+  simp only [ByteArray.data_extract, UInt64.toByteArrayLE]
+  by_cases hi : 8 ≤ i
+  · have hw : 2 ^ 64 ≤ 2 ^ (8 * i) := Nat.pow_le_pow_right (by omega) (by omega)
+    have hset : a.setWidth (8 * i) = b.setWidth (8 * i) ↔ a = b := by
+      rw [← BitVec.toNat_inj, BitVec.toNat_setWidth, BitVec.toNat_setWidth,
+        Nat.mod_eq_of_lt (by have := a.isLt; omega), Nat.mod_eq_of_lt (by have := b.isLt; omega),
+        BitVec.toNat_inj]
+    rw [Array.extract_eq_self_of_le (by simpa using hi),
+      Array.extract_eq_self_of_le (by simpa using hi),
+      hset]
+    simp [← UInt8.toBitVec_inj]
+    bv_decide
+  · obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl :
+        i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
+    all_goals
+      simp [← UInt8.toBitVec_inj]
+      all_goals bv_decide
 
 /-- A root store and a created store that write the same bytes simulate each other.
 The statement keeps the source as a lifted `Interp` computation, so that it can be transported
@@ -171,15 +149,15 @@ theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target :
   simp [monadLift, MonadLift.monadLift]
 
 /-- Prove the validity of a store combine, given a proof `bytes` that the dropped extension
-does not change the stored bytes, such as `toByteArrayLE_extract_four (by veir_bv_decide)`.
+does not change the stored bytes, usually `by veir_bv_decide`.
 The caller must erase `Veir.Sim.bind_monadLift_left_iff` and `Veir.Sim.monadLift_right_iff`
 from `puddle`, so that both store computations stay lifted for `sim_store`. -/
 macro "proveStoreValid" bytes:term : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
   simp +contextual [puddle, riscv_combine, forall_conforms_iff]
-  all_goals intros
   all_goals
+    intros
     exact sim_store
       (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
       _ _ _ _ _ _ _ $bytes))
@@ -621,35 +599,35 @@ extension below leaves those bytes unchanged. -/
 
 theorem drop_zextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sw) := by
-  proveStoreValid (toByteArrayLE_extract_four (by veir_bv_decide))
+  proveStoreValid (by veir_bv_decide)
 
 theorem drop_sextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sw) := by
-  proveStoreValid (toByteArrayLE_extract_four (by veir_bv_decide))
+  proveStoreValid (by veir_bv_decide)
 
 theorem drop_zexth_sh_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zexth .sh) := by
-  proveStoreValid (toByteArrayLE_extract_two (by veir_bv_decide))
+  proveStoreValid (by veir_bv_decide)
 
 theorem drop_sexth_sh_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sexth .sh) := by
-  proveStoreValid (toByteArrayLE_extract_two (by veir_bv_decide))
+  proveStoreValid (by veir_bv_decide)
 
 theorem drop_zextb_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextb .sb) := by
-  proveStoreValid (toByteArrayLE_extract_one (by veir_bv_decide))
+  proveStoreValid (by veir_bv_decide)
 
 theorem drop_sextb_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextb .sb) := by
-  proveStoreValid (toByteArrayLE_extract_one (by veir_bv_decide))
+  proveStoreValid (by veir_bv_decide)
 
 theorem drop_zextw_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sb) := by
-  proveStoreValid (toByteArrayLE_extract_one (by veir_bv_decide))
+  proveStoreValid (by veir_bv_decide)
 
 theorem drop_sextw_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sb) := by
-  proveStoreValid (toByteArrayLE_extract_one (by veir_bv_decide))
+  proveStoreValid (by veir_bv_decide)
 
 end
 
