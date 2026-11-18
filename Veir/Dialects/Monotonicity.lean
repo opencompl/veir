@@ -1,8 +1,16 @@
 module
 
+public import Veir.Dialects.Builtin.CTreeMonotonicity
+public import Veir.Dialects.Builtin.Monotonicity
+public import Veir.Dialects.Cf.Monotonicity
+public import Veir.Dialects.Func.Monotonicity
+public import Veir.Dialects.GMIR_RISCV.Monotonicity
 public import Veir.Dialects.LLVM.CTreeMonotonicity
 public import Veir.Dialects.GMIR.CTreeMonotonicity
 public import Veir.Dialects.RISCV.CTreeMonotonicity
+public import Veir.Dialects.RISCV_Cf.Monotonicity
+public import Veir.Dialects.RISCV_Stack.Monotonicity
+public import Veir.Dialects.Test.Monotonicity
 public import Veir.Dialects.ResultsConform
 public import Veir.Interpreter.CTreePrimitiveRefinement
 
