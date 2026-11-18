@@ -140,6 +140,9 @@ meta structure BitVecInfo where
   /-- The FVarId of the hypothesis encoding the mask constraint on the variable. -/
   bvHyp : FVarId
   bvWidthTm : WidthTm
+  /-- The FVarId of the original parametric-width variable, in the goal before
+      the translation. -/
+  origVar : FVarId
 
 abbrev BitVecInfos := Array BitVecInfo
 

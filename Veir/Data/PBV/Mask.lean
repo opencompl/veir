@@ -83,6 +83,16 @@ theorem cpop_eq_width_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (h
   simp only [hm, toNat_cpop_maskOfWidth_eq_width h, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt (by grind [Nat.lt_pow_self])]
 
+/-- `o - w`, written with definitions the bitblaster can see. -/
+theorem toNat_ofNat_sub_cpop_maskOfWidth {o w : Nat} (h : w ≤ o) :
+    (BitVec.ofNat o o - (maskOfWidth o w).cpop).toNat = o - w := by
+  have ho : o < 2 ^ o := Nat.lt_two_pow_self
+  rw [cpop_eq_width_of_maskOfWidth h rfl, BitVec.toNat_sub_of_le, BitVec.toNat_ofNat,
+    BitVec.toNat_ofNat, Nat.mod_eq_of_lt ho, Nat.mod_eq_of_lt (by omega)]
+  rw [BitVec.le_def, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ho,
+    Nat.mod_eq_of_lt (by omega)]
+  exact h
+
 /-- Every mask of blast width `0` is the empty bitvector. -/
 @[simp] theorem maskOfWidth_zero_eq_zero {w : Nat} : maskOfWidth 0 w = 0#0 := by
   apply BitVec.eq_of_toNat_eq
