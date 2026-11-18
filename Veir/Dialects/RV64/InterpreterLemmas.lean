@@ -1,12 +1,7 @@
 module
 
-public import Veir.IR.OpInfo
 public import Veir.Dialects.RV64.OpInfo
 import all Veir.Dialects.RV64.OpInfo
-public import Veir.IR.Simp
-public import Veir.Verifier.Basic
-meta import Veir.Meta.OpCode
-import all Veir.IR.Attribute
 
 namespace Veir
 
