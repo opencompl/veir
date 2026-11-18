@@ -15,11 +15,6 @@ variable {ctx : WfIRContext OpInfo}
 
 namespace RuntimeValue
 
-/-- Number of elements of a statically shaped tensor: the product of its dimensions. -/
-@[expose]
-def _root_.Veir.TensorType.numElements (type : TensorType) : Nat :=
-  type.shape.foldl Nat.mul 1
-
 /--
   A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
   of a given `TypeAttr`.
