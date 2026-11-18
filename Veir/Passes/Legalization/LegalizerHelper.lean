@@ -795,8 +795,7 @@ def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → O
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
     Option (LocalRewritePattern OpCode)
-  -- `widenBrcondCondition` is unproven, so not run:
-  -- | .g_brcond, .type 0, width => widenBrcondCondition width
+  | .g_brcond, .type 0, width => widenBrcondCondition width
   | opcode, typeIdx, width => (widenScalarPattern? opcode typeIdx width).map Puddle.Pattern.interpret
 
 /-- Narrows type group `typeIdx` of `opcode` to `width` bits. -/

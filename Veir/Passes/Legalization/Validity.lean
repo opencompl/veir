@@ -37,7 +37,8 @@ closed by the rule's local correctness lemma, mostly in `Veir.Passes.Legalizatio
 ## Not covered
 
 * `widenBrcondCondition`, `widenBlockArguments` and `commutativeConstantRHS` are local rewrites,
-  not Puddle patterns.
+  not Puddle patterns. The widening of the branch conditions is assumed sound
+  (`widenBrconds_pointwise`, not proven yet).
 * Rules with status `.unproven .widthDependent` are wrong at some width that `Pattern.Valid`
   quantifies over (see `Unproven.widthDependent`). The verifier rejects `i0`, and the matchers of
   the rules that are only wrong at `i0` exclude it, so those are proven.
@@ -271,6 +272,14 @@ theorem legalizeBlockArguments_sound (info : LegalizerInfo)
       obtain ⟨refines', root'⟩ := ih rootMiddle widened
       exact ⟨OperationPtr.isModuleRefinedByCTree_trans refines refines', root'⟩
 
+/-- Widening the condition of a `g_brcond` with a `g_zext` (`widenBrcondCondition`) is pointwise
+valid: the branch takes its first successor exactly when the condition is nonzero, which the zero
+extension preserves, and forwards the same operands to its successors. -/
+theorem widenBrconds_pointwise (info : LegalizerInfo) :
+    RewritePattern.PointwiseValid (LegalizerInfo.widenBrconds info) := by
+
+  sorry
+
 /-- The legalizer refines the module and leaves it verified. -/
 theorem legalize_sound {info : LegalizerInfo} (pass : String)
     (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern →
@@ -289,24 +298,32 @@ theorem legalize_sound {info : LegalizerInfo} (pass : String)
       simp only [widened] at run
       obtain ⟨refinesPhis, rootWide⟩ :=
         legalizeBlockArguments_sound info (ModuleRoot.of_checkModuleRoot checked) widened
-      cases driver : applyToFunctionsChecked pass (LegalizerInfo.legalizePattern info) wide
+      cases brconds : applyToFunctionsChecked pass (LegalizerInfo.widenBrconds info) wide
           moduleOp with
-      | error message => simp [driver] at run
-      | ok middle =>
-        simp only [driver] at run
-        cases legal : info.checkOperations middle.raw with
-        | error message => simp [legal] at run
-        | ok _ =>
-          simp only [legal] at run
-          cases phis : info.checkBlockArguments middle.raw with
-          | error message => simp [phis] at run
+      | error message => simp [brconds] at run
+      | ok conditioned =>
+        simp only [brconds] at run
+        obtain ⟨refinesBrconds, rootConditioned⟩ :=
+          applyToFunctionsChecked_moduleRoot (widenBrconds_pointwise info) rootWide brconds
+        cases driver : applyToFunctionsChecked pass (LegalizerInfo.legalizePattern info)
+            conditioned moduleOp with
+        | error message => simp [driver] at run
+        | ok middle =>
+          simp only [driver] at run
+          cases legal : info.checkOperations middle.raw with
+          | error message => simp [legal] at run
           | ok _ =>
-            simp only [phis, Pure.pure, Except.pure, Except.ok.injEq] at run
-            subst run
-            obtain ⟨refinesRules, root⟩ :=
-              applyToFunctionsChecked_moduleRoot (legalizePattern_pointwise custom) rootWide driver
-            exact ⟨OperationPtr.isModuleRefinedByCTree_trans refinesPhis refinesRules,
-              root.verified⟩
+            simp only [legal] at run
+            cases phis : info.checkBlockArguments middle.raw with
+            | error message => simp [phis] at run
+            | ok _ =>
+              simp only [phis, Pure.pure, Except.pure, Except.ok.injEq] at run
+              subst run
+              obtain ⟨refinesRules, root⟩ := applyToFunctionsChecked_moduleRoot
+                (legalizePattern_pointwise custom) rootConditioned driver
+              exact ⟨OperationPtr.isModuleRefinedByCTree_trans refinesPhis
+                (OperationPtr.isModuleRefinedByCTree_trans refinesBrconds refinesRules),
+                root.verified⟩
 
 /-- The `legalize-riscv64` pass refines the module and leaves it verified. -/
 theorem LegalizeRISCV64Pass.run_sound : LegalizeRISCV64Pass.run.Sound :=

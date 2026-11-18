@@ -311,12 +311,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_br => [
       .alwaysLegal,
     ]
-    -- The condition is not widened, as `widenBrcondCondition` is unproven, and
-    -- `isel-br-riscv64` accepts a condition of any width up to 64 bits.
     | .g_brcond => [
-      .alwaysLegal,
-      -- .legalFor [s64],
-      -- .minScalar (.type 0) 64,
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
     ]
     | _ => []
   legalizeCustom

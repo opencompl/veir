@@ -106,6 +106,28 @@ def legalizeBlockArguments (info : LegalizerInfo) (ctx : WfIRContext OpCode)
     (root : OperationPtr) : Except String (WfIRContext OpCode) :=
   (phiBlocks ctx.raw root).foldlM (widenPhiBlock info) ctx
 
+/-! ## Branch conditions
+
+`g_brcond` forwards a variable number of operands to its successors, which a Puddle pattern cannot
+match, so its condition is widened by a local rewrite (`widenBrcondCondition`, through
+`widenScalar?`), in a step of its own before the rules, which then legalize the `g_zext` it
+creates. -/
+
+/-- Widens the condition of `op`, if it is a `g_brcond`, as the rules ask. -/
+def widenBrcondLocal (info : LegalizerInfo) : LocalRewritePattern OpCode := fun ctx op =>
+  if op.getOpType! ctx.raw = .gmir .g_brcond then
+    match info.getAction ctx.raw op .g_brcond with
+    | .widenScalar typeIdx width =>
+      match widenScalar? .g_brcond typeIdx width with
+      | some rewrite => rewrite ctx op
+      | none => some (ctx, none)
+    | _ => some (ctx, none)
+  else some (ctx, none)
+
+/-- The step of the legalizer widening the conditions of the `g_brcond`s. -/
+def widenBrconds (info : LegalizerInfo) : RewritePattern OpCode :=
+  RewritePattern.fromLocalRewrite (widenBrcondLocal info)
+
 /-- Fails if a block argument that is a phi is not legal. -/
 private def checkBlockArguments (info : LegalizerInfo) (ctx : IRContext OpCode) :
     Except String Unit :=
@@ -131,8 +153,10 @@ private def checkOperations (info : LegalizerInfo) (ctx : IRContext OpCode) :
 /-! ## Legalization
 
 The legalizer widens the narrow phis (`legalizeBlockArguments`, assumed to refine the module:
-`legalizeBlockArguments_sound`), then runs the rules of the registries, which are all proved to
-refine the module, through the module-filtered driver, and rejects what they cannot legalize.
+`legalizeBlockArguments_sound`) and the narrow branch conditions (`widenBrconds`, whose soundness
+`widenBrconds_pointwise` is not proven yet), then runs the rules of the registries, which are all
+proved to refine the module, through the module-filtered driver, and rejects what they cannot
+legalize.
 
 An artifact is not legalized while its source is still illegal. LLVM's legalizer legalizes all
 other instructions before it combines artifacts, and only legalizes the artifacts it cannot combine.
@@ -170,6 +194,7 @@ rewriter does not report the operations it could not rewrite). -/
 def legalize (info : LegalizerInfo) (pass : String) : PurePass := fun ctx root => do
   checkModuleRoot pass ctx root
   let ctx ← info.legalizeBlockArguments ctx root
+  let ctx ← applyToFunctionsChecked pass (widenBrconds info) ctx root
   let ctx ← applyToFunctionsChecked pass (legalizePattern info) ctx root
   info.checkOperations ctx.raw
   info.checkBlockArguments ctx.raw
