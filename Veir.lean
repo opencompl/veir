@@ -40,6 +40,7 @@ import Veir.Passes.Pipeline.Soundness
 import Veir.Passes.DCE.Validity
 import Veir.Passes.LLVMToGMIR.Soundness
 import Veir.Passes.Pipeline.Bridge
+import Veir.Passes.Pipeline.RISCVPure
 import Veir.Passes.Pipeline.RISCV
 import Veir.Passes.InstructionSelection.Validity
 import Veir.Passes.InstructionSelection.Proofs.RISCV64
