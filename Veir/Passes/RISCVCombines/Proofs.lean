@@ -37,21 +37,6 @@ macro "proveCombineValid" : tactic => `(tactic| (
   simp [puddle, riscv_combine]
   all_goals veir_bv_decide))
 
-
-/-- A lifted failing source is simulated by any target. -/
-@[simp]
-theorem sim_monadLift_fail_right {α β : Type} (R : α → β → Prop) (target : Tree α)
-    (location : Option OperationPtr) :
-    CTree.Sim R target (monadLift (Interp.fail location : Interp β) : Tree β) := by
-  simp [monadLift, MonadLift.monadLift]
-
-/-- A lifted source with undefined behavior is simulated by any target. -/
-@[simp]
-theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target : Tree α)
-    (location : Option OperationPtr) :
-    CTree.Sim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
-  simp [monadLift, MonadLift.monadLift]
-
 /-! ## Identities, booleans and immediates -/
 
 /-- `riscv.add x (riscv.li 0) -> x` (`right_identity_zero_add`). The matcher fixes the

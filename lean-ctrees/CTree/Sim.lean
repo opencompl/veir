@@ -127,20 +127,6 @@ axiom interp_state {RR RR'} {RS : σ → σ → Prop}
   Sim RR t u →
   Sim RR' (CTree.interp_state h t s) (CTree.interp_state h u s')
 
-/-- A lifted failing source is simulated by any target. -/
-@[simp]
-theorem sim_monadLift_fail_right {α β : Type} (R : α → β → Prop) (target : Tree α)
-    (location : Option OperationPtr) :
-    CTree.Sim R target (monadLift (Interp.fail location : Interp β) : Tree β) := by
-  simp [monadLift, MonadLift.monadLift]
-
-/-- A lifted source with undefined behavior is simulated by any target. -/
-@[simp]
-theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target : Tree α)
-    (location : Option OperationPtr) :
-    CTree.Sim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
-  simp [monadLift, MonadLift.monadLift]
-
 end Sim
 
 end CTree

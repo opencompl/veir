@@ -142,6 +142,18 @@ instance [ErrorE -< E] [UBE -< E] : MonadLift Interp (CTree E C) where
     | .fail _ => fail
     | .ok v => return v
 
+@[simp]
+theorem Sim.monadLift_of_ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
+    (location : Option OperationPtr) :
+    (monadLift (Interp.ub location : Interp α) : CTree E C α) = ub := by
+  rfl
+
+@[simp]
+theorem Sim.monadLift_of_fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
+    (location : Option OperationPtr) :
+    (monadLift (Interp.fail location : Interp α) : CTree E C α) = fail := by
+  rfl
+
 theorem Sim.bind_monadLift_left_iff {EIn CIn C'In} {E : EIn → Type}
     {C : CIn → Type} {C' : C'In → Type} [HasUB EIn] [ErrorE -< E] [UBE -< E]
     (relation : α → γ → Prop) (source : CTree E C' γ)
@@ -262,6 +274,8 @@ theorem vis_iff (e : EIn) (k : E e → CTree E C R) (r : Interp R) :
   · rintro (⟨rfl, rfl⟩ | ⟨rfl, rfl⟩)
     · exact .fail
     · exact .ub
+
+
 
 /-- Lifting an `Interp` computation preserves its successful outcome. -/
 @[simp, grind =]
