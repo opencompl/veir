@@ -1789,31 +1789,6 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
     · simp at hNil
 
 /--
-  The RISC-V branch lowering refines a module that verifies and whose branches
-  it lowers all of: every function of the input is refined by the function of
-  the same name in the module the pass returns.
-
-  The proof does not cover a module in which the pass leaves a branch alone,
-  which `BranchesLowerable` rules out. A pointer passed through a register comes
-  back as the pointer to its address, which is the same pointer.
-
-  The operations the lowering leaves alone see refined operands, as a register
-  holds no poison, so the module must consist of opcodes proved monotone
-  (`OpCode.monotoneProved`): gMIR but `g_store` and `g_freeze`, RISC-V, `llvm.load`, `func` and
-  `builtin.module`. A `g_store` of a refined value stores other bytes, and the
-  proof in `Interp` keeps the memories equal.
--/
-theorem convertModule_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
-    (hVerified : ctx.Verified root)
-    (hLowerable : BranchesLowerable ctx)
-    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
-    (h : convertModule ctx = .ok ctx') (module : OperationPtr) :
-    module.isModuleRefinedBy ctx module ctx' :=
-  (convertModule_branchLowering hVerified hLowerable h).elim fun lowering =>
-    lowering.isModuleRefinedBy
-      (fun o oIn => OpCode.interpretOp'Monotone_of_monotoneProved (hMonotone o oIn)) module
-
-/--
   The operations of a module that verifies are monotone in CTrees: those whose
   opcode has a proof, the others by `OpCode.interpretCTree_monotone_assumed`.
 -/
@@ -1824,17 +1799,16 @@ theorem treeMonotoneOps_of_verified {ctx : WfIRContext OpCode} {root : Operation
     (OpCode.interpretCTree_monotone_of_opCode _)
 
 /--
-  The operations of a module whose opcodes are proved monotone in CTrees are
-  proved monotone, in `Interp` if their CTree semantics is their `Interp` one.
+  The operations of a module that verifies and whose opcodes are proved monotone in CTrees are
+  monotone in CTrees, without `OpCode.interpretCTree_monotone_assumed`.
 -/
-theorem provedMonotoneOps_of_treeMonotoneProved {ctx : WfIRContext OpCode}
+theorem treeMonotoneOps_of_treeMonotoneProved {ctx : WfIRContext OpCode} {root : OperationPtr}
+    (hVerified : ctx.Verified root)
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved) :
-    ProvedMonotoneOps ctx :=
-  fun o oIn => ⟨fun hLifted =>
-      OpCode.interpretOp'ContextuallyMonotone_of_treeMonotoneProved (hMonotone o oIn) hLifted,
-    fun _ =>
-      have := OpCode.interpretOpTreeMonotone_of_treeMonotoneProved (hMonotone o oIn)
-      o.treeMonotone_of_interpretOpTreeMonotone⟩
+    TreeMonotoneOps ctx :=
+  fun o oIn => o.treeMonotone_of_interpretCTree_monotone oIn
+    (OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants hVerified oIn)
+    (OpCode.interpretCTree_monotone_of_treeMonotoneProved (hMonotone o oIn))
 
 /--
   The RISC-V branch lowering refines the same modules in CTrees, stores
@@ -1867,8 +1841,8 @@ theorem convertModule_isModuleRefinedByCTree_of_treeMonotoneProved {ctx ctx' : W
     (module : OperationPtr) : module.isModuleRefinedByCTree ctx module ctx' :=
   (convertModule_branchLowering hVerified hLowerable h).elim fun lowering =>
     lowering.isModuleRefinedByCTree
-      (lowering.keptOpsSim_of_provedMonotoneOps (provedMonotoneOps_of_treeMonotoneProved hMonotone))
-      module
+      (lowering.keptOpsSim_of_treeMonotoneOps
+        (treeMonotoneOps_of_treeMonotoneProved hVerified hMonotone)) module
 
 /-! ## The pass as registered -/
 
@@ -1924,20 +1898,6 @@ theorem ISelBrPass.checkInput_strict {ctx : WfIRContext OpCode} {root : Operatio
       Bool.not_eq_true] at hR
     have := hR o (OperationPtr.inBounds_def.mp oIn)
     simpa [isRiscvBranch, hc] using this
-
-/--
-  The pass `isel-br-riscv64` refines a module it succeeds on, in either mode, under the
-  hypotheses of `convertModule_isModuleRefinedBy`. The pass with its IO
-  (`ISelBrPass.impl`) returns what `ISelBrPass.runVerified` does (`ISelBrPass.impl_eq_runVerified`).
--/
-theorem ISelBrPass.run_isModuleRefinedBy {strict : Bool} {ctx ctx' : WfIRContext OpCode}
-    {root : OperationPtr} (hVerified : ctx.Verified root)
-    (hLowerable : BranchesLowerable ctx)
-    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
-    (h : ISelBrPass.run strict ctx root = .ok ctx') (module : OperationPtr) :
-    module.isModuleRefinedBy ctx module ctx' :=
-  convertModule_isModuleRefinedBy hVerified hLowerable hMonotone
-    (ISelBrPass.convertModule_eq_ok_of_run h) module
 
 /-- The pass `isel-br-riscv64` refines a module it succeeds on in CTrees. -/
 theorem ISelBrPass.run_isModuleRefinedByCTree {strict : Bool} {ctx ctx' : WfIRContext OpCode}
@@ -2098,21 +2058,6 @@ theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {roo
       simpa [BlockPtr.getArgument_def] using hArgs i hi
 
 /--
-  In strict mode, `isel-br-riscv64` refines a module it succeeds on without
-  assuming `BranchesLowerable` or that the module verifies, which strict mode
-  checks. The operations the pass leaves alone must still be proved monotone in
-  `Interp`, which strict mode does not check: it checks the CTree proofs.
--/
-theorem ISelBrPass.run_strict_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode}
-    {root : OperationPtr}
-    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
-    (h : ISelBrPass.run true ctx root = .ok ctx') (module : OperationPtr) :
-    module.isModuleRefinedBy ctx module ctx' :=
-  ISelBrPass.run_isModuleRefinedBy
-    (ISelBrPass.checkInput_strict (ISelBrPass.checkInput_of_run h)).1
-    (ISelBrPass.branchesLowerable_of_run h) hMonotone h module
-
-/--
   In strict mode, `isel-br-riscv64` refines a module it succeeds on in CTrees,
   with no assumption on the module: strict mode checks that it verifies, that the
   pass lowers each of its branches, and that the refinement proof covers each of
@@ -2165,9 +2110,8 @@ proofs of a `BranchLowering`, and those of the theorems about the pass and about
 registered. The CTree theorems rest on the axioms of `CTree.Sim`, and all on the three facts that
 `bv_decide` checks natively for `compareBranch_holds`. The CTree theorems that do not ask for the
 opcodes of the module to be proved monotone assume that the others are
-(`OpCode.interpretCTree_monotone_assumed`), and compose simulations (`CTree.Sim.trans_rel`) to
-see what the source of an operation with `Interp` semantics returns; none assumes anything else
-about the interpreter.
+(`OpCode.interpretCTree_monotone_assumed`); none assumes anything else about the interpreter,
+and none composes simulations (`CTree.Sim.trans_rel`).
 -/
 
 /--
@@ -2190,17 +2134,6 @@ info: 'Veir.BranchLowering.isModuleRefinedByCTree' depends on axioms: [propext,
 #print axioms Veir.BranchLowering.isModuleRefinedByCTree
 
 /--
-info: 'Veir.BranchLowering.isModuleRefinedBy' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- Veir.compareBranch_holds._native.bv_decide.ax_1_14,
- Veir.compareBranch_holds._native.bv_decide.ax_1_19,
- Veir.compareBranch_holds._native.bv_decide.ax_1_24]
--/
-#guard_msgs in
-#print axioms Veir.BranchLowering.isModuleRefinedBy
-
-/--
 info: 'Veir.convertModule_isModuleRefinedByCTree' depends on axioms: [propext,
  CTree.Sim,
  Classical.choice,
@@ -2211,7 +2144,6 @@ info: 'Veir.convertModule_isModuleRefinedByCTree' depends on axioms: [propext,
  CTree.Sim.ret,
  CTree.Sim.tau_l,
  CTree.Sim.tau_r,
- CTree.Sim.trans_rel,
  CTree.Sim.ub,
  Veir.OpCode.interpretCTree_monotone_assumed,
  Veir.compareBranch_holds._native.bv_decide.ax_1_14,
@@ -2241,17 +2173,6 @@ info: 'Veir.convertModule_isModuleRefinedByCTree_of_treeMonotoneProved' depends 
 #print axioms Veir.convertModule_isModuleRefinedByCTree_of_treeMonotoneProved
 
 /--
-info: 'Veir.convertModule_isModuleRefinedBy' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- Veir.compareBranch_holds._native.bv_decide.ax_1_14,
- Veir.compareBranch_holds._native.bv_decide.ax_1_19,
- Veir.compareBranch_holds._native.bv_decide.ax_1_24]
--/
-#guard_msgs in
-#print axioms Veir.convertModule_isModuleRefinedBy
-
-/--
 info: 'Veir.ISelBrPass.run_isModuleRefinedByCTree' depends on axioms: [propext,
  CTree.Sim,
  Classical.choice,
@@ -2262,7 +2183,6 @@ info: 'Veir.ISelBrPass.run_isModuleRefinedByCTree' depends on axioms: [propext,
  CTree.Sim.ret,
  CTree.Sim.tau_l,
  CTree.Sim.tau_r,
- CTree.Sim.trans_rel,
  CTree.Sim.ub,
  Veir.OpCode.interpretCTree_monotone_assumed,
  Veir.compareBranch_holds._native.bv_decide.ax_1_14,
@@ -2271,17 +2191,6 @@ info: 'Veir.ISelBrPass.run_isModuleRefinedByCTree' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms Veir.ISelBrPass.run_isModuleRefinedByCTree
-
-/--
-info: 'Veir.ISelBrPass.run_isModuleRefinedBy' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- Veir.compareBranch_holds._native.bv_decide.ax_1_14,
- Veir.compareBranch_holds._native.bv_decide.ax_1_19,
- Veir.compareBranch_holds._native.bv_decide.ax_1_24]
--/
-#guard_msgs in
-#print axioms Veir.ISelBrPass.run_isModuleRefinedBy
 
 /--
 info: 'Veir.ISelBrPass.run_strict_isModuleRefinedByCTree' depends on axioms: [propext,
@@ -2302,13 +2211,3 @@ info: 'Veir.ISelBrPass.run_strict_isModuleRefinedByCTree' depends on axioms: [pr
 #guard_msgs in
 #print axioms Veir.ISelBrPass.run_strict_isModuleRefinedByCTree
 
-/--
-info: 'Veir.ISelBrPass.run_strict_isModuleRefinedBy' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- Veir.compareBranch_holds._native.bv_decide.ax_1_14,
- Veir.compareBranch_holds._native.bv_decide.ax_1_19,
- Veir.compareBranch_holds._native.bv_decide.ax_1_24]
--/
-#guard_msgs in
-#print axioms Veir.ISelBrPass.run_strict_isModuleRefinedBy

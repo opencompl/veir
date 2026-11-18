@@ -173,26 +173,6 @@ theorem keptOpsSim_of_treeMonotoneOps (hMono : TreeMonotoneOps ctx) : T.KeptOpsS
     (interpretOperationTree_sim_of_preservesOperation opIn _ (hMono _ opIn) hState
       (T.preservesOperation opIn hBranch)) fun _ _ h => ⟨h.1, h.2.1⟩
 
-/-- The operations of a module that are proved monotone are refined by themselves. -/
-theorem keptOpsSim_of_provedMonotoneOps (hMono : ProvedMonotoneOps ctx) : T.KeptOpsSim := by
-  intro op opIn hBranch state state' hState
-  have hSame := T.opSame opIn hBranch
-  cases hLifted : (op.getOpType! ctx.raw).isLifted
-  · exact sim_mono (interpretOperationTree_sim_of_preservesOperation opIn _
-      ((hMono op opIn).2 hLifted) hState (T.preservesOperation opIn hBranch))
-      fun _ _ h => ⟨h.1, h.2.1⟩
-  · have := (hMono op opIn).1 hLifted
-    have hLifted' : (op.getOpType! ctx'.raw).isLifted := by rw [hSame.opType, hLifted]
-    rw [interpretOperationTree_eq_monadLift state opIn hLifted,
-      interpretOperationTree_eq_monadLift state' _ hLifted']
-    refine sim_monadLift fun source hsrc => ?_
-    have hOp := interpretOp_contextuallyMonotone_of_preservesOperation opIn hSame.inBounds hState
-      (T.preservesOperation opIn hBranch)
-    simp only [hsrc, Interp.isRefinedBy_ok_target_iff] at hOp
-    obtain ⟨target, hTarget, hRel, hAction⟩ := hOp
-    rw [hTarget]
-    exact (Sim.pure _ _ _).mpr ⟨hRel, hAction⟩
-
 /--
   The gMIR branch of an LLVM branch runs as the branch does, where the branch is
   defined, on refined operands.

@@ -80,11 +80,14 @@ theorem sim_mono {RR RR' : α → β → Prop} {t : Tree α} {s : Tree β} (h : 
 /-- A simulation of a source that returns one value, together with what holds of that value. -/
 theorem sim_pure_and {RR : α → β → Prop} {t : Tree α} {b : β} (h : Sim RR t (pure b : Tree β))
     {P : β → Prop} (hb : P b) : Sim (fun a b => RR a b ∧ P b) t (pure b : Tree β) := by
-  have h₂ : Sim (fun (y z : β) => y = z ∧ P z) (pure b : Tree β) (pure b : Tree β) :=
-    (Sim.pure _ _ _).mpr ⟨rfl, hb⟩
-  refine sim_mono (Sim.trans_rel h h₂) fun a z ⟨y, h₁, hyz, hz⟩ => ?_
-  subst hyz
-  exact ⟨h₁, hz⟩
+  classical
+  have := Sim.bind (RR' := fun a b => RR a b ∧ P b) t (pure b) pure
+    (fun b' => if P b' then pure b' else ub) h fun a b' hab => by
+      by_cases hP : P b'
+      · simp only [hP, ↓reduceIte]; exact (Sim.pure _ _ _).mpr ⟨hab, hP⟩
+      · simp [hP]
+  rw [← tree_bind_eq, ← tree_bind_eq, _root_.bind_pure, pure_bind] at this
+  simpa only [hb, ↓reduceIte] using this
 
 /-- A source step after a target tree that returns only values satisfying `P`. -/
 theorem sim_bind_of_returns {RR : β → γ → Prop} {t : Tree α} {P : α → Prop} {k : α → Tree β}
@@ -359,12 +362,6 @@ def _root_.Veir.OperationPtr.TreeMonotone (op : OperationPtr) (ctx : WfIRContext
         (op.getResultTypes! ctx.raw) operands' (op.getSuccessors! ctx.raw) mem')
       (interpretOp' (op.getOpType! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
         (op.getResultTypes! ctx.raw) operands (op.getSuccessors! ctx.raw) mem)
-
-/-- An operation whose opcode is monotone in CTrees is. -/
-theorem _root_.Veir.OperationPtr.treeMonotone_of_interpretOpTreeMonotone {op : OperationPtr}
-    [inst : InterpretOpTreeMonotone (op.getOpType! ctx.raw)] : op.TreeMonotone ctx :=
-  fun operands operands' mem mem' _ h hMem =>
-    inst.monotone _ _ operands operands' _ mem mem' #[] h hMem
 
 /-- An operation that verifies is monotone in CTrees if its opcode meets its CTree obligation. -/
 theorem _root_.Veir.OperationPtr.treeMonotone_of_interpretCTree_monotone {op : OperationPtr}

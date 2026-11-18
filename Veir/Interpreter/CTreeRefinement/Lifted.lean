@@ -45,6 +45,10 @@ namespace CTree
 theorem ub_bind (k : α → Tree β) : (ub : Tree α) >>= k = ub := by
   rw [tree_bind_eq, bind_ub]
 
+@[simp]
+theorem fail_bind (k : α → Tree β) : (fail : Tree α) >>= k = fail := by
+  rw [tree_bind_eq, bind_fail]
+
 /-- A builtin opcode runs its CTree semantics. -/
 theorem interpretOp'_builtin {op : Veir.Builtin} (properties : propertiesOf (OpCode.builtin op))
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -153,12 +157,6 @@ theorem interpretOp'_eq_monadLift {opType : OpCode} (hLifted : opType.isLifted)
   | riscv op => exact interpretOp'_riscv (by simpa [OpCode.isLifted] using hLifted) ..
   | builtin op => simp [OpCode.isLifted] at hLifted
   | _ => rfl
-
-/-- A lifted opcode is monotone in CTrees if it is monotone in `Interp`. -/
-theorem InterpretOpTreeMonotone.of_lifted {opType : OpCode} (hLifted : opType.isLifted)
-    [InterpretOp'ContextuallyMonotone opType] : InterpretOpTreeMonotone opType :=
-  .of_lift fun properties resultTypes operands blockOperands mem regions =>
-    interpretOp'_eq_monadLift hLifted properties resultTypes operands blockOperands mem regions
 
 /-- The CTree semantics of an operation, with the getters that `interpretOp` uses. -/
 theorem _root_.Veir.OperationPtr.interpretCTree_eq {op : OperationPtr} {ctx : WfIRContext OpCode}

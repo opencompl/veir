@@ -372,12 +372,14 @@ theorem convertLLVMBranches_translation {ctx ctx' : WfIRContext OpCode}
   values, since the functions of the result are called with refined arguments.
 -/
 theorem convertLLVMBranches_isModuleRefinedByCTree_of_treeMonotoneProved
-    {ctx ctx' : WfIRContext OpCode} (h : convertLLVMBranches ctx = .ok ctx')
+    {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (hVerified : ctx.Verified root)
+    (h : convertLLVMBranches ctx = .ok ctx')
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved)
     (module : OperationPtr) : module.isModuleRefinedByCTree ctx module ctx' := by
   obtain ⟨T⟩ := convertLLVMBranches_translation h
   exact T.isModuleRefinedByCTree
-    (T.keptOpsSim_of_provedMonotoneOps (provedMonotoneOps_of_treeMonotoneProved hMonotone)) module
+    (T.keptOpsSim_of_treeMonotoneOps (treeMonotoneOps_of_treeMonotoneProved hVerified hMonotone))
+    module
 
 /--
   The branch step of `llvm-to-gmir` refines a module that verifies, in CTrees. The
@@ -451,7 +453,7 @@ theorem LLVMToGMIRBranches.run_strict_isModuleRefinedByCTree {ctx ctx' : WfIRCon
     {root : OperationPtr} (h : LLVMToGMIRBranches.run true ctx root = .ok ctx')
     (module : OperationPtr) : module.isModuleRefinedByCTree ctx module ctx' :=
   convertLLVMBranches_isModuleRefinedByCTree_of_treeMonotoneProved
-    (LLVMToGMIRBranches.convertLLVMBranches_eq_ok_of_run h)
+    (LLVMToGMIRBranches.checkInput_of_run h).1 (LLVMToGMIRBranches.convertLLVMBranches_eq_ok_of_run h)
     (LLVMToGMIRBranches.checkInput_of_run h).2 module
 
 end Veir

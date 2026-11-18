@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter.Lemmas
 import Veir.Interpreter.Refinement.Memory
+import Veir.Interpreter.Refinement.Lemmas
 
 import all Veir.Interpreter.Memory
 import all Veir.Dialects.LLVM.OpInfo

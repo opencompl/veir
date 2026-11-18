@@ -2,7 +2,6 @@ module
 
 public import Veir.Interpreter.CTreeInterpreter
 public import Veir.Interpreter.CTreeRefinement.Monotone
-public import Veir.Dialects.ProvedMonotone
 import all Veir.Interpreter.CTree
 
 public section
@@ -17,9 +16,9 @@ a behavior of the source tree, with returned values related by `relation`, sourc
 This is the refinement the DCE proof archived in `Archive/dce-proof` is written against, except
 that the archived version first reified terminal events as `Interp` outcomes and then had to assume
 three facts as axioms: that undefined behavior admits every target, that refining loop bodies give
-refining loops, and that opcodes are monotone. On the trees themselves all three are theorems, from
-the simulation rules `CTree.Sim.ub` and `CTree.Sim.iter` and from the per-opcode monotonicity proofs
-behind `OpCode.treeMonotoneProved`.
+refining loops, and that opcodes are monotone. On the trees themselves the first two are theorems,
+from the simulation rules `CTree.Sim.ub` and `CTree.Sim.iter`, and the third is the CTree
+monotonicity obligation of each opcode (`OpCode.interpretCTree_monotone`), proved per dialect.
 -/
 
 namespace Veir.Tree
@@ -74,38 +73,6 @@ theorem refines_iter {ι κ α β : Type} (stateRelation : ι → κ → Prop) (
   refine (hbody source target hstate).mono ?_
   intro _ _ h
   cases h <;> constructor <;> assumption
-
-/-- Running an opcode on refined operands in refined memory refines running it on the originals.
-The archived proof assumed this as `operation_monotonicity`; it is proved per opcode in the
-dialects, see `OpCode.treeMonotoneProved`. -/
-theorem operation_monotonicity (opType : OpCode) [Veir.CTree.InterpretOpTreeMonotone opType]
-    (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
-    (blockOperands : Array BlockPtr) (valuesSource valuesTarget : Array RuntimeValue)
-    (memorySource memoryTarget : MemoryState) (regions : Array RegionPtr)
-    (hvalues : valuesSource ⊒ valuesTarget) (hmemory : memorySource ⊒ memoryTarget) :
-    Refines OperationResult.isRefinedBy
-      (Veir.CTree.interpretOp' opType properties resultTypes valuesSource blockOperands
-        memorySource regions)
-      (Veir.CTree.interpretOp' opType properties resultTypes valuesTarget blockOperands
-        memoryTarget regions) :=
-  Veir.CTree.InterpretOpTreeMonotone.monotone properties resultTypes valuesSource valuesTarget
-    blockOperands memorySource memoryTarget regions hvalues hmemory
-
-/-- `operation_monotonicity` for every opcode in `OpCode.treeMonotoneProved`. -/
-theorem operation_monotonicity_of_treeMonotoneProved (opType : OpCode)
-    (hproved : opType.treeMonotoneProved = true)
-    (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
-    (blockOperands : Array BlockPtr) (valuesSource valuesTarget : Array RuntimeValue)
-    (memorySource memoryTarget : MemoryState) (regions : Array RegionPtr)
-    (hvalues : valuesSource ⊒ valuesTarget) (hmemory : memorySource ⊒ memoryTarget) :
-    Refines OperationResult.isRefinedBy
-      (Veir.CTree.interpretOp' opType properties resultTypes valuesSource blockOperands
-        memorySource regions)
-      (Veir.CTree.interpretOp' opType properties resultTypes valuesTarget blockOperands
-        memoryTarget regions) :=
-  have := OpCode.interpretOpTreeMonotone_of_treeMonotoneProved hproved
-  operation_monotonicity opType properties resultTypes blockOperands valuesSource valuesTarget
-    memorySource memoryTarget regions hvalues hmemory
 
 end Veir.Tree
 

@@ -300,9 +300,9 @@ theorem formal_argument_valid : Puddle.CTree.Pattern.Valid lowerFormalArgument_p
 local rewrite statement covers, so its obligation is that every function of the module is
 refined by its lowering: the casts to registers before each branch and back at each block
 argument are the identity on the values that reach the block, and a fused compare-and-branch
-tests what the `g_icmp` it replaces computed. #2059 proves this at the module level, under the
-hypotheses that the module verifies, that its branches are lowerable and that every opcode is
-proved monotone: `convertModule_isModuleRefinedBy` and `ISelBrPass.run_strict_isModuleRefinedBy` in
+tests what the `g_icmp` it replaces computed. This is proved at the module level, in CTrees, under
+the hypotheses that the module verifies and that its branches are lowerable:
+`convertModule_isModuleRefinedByCTree` and `ISelBrPass.run_strict_isModuleRefinedByCTree` in
 `Veir.Passes.InstructionSelection.Branches.Pass`. -/
 -- theorem convertModule_refines {ctx ctx' : WfIRContext OpCode} (h : convertModule ctx = .ok ctx')
 --     (op : OperationPtr) (opIn : op.InBounds ctx.raw) (opIn' : op.InBounds ctx'.raw)

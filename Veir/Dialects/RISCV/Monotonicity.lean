@@ -3,6 +3,7 @@ module
 public import Veir.Interpreter.Lemmas
 public import Veir.Dialects.RISCV.ResultsConform
 import Veir.Interpreter.Refinement.Memory
+import Veir.Interpreter.Refinement.Lemmas
 
 import all Veir.Interpreter.Memory
 import all Veir.Dialects.RISCV.OpInfo

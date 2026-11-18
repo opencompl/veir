@@ -129,18 +129,6 @@ theorem ConstantsHold.setResultValues? {op : OperationPtr} {opIn : op.InBounds c
 def TreeMonotoneOps (ctx : WfIRContext OpCode) : Prop :=
   ∀ op : OperationPtr, op.InBounds ctx.raw → op.TreeMonotone ctx
 
-/--
-  Every operation of `ctx` that runs its `Interp` semantics is monotone in
-  `Interp`, in its operands and its memory, and every other one is monotone in
-  CTrees. This also gives what the proof needs of the operations that the
-  lowering keeps, and the proof then reasons about the first kind in `Interp`.
--/
-@[expose]
-def ProvedMonotoneOps (ctx : WfIRContext OpCode) : Prop :=
-  ∀ op : OperationPtr, op.InBounds ctx.raw →
-    ((op.getOpType! ctx.raw).isLifted → InterpretOp'ContextuallyMonotone (op.getOpType! ctx.raw)) ∧
-    ((op.getOpType! ctx.raw).isLifted = false → op.TreeMonotone ctx)
-
 /-- A RISC-V control-flow operation returns the memory it is given, whatever it is. -/
 theorem interpretOp'_riscvCf_memory {opType : OpCode} (hType : ∃ c, opType = .riscv_cf c)
     {properties : propertiesOf opType}
@@ -154,57 +142,6 @@ theorem interpretOp'_riscvCf_memory {opType : OpCode} (hType : ∃ c, opType = .
   simp only [interpretOp'] at h ⊢
   rcases hc : Riscv_Cf.interpretOp' c properties resultTypes operands successors with
     _ | _ | ⟨values, action'⟩ <;> simp_all [Bind.bind]
-
-/--
-  `interpretOp` is monotone, with refined memory, for an operation that a value
-  mapping preserves.
--/
-theorem interpretOp_contextuallyMonotone_of_preservesOperation
-    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
-    {mapping : ValueMapping ctx ctx'} {op op' : OperationPtr}
-    (opIn : op.InBounds ctx.raw) (opIn' : op'.InBounds ctx'.raw)
-    [inst : InterpretOp'ContextuallyMonotone (op.getOpType! ctx.raw)]
-    (hState : state.RefinedUnder (· ⊒ ·) state' mapping)
-    (hPreserves : mapping.PreservesOperation op op') :
-    Interp.isRefinedBy
-      (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
-           (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
-        r₁.1.RefinedUnder (· ⊒ ·) r₂.1 mapping ∧
-          ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
-      (interpretOp op state opIn)
-      (interpretOp op' state' opIn') := by
-  rcases hsrc : interpretOp op state opIn with _ | _ | ⟨state₂, act⟩
-  · simp [Interp.isRefinedBy]
-  · simp [Interp.isRefinedBy]
-  have ⟨operands, hSrcOps⟩ : ∃ operands, state.variables.getOperandValues op = some operands := by
-    grind [interpretOp]
-  obtain ⟨operands', hTgtOps, hOpsRef⟩ :=
-    VariableState.getOperandValues_isRefinedBy hState.2 opIn hPreserves.operands hSrcOps
-  have hPR1 := inst.monotone (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
-    (op.getResultTypes! ctx.raw) operands operands' (op.getSuccessors! ctx.raw) state.memory
-    state'.memory hOpsRef hState.1
-  have hInterp'Eq : op'.interpret ctx'.raw operands' state'.memory =
-                    op.interpret ctx.raw operands' state'.memory := by
-     grind [interpretOp'_opType_cast, cases ValueMapping.PreservesOperation]
-  simp only [Interp.isRefinedBy_ok_target_iff, Prod.exists]
-  have ⟨resValues, hinterp', hResValues⟩ :=
-    (interpretOp_ok_iff_of_getOperandValues_eq_some hSrcOps).mp hsrc
-  simp only [OperationPtr.interpret] at hinterp' hInterp'Eq
-  rw [hinterp'] at hPR1
-  simp only [Interp.isRefinedBy_ok_target_iff, Prod.exists] at hPR1
-  obtain ⟨resValues', memory'₂, act', hinterp'Tgt, hRel⟩ := hPR1
-  obtain ⟨resValuesRef, hMem₂, actRef⟩ := hRel
-  rw [← hInterp'Eq] at hinterp'Tgt
-  simp only [interpretOp, hTgtOps, Bind.bind, OperationPtr.interpret, hinterp'Tgt, liftM,
-    monadLift, MonadLift.monadLift]
-  have hConforms : RuntimeValue.ArrayConforms resValues' (op'.getResultTypes! ctx'.raw) := by
-    rw [hPreserves.resultTypes]
-    exact (RuntimeValue.ArrayConforms_of_setResultValues?_eq_some hResValues).of_isRefinedBy
-      resValuesRef
-  obtain ⟨variables', hSet', hRefined⟩ := VariableState.setResultValues?_isRefinedBy hState.2
-    resValuesRef hPreserves.results hPreserves.reflect hResValues hConforms opIn'
-  simp only [hSet', Interp.pure_eq, Interp.withBlame_ok, Interp.ok.injEq]
-  exact ⟨_, _, rfl, ⟨hMem₂, hRefined⟩, actRef⟩
 
 namespace BranchLowering
 
@@ -584,31 +521,6 @@ theorem sim_keptOp_of_treeMonotone {op : OperationPtr} {ops : List OperationPtr}
   rintro target source₂ ⟨⟨hRel, hAction, -⟩, hsrc₂⟩
   exact L.keptRel_of_interpretOp opIn opsIn hBranch hConstants hAdjacent hsrc₂ hRel hAction
 
-/--
-  An operation with lifted `Interp` semantics that the lowering keeps is refined
-  by itself, if it is monotone in `Interp`.
--/
-theorem sim_keptOp_of_contextuallyMonotone {op : OperationPtr} {ops : List OperationPtr}
-    (opIn : op.InBounds ctx.raw) (opsIn : ∀ op ∈ ops, op.InBounds ctx.raw)
-    (hBranch : ¬ op.IsGmirBranch ctx.raw) (hLifted : (op.getOpType! ctx.raw).isLifted)
-    [InterpretOp'ContextuallyMonotone (op.getOpType! ctx.raw)] {state : InterpreterState ctx}
-    {state' : InterpreterState ctx'} (hState : L.StateRel state state')
-    (hConstants : ConstantsHold state) (hAdjacent : L.ComparesAdjacent (op :: ops)) :
-    Sim (L.KeptRel ops) (interpretOperationTree op state' (L.opSpec opIn hBranch).1)
-      (interpretOperationTree op state opIn) := by
-  have hSpec := L.opSpec opIn hBranch
-  have hLifted' : (op.getOpType! ctx'.raw).isLifted := by rw [hSpec.2.1, hLifted]
-  rw [interpretOperationTree_eq_monadLift state opIn hLifted,
-    interpretOperationTree_eq_monadLift state' hSpec.1 hLifted']
-  refine sim_monadLift fun source hsrc => ?_
-  have hOp := interpretOp_contextuallyMonotone_of_preservesOperation opIn hSpec.1 hState
-    (L.preservesOperation opIn hBranch)
-  simp only [hsrc, Interp.isRefinedBy_ok_target_iff] at hOp
-  obtain ⟨target, hTarget, hRel, hAction⟩ := hOp
-  rw [hTarget]
-  exact (Sim.pure _ _ _).mpr
-    (L.keptRel_of_interpretOp opIn opsIn hBranch hConstants hAdjacent hsrc hRel hAction)
-
 /-- The operations of a module that are monotone in CTrees are refined by themselves. -/
 theorem keptOpsSim_of_treeMonotoneOps (hMono : TreeMonotoneOps ctx) : L.KeptOpsSim := by
   intro op ops opIn opsIn hBranch state state' hState hConstants hAdjacent
@@ -616,16 +528,6 @@ theorem keptOpsSim_of_treeMonotoneOps (hMono : TreeMonotoneOps ctx) : L.KeptOpsS
   · exact L.sim_keptOp_of_isLifted_eq_false opIn opsIn hBranch hLifted (hMono _ opIn) hState
       hConstants hAdjacent
   · exact L.sim_keptOp_of_treeMonotone opIn opsIn hBranch hLifted (hMono _ opIn) hState
-      hConstants hAdjacent
-
-/-- The operations of a module that are proved monotone are refined by themselves. -/
-theorem keptOpsSim_of_provedMonotoneOps (hMono : ProvedMonotoneOps ctx) : L.KeptOpsSim := by
-  intro op ops opIn opsIn hBranch state state' hState hConstants hAdjacent
-  cases hLifted : (op.getOpType! ctx.raw).isLifted
-  · exact L.sim_keptOp_of_isLifted_eq_false opIn opsIn hBranch hLifted
-      ((hMono op opIn).2 hLifted) hState hConstants hAdjacent
-  · have := (hMono op opIn).1 hLifted
-    exact L.sim_keptOp_of_contextuallyMonotone opIn opsIn hBranch hLifted hState
       hConstants hAdjacent
 
 theorem tau1_bind (t : Tree α) (k : α → Tree β) :

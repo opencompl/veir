@@ -311,14 +311,6 @@ theorem MemoryState.llvmLoad_of_isRefinedBy_of_ok {mem : MemoryState} {p p' : Po
   rwa [Pointer.isRefinedBy_iff.mp hp]
 
 /--
-  A load that succeeds through a pointer loads the same through a refinement of it.
--/
-theorem MemoryState.llvmLoad_of_isRefinedBy_of_ok {mem : MemoryState} {p p' : Pointer}
-    {type : TypeAttr} {v : RuntimeValue} (hp : p ⊒ p') (h : mem.llvmLoad p type = .ok v) :
-    mem.llvmLoad p' type = .ok v := by
-  rwa [Pointer.isRefinedBy_iff.mp hp]
-
-/--
   Loads a `w`-bit integer from `p`. It is poison if any bit is, as an integer `llvmLoad`, so
   translating `llvm.load` to `g_load` is exact, and splitting a `g_load` is a refinement.
   Yields UB if the access is out of bounds or `p` is null.
