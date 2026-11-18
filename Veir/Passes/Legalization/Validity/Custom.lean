@@ -1,6 +1,7 @@
 module
 
 import all Veir.Passes.Legalization.Validity.Common
+import Veir.Passes.Legalization.Proofs
 import all Veir.Passes.Legalization.LegalizerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo

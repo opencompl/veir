@@ -4,16 +4,40 @@ public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Casting
 public import Veir.Dialects.GMIR.Semantics
 public import Veir.Dialects.GMIR_RISCV.Semantics
-
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
 meta import Veir.Meta.Tactic.PBVDecide
-
+public meta import Veir.PatternRewriter.Puddle.CTreeProofs
 import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR_RISCV.Semantics
+public import Veir.IR.Simp
+public import Veir.IR.Attribute
+import all Veir.PatternRewriter.Puddle.CTreeProofs
+import all Veir.Passes.Legalization.LegalizerHelper
+import all Veir.Passes.Legalization.LegalizationArtifactCombiner
+import all Veir.Passes.Legalization.RISCV64LegalizerInfo
+import all Veir.Passes.Legalization.CombinerHelper
+import all Veir.Dialects.GMIR.Interpreter
+import all Veir.Dialects.GMIR_RISCV.OpInfo
+import all Veir.GlobalOpInfo
+import all Veir.Interpreter.Basic
+import all Veir.Interpreter.CTreeInterpreter
+import all Veir.IR.Attribute
+import Veir.PatternRewriter.Puddle.Definitions
+import Veir.PatternRewriter.Puddle.Validity
+import Veir.PatternRewriter.Puddle.CTreeValidityTactics
+import all Veir.Data.LLVM.Int.Bitblast
+import all Init.Data.Array.Basic
+import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.ProofKind
+import all Veir.Dialects.GMIR.Properties
+import all Init.Data.Nat.Power2.Basic
+import all Veir.Passes.Legalization.Validity.Common
+import all Veir.Passes.Legalization.Validity.PBVNormalize
 
 public section
 
@@ -426,42 +450,6 @@ local macro "select_const_tac" : tactic =>
       LLVM.Int.xor, LLVM.Int.zext, LLVM.Int.sext, LLVM.Int.add, LLVM.Int.shl, LLVM.Int.or,
       LLVM.Int.constant, Id.run, LLVM.Int.isRefinedBy]))
 
-/-- Prove the correctness of combining `c ? 1 : 0` to `zext c`. -/
-theorem select_one_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
-    GMIR.selectNonzero c (LLVM.Int.constant w 1) (LLVM.Int.constant w 0) ⊒
-      LLVM.Int.zext c w false h := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
-/-- Prove the correctness of combining `c ? -1 : 0` to `sext c`. -/
-theorem select_allOnes_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
-    GMIR.selectNonzero c (LLVM.Int.constant w (-1)) (LLVM.Int.constant w 0) ⊒
-      LLVM.Int.sext c w h := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
-/-- Prove the correctness of combining `c ? 0 : 1` to `zext (not c)`. -/
-theorem select_zero_one {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
-    GMIR.selectNonzero c (LLVM.Int.constant w 0) (LLVM.Int.constant w 1) ⊒
-      LLVM.Int.zext (notI1 c) w false h := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
-/-- Prove the correctness of combining `c ? 0 : -1` to `sext (not c)`. -/
-theorem select_zero_allOnes {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
-    GMIR.selectNonzero c (LLVM.Int.constant w 0) (LLVM.Int.constant w (-1)) ⊒
-      LLVM.Int.sext (notI1 c) w h := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
-/-- Prove the correctness of combining `c ? F + 1 : F` to `add (zext c), F`. -/
-theorem select_succ {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (f : BitVec w) :
-    GMIR.selectNonzero c (LLVM.Int.val (f + 1)) (LLVM.Int.val f) ⊒
-      LLVM.Int.add (LLVM.Int.zext c w false h) (LLVM.Int.val f) := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
-/-- Prove the correctness of combining `c ? F - 1 : F` to `add (sext c), F`. -/
-theorem select_pred {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (f : BitVec w) :
-    GMIR.selectNonzero c (LLVM.Int.val (f - 1)) (LLVM.Int.val f) ⊒
-      LLVM.Int.add (LLVM.Int.sext c w h) (LLVM.Int.val f) := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
 /-- Prove the correctness of combining `c ? 2^k : 0` to `shl (zext c), k`. -/
 theorem select_pow2_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : k < w) :
     GMIR.selectNonzero c (LLVM.Int.val (BitVec.twoPow w k)) (LLVM.Int.constant w 0) ⊒
@@ -476,135 +464,7 @@ theorem select_zero_pow2 {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : 
   have hkpow := Nat.lt_trans hk Nat.lt_two_pow_self
   apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
 
-/-- Prove the correctness of combining `c ? -1 : F` to `or (sext c), F`. -/
-theorem select_allOnes_const {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (f : BitVec w) :
-    GMIR.selectNonzero c (LLVM.Int.constant w (-1)) (LLVM.Int.val f) ⊒
-      LLVM.Int.or (LLVM.Int.sext c w h) (LLVM.Int.val f) := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
-/-- Prove the correctness of combining `c ? T : -1` to `or (sext (not c)), T`. -/
-theorem select_const_allOnes {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (t : BitVec w) :
-    GMIR.selectNonzero c (LLVM.Int.val t) (LLVM.Int.constant w (-1)) ⊒
-      LLVM.Int.or (LLVM.Int.sext (notI1 c) w h) (LLVM.Int.val t) := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
-/-! ### `select_into_binop_pattern`
-
-The combines are proved for every width `w`, whatever the flags of the folded operation: `f` is the
-operation with its flags and `g` the one without them. `g` must be strict in its right operand, must
-refine `f`, and must leave `x` unchanged when the right operand is `0`.
--/
-
-/-- Prove the correctness of combining `c ? (f x k) : x` to `g x (c ? k : 0)`. -/
-theorem select_into_binop {w : Nat} (f g : LLVM.Int w → LLVM.Int w → LLVM.Int w)
-    (c : LLVM.Int 1) (x k : LLVM.Int w)
-    (hp : g x .poison = .poison) (hf : f x k ⊒ g x k) (h0 : x ⊒ g x (LLVM.Int.constant w 0)) :
-    GMIR.selectNonzero c (f x k) x ⊒ g x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) := by
-  apply selectNonzero_refines <;> rintro rfl <;> simpa [GMIR.selectNonzero, Id.run]
-
-/-- Prove the correctness of combining `c ? x : (f x k)` to `g x (c ? 0 : k)`. -/
-theorem select_into_binop_swapped {w : Nat} (f g : LLVM.Int w → LLVM.Int w → LLVM.Int w)
-    (c : LLVM.Int 1) (x k : LLVM.Int w)
-    (hp : g x .poison = .poison) (hf : f x k ⊒ g x k) (h0 : x ⊒ g x (LLVM.Int.constant w 0)) :
-    GMIR.selectNonzero c x (f x k) ⊒ g x (GMIR.selectNonzero c (LLVM.Int.constant w 0) k) := by
-  apply selectNonzero_refines <;> rintro rfl <;> simpa [GMIR.selectNonzero, Id.run]
-
-/-- A shift by `0` is in range at any positive width. -/
-private theorem zero_shift_in_range {w : Nat} (hw : 0 < w) :
-    ¬ (w : BitVec w) ≤ BitVec.ofInt w 0 :=
-  BitVec.not_le.mpr (BitVec.lt_ofInt_natCast_ofNat_of_lt hw)
-
-/-- Closes a side condition of `select_into_binop`. -/
-local macro "select_binop_tac" : tactic =>
-  `(tactic| (cases ‹LLVM.Int _› <;> try cases ‹LLVM.Int _›) <;>
-    grind [LLVM.Int.shl, LLVM.Int.lshr, LLVM.Int.ashr, LLVM.Int.sub, LLVM.Int.add, LLVM.Int.or,
-      LLVM.Int.xor, LLVM.Int.constant, Id.run, pure, LLVM.Int.isRefinedBy])
-
-/-- Closes a side condition of `select_into_binop` for a shift, given `0 < w`. -/
-local macro "select_shift_tac" hw:term : tactic =>
-  `(tactic| (have hrange := zero_shift_in_range $hw; select_binop_tac))
-
-theorem select_into_shl {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
-    (nsw nuw : Bool) :
-    GMIR.selectNonzero c (LLVM.Int.shl x k nsw nuw) x ⊒
-      LLVM.Int.shl x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
-  select_into_binop (LLVM.Int.shl · · nsw nuw) (LLVM.Int.shl · ·) c x k
-    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
-
-theorem select_into_lshr {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
-    (exact : Bool) :
-    GMIR.selectNonzero c (LLVM.Int.lshr x k exact) x ⊒
-      LLVM.Int.lshr x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
-  select_into_binop (LLVM.Int.lshr · · exact) (LLVM.Int.lshr · ·) c x k
-    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
-
-theorem select_into_ashr {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
-    (exact : Bool) :
-    GMIR.selectNonzero c (LLVM.Int.ashr x k exact) x ⊒
-      LLVM.Int.ashr x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
-  select_into_binop (LLVM.Int.ashr · · exact) (LLVM.Int.ashr · ·) c x k
-    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
-
-theorem select_into_shl_swapped {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
-    (nsw nuw : Bool) :
-    GMIR.selectNonzero c x (LLVM.Int.shl x k nsw nuw) ⊒
-      LLVM.Int.shl x (GMIR.selectNonzero c (LLVM.Int.constant w 0) k) :=
-  select_into_binop_swapped (LLVM.Int.shl · · nsw nuw) (LLVM.Int.shl · ·) c x k
-    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
-
-theorem select_into_lshr_swapped {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
-    (exact : Bool) :
-    GMIR.selectNonzero c x (LLVM.Int.lshr x k exact) ⊒
-      LLVM.Int.lshr x (GMIR.selectNonzero c (LLVM.Int.constant w 0) k) :=
-  select_into_binop_swapped (LLVM.Int.lshr · · exact) (LLVM.Int.lshr · ·) c x k
-    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
-
-theorem select_into_ashr_swapped {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
-    (exact : Bool) :
-    GMIR.selectNonzero c x (LLVM.Int.ashr x k exact) ⊒
-      LLVM.Int.ashr x (GMIR.selectNonzero c (LLVM.Int.constant w 0) k) :=
-  select_into_binop_swapped (LLVM.Int.ashr · · exact) (LLVM.Int.ashr · ·) c x k
-    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
-
-theorem select_into_sub {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) (nsw nuw : Bool) :
-    GMIR.selectNonzero c (LLVM.Int.sub x k nsw nuw) x ⊒
-      LLVM.Int.sub x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
-  select_into_binop (LLVM.Int.sub · · nsw nuw) (LLVM.Int.sub · ·) c x k
-    (by select_binop_tac) (by select_binop_tac) (by select_binop_tac)
-
-theorem select_into_add {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) (nsw nuw : Bool) :
-    GMIR.selectNonzero c (LLVM.Int.add x k nsw nuw) x ⊒
-      LLVM.Int.add x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
-  select_into_binop (LLVM.Int.add · · nsw nuw) (LLVM.Int.add · ·) c x k
-    (by select_binop_tac) (by select_binop_tac) (by select_binop_tac)
-
-theorem select_into_or {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) (disjoint : Bool) :
-    GMIR.selectNonzero c (LLVM.Int.or x k disjoint) x ⊒
-      LLVM.Int.or x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
-  select_into_binop (LLVM.Int.or · · disjoint) (LLVM.Int.or · ·) c x k
-    (by select_binop_tac) (by select_binop_tac) (by select_binop_tac)
-
-theorem select_into_xor {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) :
-    GMIR.selectNonzero c (LLVM.Int.xor x k) x ⊒
-      LLVM.Int.xor x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
-  select_into_binop LLVM.Int.xor LLVM.Int.xor c x k
-    (by select_binop_tac) (by select_binop_tac)
-    (by cases x <;> simp [LLVM.Int.xor, LLVM.Int.constant, Id.run, LLVM.Int.isRefinedBy])
-
 /-! ### Word operations -/
-
-/-- `x` is its low bits after any extension. -/
-theorem trunc_ext {n m : Nat} (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :
-    LLVM.Int.trunc (LLVM.Int.ext x m ext h) n false false h = x := by
-  cases x <;> simp [LLVM.Int.ext, LLVM.Int.trunc, LLVM.Int.cast, Id.run,
-    BitVec.eq_of_getElem_eq_iff]
-  grind
-
-/-- `x` is its low bits after a sign extension. -/
-theorem trunc_sext {n m : Nat} (h : n < m) (x : LLVM.Int n) :
-    LLVM.Int.trunc (LLVM.Int.sext x m h) n false false h = x := by
-  cases x <;> simp [LLVM.Int.sext, LLVM.Int.trunc, Id.run, BitVec.eq_of_getElem_eq_iff]
-  grind
 
 /--
 Prove that legalizing an `i32` operation `f` into the word operation `word g` on any-extended
@@ -862,23 +722,6 @@ theorem IntPred.eval_signExtend (h : w ≤ W) (p : IntPred) (x y : BitVec w) :
   cases p <;> simp only [IntPred.eval, signExtend_ult_signExtend h, signExtend_ule_signExtend h,
     signExtend_slt_signExtend h, signExtend_sle_signExtend h, bne, signExtend_beq_signExtend h]
 
-/-- Zero extension preserves the value of a bit-vector as a natural number. -/
-theorem toNat_setWidth_of_le (h : w ≤ W) (x : BitVec w) : (x.setWidth W).toNat = x.toNat := by
-  rw [BitVec.toNat_setWidth,
-    Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le x.isLt (Nat.pow_le_pow_right (by decide) h))]
-
-/-- `widenScalar` of the condition of `g_select` (type group 1) with `g_zext`: a zero-extended
-condition is nonzero exactly when the condition is. -/
-theorem selectNonzero_zext {v : Nat} (h : w < W) (c : LLVM.Int w) (x y : LLVM.Int v) :
-    GMIR.selectNonzero (c.zext W false h) x y = GMIR.selectNonzero c x y := by
-  cases c with
-  | poison => simp [Int.zext, GMIR.selectNonzero, Id.run]
-  | val c =>
-    have : (c.setWidth W = 0#W) = (c = 0#w) := by
-      rw [eq_iff_iff, ← BitVec.toNat_inj, ← BitVec.toNat_inj, toNat_setWidth_of_le (Nat.le_of_lt h)]
-      simp
-    simp [Int.zext, GMIR.selectNonzero, Id.run, this]
-
 /-- `widenScalar` of the amount of `g_fshl` and `g_fshr` (type group 1) with `g_zext`: a
 zero-extended amount is the same amount. -/
 theorem funnelShiftAmount_zext {v : Nat} (h : w < W) (z : LLVM.Int w) :
@@ -910,19 +753,16 @@ theorem bmod_two_pow_of_range (hw : 0 < w) {s : _root_.Int} (h1 : -2 ^ (w - 1) �
 theorem bmod_toInt (x : BitVec w) : x.toInt.bmod (2 ^ w) = x.toInt := by
   rw [← BitVec.toInt_ofInt, BitVec.ofInt_toInt]
 
-
 /-- The signed value of a truncation is the signed value modulo the narrow width. -/
 theorem toInt_setWidth_of_le (h : w ≤ W) (z : BitVec W) :
     (z.setWidth w).toInt = z.toInt.bmod (2 ^ w) := by
   rw [BitVec.toInt_setWidth, BitVec.toInt_eq_toNat_bmod, Int.bmod_bmod_of_dvd]
   exact_mod_cast Nat.pow_dvd_pow 2 h
 
-
 /-- A sign extension truncated back is the value. -/
 theorem setWidth_signExtend_of_le (h : w ≤ W) (x : BitVec w) : (x.signExtend W).setWidth w = x := by
   apply BitVec.eq_of_toInt_eq
   rw [toInt_setWidth_of_le h, BitVec.toInt_signExtend_of_le h, bmod_toInt]
-
 
 /-- The low bits of a sum are the sum of the low bits, and likewise for the other operations that
 truncation commutes with. -/
@@ -931,38 +771,31 @@ theorem trunc_add (h : w < W) (a b : LLVM.Int W) :
       LLVM.Int.add (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
   cases a <;> cases b <;> simp [LLVM.Int.add, LLVM.Int.trunc, Id.run, BitVec.setWidth_add _ _ (Nat.le_of_lt h)]
 
-
 theorem trunc_sub (h : w < W) (a b : LLVM.Int W) :
     LLVM.Int.trunc (LLVM.Int.sub a b) w false false h =
       LLVM.Int.sub (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
   cases a <;> cases b <;> simp [LLVM.Int.sub, LLVM.Int.trunc, Id.run, BitVec.sub_eq_add_neg,
     BitVec.setWidth_add _ _ (Nat.le_of_lt h), BitVec.setWidth_neg_of_le (Nat.le_of_lt h)]
 
-
 theorem trunc_mul (h : w < W) (a b : LLVM.Int W) :
     LLVM.Int.trunc (LLVM.Int.mul a b) w false false h =
       LLVM.Int.mul (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
   cases a <;> cases b <;> simp [LLVM.Int.mul, LLVM.Int.trunc, Id.run, BitVec.setWidth_mul _ _ (Nat.le_of_lt h)]
-
 
 theorem trunc_and (h : w < W) (a b : LLVM.Int W) :
     LLVM.Int.trunc (LLVM.Int.and a b) w false false h =
       LLVM.Int.and (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
   cases a <;> cases b <;> simp [LLVM.Int.and, LLVM.Int.trunc, Id.run]
 
-
 theorem trunc_or (h : w < W) (a b : LLVM.Int W) :
     LLVM.Int.trunc (LLVM.Int.or a b) w false false h =
       LLVM.Int.or (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
   cases a <;> cases b <;> simp [LLVM.Int.or, LLVM.Int.trunc, Id.run]
 
-
 theorem trunc_xor (h : w < W) (a b : LLVM.Int W) :
     LLVM.Int.trunc (LLVM.Int.xor a b) w false false h =
       LLVM.Int.xor (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
   cases a <;> cases b <;> simp [LLVM.Int.xor, LLVM.Int.trunc, Id.run]
-
-
 
 /-- `widenTypeGroup .g_add (.type 0) .g_anyext`: the sum of the any-extended operands, without the
 no-wrap flags, truncated back; and likewise for the operations below. -/
@@ -972,13 +805,11 @@ theorem add_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (nsw
   rw [trunc_add, trunc_ext, trunc_ext]
   exact add_isRefinedBy_add x y nsw nuw
 
-
 theorem sub_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (nsw nuw : Bool) :
     LLVM.Int.sub x y nsw nuw ⊒
       LLVM.Int.trunc (LLVM.Int.sub (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
   rw [trunc_sub, trunc_ext, trunc_ext]
   grind
-
 
 theorem mul_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (nsw nuw : Bool) :
     LLVM.Int.mul x y nsw nuw ⊒
@@ -986,13 +817,11 @@ theorem mul_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (nsw
   rw [trunc_mul, trunc_ext, trunc_ext]
   grind
 
-
 theorem and_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) :
     LLVM.Int.and x y ⊒
       LLVM.Int.trunc (LLVM.Int.and (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
   rw [trunc_and, trunc_ext, trunc_ext]
   exact Data.LLVM.Int.isRefinedBy_refl _
-
 
 theorem or_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (disjoint : Bool) :
     LLVM.Int.or x y disjoint ⊒
@@ -1000,13 +829,11 @@ theorem or_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (disj
   rw [trunc_or, trunc_ext, trunc_ext]
   grind
 
-
 theorem xor_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) :
     LLVM.Int.xor x y ⊒
       LLVM.Int.trunc (LLVM.Int.xor (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
   rw [trunc_xor, trunc_ext, trunc_ext]
   exact Data.LLVM.Int.isRefinedBy_refl _
-
 
 /-- The shift amount, when it is below the width, as a bit vector of that width. -/
 
@@ -1015,7 +842,6 @@ theorem setWidth_signExtend_signExtend {n : Nat} (h1 : n ≤ w) (h2 : w ≤ W) (
   apply BitVec.eq_of_toInt_eq
   rw [toInt_setWidth_of_le h2, BitVec.toInt_signExtend_of_le (Nat.le_trans h1 h2),
     BitVec.toInt_signExtend_of_le h1, ← BitVec.toInt_signExtend_of_le h1 (x := c), bmod_toInt]
-
 
 /-- `widenTypeGroup .g_smin (.type 0) .g_sext`: sign extension preserves the signed order, and
 likewise for the other minimum and maximum operations. -/
@@ -1026,14 +852,12 @@ theorem smin_widening (h : w < W) (x y : LLVM.Int w) :
     signExtend_sle_signExtend (Nat.le_of_lt h)]
   split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h)]
 
-
 theorem smax_widening (h : w < W) (x y : LLVM.Int w) :
     LLVM.Int.smax x y ⊒
       LLVM.Int.trunc (LLVM.Int.smax (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h := by
   cases x <;> cases y <;> simp [LLVM.Int.smax, LLVM.Int.sext, LLVM.Int.trunc, Id.run,
     signExtend_sle_signExtend (Nat.le_of_lt h)]
   split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h)]
-
 
 theorem umin_widening (h : w < W) (x y : LLVM.Int w) :
     LLVM.Int.umin x y ⊒
@@ -1042,7 +866,6 @@ theorem umin_widening (h : w < W) (x y : LLVM.Int w) :
     signExtend_ule_signExtend (Nat.le_of_lt h)]
   split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h)]
 
-
 theorem umax_widening (h : w < W) (x y : LLVM.Int w) :
     LLVM.Int.umax x y ⊒
       LLVM.Int.trunc (LLVM.Int.umax (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h := by
@@ -1050,11 +873,9 @@ theorem umax_widening (h : w < W) (x y : LLVM.Int w) :
     signExtend_ule_signExtend (Nat.le_of_lt h)]
   split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h)]
 
-
 /-- Sign extension to a wider width keeps the sign bit. -/
 theorem msb_signExtend_of_lt (h : w < W) (x : BitVec w) : (x.signExtend W).msb = x.msb := by
   simp [BitVec.msb_signExtend, Nat.not_le.mpr h, show 0 < W by omega]
-
 
 /-- `widenTypeGroup .g_abs (.type 0) .g_sext`: the absolute value of the sign-extended operand
 truncated back. -/
@@ -1064,11 +885,9 @@ theorem abs_widening (h : w < W) (x : LLVM.Int w) :
   cases x <;> simp [LLVM.Int.abs, LLVM.Int.sext, LLVM.Int.trunc, Id.run, msb_signExtend_of_lt h]
   split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h), BitVec.setWidth_neg_of_le (Nat.le_of_lt h)]
 
-
 /-- A zero extension is zero exactly when its operand is. -/
 theorem setWidth_eq_zero_iff_of_le (h : w ≤ W) (y : BitVec w) : y.setWidth W = 0#W ↔ y = 0#w := by
   rw [BitVec.toNat_eq, BitVec.toNat_eq, BitVec.toNat_setWidth_of_le h]; simp
-
 
 /-- Unsigned division and remainder of zero-extended operands, truncated back. -/
 theorem setWidth_udiv_setWidth (h : w ≤ W) (x y : BitVec w) :
@@ -1077,19 +896,16 @@ theorem setWidth_udiv_setWidth (h : w ≤ W) (x y : BitVec w) :
   simp only [BitVec.toNat_setWidth, BitVec.toNat_udiv, BitVec.toNat_setWidth_of_le h]
   exact Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) x.isLt)
 
-
 theorem setWidth_umod_setWidth (h : w ≤ W) (x y : BitVec w) :
     (x.setWidth W % y.setWidth W).setWidth w = x % y := by
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_setWidth, BitVec.toNat_umod, BitVec.toNat_setWidth_of_le h]
   exact Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.mod_le _ _) x.isLt)
 
-
 theorem umod_setWidth_eq_zero_iff (h : w ≤ W) (x y : BitVec w) :
     x.setWidth W % y.setWidth W = 0#W ↔ x % y = 0#w := by
   rw [BitVec.toNat_eq, BitVec.toNat_eq, BitVec.toNat_umod, BitVec.toNat_umod,
     BitVec.toNat_setWidth_of_le h, BitVec.toNat_setWidth_of_le h]; simp
-
 
 /-- `widenTypeGroup .g_udiv (.type 0) .g_zext`: the quotient of the zero-extended operands truncated
 back, whatever the `exact` flag, and likewise for `g_urem`. -/
@@ -1107,7 +923,6 @@ theorem udiv_widening (h : w < W) (x y : LLVM.Int w) (exact : Bool) :
   simp [hex, hy, pure, umod_setWidth_eq_zero_iff hle, setWidth_eq_zero_iff_of_le hle,
     setWidth_udiv_setWidth hle]
 
-
 theorem urem_widening (h : w < W) (x y : LLVM.Int w) :
     LLVM.Int.urem x y ⊒
       LLVM.Int.trunc (LLVM.Int.urem (LLVM.Int.zext x W false h) (LLVM.Int.zext y W false h))
@@ -1118,7 +933,6 @@ theorem urem_widening (h : w < W) (x y : LLVM.Int w) :
   by_cases hy : y = 0#w
   · simp [hy, pure]
   simp [hy, pure, setWidth_eq_zero_iff_of_le hle, setWidth_umod_setWidth hle]
-
 
 /-- A value sign-extended to a wider width is not the minimum of that width, so the only overflowing
 signed division is of the narrow operands. -/
@@ -1136,13 +950,11 @@ theorem signExtend_ne_intMin (h : w < W) (x : BitVec w) : x.signExtend W ≠ Bit
     simp at h2
     omega
 
-
 /-- Signed division, remainder and modulo of sign-extended operands, through their signed values. -/
 theorem smod_signExtend_eq_zero_iff (h : w ≤ W) (x y : BitVec w) :
     (x.signExtend W).smod (y.signExtend W) = 0#W ↔ x.smod y = 0#w := by
   rw [← BitVec.toInt_inj, ← BitVec.toInt_inj, BitVec.toInt_smod, BitVec.toInt_smod,
     BitVec.toInt_signExtend_of_le h, BitVec.toInt_signExtend_of_le h, BitVec.toInt_zero, BitVec.toInt_zero]
-
 
 theorem setWidth_sdiv_signExtend (h : w ≤ W) (x y : BitVec w) :
     ((x.signExtend W).sdiv (y.signExtend W)).setWidth w = x.sdiv y := by
@@ -1150,18 +962,15 @@ theorem setWidth_sdiv_signExtend (h : w ≤ W) (x y : BitVec w) :
   rw [toInt_setWidth_of_le h, BitVec.toInt_sdiv, BitVec.toInt_sdiv, BitVec.toInt_signExtend_of_le h,
     BitVec.toInt_signExtend_of_le h, Int.bmod_bmod_of_dvd (by exact_mod_cast Nat.pow_dvd_pow 2 h)]
 
-
 theorem setWidth_srem_signExtend (h : w ≤ W) (x y : BitVec w) :
     ((x.signExtend W).srem (y.signExtend W)).setWidth w = x.srem y := by
   apply BitVec.eq_of_toInt_eq
   rw [toInt_setWidth_of_le h, ← bmod_toInt (x.srem y), BitVec.toInt_srem, BitVec.toInt_srem,
     BitVec.toInt_signExtend_of_le h, BitVec.toInt_signExtend_of_le h]
 
-
 theorem signExtend_eq_zero_iff_of_le (h : w ≤ W) (y : BitVec w) : y.signExtend W = 0#W ↔ y = 0#w := by
   rw [← BitVec.toInt_inj, ← BitVec.toInt_inj, BitVec.toInt_signExtend_of_le h, BitVec.toInt_zero,
     BitVec.toInt_zero]
-
 
 /-- `widenTypeGroup .g_sdiv (.type 0) .g_sext`: the quotient of the sign-extended operands truncated
 back, whatever the `exact` flag, and likewise for `g_srem`. The narrow division of the minimum by
@@ -1182,7 +991,6 @@ theorem sdiv_widening (h : w < W) (x y : LLVM.Int w) (exact : Bool) :
   simp [hy, hmin, hex, pure, signExtend_ne_intMin h, signExtend_eq_zero_iff_of_le hle,
     smod_signExtend_eq_zero_iff hle, setWidth_sdiv_signExtend hle]
 
-
 theorem srem_widening (h : w < W) (x y : LLVM.Int w) :
     LLVM.Int.srem x y ⊒
       LLVM.Int.trunc (LLVM.Int.srem (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h := by
@@ -1196,7 +1004,6 @@ theorem srem_widening (h : w < W) (x y : LLVM.Int w) :
   simp [hy, hmin, pure, signExtend_ne_intMin h, signExtend_eq_zero_iff_of_le hle,
     setWidth_srem_signExtend hle]
 
-
 /-- A sign extension is `-1` only when its operand is. -/
 theorem signExtend_eq_neg_one (h : w < W) (y : BitVec w) (hy : y.signExtend W = -1#W) : y = -1#w := by
   have h1 := congrArg BitVec.toInt hy
@@ -1206,7 +1013,6 @@ theorem signExtend_eq_neg_one (h : w < W) (y : BitVec w) (hy : y.signExtend W = 
   · rw [BitVec.toInt_of_zero_length rfl] at h1; omega
   · rw [← BitVec.toInt_inj, h1, BitVec.neg_one_eq_allOnes, BitVec.toInt_allOnes]
     simp
-
 
 /-- The source of a widened division has undefined behavior whenever the division of the
 sign-extended operands has. -/
@@ -1219,13 +1025,11 @@ theorem isSignedDivisionUB_sext (h : w < W) (x y : LLVM.Int w)
     signExtend_ne_intMin h, signExtend_eq_zero_iff_of_le (Nat.le_of_lt h)]
   exact hub.imp id (hn _)
 
-
 /-- A widened unsigned division has undefined behavior exactly when the narrow one has. -/
 theorem isUnsignedDivisionUB_zext (h : w < W) (y : LLVM.Int w) :
     LLVM.Int.isUnsignedDivisionUB (LLVM.Int.zext y W false h) = LLVM.Int.isUnsignedDivisionUB y := by
   cases y <;> simp [LLVM.Int.isUnsignedDivisionUB, LLVM.Int.zext, Id.run,
     setWidth_eq_zero_iff_of_le (Nat.le_of_lt h)]
-
 
 /-- The `exact` check of a right shift: the shifted-out bits are zero. -/
 theorem ushiftRight_shiftLeft_eq_self_iff {n : Nat} (v : BitVec n) (k : Nat) :
@@ -1238,7 +1042,6 @@ theorem ushiftRight_shiftLeft_eq_self_iff {n : Nat} (v : BitVec n) (k : Nat) :
   rw [Nat.mul_comm] at h1
   omega
 
-
 /-- Sign extension keeps the low bits. -/
 theorem toNat_signExtend_mod {k : Nat} (h : w ≤ W) (hk : k ≤ w) (x : BitVec w) :
     (x.signExtend W).toNat % 2 ^ k = x.toNat % 2 ^ k := by
@@ -1250,7 +1053,6 @@ theorem toNat_signExtend_mod {k : Nat} (h : w ≤ W) (hk : k ≤ w) (x : BitVec 
   · rw [ht, Nat.add_mul_mod_self_left]
   · simp
 
-
 /-- `widenTypeGroup .g_sext_inreg (.type 0) .g_anyext`: the sign extension of the low `sz` bits of
 the any-extended operand, truncated back. -/
 theorem sext_inreg_widening {sz : Nat} (h : w < W) (hs : sz < w) (x : LLVM.Int w) (m : BitVec (W - w)) :
@@ -1259,7 +1061,6 @@ theorem sext_inreg_widening {sz : Nat} (h : w < W) (hs : sz < w) (x : LLVM.Int w
         (by omega)) w false false h := by
   cases x <;> simp [LLVM.Int.sext, LLVM.Int.trunc, LLVM.Int.ext, LLVM.Int.cast, Id.run, pure,
     BitVec.setWidth_append, Nat.le_of_lt hs, setWidth_signExtend_signExtend (Nat.le_of_lt hs) (Nat.le_of_lt h)]
-
 
 /-- A signed value does not wrap exactly when it is in range. -/
 theorem bmod_two_pow_eq_self_iff (hw : 0 < w) (s : _root_.Int) :
@@ -1276,12 +1077,10 @@ theorem bmod_two_pow_eq_self_iff (hw : 0 < w) (s : _root_.Int) :
   · rintro ⟨h1, h3⟩
     exact bmod_two_pow_of_range hw h1 h3
 
-
 /-- The low bits of a difference are the difference of the low bits. -/
 theorem setWidth_sub_of_le (h : w ≤ W) (a b : BitVec W) :
     (a - b).setWidth w = a.setWidth w - b.setWidth w := by
   rw [BitVec.sub_eq_add_neg, BitVec.setWidth_add _ _ h, BitVec.setWidth_neg_of_le h, ← BitVec.sub_eq_add_neg]
-
 
 /-- The inequality check of `g_icmp ne`, on the values of the bit-vectors. -/
 theorem bne_eq_decide_toNat {n : Nat} (a b : BitVec n) : (a != b) = decide (a.toNat ≠ b.toNat) := by
@@ -1290,19 +1089,16 @@ theorem bne_eq_decide_toNat {n : Nat} (a b : BitVec n) : (a != b) = decide (a.to
   · have hn : a.toNat ≠ b.toNat := fun e => hab (BitVec.eq_of_toNat_eq e)
     simp [bne, hab, hn]
 
-
 theorem bne_eq_decide_toInt {n : Nat} (a b : BitVec n) : (a != b) = decide (a.toInt ≠ b.toInt) := by
   by_cases hab : a = b
   · subst hab; simp
   · have hn : a.toInt ≠ b.toInt := fun e => hab (BitVec.eq_of_toInt_eq e)
     simp [bne, hab, hn]
 
-
 /-- The sign extension of zero. -/
 theorem signExtend_zero' : (0#w).signExtend W = 0#W := by
   apply BitVec.eq_of_toNat_eq
   simp [BitVec.toNat_signExtend]
-
 
 /-- `widenScalarAddSubOverflow .g_uaddo`: the sum of the zero-extended operands truncated back, which
 overflows exactly when the wide sum does not survive the truncation and zero extension. -/
@@ -1332,7 +1128,6 @@ theorem uaddo_widening (h : w < W) (x y : LLVM.Int w) :
     by_cases hs : x.toNat + y.toNat < 2 ^ w
     · rw [Nat.mod_eq_of_lt hs]; omega
     · omega
-
 
 /-- `widenScalarAddSubOverflow .g_usubo`, as `uaddo_widening`: the wide difference wraps below
 `2 ^ W - 2 ^ w` exactly when the narrow one borrows. -/
@@ -1367,7 +1162,6 @@ theorem usubo_widening (h : w < W) (x y : LLVM.Int w) :
       rw [heq, Nat.mod_eq_of_lt (by omega : x.toNat - y.toNat < 2 ^ w)]
       omega
 
-
 private theorem signed_sum_toInt (h : w < W) (hw : 0 < w) (x y : BitVec w) :
     (x.signExtend W + y.signExtend W).toInt = x.toInt + y.toInt ∧
     (x.signExtend W - y.signExtend W).toInt = x.toInt - y.toInt := by
@@ -1385,7 +1179,6 @@ private theorem signed_sum_toInt (h : w < W) (hw : 0 < w) (x y : BitVec w) :
     exact bmod_two_pow_of_range (by omega) (by omega) (by omega)
   · rw [BitVec.toInt_sub, BitVec.toInt_signExtend_of_le hle, BitVec.toInt_signExtend_of_le hle]
     exact bmod_two_pow_of_range (by omega) (by omega) (by omega)
-
 
 /-- `widenScalarAddSubOverflow .g_saddo`: the sum of the sign-extended operands does not wrap at the
 wide width, so it survives the truncation and sign extension exactly when it is in the narrow
@@ -1417,7 +1210,6 @@ theorem saddo_widening (h : w < W) (x y : LLVM.Int w) :
     by_cases h1 : 2 ^ (w - 1) ≤ x.toInt + y.toInt <;> by_cases h2 : x.toInt + y.toInt < -2 ^ (w - 1) <;>
       simp [h1, h2] <;> omega
 
-
 /-- `widenScalarAddSubOverflow .g_ssubo`, as `saddo_widening`. -/
 theorem ssubo_widening (h : w < W) (x y : LLVM.Int w) :
     LLVM.Int.sub x y ⊒
@@ -1446,7 +1238,6 @@ theorem ssubo_widening (h : w < W) (x y : LLVM.Int w) :
     by_cases h1 : 2 ^ (w - 1) ≤ x.toInt - y.toInt <;> by_cases h2 : x.toInt - y.toInt < -2 ^ (w - 1) <;>
       simp [h1, h2] <;> omega
 
-
 /-- `lowerSAddSubO true`: the sum overflows exactly when it is below `a` and `b` is not negative,
 or the converse. -/
 
@@ -1468,7 +1259,6 @@ theorem saddo_lowering (x y : LLVM.Int w) :
   · simp only [Bool.not_eq_true] at hov
     rw [hov, BitVec.toInt_add_of_not_saddOverflow (by simp [hov])]
     by_cases hy : y.toInt < 0 <;> by_cases hz : x.toInt + y.toInt < x.toInt <;> simp [hy, hz] <;> omega
-
 
 /-- `lowerSAddSubO false`: the difference overflows exactly when `a <s b` and it is not negative,
 or the converse. -/
@@ -1702,15 +1492,6 @@ theorem allOnes_add_intMin : BitVec.allOnes w + BitVec.intMin w = BitVec.intMax 
   rw [← BitVec.neg_one_eq_allOnes, BitVec.add_comm, ← BitVec.sub_eq_add_neg]
   exact (BitVec.eq_sub_iff_add_eq.mpr BitVec.intMax_add_one).symm
 
-theorem intMax_eq_ofInt : BitVec.intMax w = BitVec.ofInt w (2 ^ (w - 1) - 1) := by
-  rcases Nat.eq_zero_or_pos w with rfl | hw
-  · exact BitVec.of_length_zero.trans BitVec.of_length_zero.symm
-  apply BitVec.eq_of_toInt_eq
-  have : (1 : _root_.Int) ≤ 2 ^ (w - 1) := by
-    have := Nat.one_le_two_pow (n := w - 1)
-    exact_mod_cast this
-  rw [BitVec.toInt_intMax, BitVec.toInt_ofInt_eq_self hw (by omega) (by omega)]
-
 /-- Lowering `g_uaddsat` with `g_umin`: `uadd.sat a b = a + umin (~a) b`. -/
 theorem uaddSat_minmax (x y : LLVM.Int w) :
     x.uaddSat y ⊒ x.add ((x.xor (.val (BitVec.ofInt w (-1)))).umin y) := by
@@ -1856,37 +1637,6 @@ theorem poison_eq_val_id {w : Nat} {b : BitVec w} :
     @Eq (Id (LLVM.Int w)) (@LLVM.Int.poison w) (@LLVM.Int.val w b) ↔ False := by
   simp [Id]
 
-theorem reverse_shiftLeft_reverse {w : Nat} (x : BitVec w) (n : Nat) :
-    (x.reverse <<< n).reverse = x >>> n := by
-  apply BitVec.eq_of_getElem_eq
-  intro i hi
-  rw [BitVec.getElem_reverse, BitVec.getMsbD_eq_getLsbD, BitVec.getElem_ushiftRight]
-  simp only [hi, decide_true, Bool.true_and, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_reverse,
-    BitVec.getMsbD_eq_getLsbD]
-  by_cases h : w - 1 - i < n
-  · simp only [h, decide_true, Bool.not_true, Bool.and_false, Bool.false_and]
-    rw [BitVec.getLsbD_of_ge _ _ (by omega)]
-  · simp only [h, decide_false, Bool.not_false, Bool.true_and, Bool.and_true,
-      show w - 1 - i < w by omega, decide_true, show w - 1 - i - n < w by omega]
-    congr 1
-    omega
-
-theorem reverse_ushiftRight_reverse {w : Nat} (x : BitVec w) (n : Nat) :
-    (x.reverse >>> n).reverse = x <<< n := by
-  apply BitVec.eq_of_getElem_eq
-  intro i hi
-  rw [BitVec.getElem_reverse, BitVec.getMsbD_eq_getLsbD, BitVec.getElem_shiftLeft]
-  simp only [hi, decide_true, Bool.true_and, BitVec.getLsbD_ushiftRight, BitVec.getLsbD_reverse,
-    BitVec.getMsbD_eq_getLsbD]
-  by_cases h : i < n
-  · simp only [h, decide_true, Bool.not_true, Bool.false_and, show ¬ n + (w - 1 - i) < w by omega,
-      decide_false, Bool.false_and]
-  · simp only [h, decide_false, Bool.not_false, Bool.true_and, show n + (w - 1 - i) < w by omega,
-      decide_true]
-    rw [← BitVec.getLsbD_eq_getElem]
-    congr 1
-    omega
-
 open Lean Meta in
 /-- Split, recursively, each local conjunction, e.g. the poison checks an operation passed. -/
 private meta partial def casesAnd (goal : MVarId) : MetaM (List MVarId) :=
@@ -1915,7 +1665,6 @@ local macro "llvm_refines" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic =>
     BitVec.natCast_eq_ofNat, ge_iff_le] at *; omega)
   all_goals grind))
 
-
 local macro "combine_tac" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
   simp only [Int.add, Int.sub, Int.and, Int.or, Int.xor, Int.shl, Int.lshr, Int.ashr, Int.icmp, Int.zext,
     Int.sext, Int.trunc, Int.bitreverse, Int.smin, Int.smax, Int.umin, Int.umax, GMIR.selectNonzero,
@@ -1924,324 +1673,11 @@ local macro "combine_tac" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => 
 
 variable {w : Nat}
 
-/-! ### Hoisting a logic operation over the hands of its operands -/
-
-theorem hoist_and_shl (hw : w ≤ 64) (x y s : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
-    (x.shl s n₁ u₁).and (y.shl s n₂ u₂) ⊒ (x.and y).shl s := by
-  veir_pbv_decide 64
-
-theorem hoist_or_shl (hw : w ≤ 64) (x y s : LLVM.Int w) (n₁ u₁ n₂ u₂ d : Bool) :
-    (x.shl s n₁ u₁).or (y.shl s n₂ u₂) d ⊒ (x.or y).shl s := by
-  veir_pbv_decide 64
-
-theorem hoist_xor_shl (hw : w ≤ 64) (x y s : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
-    (x.shl s n₁ u₁).xor (y.shl s n₂ u₂) ⊒ (x.xor y).shl s := by
-  veir_pbv_decide 64
-
-theorem hoist_and_lshr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
-    (x.lshr s e₁).and (y.lshr s e₂) ⊒ (x.and y).lshr s := by
-  veir_pbv_decide 64
-
-theorem hoist_or_lshr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ d : Bool) :
-    (x.lshr s e₁).or (y.lshr s e₂) d ⊒ (x.or y).lshr s := by
-  veir_pbv_decide 64
-
-theorem hoist_xor_lshr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
-    (x.lshr s e₁).xor (y.lshr s e₂) ⊒ (x.xor y).lshr s := by
-  veir_pbv_decide 64
-
-theorem hoist_and_ashr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
-    (x.ashr s e₁).and (y.ashr s e₂) ⊒ (x.and y).ashr s := by
-  veir_pbv_decide 64
-
-theorem hoist_or_ashr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ d : Bool) :
-    (x.ashr s e₁).or (y.ashr s e₂) d ⊒ (x.or y).ashr s := by
-  veir_pbv_decide 64
-
-theorem hoist_xor_ashr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
-    (x.ashr s e₁).xor (y.ashr s e₂) ⊒ (x.xor y).ashr s := by
-  veir_pbv_decide 64
-
-theorem and_and_and_right (x y z : BitVec w) : x &&& z &&& (y &&& z) = x &&& y &&& z := by
-  apply BitVec.eq_of_getElem_eq
-  intro i hi
-  simp only [BitVec.getElem_and]
-  cases x[i] <;> cases y[i] <;> cases z[i] <;> rfl
-
-theorem xor_and_and_right (x y z : BitVec w) : x &&& z ^^^ y &&& z = (x ^^^ y) &&& z := by
-  apply BitVec.eq_of_getElem_eq
-  intro i hi
-  simp only [BitVec.getElem_and, BitVec.getElem_xor]
-  cases x[i] <;> cases y[i] <;> cases z[i] <;> rfl
-
-theorem hoist_and_and (hw : w ≤ 64) (x y z : LLVM.Int w) : (x.and z).and (y.and z) ⊒ (x.and y).and z := by
-  veir_pbv_decide 64
-
-theorem hoist_or_and (hw : w ≤ 64) (x y z : LLVM.Int w) (d : Bool) : (x.and z).or (y.and z) d ⊒ (x.or y).and z := by
-  veir_pbv_decide 64
-
-theorem hoist_xor_and (hw : w ≤ 64) (x y z : LLVM.Int w) : (x.and z).xor (y.and z) ⊒ (x.xor y).and z := by
-  veir_pbv_decide 64
-
-/-! ### Additive identities -/
-
-theorem sub_add_reg_x_add_y_sub_y (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
-    (x.add y n₁ u₁).sub y n₂ u₂ ⊒ x := by
-  veir_pbv_decide 64
-
-theorem sub_add_reg_x_add_y_sub_x (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
-    (x.add y n₁ u₁).sub x n₂ u₂ ⊒ y := by
-  veir_pbv_decide 64
-
-theorem sub_add_reg_negate (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
-    x.sub (y.add x n₁ u₁) n₂ u₂ ⊒ (LLVM.Int.val 0#w).sub y := by
-  veir_pbv_decide 64
-
-theorem sub_add_reg_negate_x_first (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
-    x.sub (x.add y n₁ u₁) n₂ u₂ ⊒ (LLVM.Int.val 0#w).sub y := by
-  veir_pbv_decide 64
-
-theorem add_sub_reg_0 (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) : x.add (y.sub x n₁ u₁) n₂ u₂ ⊒ y := by
-  veir_pbv_decide 64
-
-theorem add_sub_reg_1 (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) : (y.sub x n₁ u₁).add x n₂ u₂ ⊒ y := by
-  veir_pbv_decide 64
-
-theorem same_val_zero_sub (hw : w ≤ 64) (x : LLVM.Int w) (n u : Bool) : x.sub x n u ⊒ LLVM.Int.val 0#w := by
-  veir_pbv_decide 64
-
-theorem same_val_zero_xor (hw : w ≤ 64) (x : LLVM.Int w) : x.xor x ⊒ LLVM.Int.val 0#w := by
-  veir_pbv_decide 64
-
-theorem binop_same_val_and (hw : w ≤ 64) (x : LLVM.Int w) : x.and x ⊒ x := by
-  veir_pbv_decide 64
-
-theorem binop_same_val_or (hw : w ≤ 64) (x : LLVM.Int w) (d : Bool) : x.or x d ⊒ x := by
-  veir_pbv_decide 64
-
-theorem APlusBMinusCMinusB (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
-    (a.add (b.sub c n₁ u₁) n₂ u₂).sub b n₃ u₃ ⊒ a.sub c := by
-  veir_pbv_decide 64
-
-theorem AMinusBMinusCMinusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
-    (a.sub (b.sub c n₁ u₁) n₂ u₂).sub c n₃ u₃ ⊒ a.sub b := by
-  veir_pbv_decide 64
-
-theorem AMinusBPlusCMinusA (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
-    (a.sub b n₁ u₁).add (c.sub a n₂ u₂) n₃ u₃ ⊒ c.sub b := by
-  veir_pbv_decide 64
-
-theorem AMinusBPlusBMinusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
-    (a.sub b n₁ u₁).add (b.sub c n₂ u₂) n₃ u₃ ⊒ a.sub c := by
-  veir_pbv_decide 64
-
-theorem APlusBMinusAPlusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
-    a.add (b.sub (a.add c n₁ u₁) n₂ u₂) n₃ u₃ ⊒ b.sub c := by
-  veir_pbv_decide 64
-
-theorem APlusBMinusCPlusA (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
-    a.add (b.sub (c.add a n₁ u₁) n₂ u₂) n₃ u₃ ⊒ b.sub c := by
-  veir_pbv_decide 64
-
-theorem AMinusBMinusA (hw : w ≤ 64) (a b : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) : a.sub (a.sub b n₁ u₁) n₂ u₂ ⊒ b := by
-  veir_pbv_decide 64
-
-theorem AMinusBMinusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
-    a.sub (b.sub c n₁ u₁) n₂ u₂ ⊒ a.add (c.sub b) := by
-  veir_pbv_decide 64
-
-theorem xor_of_and_with_same_reg (hw : w ≤ 64) (x y : LLVM.Int w) :
-    (x.and y).xor y ⊒ (x.xor (.val (BitVec.ofInt w (-1)))).and y := by
-  veir_pbv_decide 64
-
-theorem combine_or_of_and_left (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : (x.and y).or x d ⊒ x := by
-  veir_pbv_decide 64
-
-theorem combine_or_of_and_left' (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : (y.and x).or x d ⊒ x := by
-  veir_pbv_decide 64
-
-theorem combine_or_of_and_right (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : x.or (x.and y) d ⊒ x := by
-  veir_pbv_decide 64
-
-theorem combine_or_of_and_right' (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : x.or (y.and x) d ⊒ x := by
-  veir_pbv_decide 64
-
-/-! ### Casts of casts -/
-
-theorem trunc_of_zext (hw : w ≤ 64) {W : Nat} (hW : W ≤ 64) (x : LLVM.Int w) (h : w < W) (h' : W > w) (nneg nsw nuw : Bool) :
-    (x.zext W nneg h).trunc w nsw nuw h' ⊒ x := by
-  veir_pbv_decide 64
-
-theorem trunc_of_sext (hw : w ≤ 64) {W : Nat} (hW : W ≤ 64) (x : LLVM.Int w) (h : w < W) (h' : W > w) (nsw nuw : Bool) :
-    (x.sext W h).trunc w nsw nuw h' ⊒ x := by
-  veir_pbv_decide 64
-
-theorem zext_of_zext (hw : w ≤ 64) {M W : Nat} (hM : M ≤ 64) (hW : W ≤ 64) (x : LLVM.Int w) (h₁ : w < M) (h₂ : M < W) (h₃ : w < W)
-    (n₁ n₂ : Bool) : (x.zext M n₁ h₁).zext W n₂ h₂ ⊒ x.zext W false h₃ := by
-  veir_pbv_decide 64
-
-theorem sext_of_sext (hw : w ≤ 64) {M W : Nat} (hM : M ≤ 64) (hW : W ≤ 64) (x : LLVM.Int w) (h₁ : w < M) (h₂ : M < W) (h₃ : w < W) :
-    (x.sext M h₁).sext W h₂ ⊒ x.sext W h₃ := by
-  veir_pbv_decide 64
-
-/-- Zero extension without `nneg` keeps refinement both ways. -/
-theorem zext_isRefinedBy_zext {W : Nat} (x y : LLVM.Int w) (h : w < W) :
-    x.zext W false h ⊒ y.zext W false h ↔ x ⊒ y := by
-  cases x <;> cases y <;> simp [Int.zext, Id.run, Data.LLVM.Int.isRefinedBy_eq, Data.LLVM.Int.poison_isRefinedBy, pure]
-  rename_i a b
-  constructor
-  · intro hab
-    apply BitVec.eq_of_toNat_eq
-    have := congrArg BitVec.toNat hab
-    have hW : 2 ^ w ≤ 2 ^ W := Nat.pow_le_pow_right (by decide) (Nat.le_of_lt h)
-    simpa [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le a.isLt hW),
-      Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le b.isLt hW)] using this
-  · rintro rfl; rfl
-
-/-! ### Bit reverse of a shifted bit reverse -/
-
-theorem bitreverse_shl (x s : LLVM.Int w) (n u : Bool) :
-    (x.bitreverse.shl s n u).bitreverse ⊒ x.lshr s := by
-  cases x <;> cases s <;> combine_tac [reverse_shiftLeft_reverse]
-
-theorem bitreverse_lshr (x s : LLVM.Int w) (e : Bool) :
-    (x.bitreverse.lshr s e).bitreverse ⊒ x.shl s := by
-  cases x <;> cases s <;> combine_tac [reverse_ushiftRight_reverse]
-
-/-! ### Comparisons against a binary operation of the compared value -/
-
-theorem add_eq_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
-    (x.add y n u).icmp x .eq ⊒ y.icmp (.val 0#w) .eq := by
-  veir_pbv_decide 64
-
-theorem add_ne_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
-    (x.add y n u).icmp x .ne ⊒ y.icmp (.val 0#w) .ne := by
-  veir_pbv_decide 64
-
-theorem sub_eq_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
-    (x.sub y n u).icmp x .eq ⊒ y.icmp (.val 0#w) .eq := by
-  veir_pbv_decide 64
-
-theorem sub_ne_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
-    (x.sub y n u).icmp x .ne ⊒ y.icmp (.val 0#w) .ne := by
-  veir_pbv_decide 64
-
-theorem xor_eq_self_iff (x y : BitVec w) : (x ^^^ y = x) ↔ y = 0#w := by
-  constructor
-  · intro h
-    have := congrArg (x ^^^ ·) h
-    simpa [← BitVec.xor_assoc] using this
-  · rintro rfl
-    simp
-
-theorem xor_beq_self (x y : BitVec w) : (x ^^^ y == x) = (y == 0#w) := by
-  rw [Bool.eq_iff_iff]
-  simp [xor_eq_self_iff]
-
-theorem xor_eq_self (hw : w ≤ 64) (x y : LLVM.Int w) : (x.xor y).icmp x .eq ⊒ y.icmp (.val 0#w) .eq := by
-  veir_pbv_decide 64
-
-theorem xor_ne_self (hw : w ≤ 64) (x y : LLVM.Int w) : (x.xor y).icmp x .ne ⊒ y.icmp (.val 0#w) .ne := by
-  veir_pbv_decide 64
-
-theorem ofBool_eq_zero (b : Bool) : (BitVec.ofBool b = 0#1) ↔ b = false := by
-  cases b <;> decide
-
-/-- Closes the select-to-min/max lemmas: both sides pick the same operand. -/
-local macro "select_minmax_tac" : tactic => `(tactic| (
-  simp [Int.icmp, Int.umax, Int.umin, Int.smax, Int.smin, GMIR.selectNonzero, Id.run, pure, IntPred.eval,
-    Data.LLVM.Int.poison_isRefinedBy, ofBool_eq_zero]
-  all_goals (repeat' split)
-  all_goals simp_all [BitVec.ult, BitVec.ule, BitVec.slt, BitVec.sle, Data.LLVM.Int.isRefinedBy_eq]
-  all_goals first | omega | (apply BitVec.eq_of_toNat_eq; omega) | (apply BitVec.eq_of_toInt_eq; omega)))
-
-/-! ### Selects -/
-
-theorem select_same_val (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : LLVM.Int wc) (x : LLVM.Int w) : GMIR.selectNonzero c x x ⊒ x := by
-  subst_vars
-  veir_pbv_decide 64
-
-theorem select_ugt_umax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .ugt) x y ⊒ x.umax y := by
-  veir_pbv_decide 64
-
-theorem select_uge_umax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .uge) x y ⊒ x.umax y := by
-  veir_pbv_decide 64
-
-theorem select_sgt_smax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .sgt) x y ⊒ x.smax y := by
-  veir_pbv_decide 64
-
-theorem select_sge_smax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .sge) x y ⊒ x.smax y := by
-  veir_pbv_decide 64
-
-theorem select_ult_umin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .ult) x y ⊒ x.umin y := by
-  veir_pbv_decide 64
-
-theorem select_ule_umin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .ule) x y ⊒ x.umin y := by
-  veir_pbv_decide 64
-
-theorem select_slt_smin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .slt) x y ⊒ x.smin y := by
-  veir_pbv_decide 64
-
-theorem select_sle_smin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .sle) x y ⊒ x.smin y := by
-  veir_pbv_decide 64
-
-theorem zext_of_select {wc W : Nat} (hwc : wc ≤ 64) (hW : W ≤ 64) (c : LLVM.Int wc) (x y : LLVM.Int w) (h : w < W) (nneg : Bool) :
-    (GMIR.selectNonzero c x y).zext W nneg h ⊒
-      GMIR.selectNonzero c (x.zext W false h) (y.zext W false h) := by
-  subst_vars
-  veir_pbv_decide 64
-
-theorem trunc_of_select {wc W : Nat} (hwc : wc ≤ 64) (hW : W ≤ 64) (c : LLVM.Int wc) (x y : LLVM.Int W) (h : W > w) (nsw nuw : Bool) :
-    (GMIR.selectNonzero c x y).trunc w nsw nuw h ⊒
-      GMIR.selectNonzero c (x.trunc w false false h) (y.trunc w false false h) := by
-  subst_vars
-  veir_pbv_decide 64
-
-/-! ### Selects of a binary operation on the other arm, with the arms exchanged -/
-
-theorem select_into_add_swapped {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (n u : Bool) :
-    GMIR.selectNonzero c x (x.add k n u) ⊒ x.add (GMIR.selectNonzero c (.val 0#w) k) := by
-  cases c <;> cases x <;> cases k <;> combine_tac []
-
-theorem select_into_add' {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (n u : Bool) :
-    GMIR.selectNonzero c (x.add k n u) x ⊒ x.add (GMIR.selectNonzero c k (.val 0#w)) := by
-  cases c <;> cases x <;> cases k <;> combine_tac []
-
-theorem select_into_sub_swapped {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (n u : Bool) :
-    GMIR.selectNonzero c x (x.sub k n u) ⊒ x.sub (GMIR.selectNonzero c (.val 0#w) k) := by
-  cases c <;> cases x <;> cases k <;> combine_tac []
-
-theorem select_into_sub' {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (n u : Bool) :
-    GMIR.selectNonzero c (x.sub k n u) x ⊒ x.sub (GMIR.selectNonzero c k (.val 0#w)) := by
-  cases c <;> cases x <;> cases k <;> combine_tac []
-
-theorem select_into_or_swapped {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (d : Bool) :
-    GMIR.selectNonzero c x (x.or k d) ⊒ x.or (GMIR.selectNonzero c (.val 0#w) k) := by
-  cases c <;> cases x <;> cases k <;> combine_tac []
-
-theorem select_into_or' {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (d : Bool) :
-    GMIR.selectNonzero c (x.or k d) x ⊒ x.or (GMIR.selectNonzero c k (.val 0#w)) := by
-  cases c <;> cases x <;> cases k <;> combine_tac []
-
-theorem select_into_xor_swapped {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) :
-    GMIR.selectNonzero c x (x.xor k) ⊒ x.xor (GMIR.selectNonzero c (.val 0#w) k) := by
-  cases c <;> cases x <;> cases k <;> combine_tac []
-
-theorem select_into_xor' {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) :
-    GMIR.selectNonzero c (x.xor k) x ⊒ x.xor (GMIR.selectNonzero c k (.val 0#w)) := by
-  cases c <;> cases x <;> cases k <;> combine_tac []
-
 /-! ### Combines of a matched constant
 
 The constant `c` is matched at the width of its result (see `matchConstant`), and the hypotheses on
 it are the predicates of its matcher.
 -/
-
-theorem ofInt_toInt_add (x y : BitVec w) : BitVec.ofInt w (x.toInt + y.toInt) = x + y := by
-  apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_add]
-
-theorem ofInt_toInt_sub (x y : BitVec w) : BitVec.ofInt w (x.toInt - y.toInt) = x - y := by
-  apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_sub]
 
 theorem ofInt_toInt_mul (x y : BitVec w) : BitVec.ofInt w (x.toInt * y.toInt) = x * y := by
   apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_mul]
@@ -2249,28 +1685,8 @@ theorem ofInt_toInt_mul (x y : BitVec w) : BitVec.ofInt w (x.toInt * y.toInt) = 
 theorem ofInt_neg_toInt (x : BitVec w) : BitVec.ofInt w (-x.toInt) = -x := by
   apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_neg]
 
-theorem right_identity_zero_sub (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
-    x.sub (.val c) n u ⊒ x := by
-  veir_pbv_decide 64
-
 theorem right_identity_zero_add (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
     x.add (.val c) n u ⊒ x := by
-  veir_pbv_decide 64
-
-theorem right_identity_zero_or (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (d : Bool) :
-    x.or (.val c) d ⊒ x := by
-  veir_pbv_decide 64
-
-theorem right_identity_zero_xor (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) :
-    x.xor (.val c) ⊒ x := by
-  veir_pbv_decide 64
-
-theorem binop_right_to_zero (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
-    x.mul (.val c) n u ⊒ .val c := by
-  veir_pbv_decide 64
-
-theorem binop_left_to_zero_mul (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
-    (LLVM.Int.val c).mul x n u ⊒ .val c := by
   veir_pbv_decide 64
 
 theorem right_identity_one_mul (x : LLVM.Int w) (c : BitVec w) (hc : c.toNat = 1) (n u : Bool) :
@@ -2286,22 +1702,6 @@ theorem right_identity_one_mul (x : LLVM.Int w) (c : BitVec w) (hc : c.toNat = 1
   cases x <;> simp only [LLVM.Int.mul, Id.run, pure] <;>
     llvm_refines [BitVec.mul_zero, BitVec.zero_mul, BitVec.mul_one]
 
-theorem sub_minus_one (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = -1) (n u : Bool) :
-    (LLVM.Int.val c).sub x n u ⊒ x.xor (.val c) := by
-  veir_pbv_decide 64
-
-theorem ZeroMinusAPlusB (hw : w ≤ 64) (a b : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ : Bool) :
-    ((LLVM.Int.val c).sub a n₁ u₁).add b n₂ u₂ ⊒ b.sub a := by
-  veir_pbv_decide 64
-
-theorem APlusZeroMinusB (hw : w ≤ 64) (a b : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ : Bool) :
-    a.add ((LLVM.Int.val c).sub b n₁ u₁) n₂ u₂ ⊒ a.sub b := by
-  veir_pbv_decide 64
-
-theorem AMinusZeroMinusB (hw : w ≤ 64) (a b : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ : Bool) :
-    a.sub ((LLVM.Int.val c).sub b n₁ u₁) n₂ u₂ ⊒ a.add b := by
-  veir_pbv_decide 64
-
 theorem sub_one_from_sub (x y : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 1) (n₁ u₁ n₂ u₂ : Bool) :
     (x.sub y n₁ u₁).sub (.val c) n₂ u₂ ⊒ (y.xor (.val (BitVec.ofInt w (-1)))).add x := by
   have : c = 1#w := by
@@ -2311,48 +1711,6 @@ theorem sub_one_from_sub (x y : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 1) (n
     rw [BitVec.not_eq_neg_add]; simp only [BitVec.sub_eq_add_neg]; ac_rfl
   rw [ofInt_neg_one]
   cases x <;> cases y <;> combine_tac [BitVec.xor_allOnes, hsub]
-
-theorem APlusC1MinusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
-    (a.add (.val c₁) n₁ u₁).sub (.val c₂) n₂ u₂ ⊒
-      a.add (.val (BitVec.ofInt w (c₁.toInt - c₂.toInt))) := by
-  simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_pbv_decide 64
-
-theorem C2MinusAPlusC1 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
-    (LLVM.Int.val c₂).sub (a.add (.val c₁) n₁ u₁) n₂ u₂ ⊒
-      (LLVM.Int.val (BitVec.ofInt w (c₂.toInt - c₁.toInt))).sub a := by
-  simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_pbv_decide 64
-
-theorem AMinusC1MinusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
-    (a.sub (.val c₁) n₁ u₁).sub (.val c₂) n₂ u₂ ⊒
-      a.sub (.val (BitVec.ofInt w (c₁.toInt + c₂.toInt))) := by
-  simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_pbv_decide 64
-
-theorem C1MinusAMinusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
-    ((LLVM.Int.val c₁).sub a n₁ u₁).sub (.val c₂) n₂ u₂ ⊒
-      (LLVM.Int.val (BitVec.ofInt w (c₁.toInt - c₂.toInt))).sub a := by
-  simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_pbv_decide 64
-
-theorem AMinusC1PlusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
-    (a.sub (.val c₁) n₁ u₁).add (.val c₂) n₂ u₂ ⊒
-      a.add (.val (BitVec.ofInt w (c₂.toInt - c₁.toInt))) := by
-  simp only [ofInt_toInt_sub, ofInt_toInt_add]
-  veir_pbv_decide 64
-
-theorem binop_left_to_zero_shl (hw : w ≤ 64) (c : BitVec w) (hc : c = 0) (s : LLVM.Int w) (n u : Bool) :
-    (LLVM.Int.val c).shl s n u ⊒ .val c := by
-  veir_pbv_decide 64
-
-theorem binop_left_to_zero_lshr (hw : w ≤ 64) (c : BitVec w) (hc : c = 0) (s : LLVM.Int w) (e : Bool) :
-    (LLVM.Int.val c).lshr s e ⊒ .val c := by
-  veir_pbv_decide 64
-
-theorem binop_left_to_zero_ashr (hw : w ≤ 64) (c : BitVec w) (hc : c = 0) (s : LLVM.Int w) (e : Bool) :
-    (LLVM.Int.val c).ashr s e ⊒ .val c := by
-  veir_pbv_decide 64
 
 theorem sub_of_mul_const (a x : LLVM.Int w) (c : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
     a.sub (x.mul (.val c) n₁ u₁) n₂ u₂ ⊒ a.add (x.mul (.val (BitVec.ofInt w (-c.toInt)))) := by
@@ -2393,98 +1751,6 @@ theorem mulo_by_2 (x : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 2) (n u : Bool
     simp only [LLVM.Int.mul, LLVM.Int.add, Id.run, hs, hu, hv]
     exact Data.LLVM.Int.isRefinedBy_refl _
 
-theorem add_shift (hw : w ≤ 64) (a b s : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
-    a.add (((LLVM.Int.val c).sub b n₁ u₁).shl s n₂ u₂) n₃ u₃ ⊒ a.sub (b.shl s) := by
-  veir_pbv_decide 64
-
-theorem add_shift' (hw : w ≤ 64) (a b s : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
-    (((LLVM.Int.val c).sub b n₁ u₁).shl s n₂ u₂).add a n₃ u₃ ⊒ a.sub (b.shl s) := by
-  veir_pbv_decide 64
-
-theorem NotAPlusNegOne (x : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = -1) (h₂ : c₂ = -1)
-    (n u : Bool) :
-    (x.add (.val c₁) n u).xor (.val c₂) ⊒ (LLVM.Int.val 0#w).sub x n u := by
-  subst h₁ h₂
-  cases x with
-  | poison => simp [LLVM.Int.add, LLVM.Int.xor, Id.run, Data.LLVM.Int.poison_isRefinedBy]
-  | val x =>
-    have hs : BitVec.saddOverflow x (-1#w) = BitVec.ssubOverflow 0#w x := by
-      rcases Nat.eq_zero_or_pos w with rfl | hw
-      · simp [BitVec.saddOverflow, BitVec.ssubOverflow, BitVec.toInt_of_zero_length]
-      have hm : (-1#w).toInt = -1 := by
-        rw [BitVec.neg_one_eq_allOnes, BitVec.toInt_allOnes]; simp [hw]
-      have := BitVec.toInt_lt (x := x); have := BitVec.le_toInt (x := x)
-      simp only [BitVec.saddOverflow, BitVec.ssubOverflow, hm, BitVec.toInt_zero]
-      rw [Bool.eq_iff_iff]; simp; omega
-    have hu : BitVec.uaddOverflow x (-1#w) = BitVec.usubOverflow 0#w x := by
-      have hmn : (-1#w).toNat = 2 ^ w - 1 := by
-        rw [BitVec.neg_one_eq_allOnes, BitVec.toNat_allOnes]
-      have := Nat.one_le_two_pow (n := w)
-      have := x.isLt
-      simp only [BitVec.uaddOverflow, BitVec.usubOverflow, hmn, BitVec.toNat_zero]
-      rw [Bool.eq_iff_iff]
-      by_cases hx : 0 < x.toNat <;> simp [hx] <;> omega
-    have hv : (x + -1#w) ^^^ -1#w = 0#w - x := by
-      rw [BitVec.neg_one_eq_allOnes, BitVec.xor_allOnes, BitVec.not_eq_neg_add, BitVec.zero_sub,
-        ← BitVec.neg_one_eq_allOnes]
-      rw [_root_.BitVec.neg_add, _root_.BitVec.sub_neg, _root_.BitVec.add_sub_cancel]
-    simp only [LLVM.Int.add, LLVM.Int.sub, LLVM.Int.xor, Id.run, pure, hs, hu]
-    llvm_refines [hv]
-
-theorem and_not_or_self (x y : BitVec w) : x &&& (y ^^^ BitVec.allOnes w) ||| y = x ||| y := by
-  ext i hi; simp; cases x[i] <;> cases y[i] <;> rfl
-
-theorem or_not_and_self (x y : BitVec w) : (x ||| (y ^^^ BitVec.allOnes w)) &&& y = x &&& y := by
-  ext i hi; simp; cases x[i] <;> cases y[i] <;> rfl
-
-theorem and_or_not_self (x y : BitVec w) :
-    x &&& y ||| (y ^^^ BitVec.allOnes w) = x ||| (y ^^^ BitVec.allOnes w) := by
-  ext i hi; simp; cases x[i] <;> cases y[i] <;> rfl
-
-theorem or_and_not_self (x y : BitVec w) :
-    (x ||| y) &&& (y ^^^ BitVec.allOnes w) = x &&& (y ^^^ BitVec.allOnes w) := by
-  ext i hi; simp; cases x[i] <;> cases y[i] <;> rfl
-
-theorem or_and_xor_to_or (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
-    (x.and (y.xor (.val c))).or y d ⊒ x.or y := by
-  veir_pbv_decide 64
-
-theorem or_and_xor_to_or' (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
-    (x.or (y.xor (.val c)) d).and y ⊒ x.and y := by
-  veir_pbv_decide 64
-
-theorem or_and_xor_to_xor_or (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
-    (x.and y).or (y.xor (.val c)) d ⊒ x.or (y.xor (.val c)) := by
-  veir_pbv_decide 64
-
-theorem or_and_xor_to_xor_or' (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
-    (x.or y d).and (y.xor (.val c)) ⊒ x.and (y.xor (.val c)) := by
-  veir_pbv_decide 64
-
-theorem simplify_neg_smax (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
-    (n₁ u₁ n₂ u₂ : Bool) :
-    (LLVM.Int.val c₁).sub (a.smax ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
-      a.smin ((LLVM.Int.val c₂).sub a n₁ u₁) := by
-  veir_pbv_decide 64
-
-theorem simplify_neg_umax (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
-    (n₁ u₁ n₂ u₂ : Bool) :
-    (LLVM.Int.val c₁).sub (a.umax ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
-      a.umin ((LLVM.Int.val c₂).sub a n₁ u₁) := by
-  veir_pbv_decide 64
-
-theorem simplify_neg_smin (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
-    (n₁ u₁ n₂ u₂ : Bool) :
-    (LLVM.Int.val c₁).sub (a.smin ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
-      a.smax ((LLVM.Int.val c₂).sub a n₁ u₁) := by
-  veir_pbv_decide 64
-
-theorem simplify_neg_umin (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
-    (n₁ u₁ n₂ u₂ : Bool) :
-    (LLVM.Int.val c₁).sub (a.umin ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
-      a.umax ((LLVM.Int.val c₂).sub a n₁ u₁) := by
-  veir_pbv_decide 64
-
 /-- The predicate of the negated comparison, as `not_cmp_fold_pattern` pairs them. -/
 @[expose] def IntPred.inverse : IntPred → IntPred
   | .eq => .ne | .ne => .eq | .ugt => .ule | .uge => .ult | .ult => .uge | .ule => .ugt
@@ -2520,72 +1786,10 @@ theorem not_cmp_fold_zext {v W : Nat} (x y : LLVM.Int v) (p : IntPred) (h : 1 < 
   cases p.eval a b <;>
     simp [BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt (by decide : 0 < 1), Data.LLVM.Int.isRefinedBy_refl]
 
-theorem or_beq_zero {v : Nat} (a b : BitVec v) : (a ||| b == 0#v) = (a == 0#v && b == 0#v) := by
-  rw [Bool.eq_iff_iff]; simp [BitVec.or_eq_zero_iff]
-
-theorem or_bne_zero {v : Nat} (a b : BitVec v) : (a ||| b != 0#v) = (a != 0#v || b != 0#v) := by
-  rw [Bool.eq_iff_iff]; simp [BitVec.or_eq_zero_iff]; by_cases a = 0#v <;> simp_all
-
-theorem double_icmp_zero_and (hw : w ≤ 64) {v : Nat} (hv : v ≤ 64) (x y : LLVM.Int v) (c₁ c₂ : BitVec v) (h₁ : c₁ = 0)
-    (h₂ : c₂ = 0) :
-    (x.icmp (.val c₁) .eq).and (y.icmp (.val c₂) .eq) ⊒ (x.or y).icmp (.val c₁) .eq := by
-  subst_vars
-  veir_pbv_decide 64
-
-theorem double_icmp_zero_or (hw : w ≤ 64) {v : Nat} (hv : v ≤ 64) (x y : LLVM.Int v) (c₁ c₂ : BitVec v) (h₁ : c₁ = 0)
-    (h₂ : c₂ = 0) (d : Bool) :
-    (x.icmp (.val c₁) .ne).or (y.icmp (.val c₂) .ne) d ⊒ (x.or y).icmp (.val c₁) .ne := by
-  subst_vars
-  veir_pbv_decide 64
-
-theorem double_icmp_zero_and_zext (hw : w ≤ 64) {v W : Nat} (hv : v ≤ 64) (hW : W ≤ 64) (h : 1 < W) (x y : LLVM.Int v) (c₁ c₂ : BitVec v)
-    (h₁ : c₁ = 0) (h₂ : c₂ = 0) :
-    ((x.icmp (.val c₁) .eq).zext W false h).and ((y.icmp (.val c₂) .eq).zext W false h) ⊒
-      ((x.or y).icmp (.val c₁) .eq).zext W false h := by
-  subst_vars
-  veir_pbv_decide 64
-
-theorem double_icmp_zero_or_zext (hw : w ≤ 64) {v W : Nat} (hv : v ≤ 64) (hW : W ≤ 64) (h : 1 < W) (x y : LLVM.Int v) (c₁ c₂ : BitVec v)
-    (h₁ : c₁ = 0) (h₂ : c₂ = 0) (d : Bool) :
-    ((x.icmp (.val c₁) .ne).zext W false h).or ((y.icmp (.val c₂) .ne).zext W false h) d ⊒
-      ((x.or y).icmp (.val c₁) .ne).zext W false h := by
-  subst_vars
-  veir_pbv_decide 64
-
-theorem constant_fold_add (c₁ c₂ : BitVec w) (n u : Bool) :
-    (LLVM.Int.val c₁).add (.val c₂) n u ⊒ .val (BitVec.ofInt w (c₁.toInt + c₂.toInt)) := by
-  simp only [ofInt_toInt_add]
-  veir_bv_normalize
-
-theorem constant_fold_sub (c₁ c₂ : BitVec w) (n u : Bool) :
-    (LLVM.Int.val c₁).sub (.val c₂) n u ⊒ .val (BitVec.ofInt w (c₁.toInt - c₂.toInt)) := by
-  simp only [ofInt_toInt_sub]
-  veir_bv_normalize
-
 theorem constant_fold_mul (c₁ c₂ : BitVec w) (n u : Bool) :
     (LLVM.Int.val c₁).mul (.val c₂) n u ⊒ .val (BitVec.ofInt w (c₁.toInt * c₂.toInt)) := by
   simp only [ofInt_toInt_mul]
   veir_bv_normalize
-
-theorem constant_fold_smin (c₁ c₂ : BitVec w) :
-    (LLVM.Int.val c₁).smin (.val c₂) ⊒ .val (BitVec.ofInt w (min c₁.toInt c₂.toInt)) := by
-  simp only [LLVM.Int.smin, Id.run, BitVec.sle, Int.min_def]
-  split <;> split <;> simp_all [BitVec.ofInt_toInt, Data.LLVM.Int.isRefinedBy_refl] <;> omega
-
-theorem constant_fold_smax (c₁ c₂ : BitVec w) :
-    (LLVM.Int.val c₁).smax (.val c₂) ⊒ .val (BitVec.ofInt w (max c₁.toInt c₂.toInt)) := by
-  simp only [LLVM.Int.smax, Id.run, BitVec.sle, Int.max_def]
-  split <;> split <;> simp_all [BitVec.ofInt_toInt, Data.LLVM.Int.isRefinedBy_refl] <;> omega
-
-theorem select_constant_cmp_nonzero (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : BitVec wc) (hc : ¬ c = 0#wc) (x y : LLVM.Int w) :
-    GMIR.selectNonzero (.val c) x y ⊒ x := by
-  subst_vars
-  veir_pbv_decide 64
-
-theorem select_constant_cmp_zero (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : BitVec wc) (hc : c = 0#wc) (x y : LLVM.Int w) :
-    GMIR.selectNonzero (.val c) x y ⊒ y := by
-  subst_vars
-  veir_pbv_decide 64
 
 theorem sub_to_add (a : LLVM.Int w) (c : BitVec w) (n u : Bool) :
     a.sub (.val c) n u ⊒
@@ -2698,3 +1902,2372 @@ end Combines
 end Veir.Data.LLVM
 
 end
+
+/-! # CTree validity of the gMIR combines
+
+The `Pattern.Valid` and `Status` theorems of the combines of `RISCV64PostLegalizerCombiner` and
+`RISCV64PreLegalizerCombiner`. Most are proven by `proveLegalValid with veir_pbv_decide`
+(namespace `PBV`); the others by `proveLegalValid using` a correctness lemma, either one of the
+`Veir.Data.LLVM` lemmas above or a local one. -/
+
+/-! CTree validity of the gMIR combines of `Veir.Passes.Legalization.CombinerHelper`. The combines
+that test or compute the value of a matched `g_constant` are in
+`Veir.Passes.Legalization.Validity.CombineConstant`. -/
+
+namespace Veir.Legalization.CTreeProofs
+
+
+open Puddle
+open Puddle.CTree
+open _root_.CTree
+
+set_option linter.unusedSimpArgs false
+set_option maxHeartbeats 1000000
+
+attribute [local ctree_semantics]
+  OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
+  GMIR.interpretOp' GMIR.interpretOpCTree GMIR_RISCV.interpretOp'
+
+attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
+
+attribute [local implicit_reducible] TypeAttr
+
+/-- `canonicalize_icmp_pattern`: swapping the operands of a comparison swaps its predicate. -/
+private theorem icmp_swap {w : Nat} (hw : w ≤ 64) (k x : Data.LLVM.Int w) (p : Data.LLVM.IntPred) :
+    k.icmp x p ⊒ x.icmp k (swapIntPred p) := by
+  cases p <;> simp only [swapIntPred] <;> veir_pbv_decide 64
+
+/-- The low bit of an odd constant is set. -/
+private theorem one_and_ofInt_of_odd {W : Nat} (hW : 0 < W) (v : _root_.Int) (hv : v % 2 = 1) :
+    1#W &&& BitVec.ofInt W v = 1#W := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  simp only [BitVec.getElem_and, BitVec.getElem_one]
+  by_cases h : i = 0
+  · subst h
+    simp only [decide_true, Bool.true_and, BitVec.getElem_eq_testBit_toNat, BitVec.toNat_ofInt,
+      Nat.testBit_zero, decide_eq_true_eq]
+    have hd : (2 : _root_.Int) ∣ ((2 ^ W : Nat) : _root_.Int) := by
+      refine ⟨((2 ^ (W - 1) : Nat) : _root_.Int), ?_⟩
+      rw [show W = (W - 1) + 1 by omega, Nat.pow_succ]
+      push_cast
+      rw [_root_.Int.mul_comm]
+    have h1 : (v % ((2 ^ W : Nat) : _root_.Int)) % 2 = 1 := by
+      rw [_root_.Int.emod_emod_of_dvd _ hd]; exact hv
+    have h0 : 0 ≤ v % ((2 ^ W : Nat) : _root_.Int) :=
+      _root_.Int.emod_nonneg _ (by have := Nat.two_pow_pos W; omega)
+    omega
+  · simp [h]
+
+/-- `redundant_and_pattern`, for an `i1` result: masking a comparison with an odd constant keeps it. -/
+private theorem and_icmp_odd {v : Nat} (x y : Data.LLVM.Int v) (p : Data.LLVM.IntPred) (c : _root_.Int)
+    (hc : c % 2 = 1) : (x.icmp y p).and (.val (BitVec.ofInt 1 c)) ⊒ x.icmp y p := by
+  have := one_and_ofInt_of_odd (W := 1) (by decide) c hc
+  cases x <;> cases y <;> simp only [Data.LLVM.Int.icmp, Data.LLVM.Int.and, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure]
+  rename_i a b
+  cases Data.LLVM.IntPred.eval p a b <;> simp_all
+
+/-- `redundant_and_pattern`, for a wider result: the comparison is zero-extended to `0` or `1`. -/
+private theorem and_zext_icmp_odd {v W : Nat} (x y : Data.LLVM.Int v) (p : Data.LLVM.IntPred) (c : _root_.Int)
+    (hc : c % 2 = 1) (hW : 1 < W) :
+    ((x.icmp y p).zext W false hW).and (.val (BitVec.ofInt W c)) ⊒ (x.icmp y p).zext W false hW := by
+  have := one_and_ofInt_of_odd (W := W) (by omega) c hc
+  cases x <;> cases y <;>
+    simp only [Data.LLVM.Int.icmp, Data.LLVM.Int.and, Data.LLVM.Int.zext, Id.run, Data.LLVM.Int.isRefinedBy_eq, pure]
+  rename_i a b
+  have h1 : BitVec.setWidth W 1#1 = 1#W := by
+    apply BitVec.eq_of_toNat_eq
+    simp [BitVec.toNat_setWidth, Nat.one_mod_two_pow (by omega : 0 < W)]
+  cases Data.LLVM.IntPred.eval p a b <;> simp_all [BitVec.setWidth_eq]
+
+@[combine_valid, proof_pbv]
+theorem combine_canonicalize_icmp_valid : Puddle.CTree.Pattern.Valid canonicalize_icmp_pattern := by
+  proveLegalValid using icmp_swap
+
+/-- `redundant_and_select_pattern .icmp .icmp`, for an `i1` result: both arms are comparisons. -/
+private theorem and_select_icmp_odd {wc v₁ v₂ : Nat} (c : Data.LLVM.Int wc) (x y : Data.LLVM.Int v₁)
+    (x' y' : Data.LLVM.Int v₂) (p q : Data.LLVM.IntPred) (k : _root_.Int) (hk : k % 2 = 1) :
+    (GMIR.selectNonzero c (x.icmp y p) (x'.icmp y' q)).and (.val (BitVec.ofInt 1 k)) ⊒
+      GMIR.selectNonzero c (x.icmp y p) (x'.icmp y' q) := by
+  cases c with
+  | poison => simp [GMIR.selectNonzero, Data.LLVM.Int.and, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  | val c =>
+    by_cases h : c = 0#wc <;> simp only [GMIR.selectNonzero, Id.run, h, bne_self_eq_false, ite_false,
+      ite_true, bne_iff_ne, ne_eq, not_false_eq_true, Bool.false_eq_true]
+    · exact and_icmp_odd x' y' q k hk
+    · exact and_icmp_odd x y p k hk
+
+/-- `redundant_and_select_pattern .icmp .icmp`, for a wider result. -/
+private theorem and_select_zext_icmp_odd {wc v₁ v₂ W : Nat} (c : Data.LLVM.Int wc) (x y : Data.LLVM.Int v₁)
+    (x' y' : Data.LLVM.Int v₂) (p q : Data.LLVM.IntPred) (k : _root_.Int) (hk : k % 2 = 1) (hW : 1 < W) :
+    (GMIR.selectNonzero c ((x.icmp y p).zext W false hW) ((x'.icmp y' q).zext W false hW)).and
+        (.val (BitVec.ofInt W k)) ⊒
+      GMIR.selectNonzero c ((x.icmp y p).zext W false hW) ((x'.icmp y' q).zext W false hW) := by
+  cases c with
+  | poison => simp [GMIR.selectNonzero, Data.LLVM.Int.and, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  | val c =>
+    by_cases h : c = 0#wc <;> simp only [GMIR.selectNonzero, Id.run, h, bne_self_eq_false, ite_false,
+      ite_true, bne_iff_ne, ne_eq, not_false_eq_true, Bool.false_eq_true]
+    · exact and_zext_icmp_odd x' y' q k hk hW
+    · exact and_zext_icmp_odd x y p k hk hW
+
+set_option maxHeartbeats 8000000 in
+/-- The two comparisons and the constant make this the slowest combine to normalize. -/
+@[combine_valid, proof_manual]
+theorem combine_redundant_and_select_icmp_icmp_valid :
+    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .icmp .icmp) := by
+  proveLegalValid with first
+    | (apply and_select_zext_icmp_odd <;> assumption)
+    | (apply and_select_icmp_odd <;> assumption)
+
+@[combine_valid, proof_manual]
+theorem combine_redundant_and_valid : Puddle.CTree.Pattern.Valid redundant_and_pattern := by
+  proveLegalValid with first
+    | (apply and_zext_icmp_odd <;> assumption)
+    | (apply and_icmp_odd <;> assumption)
+
+/-! ### Funnel shifts or-ed with the shift they subsume
+
+`(fshl x z y) | (x << y) → fshl x z y` and `(z >> y) | (fshr x z y) → fshr x z y`, in both orders:
+the plain shift's bits are among the funnel shift's when the amount is in range, and it is poison
+otherwise. -/
+
+/-- The bits of `x << s` are among those of `fshl x z s`, for `s < w`. -/
+private theorem fshl_or_shl_bits {w : Nat} (x z : BitVec w) (s : Nat) :
+    ((x ++ z) <<< s).extractLsb' w w ||| x <<< s = ((x ++ z) <<< s).extractLsb' w w := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  simp only [BitVec.getElem_or, BitVec.getElem_extractLsb', BitVec.getElem_shiftLeft,
+    BitVec.getLsbD_shiftLeft, BitVec.getLsbD_append]
+  by_cases h : i < s
+  · simp [h]
+  · have : ¬ w + i < s := by omega
+    simp only [h, this, decide_false, Bool.not_false, Bool.true_and, show w + i < w + w by omega,
+      decide_true, show ¬ (w + i - s < w) by omega, ite_false, BitVec.getLsbD_eq_getElem (by omega : i - s < w),
+      show w + i - s - w = i - s by omega]
+    simp
+
+private theorem fshl_or_shl {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.Int v) (n u d : Bool) :
+    (x.fshl z (GMIR.funnelShiftAmount w y)).or (x.shl (shiftAmount w y) n u) d ⊒
+      x.fshl z (GMIR.funnelShiftAmount w y) := by
+  cases x <;> cases z <;> cases y <;>
+    simp [GMIR.funnelShiftAmount, shiftAmount, Data.LLVM.Int.fshl, Data.LLVM.Int.shl, Data.LLVM.Int.or,
+      Id.run, Data.LLVM.Int.poison_isRefinedBy, pure]
+  rename_i x z y
+  by_cases h : y.toNat < w
+  · have hw : w < 2 ^ w := Nat.lt_two_pow_self
+    have hsw : (BitVec.setWidth w y).toNat = y.toNat := by
+      simp only [BitVec.toNat_setWidth]
+      exact Nat.mod_eq_of_lt (by omega)
+    have hm : y.toNat % w % 2 ^ w % w = y.toNat := by
+      rw [Nat.mod_eq_of_lt h, Nat.mod_eq_of_lt (show y.toNat < 2 ^ w by omega), Nat.mod_eq_of_lt h]
+    have hlt : ¬ BitVec.ofNat w w ≤ BitVec.setWidth w y := by
+      simp only [BitVec.le_def, hsw, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hw]
+      omega
+    simp only [h, ite_true, hlt, ite_false, hsw, hm]
+    split
+    · rename_i y' heq
+      simp only [Data.LLVM.ite_poison_eq_val_id, Data.LLVM.val_eq_val_id] at heq
+      obtain ⟨-, -, rfl⟩ := heq
+      split <;> simp [Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_eq, fshl_or_shl_bits]
+    · simp [Data.LLVM.Int.poison_isRefinedBy]
+  · have hge : BitVec.ofNat w w ≤ BitVec.allOnes w := by
+      have := Nat.lt_two_pow_self (n := w)
+      simp [BitVec.le_def, BitVec.toNat_allOnes, Nat.mod_eq_of_lt this]
+      omega
+    simp [h, hge, Data.LLVM.Int.poison_isRefinedBy]
+
+/-- `g_or` is commutative, including its `disjoint` check. -/
+private theorem or_comm' {w : Nat} (a b : Data.LLVM.Int w) (d : Bool) : a.or b d = b.or a d := by
+  cases a <;> cases b <;> simp [Data.LLVM.Int.or, Id.run, BitVec.or_comm, BitVec.and_comm]
+
+private theorem shl_or_fshl {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.Int v) (n u d : Bool) :
+    (x.shl (shiftAmount w y) n u).or (x.fshl z (GMIR.funnelShiftAmount w y)) d ⊒
+      x.fshl z (GMIR.funnelShiftAmount w y) := by
+  rw [or_comm']
+  exact fshl_or_shl x z y n u d
+
+@[combine_valid, proof_manual]
+theorem combine_funnel_shift_fshl_or_shl_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshl .g_shl true true) := by
+  proveLegalValid using fshl_or_shl
+
+@[combine_valid, proof_manual]
+theorem combine_funnel_shift_shl_or_fshl_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshl .g_shl true false) := by
+  proveLegalValid using shl_or_fshl
+
+/-! ## Status of every combine -/
+
+@[legalization_status]
+theorem combine_funnel_shift_fshl_or_shl_status :
+    Status Unproven (funnel_shift_or_shift_pattern .g_fshl .g_shl true true) :=
+  .proven combine_funnel_shift_fshl_or_shl_valid
+
+@[legalization_status]
+theorem combine_funnel_shift_shl_or_fshl_status :
+    Status Unproven (funnel_shift_or_shift_pattern .g_fshl .g_shl true false) :=
+  .proven combine_funnel_shift_shl_or_fshl_valid
+
+@[legalization_status]
+theorem combine_canonicalize_icmp_status :
+    Status Unproven canonicalize_icmp_pattern :=
+  .proven (combine_canonicalize_icmp_valid )
+
+@[legalization_status]
+theorem combine_redundant_and_status : Status Unproven redundant_and_pattern :=
+  .proven combine_redundant_and_valid
+
+@[legalization_status]
+theorem combine_redundant_and_select_icmp_icmp_status :
+    Status Unproven (redundant_and_select_pattern .icmp .icmp) :=
+  .proven combine_redundant_and_select_icmp_icmp_valid
+
+end Veir.Legalization.CTreeProofs
+
+/-! CTree validity of the gMIR combines that test or compute the value of a matched `g_constant`.
+
+`matchConstant` requires the constant's attribute to have the type of its result, as the verifier
+does, so the combines read the constant at the width it has: `normalizeConstants` splits its
+properties and substitutes that type, which leaves each constant as `BitVec.ofInt w v` with the
+matcher's predicate as a hypothesis on it. Each goal is then closed by a local lemma stated for an
+arbitrary constant `c`, mostly in `Veir.Passes.Legalization.Proofs`; the lemmas that mention the
+private `shiftAmount` of the gMIR semantics are here.
+
+Two matchers also needed a typing condition: `select_into_binop_pattern` skips `i0`, where the
+shift by the created `0` is out of range, and `matchFunnelShiftConstAmt` matches the result at the
+type of the shifted value, since `funnel_shift_overshift_pattern` reduces the amount modulo the
+result width while the funnel shift takes it modulo the width of its operands. -/
+
+namespace Veir.Legalization.CTreeProofs
+
+
+open Puddle
+open Puddle.CTree
+open _root_.CTree
+
+set_option linter.unusedSimpArgs false
+set_option maxHeartbeats 1000000
+
+attribute [local ctree_semantics]
+  OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
+  GMIR.interpretOp' GMIR.interpretOpCTree GMIR_RISCV.interpretOp'
+
+attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
+
+attribute [local implicit_reducible] TypeAttr
+
+/-- The predicates the combines test on a matched constant, read at the width of its result. -/
+macro "simpConstantPreds" : tactic => `(tactic|
+  simp only [GMIRConstantProperties.bits, GMIRConstantProperties.isZero, GMIRConstantProperties.isOne,
+    GMIRConstantProperties.isAllOnes, GMIRConstantProperties.isMinSigned, GMIRConstantProperties.neg,
+    GMIRConstantProperties.isOffsetOf, GMIRConstantProperties.log2?, GMIRConstantProperties.ulog2?,
+    GMIRConstantProperties.slog2?, beq_iff_eq, bne_iff_ne, ne_eq, decide_eq_true_eq, Bool.or_eq_true] at *)
+
+/-- Normalize the goals of a combine that matches constants: split each constant's properties and
+substitute its type, which `matchConstant` equates to the result type, so that each constant is
+`BitVec.ofInt w v` at its result width `w`. -/
+macro "normalizeConstants" : tactic => `(tactic| (
+  all_goals intros
+  all_goals (casesLocalsOf GMIRConstantProperties IntegerAttr)
+  all_goals casesIntegerTypes
+  all_goals (try simp only [IntegerType.mk.injEq] at *)
+  all_goals (try casesExistsAnd)
+  all_goals (try subst_vars)
+  all_goals (try simpConstantPreds)))
+
+/-- Closes a hypothesis of a local correctness lemma: a predicate of the matcher, or a
+comparison or constant arm that is zero or one. -/
+macro "closeConstSide" : tactic => `(tactic| first
+  | assumption
+  | exact Data.LLVM.zext_i1_eq_poison_or_zero_or_one ‹_› _
+  | exact Data.LLVM.icmp_eq_poison_or_zero_or_one _ _ _
+  | exact Data.LLVM.boolArm_of_constant _ ‹_›
+  | simp_all
+  | omega)
+
+/-- Closes a value goal with the first of the lemmas that applies. -/
+syntax "closeConstWith" term,+ : tactic
+macro_rules
+  | `(tactic| closeConstWith $l) => `(tactic| (apply $l <;> closeConstSide))
+  | `(tactic| closeConstWith $l, $ls,*) =>
+    `(tactic| first | (apply $l <;> closeConstSide) | closeConstWith $ls,*)
+
+/-- Prove the validity of a combine that matches constants, closing each value goal with one of the
+local correctness lemmas, whose hypotheses on the constants are those of the matcher. -/
+macro "proveConstValid" "using" ls:term,+ : tactic => `(tactic| (
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+  normalizeLegalValid
+  normalizeConstants
+  all_goals closeConstWith $ls,*))
+
+/-- The steps of `normalizeTypedConstants` after `simpLegalSemantics`. -/
+macro "normalizeTypedConstantsAfterSemantics" : tactic => `(tactic| (
+  normalizeLegalValid
+  normalizeConstants
+  all_goals (casesLocalsOf Subtype)
+  all_goals (try subst_vars)
+  all_goals (try simp_all)
+  normalizeLegalValid))
+
+/-- Normalize a combine whose types are `TypeAttr`s, as the funnel shifts: also split each type, so
+that the type of the constant, which `matchConstant` equates, substitutes, and normalize again. -/
+macro "normalizeTypedConstants" : tactic => `(tactic| (
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+  normalizeTypedConstantsAfterSemantics))
+
+/-! ### Shifts by a matched zero
+
+`shiftAmount` is private to the gMIR semantics, so these lemmas are stated here. -/
+
+private theorem id_pure {α : Type} (x : α) : (pure x : Id α) = x := rfl
+
+/-! ### Powers of two
+
+The matcher reads a power of two `±2^k` with `exactLog2?`, and the rewrite shifts by `k`. -/
+
+private theorem exactLog2?_eq_some {n k : Nat} (h : exactLog2? n = some k) : n = 2 ^ k := by
+  unfold exactLog2? at h
+  split at h
+  · rename_i hn
+    obtain ⟨j, rfl⟩ : ∃ j, n = 2 ^ j := Nat.ne_zero_and_sub_one_eq_zero_iff_isPowerOfTwo.mp hn
+    simp only [Option.some.injEq, Nat.log2_two_pow] at h
+    rw [h]
+  · cases h
+
+private theorem shiftAmount_ofNat {w k : Nat} (hk : k < w) :
+    shiftAmount w (Data.LLVM.Int.val (BitVec.ofNat w k)) = Data.LLVM.Int.constant w k := by
+  have : k < 2 ^ w := Nat.lt_trans hk Nat.lt_two_pow_self
+  simp [shiftAmount, Data.LLVM.Int.constant, Nat.mod_eq_of_lt this, hk]
+
+private theorem shiftAmount_ofInt {w k : Nat} (hk : k < w) :
+    shiftAmount w (Data.LLVM.Int.val (BitVec.ofInt w (k : Int))) = Data.LLVM.Int.constant w k := by
+  rw [BitVec.ofInt_natCast]; exact shiftAmount_ofNat hk
+
+private theorem two_pow_cast (k : Nat) : ((2 ^ k : Nat) : Int) = 2 ^ k := by push_cast; rfl
+
+/-- A constant `2^k` that is positive as a signed integer. -/
+private theorem eq_twoPow_of_toInt {w k : Nat} {c : BitVec w} (h : c.toInt = 2 ^ k) :
+    k + 1 < w ∧ c = BitVec.twoPow w k := by
+  have hc := BitVec.toInt_eq_toNat_cond c
+  have hP := two_pow_cast k
+  have hQ := two_pow_cast w
+  have := c.isLt
+  have := Nat.one_le_two_pow (n := k)
+  have hn : c.toNat = 2 ^ k ∧ 2 * 2 ^ k < 2 ^ w := by
+    split at hc <;> omega
+  have hk : k + 1 < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (by rw [Nat.pow_succ]; omega)
+  exact ⟨hk, BitVec.eq_of_toNat_eq (by rw [hn.1, BitVec.toNat_twoPow_of_lt (by omega)])⟩
+
+/-- A constant `-2^k`, including the minimum signed value. -/
+private theorem eq_neg_twoPow_of_toInt {w k : Nat} {c : BitVec w} (h : c.toInt = -2 ^ k) :
+    k < w ∧ c = -BitVec.twoPow w k := by
+  have hc := BitVec.toInt_eq_toNat_cond c
+  have hP := two_pow_cast k
+  have hQ := two_pow_cast w
+  have := c.isLt
+  have := Nat.one_le_two_pow (n := k)
+  have hn : c.toNat = 2 ^ w - 2 ^ k ∧ 2 ^ k < 2 ^ w := by
+    split at hc <;> omega
+  have hk : k < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp hn.2
+  refine ⟨hk, BitVec.eq_of_toNat_eq ?_⟩
+  rw [hn.1, BitVec.toNat_neg, BitVec.toNat_twoPow_of_lt hk, Nat.mod_eq_of_lt (by omega)]
+
+private theorem udiv_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
+    (hc : (exactLog2? c.toNat).isSome = true) (e : Bool) :
+    x.udiv (.val c) e ⊒
+      x.lshr (shiftAmount w (.val (BitVec.ofNat w (exactLog2? c.toNat).get!))) := by
+  obtain ⟨k, hk⟩ := Option.isSome_iff_exists.mp hc
+  have hc2 := exactLog2?_eq_some hk
+  have hkw : k < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (hc2 ▸ c.isLt)
+  have : c = BitVec.twoPow w k :=
+    BitVec.eq_of_toNat_eq (by rw [hc2, BitVec.toNat_twoPow_of_lt hkw])
+  rw [hk, Option.get!_some, shiftAmount_ofNat hkw, this]
+  exact Data.LLVM.udiv_by_pow2 x k hkw e
+
+/-- The signed power of two `±2^k` that `slog2?` reads. -/
+private theorem slog2_some {w k : Nat} {c : BitVec w} (hk : exactLog2? c.toInt.natAbs = some k) :
+    (c.toInt < 0 → c.toInt = -2 ^ k) ∧ (¬ c.toInt < 0 → c.toInt = 2 ^ k) := by
+  have habs := exactLog2?_eq_some hk
+  have hP := two_pow_cast k
+  constructor <;> intro hneg <;> omega
+
+private theorem sdiv_exact_pow2_pos {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
+    (h : Option.any (fun x => !x.snd)
+      (Option.map (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)) = true) :
+    x.sdiv (.val c) true ⊒
+      x.ashr (shiftAmount w (.val (BitVec.ofNat w
+        (Option.map (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)).get!.fst))) := by
+  cases hk : exactLog2? c.toInt.natAbs with
+  | none => simp [hk] at h
+  | some k =>
+    simp only [hk, Option.map_some, Option.any_some, Bool.not_eq_true', decide_eq_false_iff_not] at h
+    simp only [Option.map_some, Option.get!_some]
+    obtain ⟨hkw, rfl⟩ := eq_twoPow_of_toInt ((slog2_some hk).2 h)
+    rw [shiftAmount_ofNat (by omega)]
+    exact Data.LLVM.sdiv_exact_by_pow2_pos x k hkw
+
+private theorem sdiv_exact_pow2_neg {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
+    (h : Option.any (fun x => x.snd)
+      (Option.map (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)) = true) :
+    x.sdiv (.val c) true ⊒
+      (Data.LLVM.Int.val 0#w).sub (x.ashr (shiftAmount w (.val (BitVec.ofNat w
+        (Option.map (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)).get!.fst)))) := by
+  cases hk : exactLog2? c.toInt.natAbs with
+  | none => simp [hk] at h
+  | some k =>
+    simp only [hk, Option.map_some, Option.any_some, decide_eq_true_eq] at h
+    simp only [Option.map_some, Option.get!_some]
+    obtain ⟨hkw, rfl⟩ := eq_neg_twoPow_of_toInt ((slog2_some hk).1 h)
+    rw [shiftAmount_ofNat hkw]
+    simpa [Data.LLVM.Int.constant] using Data.LLVM.sdiv_exact_by_pow2_neg x k hkw
+
+/-- The shift amounts that `sdiv_by_pow2_pattern` creates are in range. -/
+private theorem sdiv_shift_amounts {w k : Nat} (hk0 : 0 < k) (hkw : k < w) :
+    shiftAmount w (Data.LLVM.Int.val (BitVec.ofInt w ((w : Int) - 1))) =
+        Data.LLVM.Int.constant w (w - 1 : Nat) ∧
+      shiftAmount w (Data.LLVM.Int.val (BitVec.ofInt w ((w : Int) - (k : Int)))) =
+        Data.LLVM.Int.constant w (w - k : Nat) := by
+  constructor
+  · rw [show (w : Int) - 1 = ((w - 1 : Nat) : Int) by omega, shiftAmount_ofInt (by omega)]
+  · rw [show (w : Int) - (k : Int) = ((w - k : Nat) : Int) by omega, shiftAmount_ofInt (by omega)]
+
+private theorem sdiv_pow2_pos {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
+    (h : Option.any (fun x => !decide (x.fst = 0) && !x.snd)
+      (Option.map (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)) = true) :
+    x.sdiv (.val c) ⊒
+      (x.add ((x.ashr (shiftAmount w (.val (BitVec.ofInt w ((w : Int) - 1))))).lshr
+          (shiftAmount w (.val (BitVec.ofInt w ((w : Int) - ((Option.map
+            (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)).get!.fst : Nat))))))).ashr
+        (shiftAmount w (.val (BitVec.ofNat w
+          (Option.map (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)).get!.fst))) := by
+  cases hk : exactLog2? c.toInt.natAbs with
+  | none => simp [hk] at h
+  | some k =>
+    simp only [hk, Option.map_some, Option.any_some, Bool.and_eq_true, Bool.not_eq_true',
+      decide_eq_false_iff_not] at h
+    simp only [Option.map_some, Option.get!_some]
+    obtain ⟨hkw, rfl⟩ := eq_twoPow_of_toInt ((slog2_some hk).2 h.2)
+    obtain ⟨h₁, h₂⟩ := sdiv_shift_amounts (Nat.pos_of_ne_zero h.1) (by omega : k < w)
+    rw [h₁, h₂, shiftAmount_ofNat (by omega)]
+    exact Data.LLVM.sdiv_by_pow2_pos x k (Nat.pos_of_ne_zero h.1) hkw
+
+private theorem sdiv_pow2_neg {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
+    (h : Option.any (fun x => !decide (x.fst = 0) && x.snd)
+      (Option.map (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)) = true) :
+    x.sdiv (.val c) ⊒
+      (Data.LLVM.Int.val 0#w).sub
+        ((x.add ((x.ashr (shiftAmount w (.val (BitVec.ofInt w ((w : Int) - 1))))).lshr
+          (shiftAmount w (.val (BitVec.ofInt w ((w : Int) - ((Option.map
+            (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)).get!.fst : Nat))))))).ashr
+        (shiftAmount w (.val (BitVec.ofNat w
+          (Option.map (fun x => (x, decide (c.toInt < 0))) (exactLog2? c.toInt.natAbs)).get!.fst)))) := by
+  cases hk : exactLog2? c.toInt.natAbs with
+  | none => simp [hk] at h
+  | some k =>
+    simp only [hk, Option.map_some, Option.any_some, Bool.and_eq_true, Bool.not_eq_true',
+      decide_eq_false_iff_not, decide_eq_true_eq] at h
+    simp only [Option.map_some, Option.get!_some]
+    obtain ⟨hkw, rfl⟩ := eq_neg_twoPow_of_toInt ((slog2_some hk).1 h.2)
+    obtain ⟨h₁, h₂⟩ := sdiv_shift_amounts (Nat.pos_of_ne_zero h.1) hkw
+    rw [h₁, h₂, shiftAmount_ofNat hkw]
+    simpa [Data.LLVM.Int.constant, Data.LLVM.sdivPow2Shift] using
+      Data.LLVM.sdiv_by_pow2_neg x k (Nat.pos_of_ne_zero h.1) hkw
+
+/-- The positive power of two `2^k` that `log2?` reads. -/
+private theorem log2_some {w : Nat} {c : BitVec w}
+    (h : (if 0 < c.toInt then exactLog2? c.toInt.toNat else none).isSome = true) :
+    ∃ k, (if 0 < c.toInt then exactLog2? c.toInt.toNat else none) = some k ∧ k + 1 < w ∧
+      c = BitVec.twoPow w k := by
+  split at h
+  · obtain ⟨k, hk⟩ := Option.isSome_iff_exists.mp h
+    have habs := exactLog2?_eq_some hk
+    have hP := two_pow_cast k
+    have hci : c.toInt = 2 ^ k := by omega
+    obtain ⟨hkw, hc⟩ := eq_twoPow_of_toInt hci
+    exact ⟨k, by rw [ite_eq_left_of_eq_true _ _ (eq_true ‹_›)]; exact hk, hkw, hc⟩
+  · simp at h
+
+private theorem mul_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
+    (h : (if 0 < c.toInt then exactLog2? c.toInt.toNat else none).isSome = true) (n u : Bool) :
+    x.mul (.val c) n u ⊒
+      x.shl (shiftAmount w (.val (BitVec.ofNat w
+        (if 0 < c.toInt then exactLog2? c.toInt.toNat else none).get!))) n u := by
+  obtain ⟨k, hk, hkw, rfl⟩ := log2_some h
+  rw [hk, Option.get!_some, shiftAmount_ofNat (by omega)]
+  exact Data.LLVM.mul_twoPow_shl x k hkw n u
+
+private theorem urem_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
+    (h : (if 0 < c.toInt then exactLog2? c.toInt.toNat else none).isSome = true) :
+    x.urem (.val c) ⊒ x.and (.val (BitVec.ofInt w (c.toInt - 1))) := by
+  obtain ⟨k, -, hkw, rfl⟩ := log2_some h
+  have hlt : 2 ^ k < 2 ^ w := Nat.pow_lt_pow_right (by decide) (by omega)
+  have hne : BitVec.twoPow w k ≠ 0#w := by
+    intro h0; have := congrArg BitVec.toNat h0
+    simp [BitVec.toNat_twoPow_of_lt (by omega : k < w)] at this
+  have hti : (BitVec.twoPow w k).toInt = 2 ^ k := by
+    rw [BitVec.toInt_twoPow]
+    simp only [show ¬ w ≤ k by omega, show ¬ k + 1 = w by omega, ite_false]
+  have hmask : BitVec.ofInt w ((BitVec.twoPow w k).toInt - 1) = BitVec.ofNat w (2 ^ k - 1) := by
+    have := Nat.one_le_two_pow (n := k)
+    have hP := two_pow_cast k
+    rw [hti, show (2 : Int) ^ k - 1 = ((2 ^ k - 1 : Nat) : Int) by omega, BitVec.ofInt_natCast]
+  rw [hmask]
+  cases x with
+  | poison => simp [Data.LLVM.Int.urem, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  | val x =>
+    have hv : x % BitVec.twoPow w k = x &&& BitVec.ofNat w (2 ^ k - 1) := by
+      apply BitVec.eq_of_toNat_eq
+      rw [BitVec.toNat_umod, BitVec.toNat_and, BitVec.toNat_twoPow_of_lt (by omega),
+        BitVec.toNat_ofNat, Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.sub_le (2 ^ k) 1) hlt),
+        Nat.and_two_pow_sub_one_eq_mod]
+    simp [Data.LLVM.Int.urem, Data.LLVM.Int.and, Id.run, hne, hv, Data.LLVM.Int.isRefinedBy_refl]
+
+/-! ### Selects of a shift on the other arm -/
+
+/-! ### Funnel shifts by a constant -/
+
+/-- The matcher of `funnel_shift_overshift_pattern` only accepts an integer result type. -/
+private theorem overshiftAmount?_isSome {p : GMIRConstantProperties} {attr : Attribute}
+    {h : attr.isType = true} (hs : (overshiftAmount? p ⟨attr, h⟩).isSome = true) :
+    ∃ t, attr = .integerType t := by
+  cases attr <;> simp [overshiftAmount?] at hs ⊢ <;> exact ⟨_, rfl⟩
+
+/-- `overshiftAmount?` at an integer result type. -/
+private theorem overshiftAmount?_integerType (v : Int) (t' t : IntegerType)
+    (h : (Attribute.integerType t).isType = true) :
+    overshiftAmount? ⟨⟨v, t'⟩⟩ ⟨.integerType t, h⟩ =
+      if (BitVec.ofInt t'.bitwidth v).toNat < t.bitwidth then none
+      else some ⟨IntegerAttr.ofInt (((BitVec.ofInt t'.bitwidth v).toNat % t.bitwidth : Nat) : Int) t'⟩ := by
+  by_cases hc : (BitVec.ofInt t'.bitwidth v).toNat < t.bitwidth <;>
+    simp only [overshiftAmount?, GMIRConstantProperties.bits, hc, ite_true, ite_false] <;> rfl
+
+private theorem fshr_zero {w v : Nat} (x y : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0) :
+    x.fshr y (GMIR.funnelShiftAmount w (.val c)) ⊒ y := by
+  subst hc
+  cases x <;> cases y <;> simp [Data.LLVM.Int.fshr, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  ext i hi; simp [hi, BitVec.getLsbD_append]
+
+private theorem fshl_zero {w v : Nat} (x y : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0) :
+    x.fshl y (GMIR.funnelShiftAmount w (.val c)) ⊒ x := by
+  subst hc
+  cases x <;> cases y <;> simp [Data.LLVM.Int.fshl, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  ext i hi; simp [hi, BitVec.getLsbD_append, BitVec.getElem_extractLsb', BitVec.getElem_append,
+    show ¬ w + i < w by omega]
+
+/-- The amount `C % w` that replaces an over-large constant amount `C`: the funnel shift takes its
+amount modulo `w` anyway. -/
+private theorem funnelShiftAmount_overshift {w v : Nat} (c : BitVec v) (s : IntegerType.Signedness) :
+    GMIR.funnelShiftAmount w
+        (Data.LLVM.Int.val (BitVec.ofInt v (IntegerAttr.ofInt ((c.toNat % w : Nat) : Int) ⟨v, s⟩).value)) =
+      GMIR.funnelShiftAmount w (.val c) := by
+  rw [ofInt_ofInt_value, BitVec.ofInt_natCast]
+  simp only [GMIR.funnelShiftAmount, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.mod_le _ _) c.isLt), Nat.mod_mod]
+
+/-- `funnelShiftAmount_overshift`, in the normal form of `simp`. -/
+private theorem funnelShiftAmount_overshift' {w v : Nat} (x : Int) (s : IntegerType.Signedness) :
+    GMIR.funnelShiftAmount w
+        (Data.LLVM.Int.val (BitVec.ofInt v (IntegerAttr.ofInt (max (x % 2 ^ v) 0 % (w : Int)) ⟨v, s⟩).value)) =
+      GMIR.funnelShiftAmount w (.val (BitVec.ofInt v x)) := by
+  have := funnelShiftAmount_overshift (w := w) (BitVec.ofInt v x) s
+  simpa using this
+
+/-! ### Selects of two constants -/
+
+private theorem ofInt_one_neg_one : BitVec.ofInt 1 (-1) = 1#1 := by decide
+
+private theorem constant_eq {w : Nat} (v : Int) :
+    Data.LLVM.Int.constant w v = .val (BitVec.ofInt w v) := rfl
+
+private theorem notI1_eq (c : Data.LLVM.Int 1) : Data.LLVM.notI1 c = c.xor (.val 1#1) := by
+  simp [Data.LLVM.notI1, constant_eq, ofInt_one_neg_one]
+
+/-- The constant `2^k` that `ulog2?` reads. -/
+private theorem ulog2_some {w : Nat} {t : BitVec w} (h : (exactLog2? t.toNat).isSome = true) :
+    ∃ k, exactLog2? t.toNat = some k ∧ k < w ∧ t = BitVec.twoPow w k := by
+  obtain ⟨k, hk⟩ := Option.isSome_iff_exists.mp h
+  have hc2 := exactLog2?_eq_some hk
+  have hkw : k < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (hc2 ▸ t.isLt)
+  exact ⟨k, hk, hkw, BitVec.eq_of_toNat_eq (by rw [hc2, BitVec.toNat_twoPow_of_lt hkw])⟩
+
+private theorem soc_pow2_zero {w : Nat} (h : 1 < w) (_hw : w ≤ 64) (c : Data.LLVM.Int 1)
+    (t f : BitVec w) (ht : (exactLog2? t.toNat).isSome = true) (hf : f = 0) :
+    GMIR.selectNonzero c (.val t) (.val f) ⊒
+      (c.zext w false h).shl (shiftAmount w (.val (BitVec.ofNat w (exactLog2? t.toNat).get!))) := by
+  obtain ⟨k, hk, hkw, rfl⟩ := ulog2_some ht
+  subst hf
+  rw [hk, Option.get!_some, shiftAmount_ofNat hkw]
+  simpa [constant_eq] using Data.LLVM.select_pow2_zero h c k hkw
+
+private theorem soc_zero_pow2 {w : Nat} (h : 1 < w) (_hw : w ≤ 64) (c : Data.LLVM.Int 1)
+    (t f : BitVec w) (hf : (exactLog2? f.toNat).isSome = true) (ht : t = 0) :
+    GMIR.selectNonzero c (.val t) (.val f) ⊒
+      ((c.xor (.val 1#1)).zext w false h).shl
+        (shiftAmount w (.val (BitVec.ofNat w (exactLog2? f.toNat).get!))) := by
+  obtain ⟨k, hk, hkw, rfl⟩ := ulog2_some hf
+  subst ht
+  rw [hk, Option.get!_some, shiftAmount_ofNat hkw]
+  simpa [constant_eq, notI1_eq] using Data.LLVM.select_zero_pow2 h c k hkw
+
+/-! ## Validity of every combine that matches a constant -/
+
+@[combine_valid, proof_manual]
+theorem combine_right_identity_one_int_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_one_int_pattern) := by
+  proveConstValid using Data.LLVM.right_identity_one_mul
+
+@[combine_valid, proof_manual]
+theorem combine_sub_one_from_sub_valid :
+    Puddle.CTree.Pattern.Valid (sub_one_from_sub_pattern) := by
+  proveConstValid using Data.LLVM.sub_one_from_sub
+
+@[combine_valid, proof_manual]
+theorem combine_sub_of_mul_const_valid :
+    Puddle.CTree.Pattern.Valid (sub_of_mul_const_pattern) := by
+  proveConstValid using Data.LLVM.sub_of_mul_const
+
+@[combine_valid, proof_manual]
+theorem combine_mul_by_neg_one_valid :
+    Puddle.CTree.Pattern.Valid (mul_by_neg_one_pattern) := by
+  proveConstValid using Data.LLVM.mul_by_neg_one
+
+@[combine_valid, proof_manual]
+theorem combine_mulo_by_2_valid :
+    Puddle.CTree.Pattern.Valid (mulo_by_2_pattern) := by
+  proveConstValid using Data.LLVM.mulo_by_2
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_eq_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .eq .ne) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_ne_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ne .eq) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_ugt_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ugt .ule) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_uge_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .uge .ult) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_ult_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ult .uge) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_ule_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ule .ugt) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_sgt_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sgt .sle) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_sge_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sge .slt) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_slt_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .slt .sge) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_sle_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sle .sgt) := by
+  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_udiv_by_pow2_valid :
+    Puddle.CTree.Pattern.Valid (udiv_by_pow2_pattern) := by
+  proveConstValid using udiv_pow2
+
+@[combine_valid, proof_manual]
+theorem combine_sdiv_exact_by_pow2_pos_valid :
+    Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern false) := by
+  proveConstValid using sdiv_exact_pow2_pos
+
+@[combine_valid, proof_manual]
+theorem combine_sdiv_exact_by_pow2_neg_valid :
+    Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern true) := by
+  proveConstValid using sdiv_exact_pow2_neg
+
+@[combine_valid, proof_manual]
+theorem combine_sdiv_by_pow2_pos_valid :
+    Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern false) := by
+  proveConstValid using sdiv_pow2_pos
+
+@[combine_valid, proof_manual]
+theorem combine_sdiv_by_pow2_neg_valid :
+    Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern true) := by
+  proveConstValid using sdiv_pow2_neg
+
+@[combine_valid, proof_manual]
+theorem combine_mul_to_shl_valid :
+    Puddle.CTree.Pattern.Valid (mul_to_shl_pattern) := by
+  proveConstValid using mul_pow2
+
+@[combine_valid, proof_manual]
+theorem combine_urem_pow2_to_mask_valid :
+    Puddle.CTree.Pattern.Valid (urem_pow2_to_mask_pattern) := by
+  proveConstValid using urem_pow2
+
+@[combine_valid, proof_norm]
+theorem combine_constant_fold_mul_valid :
+    Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_mul ((· * ·))) := by
+  proveConstValid using Data.LLVM.constant_fold_mul
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_redundant_and_select_icmp_constant_valid :
+    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .icmp .constant) := by
+  proveConstValid using Data.LLVM.and_select_bool_odd
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_redundant_and_select_constant_icmp_valid :
+    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .icmp) := by
+  proveConstValid using Data.LLVM.and_select_bool_odd
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_redundant_and_select_constant_constant_valid :
+    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .constant) := by
+  proveConstValid using Data.LLVM.and_select_bool_odd
+
+@[combine_valid, proof_manual]
+theorem combine_select_pow2_zero_valid :
+    Puddle.CTree.Pattern.Valid (select_pow2_zero_pattern) := by
+  proveConstValid using soc_pow2_zero
+
+@[combine_valid, proof_manual]
+theorem combine_select_zero_pow2_valid :
+    Puddle.CTree.Pattern.Valid (select_zero_pow2_pattern) := by
+  proveConstValid using soc_zero_pow2
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_funnel_shift_right_zero_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshr true) := by
+  normalizeTypedConstants
+  all_goals closeConstWith fshr_zero
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_funnel_shift_left_zero_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshl false) := by
+  normalizeTypedConstants
+  all_goals closeConstWith fshl_zero
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_funnel_shift_overshift_l_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_overshift_pattern .g_fshl) := by
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+  /- The created `g_constant` reads its type `amtType` as an integer or a pointer type: substitute
+  the integer type the matched constant gives it before `simp_all` rewrites with that equation. -/
+  intros
+  all_goals (casesLocalsOf Subtype)
+  all_goals (try dsimp only at *)
+  all_goals (try subst_vars)
+  normalizeTypedConstantsAfterSemantics
+  all_goals (obtain ⟨t, rfl⟩ := overshiftAmount?_isSome ‹_›)
+  all_goals (simp only [RuntimeValue.Conforms] at *)
+  all_goals subst_vars
+  all_goals (simp only [overshiftAmount?_integerType] at *)
+  all_goals split
+  all_goals (try simp_all [funnelShiftAmount_overshift', RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy_refl])
+  all_goals (rename_i heq; subst heq)
+  all_goals (simp only [funnelShiftAmount_overshift']; exact Data.LLVM.Int.isRefinedBy_refl _)
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_funnel_shift_overshift_r_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_overshift_pattern .g_fshr) := by
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+  /- The created `g_constant` reads its type `amtType` as an integer or a pointer type: substitute
+  the integer type the matched constant gives it before `simp_all` rewrites with that equation. -/
+  intros
+  all_goals (casesLocalsOf Subtype)
+  all_goals (try dsimp only at *)
+  all_goals (try subst_vars)
+  normalizeTypedConstantsAfterSemantics
+  all_goals (obtain ⟨t, rfl⟩ := overshiftAmount?_isSome ‹_›)
+  all_goals (simp only [RuntimeValue.Conforms] at *)
+  all_goals subst_vars
+  all_goals (simp only [overshiftAmount?_integerType] at *)
+  all_goals split
+  all_goals (try simp_all [funnelShiftAmount_overshift', RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy_refl])
+  all_goals (rename_i heq; subst heq)
+  all_goals (simp only [funnelShiftAmount_overshift']; exact Data.LLVM.Int.isRefinedBy_refl _)
+
+/-! ## Status of every combine that matches a constant -/
+
+@[legalization_status]
+theorem combine_right_identity_one_int_status :
+    Status Unproven (right_identity_one_int_pattern) :=
+  .proven (combine_right_identity_one_int_valid)
+
+@[legalization_status]
+theorem combine_sub_one_from_sub_status :
+    Status Unproven (sub_one_from_sub_pattern) :=
+  .proven (combine_sub_one_from_sub_valid)
+
+@[legalization_status]
+theorem combine_sub_of_mul_const_status :
+    Status Unproven (sub_of_mul_const_pattern) :=
+  .proven (combine_sub_of_mul_const_valid)
+
+@[legalization_status]
+theorem combine_mul_by_neg_one_status :
+    Status Unproven (mul_by_neg_one_pattern) :=
+  .proven (combine_mul_by_neg_one_valid)
+
+@[legalization_status]
+theorem combine_mulo_by_2_status :
+    Status Unproven (mulo_by_2_pattern) :=
+  .proven (combine_mulo_by_2_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_eq_status :
+    Status Unproven (not_cmp_fold_pattern .eq .ne) :=
+  .proven (combine_not_cmp_fold_eq_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_ne_status :
+    Status Unproven (not_cmp_fold_pattern .ne .eq) :=
+  .proven (combine_not_cmp_fold_ne_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_ugt_status :
+    Status Unproven (not_cmp_fold_pattern .ugt .ule) :=
+  .proven (combine_not_cmp_fold_ugt_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_uge_status :
+    Status Unproven (not_cmp_fold_pattern .uge .ult) :=
+  .proven (combine_not_cmp_fold_uge_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_ult_status :
+    Status Unproven (not_cmp_fold_pattern .ult .uge) :=
+  .proven (combine_not_cmp_fold_ult_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_ule_status :
+    Status Unproven (not_cmp_fold_pattern .ule .ugt) :=
+  .proven (combine_not_cmp_fold_ule_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_sgt_status :
+    Status Unproven (not_cmp_fold_pattern .sgt .sle) :=
+  .proven (combine_not_cmp_fold_sgt_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_sge_status :
+    Status Unproven (not_cmp_fold_pattern .sge .slt) :=
+  .proven (combine_not_cmp_fold_sge_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_slt_status :
+    Status Unproven (not_cmp_fold_pattern .slt .sge) :=
+  .proven (combine_not_cmp_fold_slt_valid)
+
+@[legalization_status]
+theorem combine_not_cmp_fold_sle_status :
+    Status Unproven (not_cmp_fold_pattern .sle .sgt) :=
+  .proven (combine_not_cmp_fold_sle_valid)
+
+@[legalization_status]
+theorem combine_udiv_by_pow2_status :
+    Status Unproven (udiv_by_pow2_pattern) :=
+  .proven (combine_udiv_by_pow2_valid)
+
+@[legalization_status]
+theorem combine_sdiv_exact_by_pow2_pos_status :
+    Status Unproven (sdiv_exact_by_pow2_pattern false) :=
+  .proven (combine_sdiv_exact_by_pow2_pos_valid)
+
+@[legalization_status]
+theorem combine_sdiv_exact_by_pow2_neg_status :
+    Status Unproven (sdiv_exact_by_pow2_pattern true) :=
+  .proven (combine_sdiv_exact_by_pow2_neg_valid)
+
+@[legalization_status]
+theorem combine_sdiv_by_pow2_pos_status :
+    Status Unproven (sdiv_by_pow2_pattern false) :=
+  .proven (combine_sdiv_by_pow2_pos_valid)
+
+@[legalization_status]
+theorem combine_sdiv_by_pow2_neg_status :
+    Status Unproven (sdiv_by_pow2_pattern true) :=
+  .proven (combine_sdiv_by_pow2_neg_valid)
+
+@[legalization_status]
+theorem combine_mul_to_shl_status :
+    Status Unproven (mul_to_shl_pattern) :=
+  .proven (combine_mul_to_shl_valid)
+
+@[legalization_status]
+theorem combine_urem_pow2_to_mask_status :
+    Status Unproven (urem_pow2_to_mask_pattern) :=
+  .proven (combine_urem_pow2_to_mask_valid)
+
+@[legalization_status]
+theorem combine_constant_fold_mul_status :
+    Status Unproven (constant_fold_binop_pattern .g_mul ((· * ·))) :=
+  .proven (combine_constant_fold_mul_valid)
+
+@[legalization_status]
+theorem combine_redundant_and_select_icmp_constant_status :
+    Status Unproven (redundant_and_select_pattern .icmp .constant) :=
+  .proven (combine_redundant_and_select_icmp_constant_valid)
+
+@[legalization_status]
+theorem combine_redundant_and_select_constant_icmp_status :
+    Status Unproven (redundant_and_select_pattern .constant .icmp) :=
+  .proven (combine_redundant_and_select_constant_icmp_valid)
+
+@[legalization_status]
+theorem combine_redundant_and_select_constant_constant_status :
+    Status Unproven (redundant_and_select_pattern .constant .constant) :=
+  .proven (combine_redundant_and_select_constant_constant_valid)
+
+@[legalization_status]
+theorem combine_select_pow2_zero_status :
+    Status Unproven (select_pow2_zero_pattern) :=
+  .proven (combine_select_pow2_zero_valid)
+
+@[legalization_status]
+theorem combine_select_zero_pow2_status :
+    Status Unproven (select_zero_pow2_pattern) :=
+  .proven (combine_select_zero_pow2_valid)
+
+@[legalization_status]
+theorem combine_funnel_shift_right_zero_status :
+    Status Unproven (funnel_shift_zero_pattern .g_fshr true) :=
+  .proven (combine_funnel_shift_right_zero_valid)
+
+@[legalization_status]
+theorem combine_funnel_shift_left_zero_status :
+    Status Unproven (funnel_shift_zero_pattern .g_fshl false) :=
+  .proven (combine_funnel_shift_left_zero_valid)
+
+@[legalization_status]
+theorem combine_funnel_shift_overshift_l_status :
+    Status Unproven (funnel_shift_overshift_pattern .g_fshl) :=
+  .proven (combine_funnel_shift_overshift_l_valid)
+
+@[legalization_status]
+theorem combine_funnel_shift_overshift_r_status :
+    Status Unproven (funnel_shift_overshift_pattern .g_fshr) :=
+  .proven (combine_funnel_shift_overshift_r_valid)
+
+end Veir.Legalization.CTreeProofs
+
+/-!
+# CTree validity of the gMIR combines (`Validity/Combine`) by `pbv_decide`
+
+Each rule is proven by `proveLegalValid with veir_pbv_decide` alone, without `sorry`: the matchers
+bound every integer width by 64, which discharges the side goals `w ≤ 64` of `pbv_decide`. The rules `veir_pbv_decide` does not prove are commented out, with the reason it
+fails.
+-/
+namespace Veir.Legalization.CTreeProofs.PBV
+
+open Puddle
+open Puddle.CTree
+open _root_.CTree
+
+set_option linter.unusedSimpArgs false
+set_option maxHeartbeats 2000000
+
+attribute [local ctree_semantics]
+  OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
+  GMIR.interpretOp' GMIR.interpretOpCTree GMIR_RISCV.interpretOp'
+
+attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
+
+attribute [local implicit_reducible] TypeAttr
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_and_shl_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_and .g_shl) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_and_shl_status :
+    Status Unproven (hoist_logic_op_pattern .g_and .g_shl) :=
+  .proven (combine_hoist_and_shl_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_and_lshr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_and .g_lshr) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_and_lshr_status :
+    Status Unproven (hoist_logic_op_pattern .g_and .g_lshr) :=
+  .proven (combine_hoist_and_lshr_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_and_ashr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_and .g_ashr) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_and_ashr_status :
+    Status Unproven (hoist_logic_op_pattern .g_and .g_ashr) :=
+  .proven (combine_hoist_and_ashr_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_and_and_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_and .g_and) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_and_and_status :
+    Status Unproven (hoist_logic_op_pattern .g_and .g_and) :=
+  .proven (combine_hoist_and_and_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_or_shl_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_or .g_shl) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_or_shl_status :
+    Status Unproven (hoist_logic_op_pattern .g_or .g_shl) :=
+  .proven (combine_hoist_or_shl_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_or_lshr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_or .g_lshr) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_or_lshr_status :
+    Status Unproven (hoist_logic_op_pattern .g_or .g_lshr) :=
+  .proven (combine_hoist_or_lshr_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_or_ashr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_or .g_ashr) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_or_ashr_status :
+    Status Unproven (hoist_logic_op_pattern .g_or .g_ashr) :=
+  .proven (combine_hoist_or_ashr_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_or_and_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_or .g_and) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_or_and_status :
+    Status Unproven (hoist_logic_op_pattern .g_or .g_and) :=
+  .proven (combine_hoist_or_and_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_xor_shl_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_xor .g_shl) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_xor_shl_status :
+    Status Unproven (hoist_logic_op_pattern .g_xor .g_shl) :=
+  .proven (combine_hoist_xor_shl_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_xor_lshr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_xor .g_lshr) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_xor_lshr_status :
+    Status Unproven (hoist_logic_op_pattern .g_xor .g_lshr) :=
+  .proven (combine_hoist_xor_lshr_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_xor_ashr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_xor .g_ashr) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_xor_ashr_status :
+    Status Unproven (hoist_logic_op_pattern .g_xor .g_ashr) :=
+  .proven (combine_hoist_xor_ashr_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_hoist_xor_and_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_xor .g_and) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_hoist_xor_and_status :
+    Status Unproven (hoist_logic_op_pattern .g_xor .g_and) :=
+  .proven (combine_hoist_xor_and_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_sub_add_reg_x_add_y_sub_y_valid : Puddle.CTree.Pattern.Valid sub_add_reg_x_add_y_sub_y_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_sub_add_reg_x_add_y_sub_y_status :
+    Status Unproven sub_add_reg_x_add_y_sub_y_pattern :=
+  .proven (combine_sub_add_reg_x_add_y_sub_y_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_sub_add_reg_x_add_y_sub_x_valid : Puddle.CTree.Pattern.Valid sub_add_reg_x_add_y_sub_x_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_sub_add_reg_x_add_y_sub_x_status :
+    Status Unproven sub_add_reg_x_add_y_sub_x_pattern :=
+  .proven (combine_sub_add_reg_x_add_y_sub_x_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_sub_add_reg_negate_valid : Puddle.CTree.Pattern.Valid (sub_add_reg_negate_pattern false) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_sub_add_reg_negate_status :
+    Status Unproven (sub_add_reg_negate_pattern false) :=
+  .proven (combine_sub_add_reg_negate_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_sub_add_reg_negate_x_first_valid : Puddle.CTree.Pattern.Valid (sub_add_reg_negate_pattern true) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_sub_add_reg_negate_x_first_status :
+    Status Unproven (sub_add_reg_negate_pattern true) :=
+  .proven (combine_sub_add_reg_negate_x_first_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_xor_of_and_with_same_reg_valid : Puddle.CTree.Pattern.Valid xor_of_and_with_same_reg_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_xor_of_and_with_same_reg_status :
+    Status Unproven xor_of_and_with_same_reg_pattern :=
+  .proven (combine_xor_of_and_with_same_reg_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_trunc_of_zext_valid : Puddle.CTree.Pattern.Valid (trunc_of_ext_pattern .g_zext) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_trunc_of_zext_status :
+    Status Unproven (trunc_of_ext_pattern .g_zext) :=
+  .proven (combine_trunc_of_zext_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_trunc_of_sext_valid : Puddle.CTree.Pattern.Valid (trunc_of_ext_pattern .g_sext) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_trunc_of_sext_status :
+    Status Unproven (trunc_of_ext_pattern .g_sext) :=
+  .proven (combine_trunc_of_sext_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_redundant_add_eq_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_add .eq) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_redundant_add_eq_status :
+    Status Unproven (redundant_binop_in_equality_pattern .g_add .eq) :=
+  .proven (combine_redundant_add_eq_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_redundant_add_ne_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_add .ne) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_redundant_add_ne_status :
+    Status Unproven (redundant_binop_in_equality_pattern .g_add .ne) :=
+  .proven (combine_redundant_add_ne_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_redundant_sub_eq_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_sub .eq) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_redundant_sub_eq_status :
+    Status Unproven (redundant_binop_in_equality_pattern .g_sub .eq) :=
+  .proven (combine_redundant_sub_eq_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_redundant_sub_ne_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_sub .ne) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_redundant_sub_ne_status :
+    Status Unproven (redundant_binop_in_equality_pattern .g_sub .ne) :=
+  .proven (combine_redundant_sub_ne_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_redundant_xor_eq_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_xor .eq) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_redundant_xor_eq_status :
+    Status Unproven (redundant_binop_in_equality_pattern .g_xor .eq) :=
+  .proven (combine_redundant_xor_eq_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_redundant_xor_ne_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_xor .ne) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_redundant_xor_ne_status :
+    Status Unproven (redundant_binop_in_equality_pattern .g_xor .ne) :=
+  .proven (combine_redundant_xor_ne_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_combine_or_of_and_tt_valid : Puddle.CTree.Pattern.Valid (combine_or_of_and_pattern true true) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_combine_or_of_and_tt_status :
+    Status Unproven (combine_or_of_and_pattern true true) :=
+  .proven (combine_combine_or_of_and_tt_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_combine_or_of_and_tf_valid : Puddle.CTree.Pattern.Valid (combine_or_of_and_pattern true false) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_combine_or_of_and_tf_status :
+    Status Unproven (combine_or_of_and_pattern true false) :=
+  .proven (combine_combine_or_of_and_tf_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_combine_or_of_and_ft_valid : Puddle.CTree.Pattern.Valid (combine_or_of_and_pattern false true) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_combine_or_of_and_ft_status :
+    Status Unproven (combine_or_of_and_pattern false true) :=
+  .proven (combine_combine_or_of_and_ft_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_combine_or_of_and_ff_valid : Puddle.CTree.Pattern.Valid (combine_or_of_and_pattern false false) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_combine_or_of_and_ff_status :
+    Status Unproven (combine_or_of_and_pattern false false) :=
+  .proven (combine_combine_or_of_and_ff_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_AMinusBMinusC_valid : Puddle.CTree.Pattern.Valid AMinusBMinusC_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_AMinusBMinusC_status :
+    Status Unproven AMinusBMinusC_pattern :=
+  .proven (combine_AMinusBMinusC_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_zext_of_zext_valid : Puddle.CTree.Pattern.Valid (ext_of_ext_pattern .g_zext) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_zext_of_zext_status :
+    Status Unproven (ext_of_ext_pattern .g_zext) :=
+  .proven (combine_zext_of_zext_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_sext_of_sext_valid : Puddle.CTree.Pattern.Valid (ext_of_ext_pattern .g_sext) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_sext_of_sext_status :
+    Status Unproven (ext_of_ext_pattern .g_sext) :=
+  .proven (combine_sext_of_sext_valid )
+
+-- the `icmp` predicate is abstracted
+-- theorem combine_canonicalize_icmp_valid : Puddle.CTree.Pattern.Valid canonicalize_icmp_pattern := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_bitreverse_shl_valid : Puddle.CTree.Pattern.Valid (bitreverse_shift_pattern .g_shl .g_lshr) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_bitreverse_shl_status :
+    Status Unproven (bitreverse_shift_pattern .g_shl .g_lshr) :=
+  .proven (combine_bitreverse_shl_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_bitreverse_lshr_valid : Puddle.CTree.Pattern.Valid (bitreverse_shift_pattern .g_lshr .g_shl) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_bitreverse_lshr_status :
+    Status Unproven (bitreverse_shift_pattern .g_lshr .g_shl) :=
+  .proven (combine_bitreverse_lshr_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_binop_same_val_and_valid : Puddle.CTree.Pattern.Valid (binop_same_val_pattern .g_and) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_binop_same_val_and_status :
+    Status Unproven (binop_same_val_pattern .g_and) :=
+  .proven (combine_binop_same_val_and_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_binop_same_val_or_valid : Puddle.CTree.Pattern.Valid (binop_same_val_pattern .g_or) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_binop_same_val_or_status :
+    Status Unproven (binop_same_val_pattern .g_or) :=
+  .proven (combine_binop_same_val_or_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_same_val_zero_sub_valid : Puddle.CTree.Pattern.Valid (same_val_zero_pattern .g_sub) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_same_val_zero_sub_status :
+    Status Unproven (same_val_zero_pattern .g_sub) :=
+  .proven (combine_same_val_zero_sub_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_same_val_zero_xor_valid : Puddle.CTree.Pattern.Valid (same_val_zero_pattern .g_xor) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_same_val_zero_xor_status :
+    Status Unproven (same_val_zero_pattern .g_xor) :=
+  .proven (combine_same_val_zero_xor_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_add_sub_reg_0_valid : Puddle.CTree.Pattern.Valid add_sub_reg_0_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_add_sub_reg_0_status :
+    Status Unproven add_sub_reg_0_pattern :=
+  .proven (combine_add_sub_reg_0_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_add_sub_reg_1_valid : Puddle.CTree.Pattern.Valid add_sub_reg_1_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_add_sub_reg_1_status :
+    Status Unproven add_sub_reg_1_pattern :=
+  .proven (combine_add_sub_reg_1_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_APlusBMinusCMinusB_valid : Puddle.CTree.Pattern.Valid APlusBMinusCMinusB_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_APlusBMinusCMinusB_status :
+    Status Unproven APlusBMinusCMinusB_pattern :=
+  .proven (combine_APlusBMinusCMinusB_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_AMinusBMinusCMinusC_valid : Puddle.CTree.Pattern.Valid AMinusBMinusCMinusC_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_AMinusBMinusCMinusC_status :
+    Status Unproven AMinusBMinusCMinusC_pattern :=
+  .proven (combine_AMinusBMinusCMinusC_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_AMinusBPlusCMinusA_valid : Puddle.CTree.Pattern.Valid AMinusBPlusCMinusA_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_AMinusBPlusCMinusA_status :
+    Status Unproven AMinusBPlusCMinusA_pattern :=
+  .proven (combine_AMinusBPlusCMinusA_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_AMinusBPlusBMinusC_valid : Puddle.CTree.Pattern.Valid AMinusBPlusBMinusC_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_AMinusBPlusBMinusC_status :
+    Status Unproven AMinusBPlusBMinusC_pattern :=
+  .proven (combine_AMinusBPlusBMinusC_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_AMinusBMinusA_valid : Puddle.CTree.Pattern.Valid AMinusBMinusA_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_AMinusBMinusA_status :
+    Status Unproven AMinusBMinusA_pattern :=
+  .proven (combine_AMinusBMinusA_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_APlusBMinusAPlusC_valid : Puddle.CTree.Pattern.Valid (APlusBMinusAPlusC_pattern true) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_APlusBMinusAPlusC_status :
+    Status Unproven (APlusBMinusAPlusC_pattern true) :=
+  .proven (combine_APlusBMinusAPlusC_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_APlusBMinusCPlusA_valid : Puddle.CTree.Pattern.Valid (APlusBMinusAPlusC_pattern false) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_APlusBMinusCPlusA_status :
+    Status Unproven (APlusBMinusAPlusC_pattern false) :=
+  .proven (combine_APlusBMinusCPlusA_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_same_val_valid : Puddle.CTree.Pattern.Valid select_same_val_pattern := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_same_val_status :
+    Status Unproven select_same_val_pattern :=
+  .proven (combine_select_same_val_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_ugt_umax_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .ugt .g_umax) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_ugt_umax_status (info : LegalizerInfo) :
+    Status Unproven (select_to_iminmax_pattern info .ugt .g_umax) :=
+  .proven (combine_select_ugt_umax_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_uge_umax_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .uge .g_umax) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_uge_umax_status (info : LegalizerInfo) :
+    Status Unproven (select_to_iminmax_pattern info .uge .g_umax) :=
+  .proven (combine_select_uge_umax_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_sgt_smax_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .sgt .g_smax) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_sgt_smax_status (info : LegalizerInfo) :
+    Status Unproven (select_to_iminmax_pattern info .sgt .g_smax) :=
+  .proven (combine_select_sgt_smax_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_sge_smax_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .sge .g_smax) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_sge_smax_status (info : LegalizerInfo) :
+    Status Unproven (select_to_iminmax_pattern info .sge .g_smax) :=
+  .proven (combine_select_sge_smax_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_ult_umin_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .ult .g_umin) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_ult_umin_status (info : LegalizerInfo) :
+    Status Unproven (select_to_iminmax_pattern info .ult .g_umin) :=
+  .proven (combine_select_ult_umin_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_ule_umin_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .ule .g_umin) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_ule_umin_status (info : LegalizerInfo) :
+    Status Unproven (select_to_iminmax_pattern info .ule .g_umin) :=
+  .proven (combine_select_ule_umin_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_slt_smin_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .slt .g_smin) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_slt_smin_status (info : LegalizerInfo) :
+    Status Unproven (select_to_iminmax_pattern info .slt .g_smin) :=
+  .proven (combine_select_slt_smin_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_sle_smin_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .sle .g_smin) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_sle_smin_status (info : LegalizerInfo) :
+    Status Unproven (select_to_iminmax_pattern info .sle .g_smin) :=
+  .proven (combine_select_sle_smin_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_zext_of_select_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_of_cast_pattern info .g_zext) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_zext_of_select_status (info : LegalizerInfo) :
+    Status Unproven (select_of_cast_pattern info .g_zext) :=
+  .proven (combine_zext_of_select_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_trunc_of_select_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_of_cast_pattern info .g_trunc) := by
+  proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_trunc_of_select_status (info : LegalizerInfo) :
+    Status Unproven (select_of_cast_pattern info .g_trunc) :=
+  .proven (combine_trunc_of_select_valid info )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_sub_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_sub false) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_sub_status :
+    Status Unproven (select_into_binop_pattern .g_sub false) :=
+  .proven (combine_select_into_sub_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_sub_swapped_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_sub true) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_sub_swapped_status :
+    Status Unproven (select_into_binop_pattern .g_sub true) :=
+  .proven (combine_select_into_sub_swapped_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_add_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_add false) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_add_status :
+    Status Unproven (select_into_binop_pattern .g_add false) :=
+  .proven (combine_select_into_add_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_add_swapped_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_add true) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_add_swapped_status :
+    Status Unproven (select_into_binop_pattern .g_add true) :=
+  .proven (combine_select_into_add_swapped_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_or_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_or false) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_or_status :
+    Status Unproven (select_into_binop_pattern .g_or false) :=
+  .proven (combine_select_into_or_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_or_swapped_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_or true) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_or_swapped_status :
+    Status Unproven (select_into_binop_pattern .g_or true) :=
+  .proven (combine_select_into_or_swapped_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_xor_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_xor false) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_xor_status :
+    Status Unproven (select_into_binop_pattern .g_xor false) :=
+  .proven (combine_select_into_xor_valid )
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_xor_swapped_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_xor true) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_xor_swapped_status :
+    Status Unproven (select_into_binop_pattern .g_xor true) :=
+  .proven (combine_select_into_xor_swapped_valid )
+
+-- the `icmp` predicate is abstracted (with `maxHeartbeats 0`; at the default it times out first)
+-- theorem combine_redundant_and_select_icmp_icmp_valid :
+--     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .icmp .icmp) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the `icmp` predicate is abstracted
+-- theorem combine_redundant_and_valid : Puddle.CTree.Pattern.Valid redundant_and_pattern := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_funnel_shift_fshr_or_lshr_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshr .g_lshr false true) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_funnel_shift_fshr_or_lshr_status :
+    Status Unproven (funnel_shift_or_shift_pattern .g_fshr .g_lshr false true) :=
+  .proven combine_funnel_shift_fshr_or_lshr_valid
+
+@[combine_valid, proof_pbv]
+theorem combine_funnel_shift_lshr_or_fshr_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshr .g_lshr false false) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_funnel_shift_lshr_or_fshr_status :
+    Status Unproven (funnel_shift_or_shift_pattern .g_fshr .g_lshr false false) :=
+  .proven combine_funnel_shift_lshr_or_fshr_valid
+
+end Veir.Legalization.CTreeProofs.PBV
+
+/-!
+# CTree validity of the gMIR combines that match constants (`Validity/CombineConstant`) by `pbv_decide`
+
+Each rule is proven by `proveLegalValid with veir_pbv_decide` alone, without `sorry`: the matchers
+bound every integer width by 64, which discharges the side goals `w ≤ 64` of `pbv_decide`. The rules `veir_pbv_decide` does not prove are commented out, with the reason it
+fails.
+-/
+namespace Veir.Legalization.CTreeProofs.PBV
+
+open Puddle
+open Puddle.CTree
+open _root_.CTree
+
+set_option linter.unusedSimpArgs false
+set_option maxHeartbeats 2000000
+
+attribute [local ctree_semantics]
+  OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
+  GMIR.interpretOp' GMIR.interpretOpCTree GMIR_RISCV.interpretOp'
+
+attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
+
+attribute [local implicit_reducible] TypeAttr
+
+@[combine_valid, proof_pbv]
+theorem combine_right_identity_zero_sub_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_sub) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_right_identity_zero_sub_status :
+    Status Unproven (right_identity_zero_pattern .g_sub) :=
+  .proven (combine_right_identity_zero_sub_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_right_identity_zero_add_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_add) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_right_identity_zero_add_status :
+    Status Unproven (right_identity_zero_pattern .g_add) :=
+  .proven (combine_right_identity_zero_add_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_right_identity_zero_or_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_or) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_right_identity_zero_or_status :
+    Status Unproven (right_identity_zero_pattern .g_or) :=
+  .proven (combine_right_identity_zero_or_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_right_identity_zero_xor_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_xor) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_right_identity_zero_xor_status :
+    Status Unproven (right_identity_zero_pattern .g_xor) :=
+  .proven (combine_right_identity_zero_xor_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_right_identity_zero_shl_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_shl) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_right_identity_zero_shl_status :
+    Status Unproven (right_identity_zero_pattern .g_shl) :=
+  .proven (combine_right_identity_zero_shl_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_right_identity_zero_ashr_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_ashr) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_right_identity_zero_ashr_status :
+    Status Unproven (right_identity_zero_pattern .g_ashr) :=
+  .proven (combine_right_identity_zero_ashr_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_right_identity_zero_lshr_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_lshr) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_right_identity_zero_lshr_status :
+    Status Unproven (right_identity_zero_pattern .g_lshr) :=
+  .proven (combine_right_identity_zero_lshr_valid)
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_right_identity_one_int_valid :
+--     Puddle.CTree.Pattern.Valid (right_identity_one_int_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_binop_right_to_zero_valid :
+    Puddle.CTree.Pattern.Valid (binop_right_to_zero_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_binop_right_to_zero_status :
+    Status Unproven (binop_right_to_zero_pattern) :=
+  .proven (combine_binop_right_to_zero_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_binop_left_to_zero_shl_valid :
+    Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_shl) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_binop_left_to_zero_shl_status :
+    Status Unproven (binop_left_to_zero_pattern .g_shl) :=
+  .proven (combine_binop_left_to_zero_shl_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_binop_left_to_zero_lshr_valid :
+    Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_lshr) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_binop_left_to_zero_lshr_status :
+    Status Unproven (binop_left_to_zero_pattern .g_lshr) :=
+  .proven (combine_binop_left_to_zero_lshr_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_binop_left_to_zero_ashr_valid :
+    Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_ashr) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_binop_left_to_zero_ashr_status :
+    Status Unproven (binop_left_to_zero_pattern .g_ashr) :=
+  .proven (combine_binop_left_to_zero_ashr_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_binop_left_to_zero_mul_valid :
+    Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_mul) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_binop_left_to_zero_mul_status :
+    Status Unproven (binop_left_to_zero_pattern .g_mul) :=
+  .proven (combine_binop_left_to_zero_mul_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_sub_minus_one_valid :
+    Puddle.CTree.Pattern.Valid (sub_minus_one_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_sub_minus_one_status :
+    Status Unproven (sub_minus_one_pattern) :=
+  .proven (combine_sub_minus_one_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_ZeroMinusAPlusB_valid :
+    Puddle.CTree.Pattern.Valid (ZeroMinusAPlusB_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_ZeroMinusAPlusB_status :
+    Status Unproven (ZeroMinusAPlusB_pattern) :=
+  .proven (combine_ZeroMinusAPlusB_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_APlusZeroMinusB_valid :
+    Puddle.CTree.Pattern.Valid (APlusZeroMinusB_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_APlusZeroMinusB_status :
+    Status Unproven (APlusZeroMinusB_pattern) :=
+  .proven (combine_APlusZeroMinusB_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_AMinusZeroMinusB_valid :
+    Puddle.CTree.Pattern.Valid (AMinusZeroMinusB_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_AMinusZeroMinusB_status :
+    Status Unproven (AMinusZeroMinusB_pattern) :=
+  .proven (combine_AMinusZeroMinusB_valid)
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_sub_one_from_sub_valid :
+--     Puddle.CTree.Pattern.Valid (sub_one_from_sub_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_APlusC1MinusC2_valid :
+    Puddle.CTree.Pattern.Valid (APlusC1MinusC2_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_APlusC1MinusC2_status :
+    Status Unproven (APlusC1MinusC2_pattern) :=
+  .proven (combine_APlusC1MinusC2_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_C2MinusAPlusC1_valid :
+    Puddle.CTree.Pattern.Valid (C2MinusAPlusC1_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_C2MinusAPlusC1_status :
+    Status Unproven (C2MinusAPlusC1_pattern) :=
+  .proven (combine_C2MinusAPlusC1_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_AMinusC1MinusC2_valid :
+    Puddle.CTree.Pattern.Valid (AMinusC1MinusC2_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_AMinusC1MinusC2_status :
+    Status Unproven (AMinusC1MinusC2_pattern) :=
+  .proven (combine_AMinusC1MinusC2_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_C1MinusAMinusC2_valid :
+    Puddle.CTree.Pattern.Valid (C1MinusAMinusC2_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_C1MinusAMinusC2_status :
+    Status Unproven (C1MinusAMinusC2_pattern) :=
+  .proven (combine_C1MinusAMinusC2_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_AMinusC1PlusC2_valid :
+    Puddle.CTree.Pattern.Valid (AMinusC1PlusC2_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_AMinusC1PlusC2_status :
+    Status Unproven (AMinusC1PlusC2_pattern) :=
+  .proven (combine_AMinusC1PlusC2_valid)
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_sub_of_mul_const_valid :
+--     Puddle.CTree.Pattern.Valid (sub_of_mul_const_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_mul_by_neg_one_valid :
+--     Puddle.CTree.Pattern.Valid (mul_by_neg_one_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_mulo_by_2_valid :
+--     Puddle.CTree.Pattern.Valid (mulo_by_2_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_NotAPlusNegOne_valid :
+    Puddle.CTree.Pattern.Valid (NotAPlusNegOne_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_NotAPlusNegOne_status :
+    Status Unproven (NotAPlusNegOne_pattern) :=
+  .proven (combine_NotAPlusNegOne_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_add_shift_valid :
+    Puddle.CTree.Pattern.Valid (add_shift_pattern false) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_add_shift_status :
+    Status Unproven (add_shift_pattern false) :=
+  .proven (combine_add_shift_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_add_shift_swapped_valid :
+    Puddle.CTree.Pattern.Valid (add_shift_pattern true) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_add_shift_swapped_status :
+    Status Unproven (add_shift_pattern true) :=
+  .proven (combine_add_shift_swapped_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_or_and_xor_to_or_or_and_valid :
+    Puddle.CTree.Pattern.Valid (or_and_xor_to_or_pattern .g_or .g_and) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_or_and_xor_to_or_or_and_status :
+    Status Unproven (or_and_xor_to_or_pattern .g_or .g_and) :=
+  .proven (combine_or_and_xor_to_or_or_and_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_or_and_xor_to_or_and_or_valid :
+    Puddle.CTree.Pattern.Valid (or_and_xor_to_or_pattern .g_and .g_or) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_or_and_xor_to_or_and_or_status :
+    Status Unproven (or_and_xor_to_or_pattern .g_and .g_or) :=
+  .proven (combine_or_and_xor_to_or_and_or_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_or_and_xor_to_xor_or_or_and_valid :
+    Puddle.CTree.Pattern.Valid (or_and_xor_to_xor_or_pattern .g_or .g_and) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_or_and_xor_to_xor_or_or_and_status :
+    Status Unproven (or_and_xor_to_xor_or_pattern .g_or .g_and) :=
+  .proven (combine_or_and_xor_to_xor_or_or_and_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_or_and_xor_to_xor_or_and_or_valid :
+    Puddle.CTree.Pattern.Valid (or_and_xor_to_xor_or_pattern .g_and .g_or) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_or_and_xor_to_xor_or_and_or_status :
+    Status Unproven (or_and_xor_to_xor_or_pattern .g_and .g_or) :=
+  .proven (combine_or_and_xor_to_xor_or_and_or_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_simplify_neg_smax_valid :
+    Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_smax .g_smin) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_simplify_neg_smax_status :
+    Status Unproven (simplify_neg_minmax_pattern .g_smax .g_smin) :=
+  .proven (combine_simplify_neg_smax_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_simplify_neg_umax_valid :
+    Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_umax .g_umin) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_simplify_neg_umax_status :
+    Status Unproven (simplify_neg_minmax_pattern .g_umax .g_umin) :=
+  .proven (combine_simplify_neg_umax_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_simplify_neg_smin_valid :
+    Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_smin .g_smax) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_simplify_neg_smin_status :
+    Status Unproven (simplify_neg_minmax_pattern .g_smin .g_smax) :=
+  .proven (combine_simplify_neg_smin_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_simplify_neg_umin_valid :
+    Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_umin .g_umax) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_simplify_neg_umin_status :
+    Status Unproven (simplify_neg_minmax_pattern .g_umin .g_umax) :=
+  .proven (combine_simplify_neg_umin_valid)
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_eq_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .eq .ne) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_ne_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ne .eq) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_ugt_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ugt .ule) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_uge_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .uge .ult) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_ult_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ult .uge) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_ule_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ule .ugt) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_sgt_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sgt .sle) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_sge_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sge .slt) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_slt_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .slt .sge) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_not_cmp_fold_sle_valid :
+--     Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sle .sgt) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_double_icmp_zero_and_valid :
+    Puddle.CTree.Pattern.Valid (double_icmp_zero_pattern .g_and .eq) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_double_icmp_zero_and_status :
+    Status Unproven (double_icmp_zero_pattern .g_and .eq) :=
+  .proven (combine_double_icmp_zero_and_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_double_icmp_zero_or_valid :
+    Puddle.CTree.Pattern.Valid (double_icmp_zero_pattern .g_or .ne) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_double_icmp_zero_or_status :
+    Status Unproven (double_icmp_zero_pattern .g_or .ne) :=
+  .proven (combine_double_icmp_zero_or_valid)
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_udiv_by_pow2_valid :
+--     Puddle.CTree.Pattern.Valid (udiv_by_pow2_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_sdiv_exact_by_pow2_pos_valid :
+--     Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern false) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_sdiv_exact_by_pow2_neg_valid :
+--     Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern true) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_sdiv_by_pow2_pos_valid :
+--     Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern false) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_sdiv_by_pow2_neg_valid :
+--     Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern true) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_mul_to_shl_valid :
+--     Puddle.CTree.Pattern.Valid (mul_to_shl_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_urem_pow2_to_mask_valid :
+--     Puddle.CTree.Pattern.Valid (urem_pow2_to_mask_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_constant_fold_add_valid :
+    Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_add (fun a b => a + b)) := by
+  proveLegalValid with (normalizeConstants; veir_pbv_decide 64 (bv_decide := false); bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_constant_fold_add_status :
+    Status Unproven (constant_fold_binop_pattern .g_add (fun a b => a + b)) :=
+  .proven (combine_constant_fold_add_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_constant_fold_sub_valid :
+    Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_sub ((· - ·))) := by
+  proveLegalValid with (normalizeConstants; veir_pbv_decide 64 (bv_decide := false); bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_constant_fold_sub_status :
+    Status Unproven (constant_fold_binop_pattern .g_sub ((· - ·))) :=
+  .proven (combine_constant_fold_sub_valid)
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_constant_fold_mul_valid :
+--     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_mul ((· * ·))) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_constant_fold_smin_valid :
+    Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smin (min)) := by
+  proveLegalValid with (normalizeConstants; veir_pbv_decide 64 (bv_decide := false); bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_constant_fold_smin_status :
+    Status Unproven (constant_fold_binop_pattern .g_smin (min)) :=
+  .proven (combine_constant_fold_smin_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_constant_fold_smax_valid :
+    Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smax (max)) := by
+  proveLegalValid with (normalizeConstants; veir_pbv_decide 64 (bv_decide := false); bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_constant_fold_smax_status :
+    Status Unproven (constant_fold_binop_pattern .g_smax (max)) :=
+  .proven (combine_constant_fold_smax_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_constant_cmp_nonzero_valid :
+    Puddle.CTree.Pattern.Valid (select_constant_cmp_pattern true) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_constant_cmp_nonzero_status :
+    Status Unproven (select_constant_cmp_pattern true) :=
+  .proven (combine_select_constant_cmp_nonzero_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_constant_cmp_zero_valid :
+    Puddle.CTree.Pattern.Valid (select_constant_cmp_pattern false) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_constant_cmp_zero_status :
+    Status Unproven (select_constant_cmp_pattern false) :=
+  .proven (combine_select_constant_cmp_zero_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_sub_to_add_valid (info : LegalizerInfo) :
+    Puddle.CTree.Pattern.Valid (sub_to_add_pattern info) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_sub_to_add_status (info : LegalizerInfo) :
+    Status Unproven (sub_to_add_pattern info) :=
+  .proven (combine_sub_to_add_valid info)
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_redundant_and_select_icmp_constant_valid :
+--     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .icmp .constant) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_redundant_and_select_constant_icmp_valid :
+--     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .icmp) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_redundant_and_select_constant_constant_valid :
+--     Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .constant) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_shl_valid :
+    Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_shl false) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_shl_status :
+    Status Unproven (select_into_binop_pattern .g_shl false) :=
+  .proven (combine_select_into_shl_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_shl_swapped_valid :
+    Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_shl true) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_shl_swapped_status :
+    Status Unproven (select_into_binop_pattern .g_shl true) :=
+  .proven (combine_select_into_shl_swapped_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_lshr_valid :
+    Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_lshr false) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_lshr_status :
+    Status Unproven (select_into_binop_pattern .g_lshr false) :=
+  .proven (combine_select_into_lshr_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_lshr_swapped_valid :
+    Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_lshr true) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_lshr_swapped_status :
+    Status Unproven (select_into_binop_pattern .g_lshr true) :=
+  .proven (combine_select_into_lshr_swapped_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_ashr_valid :
+    Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_ashr false) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_ashr_status :
+    Status Unproven (select_into_binop_pattern .g_ashr false) :=
+  .proven (combine_select_into_ashr_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_into_ashr_swapped_valid :
+    Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_ashr true) := by
+  proveLegalValid with (veir_pbv_decide 64 (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_into_ashr_swapped_status :
+    Status Unproven (select_into_binop_pattern .g_ashr true) :=
+  .proven (combine_select_into_ashr_swapped_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_one_zero_valid :
+    Puddle.CTree.Pattern.Valid (select_one_zero_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_one_zero_status :
+    Status Unproven (select_one_zero_pattern) :=
+  .proven (combine_select_one_zero_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_allOnes_zero_valid :
+    Puddle.CTree.Pattern.Valid (select_allOnes_zero_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_allOnes_zero_status :
+    Status Unproven (select_allOnes_zero_pattern) :=
+  .proven (combine_select_allOnes_zero_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_zero_one_valid :
+    Puddle.CTree.Pattern.Valid (select_zero_one_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_zero_one_status :
+    Status Unproven (select_zero_one_pattern) :=
+  .proven (combine_select_zero_one_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_zero_allOnes_valid :
+    Puddle.CTree.Pattern.Valid (select_zero_allOnes_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_zero_allOnes_status :
+    Status Unproven (select_zero_allOnes_pattern) :=
+  .proven (combine_select_zero_allOnes_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_succ_valid :
+    Puddle.CTree.Pattern.Valid (select_succ_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_succ_status :
+    Status Unproven (select_succ_pattern) :=
+  .proven (combine_select_succ_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_pred_valid :
+    Puddle.CTree.Pattern.Valid (select_pred_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_pred_status :
+    Status Unproven (select_pred_pattern) :=
+  .proven (combine_select_pred_valid)
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_select_pow2_zero_valid :
+--     Puddle.CTree.Pattern.Valid (select_pow2_zero_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_select_zero_pow2_valid :
+--     Puddle.CTree.Pattern.Valid (select_zero_pow2_pattern) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+@[combine_valid, proof_pbv]
+theorem combine_select_allOnes_const_valid :
+    Puddle.CTree.Pattern.Valid (select_allOnes_const_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_allOnes_const_status :
+    Status Unproven (select_allOnes_const_pattern) :=
+  .proven (combine_select_allOnes_const_valid)
+
+@[combine_valid, proof_pbv]
+theorem combine_select_const_allOnes_valid :
+    Puddle.CTree.Pattern.Valid (select_const_allOnes_pattern) := by
+  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+
+@[legalization_status]
+theorem combine_select_const_allOnes_status :
+    Status Unproven (select_const_allOnes_pattern) :=
+  .proven (combine_select_const_allOnes_valid)
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_funnel_shift_right_zero_valid :
+--     Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshr true) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
+-- theorem combine_funnel_shift_left_zero_valid :
+--     Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshl false) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- spurious counterexample: the overshift amount's hypotheses are abstracted
+-- theorem combine_funnel_shift_overshift_l_valid :
+--     Puddle.CTree.Pattern.Valid (funnel_shift_overshift_pattern .g_fshl) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+-- spurious counterexample: the overshift amount's hypotheses are abstracted
+-- theorem combine_funnel_shift_overshift_r_valid :
+--     Puddle.CTree.Pattern.Valid (funnel_shift_overshift_pattern .g_fshr) := by
+--   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+end Veir.Legalization.CTreeProofs.PBV

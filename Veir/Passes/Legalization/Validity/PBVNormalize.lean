@@ -4,7 +4,6 @@ import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Bitblast
-import Veir.Passes.Legalization.Proofs
 import all Veir.Passes.Legalization.LegalizerHelper
 
 /-!
@@ -212,7 +211,7 @@ theorem ofInt_neg_two_pow_sub_one {w : Nat} : BitVec.ofInt w (-2 ^ (w - 1)) = Bi
 
 @[veir_bv_normalize]
 theorem ofInt_two_pow_sub_one_sub_one {w : Nat} : BitVec.ofInt w (2 ^ (w - 1) - 1) = BitVec.intMax w := by
-  rw [Data.LLVM.intMax_eq_ofInt]
+  rw [BitVec.intMax_eq_ofInt]
 
 /-- A difference of two widths, as `widthConstant` builds it, as a difference of bit-vectors. -/
 @[veir_bv_normalize]

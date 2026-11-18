@@ -17,14 +17,11 @@ import all Veir.Passes.Legalization.Validity.Widen
 import all Veir.Passes.Legalization.Validity.Custom
 import all Veir.Passes.Legalization.Validity.Lower
 import all Veir.Passes.Legalization.Validity.Artifact
-import all Veir.Passes.Legalization.Validity.Combine
-import all Veir.Passes.Legalization.Validity.CombineConstant
+import all Veir.Passes.Legalization.Proofs
 import all Veir.Passes.Legalization.Validity.PBV
 import all Veir.Passes.Legalization.Validity.PBVCustom
 import all Veir.Passes.Legalization.Validity.PBVLower
 import all Veir.Passes.Legalization.Validity.PBVArtifact
-import all Veir.Passes.Legalization.Validity.PBVCombine
-import all Veir.Passes.Legalization.Validity.PBVCombineConstant
 import all Veir.Passes.Legalization.CombinerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo

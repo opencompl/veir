@@ -775,6 +775,16 @@ theorem sdiv_neg_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k 
     Int.tdiv_eq_ediv_of_dvd hdvd, ← Int.shiftRight_eq_div_pow,
     BitVec.toInt_neg, toInt_sshiftRight'']
 
+/-- `intMax` as the integer constant `2 ^ (w - 1) - 1`. -/
+theorem intMax_eq_ofInt {w : Nat} : BitVec.intMax w = BitVec.ofInt w (2 ^ (w - 1) - 1) := by
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · exact BitVec.of_length_zero.trans BitVec.of_length_zero.symm
+  apply BitVec.eq_of_toInt_eq
+  have : (1 : _root_.Int) ≤ 2 ^ (w - 1) := by
+    have := Nat.one_le_two_pow (n := w - 1)
+    exact_mod_cast this
+  rw [BitVec.toInt_intMax, BitVec.toInt_ofInt_eq_self hw (by omega) (by omega)]
+
 /-! ### Comparisons of `toInt` with integer constants
 
 `bv_decide` does not see `Int` facts such as `-2048 ≤ x.toInt`. When the constant `c` is

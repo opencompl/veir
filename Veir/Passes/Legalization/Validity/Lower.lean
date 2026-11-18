@@ -1,6 +1,7 @@
 module
 
 import all Veir.Passes.Legalization.Validity.Common
+import Veir.Passes.Legalization.Proofs
 import all Veir.Passes.Legalization.LegalizerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
@@ -116,7 +117,7 @@ private theorem sshlSat_lowering {w v : Nat} (x : Data.LLVM.Int w) (a : Data.LLV
       simp only [bne_iff_ne, ne_eq]
       exact fun h => hov h.symm
     simp only [hov, this, not_false_eq_true, ite_true, BitVec.ofBool_true, BitVec.slt_zero_eq_msb]
-    cases x.msb <;> simp [BitVec.intMin_eq_neg_two_pow, Data.LLVM.intMax_eq_ofInt]
+    cases x.msb <;> simp [BitVec.intMin_eq_neg_two_pow, BitVec.intMax_eq_ofInt]
 
 /-- `lowerShlSat false`: `ushl.sat a b = a != (a << b) >>u b ? UINT_MAX : a << b`. -/
 private theorem ushlSat_lowering {w v : Nat} (x : Data.LLVM.Int w) (a : Data.LLVM.Int v) :

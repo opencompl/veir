@@ -1,6 +1,8 @@
 module
 
 public import Veir.IR.Simp
+public import Veir.Data.LLVM.Int.Basic
+public import Veir.Dialects.GMIR.Semantics
 public import Veir.IR.Attribute
 import all Veir.PatternRewriter.Puddle.CTreeProofs
 import all Veir.Passes.Legalization.LegalizerHelper
@@ -20,7 +22,6 @@ import all Veir.Data.LLVM.Int.Basic
 import Veir.PatternRewriter.Puddle.Definitions
 import Veir.PatternRewriter.Puddle.Validity
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
-import Veir.Passes.Legalization.Proofs
 
 /-! Shared imports and gMIR-specific tactics for the CTree validity proofs of the legalization
 rules and the gMIR combines. Each proof file adds the interpreters to `ctree_semantics` and the gMIR
@@ -39,6 +40,61 @@ register_simp_attr legalization_valid
 /-- The `Pattern.Valid` proof of each gMIR combine, looked up by the theorems of
 `Veir.Passes.Legalization.Validity` that every combine of the combiner passes is valid. -/
 register_simp_attr combine_valid
+
+/-! The cast lemmas that `proveLegalValid` applies to every goal. They are stated here, not in
+`Veir.Passes.Legalization.Proofs`, so that the tactic's quotation resolves them. -/
+
+public section
+
+namespace Veir.Data.LLVM
+
+/-- Zero extension preserves the value of a bit-vector as a natural number. -/
+theorem toNat_setWidth_of_le {w W : Nat} (h : w ≤ W) (x : BitVec w) : (x.setWidth W).toNat = x.toNat := by
+  rw [BitVec.toNat_setWidth,
+    Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le x.isLt (Nat.pow_le_pow_right (by decide) h))]
+
+/-- `x` is its low bits after any extension. -/
+theorem trunc_ext {n m : Nat} (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :
+    LLVM.Int.trunc (LLVM.Int.ext x m ext h) n false false h = x := by
+  cases x <;> simp [LLVM.Int.ext, LLVM.Int.trunc, LLVM.Int.cast, Id.run,
+    BitVec.eq_of_getElem_eq_iff]
+  grind
+
+/-- `x` is its low bits after a sign extension. -/
+theorem trunc_sext {n m : Nat} (h : n < m) (x : LLVM.Int n) :
+    LLVM.Int.trunc (LLVM.Int.sext x m h) n false false h = x := by
+  cases x <;> simp [LLVM.Int.sext, LLVM.Int.trunc, Id.run, BitVec.eq_of_getElem_eq_iff]
+  grind
+
+/-- `widenScalar` of the condition of `g_select` (type group 1) with `g_zext`: a zero-extended
+condition is nonzero exactly when the condition is. -/
+theorem selectNonzero_zext {w W : Nat} {v : Nat} (h : w < W) (c : LLVM.Int w) (x y : LLVM.Int v) :
+    GMIR.selectNonzero (c.zext W false h) x y = GMIR.selectNonzero c x y := by
+  cases c with
+  | poison => simp [Int.zext, GMIR.selectNonzero, Id.run]
+  | val c =>
+    have : (c.setWidth W = 0#W) = (c = 0#w) := by
+      rw [eq_iff_iff, ← BitVec.toNat_inj, ← BitVec.toNat_inj, toNat_setWidth_of_le (Nat.le_of_lt h)]
+      simp
+    simp [Int.zext, GMIR.selectNonzero, Id.run, this]
+
+/-- Zero extension without `nneg` keeps refinement both ways. -/
+theorem zext_isRefinedBy_zext {w W : Nat} (x y : LLVM.Int w) (h : w < W) :
+    x.zext W false h ⊒ y.zext W false h ↔ x ⊒ y := by
+  cases x <;> cases y <;> simp [Int.zext, Id.run, Data.LLVM.Int.isRefinedBy_eq, Data.LLVM.Int.poison_isRefinedBy, pure]
+  rename_i a b
+  constructor
+  · intro hab
+    apply BitVec.eq_of_toNat_eq
+    have := congrArg BitVec.toNat hab
+    have hW : 2 ^ w ≤ 2 ^ W := Nat.pow_le_pow_right (by decide) (Nat.le_of_lt h)
+    simpa [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le a.isLt hW),
+      Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le b.isLt hW)] using this
+  · rintro rfl; rfl
+
+end Veir.Data.LLVM
+
+end
 
 namespace Veir.Legalization.CTreeProofs
 
