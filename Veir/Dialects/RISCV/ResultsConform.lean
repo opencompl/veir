@@ -19,7 +19,7 @@ public section
 # The results of RISC-V operations conform to their types
 
 A verified RISC-V operation returns, if its interpretation succeeds, results that conform to its
-result types (`OpCode.resultsConform`). Every result of a RISC-V operation is a register, the
+result types (`OpCode.InterpResultsConform`). Every result of a RISC-V operation is a register, the
 verifier makes every result type `!riscv.reg`, and a store has no result where every other opcode
 has one.
 -/
@@ -165,8 +165,8 @@ theorem Riscv.interpretOp'_results_conform (opT : Riscv)
   exact reg_conforms_of_val hT
 
 /-- The results of every RISC-V opcode conform to their types. -/
-theorem OpCode.resultsConform_riscv (opT : Riscv) : OpCode.resultsConform (.riscv opT) := by
-  refine OpCode.resultsConform_def.mpr
+theorem OpCode.interpResultsConform_riscv (opT : Riscv) : OpCode.InterpResultsConform (.riscv opT) := by
+  refine OpCode.interpResultsConform_def.mpr
     fun ctx op opIn hType hV operands vals mem mem' act _ h => ?_
   have hType! : op.getOpType! ctx.raw = .riscv opT := by
     rw [OperationPtr.getOpType!_eq_getOpType opIn]; exact hType
@@ -176,13 +176,13 @@ theorem OpCode.resultsConform_riscv (opT : Riscv) : OpCode.resultsConform (.risc
   exact Riscv.interpretOp'_results_conform opT hType! hV h
 
 /--
-info: 'Veir.OpCode.resultsConform_riscv' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Veir.OpCode.interpResultsConform_riscv' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms OpCode.resultsConform_riscv
+#print axioms OpCode.interpResultsConform_riscv
 
-instance (op : Riscv) : ResultsConform (.riscv op) :=
-  ⟨OpCode.resultsConform_riscv op⟩
+instance (op : Riscv) : InterpResultsConform (.riscv op) :=
+  ⟨OpCode.interpResultsConform_riscv op⟩
 
 end Veir
 

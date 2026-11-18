@@ -782,6 +782,16 @@ theorem sdiv_neg_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k 
     Int.tdiv_eq_ediv_of_dvd hdvd, ← Int.shiftRight_eq_div_pow,
     BitVec.toInt_neg, toInt_sshiftRight'']
 
+/-- `intMax` as the integer constant `2 ^ (w - 1) - 1`. -/
+theorem intMax_eq_ofInt {w : Nat} : BitVec.intMax w = BitVec.ofInt w (2 ^ (w - 1) - 1) := by
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · exact BitVec.of_length_zero.trans BitVec.of_length_zero.symm
+  apply BitVec.eq_of_toInt_eq
+  have : (1 : _root_.Int) ≤ 2 ^ (w - 1) := by
+    have := Nat.one_le_two_pow (n := w - 1)
+    exact_mod_cast this
+  rw [BitVec.toInt_intMax, BitVec.toInt_ofInt_eq_self hw (by omega) (by omega)]
+
 /-! ### Comparisons of `toInt` with integer constants
 
 `bv_decide` does not see `Int` facts such as `-2048 ≤ x.toInt`. When the constant `c` is
@@ -1323,6 +1333,27 @@ theorem ushiftRight_shiftLeft_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
     by_cases hs : i < s
     · simp [hs, h i hi hs]
     · simp [hs, hi, Nat.add_sub_cancel' (Nat.not_lt.mp hs)]
+
+/-- `ofInt` of a difference, as `BitVec.ofInt_add` for a sum. -/
+theorem ofInt_sub' {n : Nat} (x y : _root_.Int) :
+    BitVec.ofInt n (x - y) = BitVec.ofInt n x - BitVec.ofInt n y := by
+  rw [Int.sub_eq_add_neg, BitVec.ofInt_add, BitVec.ofInt_neg, BitVec.sub_eq_add_neg]
+
+/-- The signed minimum of two bit-vectors, folded through their integer values. -/
+theorem ofInt_min_toInt {w : Nat} (x y : BitVec w) :
+    BitVec.ofInt w (min x.toInt y.toInt) = if x.sle y then x else y := by
+  by_cases h : x.sle y
+  · rw [ite_eq_left h, Int.min_eq_left (BitVec.sle_iff_toInt_le.1 h), BitVec.ofInt_toInt]
+  · have h' : ¬x.toInt ≤ y.toInt := fun hh => h (BitVec.sle_iff_toInt_le.2 hh)
+    rw [ite_eq_right h, Int.min_eq_right (by omega), BitVec.ofInt_toInt]
+
+/-- The signed maximum of two bit-vectors, folded through their integer values. -/
+theorem ofInt_max_toInt {w : Nat} (x y : BitVec w) :
+    BitVec.ofInt w (max x.toInt y.toInt) = if x.sle y then y else x := by
+  by_cases h : x.sle y
+  · rw [ite_eq_left h, Int.max_eq_right (BitVec.sle_iff_toInt_le.1 h), BitVec.ofInt_toInt]
+  · have h' : ¬x.toInt ≤ y.toInt := fun hh => h (BitVec.sle_iff_toInt_le.2 hh)
+    rw [ite_eq_right h, Int.max_eq_left (by omega), BitVec.ofInt_toInt]
 
 @[veir_bv_normalize]
 theorem toByteArrayLE_extract_eq_iff {a b : BitVec 64} :

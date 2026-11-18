@@ -1,13 +1,19 @@
 module
 
 public import Veir.Dialects.Cf.ResultsConform
+public import Veir.Dialects.LLVM.ResultsConform
+public import Veir.Dialects.GMIR.ResultsConform
+public import Veir.Dialects.RISCV.ResultsConform
 
 public section
 
 /-!
 # Ensure that the results of every op conform with the verifier
 
-Either an op code proves conformance or we assume conformance via an axiom.
+Either an op code proves conformance or we assume conformance via an axiom. This holds both for
+the CTree interpreter (`OpCode.ResultsConform`) and for the deterministic interpreter
+(`OpCode.InterpResultsConform`). Importing this module is what gives
+`interpretOp'_results_conform` an opcode it knows nothing about.
 -/
 
 namespace Veir
@@ -26,6 +32,27 @@ instance (priority := low) (opType : OpCode) : ResultsConform opType := by
     first
       | infer_instance
       | exact ⟨OpCode.resultsConform_assumed _⟩
+
+instance (priority := low) (opType : OpCode) : InterpResultsConform opType := by
+  cases opType <;> rename_i op <;> cases op <;>
+    first
+      | infer_instance
+      | exact ⟨OpCode.interpResultsConform_assumed _⟩
+
+/--
+A successful operation interpretation returns result values that conform to the declared
+`resultTypes` when the operation verifies.
+-/
+theorem interpretOp'_results_conform {op : OperationPtr} {operands : Array RuntimeValue}
+    {mem : MemoryState} {vals : Array RuntimeValue} {mem' : MemoryState}
+    {act : Option ControlFlowAction} {ctx : WfIRContext OpCode}
+    {opInBounds : op.InBounds ctx.raw} (opVerif : op.Verified ctx opInBounds)
+    (conforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
+    (h : op.interpret ctx.raw operands mem = .ok (vals, mem', act)) :
+    RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) :=
+  OpCode.interpResultsConform_def.mp
+    (InterpResultsConform.conform (opType := op.getOpType ctx.raw opInBounds))
+    ctx op opInBounds rfl opVerif operands vals mem mem' act conforms h
 
 end Veir
 

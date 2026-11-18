@@ -292,14 +292,14 @@ namespace Veir
 /--
 Every gMIR opcode is monotone in CTrees, with the results of the target typed: the obligation of
 `OpCode.interpretCTree_monotone` holds for gMIR. The types of the results come from
-`OpCode.resultsConform_gmir`.
+`OpCode.interpResultsConform_gmir`.
 -/
 theorem OpCode.interpretCTree_monotone_gmir (op : GMIR) :
     OpCode.interpretCTree_monotone (.gmir op) := by
   intro ctx o oIn hType hVerified sv tv sm tm hConf hRef hMem
   simp only [OperationPtr.interpretCTree]
   refine CTree.gmir_sim_typed hType _ _ _ _ _ hRef hMem fun vals m a hok =>
-    OpCode.resultsConform_def.mp (OpCode.resultsConform_gmir op) ctx o oIn hType hVerified
+    OpCode.interpResultsConform_def.mp (OpCode.interpResultsConform_gmir op) ctx o oIn hType hVerified
       tv vals tm m a (hConf.of_isRefinedBy hRef) ?_
   simp only [OperationPtr.interpret]
   rw [OperationPtr.getOpType!_eq_getOpType oIn, OperationPtr.getProperties!_eq_getProperties oIn

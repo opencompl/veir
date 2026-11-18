@@ -19,7 +19,7 @@ public section
 # The results of gMIR operations conform to their types
 
 A verified gMIR operation with operands that conform to their types returns, if its interpretation
-succeeds, results that conform to its result types (`OpCode.resultsConform`). An operation either
+succeeds, results that conform to its result types (`OpCode.InterpResultsConform`). An operation either
 computes its results from an operand whose type group the verifier makes match the type group of
 the result, or builds its results from its result types.
 -/
@@ -589,8 +589,8 @@ theorem GMIR.interpretOp'_results_conform (opT : GMIR)
     · simp at h
 
 /-- The results of every gMIR opcode conform to their types. -/
-theorem OpCode.resultsConform_gmir (opT : GMIR) : OpCode.resultsConform (.gmir opT) := by
-  refine OpCode.resultsConform_def.mpr
+theorem OpCode.interpResultsConform_gmir (opT : GMIR) : OpCode.InterpResultsConform (.gmir opT) := by
+  refine OpCode.interpResultsConform_def.mpr
     fun ctx op opIn hType hV operands vals mem mem' act hConf h => ?_
   have hType! : op.getOpType! ctx.raw = .gmir opT := by
     rw [OperationPtr.getOpType!_eq_getOpType opIn]; exact hType
@@ -599,13 +599,13 @@ theorem OpCode.resultsConform_gmir (opT : GMIR) : OpCode.resultsConform (.gmir o
   exact GMIR.interpretOp'_results_conform opT hType! hV hConf h
 
 /--
-info: 'Veir.OpCode.resultsConform_gmir' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Veir.OpCode.interpResultsConform_gmir' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms OpCode.resultsConform_gmir
+#print axioms OpCode.interpResultsConform_gmir
 
-instance (op : GMIR) : ResultsConform (.gmir op) :=
-  ⟨OpCode.resultsConform_gmir op⟩
+instance (op : GMIR) : InterpResultsConform (.gmir op) :=
+  ⟨OpCode.interpResultsConform_gmir op⟩
 
 end Veir
 

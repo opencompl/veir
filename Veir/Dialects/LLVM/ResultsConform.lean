@@ -18,7 +18,7 @@ public section
 # The results of LLVM operations conform to their types
 
 A verified LLVM operation with operands that conform to their types returns, if its interpretation
-succeeds, results that conform to its result types (`OpCode.resultsConform`). An operation either
+succeeds, results that conform to its result types (`OpCode.InterpResultsConform`). An operation either
 computes its results from its operands, whose types the verifier makes match its result types, or
 builds its results from its result types.
 -/
@@ -590,8 +590,8 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
   all_goals (simp only [Llvm.interpretOp'] at h; simp at h)
 
 /-- The results of every LLVM opcode conform to their types. -/
-theorem OpCode.resultsConform_llvm (opT : Llvm) : OpCode.resultsConform (.llvm opT) := by
-  refine OpCode.resultsConform_def.mpr
+theorem OpCode.interpResultsConform_llvm (opT : Llvm) : OpCode.InterpResultsConform (.llvm opT) := by
+  refine OpCode.interpResultsConform_def.mpr
     fun ctx op opIn hType hV operands vals mem mem' act hConf h => ?_
   have hType! : op.getOpType! ctx.raw = .llvm opT := by
     rw [OperationPtr.getOpType!_eq_getOpType opIn]; exact hType
@@ -600,13 +600,13 @@ theorem OpCode.resultsConform_llvm (opT : Llvm) : OpCode.resultsConform (.llvm o
   exact Llvm.interpretOp'_results_conform opT hType! hV hConf h
 
 /--
-info: 'Veir.OpCode.resultsConform_llvm' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Veir.OpCode.interpResultsConform_llvm' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms OpCode.resultsConform_llvm
+#print axioms OpCode.interpResultsConform_llvm
 
-instance (op : Llvm) : ResultsConform (.llvm op) :=
-  ⟨OpCode.resultsConform_llvm op⟩
+instance (op : Llvm) : InterpResultsConform (.llvm op) :=
+  ⟨OpCode.interpResultsConform_llvm op⟩
 
 end Veir
 

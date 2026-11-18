@@ -745,11 +745,12 @@ theorem InterpretOp'ContextuallyMonotone.of_frame {opType : OpCode}
       ⟨hValues, hMem, hAction⟩
 
 /--
-The results of an opcode conform to their types: a verified operation of the opcode whose operands
-conform to their types, and whose interpretation succeeds, returns values that conform to its
-result types.
+The results of an opcode conform to their types under the deterministic interpreter: a verified
+operation of the opcode whose operands conform to their types, and whose `interpret` succeeds,
+returns values that conform to its result types. `OpCode.ResultsConform` states the same for the
+CTree interpreter.
 -/
-def OpCode.resultsConform (opType : OpCode) : Prop :=
+def OpCode.InterpResultsConform (opType : OpCode) : Prop :=
   ∀ (ctx : WfIRContext OpCode) (op : OperationPtr) (opIn : op.InBounds ctx.raw),
     op.getOpType ctx.raw opIn = opType →
     op.Verified ctx opIn →
@@ -759,9 +760,9 @@ def OpCode.resultsConform (opType : OpCode) : Prop :=
       op.interpret ctx.raw operands mem = .ok (vals, mem', act) →
       RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw)
 
-/-- Unfold `OpCode.resultsConform`. -/
-theorem OpCode.resultsConform_def {opType : OpCode} :
-    opType.resultsConform ↔
+/-- Unfold `OpCode.InterpResultsConform`. -/
+theorem OpCode.interpResultsConform_def {opType : OpCode} :
+    opType.InterpResultsConform ↔
       ∀ (ctx : WfIRContext OpCode) (op : OperationPtr) (opIn : op.InBounds ctx.raw),
         op.getOpType ctx.raw opIn = opType →
         op.Verified ctx opIn →
@@ -773,14 +774,14 @@ theorem OpCode.resultsConform_def {opType : OpCode} :
   Iff.rfl
 
 /-- Assumed for an opcode that has no proof yet. -/
-axiom OpCode.resultsConform_assumed (opType : OpCode) : opType.resultsConform
+axiom OpCode.interpResultsConform_assumed (opType : OpCode) : opType.InterpResultsConform
 
 /--
 The results of an opcode conform to their types, as a class so that a dialect can discharge it for
 its own opcodes without this file knowing about the dialect.
 -/
-class ResultsConform (opType : OpCode) : Prop where
-  conform : opType.resultsConform
+class InterpResultsConform (opType : OpCode) : Prop where
+  conform : opType.InterpResultsConform
 
 /--
 A branch control-flow action returned by interpreting an operation always targets one of the

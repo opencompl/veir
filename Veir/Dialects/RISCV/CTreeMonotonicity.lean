@@ -179,14 +179,14 @@ namespace Veir
 /--
 Every RISC-V opcode is monotone in CTrees, with the results of the target typed: the obligation of
 `OpCode.interpretCTree_monotone` holds for RISC-V. The types of the results come from
-`OpCode.resultsConform_riscv`.
+`OpCode.interpResultsConform_riscv`.
 -/
 theorem OpCode.interpretCTree_monotone_riscv (op : Riscv) :
     OpCode.interpretCTree_monotone (.riscv op) := by
   intro ctx o oIn hType hVerified sv tv sm tm hConf hRef hMem
   simp only [OperationPtr.interpretCTree]
   refine CTree.riscv_sim_typed hType _ _ _ _ _ hRef hMem fun vals m a hok =>
-    OpCode.resultsConform_def.mp (OpCode.resultsConform_riscv op) ctx o oIn hType hVerified
+    OpCode.interpResultsConform_def.mp (OpCode.interpResultsConform_riscv op) ctx o oIn hType hVerified
       tv vals tm m a (hConf.of_isRefinedBy hRef) ?_
   simp only [OperationPtr.interpret]
   rw [OperationPtr.getOpType!_eq_getOpType oIn, OperationPtr.getProperties!_eq_getProperties oIn
