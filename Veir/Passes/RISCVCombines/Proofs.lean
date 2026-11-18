@@ -38,7 +38,6 @@ macro "proveCombineValid" : tactic => `(tactic| (
   all_goals veir_bv_decide))
 
 
-
 /-- A lifted failing source is simulated by any target. -/
 @[simp]
 theorem sim_monadLift_fail_right {α β : Type} (R : α → β → Prop) (target : Tree α)
