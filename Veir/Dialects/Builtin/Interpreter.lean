@@ -17,7 +17,7 @@ def Builtin.byteToIntCTree {EIn : Type} {E : EIn → Type} {width : Nat}
   if value.poison = BitVec.allOnes width then pure .poison
   else do
     let bits : FreezeC (.mk width) ← CTree.choose (FreezeCIn.mk width)
-    pure (.val (value.val ||| (value.poison &&& bits)))
+    pure (.val (value.fillPoison bits))
 
 /-- Cast an integer to a register. Poison is cast to a non-deterministic register value. -/
 def Builtin.intToRegCTree {EIn : Type} {E : EIn → Type} {width : Nat}
@@ -35,7 +35,7 @@ def Builtin.byteToRegCTree {EIn : Type} {E : EIn → Type} {width : Nat}
     return ⟨value.val.setWidth 64⟩
   else do
     let bits : FreezeC (.mk width) ← CTree.choose (FreezeCIn.mk width)
-    return ⟨(value.val ||| (value.poison &&& bits)).setWidth 64⟩
+    return ⟨(value.fillPoison bits).setWidth 64⟩
 
 /-- Interpret an unrealized conversion cast using CTrees. -/
 def Builtin.interpretUnrealizedConversionCastCTree {EIn : Type} {E : EIn → Type}

@@ -7,6 +7,7 @@ import all Veir.GlobalOpInfo
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.IR.Attribute
+import all Veir.Data.LLVM.Byte.Basic
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
 import Veir.Passes.RISCVCombines.Simp
 
@@ -383,9 +384,9 @@ theorem riscvLoadCTree_canInterpretTo_ok {EIn : Type} {E : EIn → Type}
   simp [riscvLoadCTree, Bind.bind, PureOrErr.CanInterpretTo.bind_iff, LoadsBits]
   constructor
   · rintro ⟨b, hb, ⟨bits, rfl⟩, rfl⟩
-    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp, rfl⟩
+    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp [Data.LLVM.Byte.fillPoison], rfl⟩
   · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
-    exact ⟨b, hb, ⟨bits, by cases ext <;> simp⟩, rfl⟩
+    exact ⟨b, hb, ⟨bits, by cases ext <;> simp [Data.LLVM.Byte.fillPoison]⟩, rfl⟩
 
 /-- `riscvLoadCTree_canInterpretTo_ok` for the matched result of a load, which the validity goal
 quantifies over together with the input and output memories: the result is substituted by the
