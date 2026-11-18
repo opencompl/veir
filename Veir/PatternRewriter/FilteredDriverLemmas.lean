@@ -43,12 +43,9 @@ theorem RewritePattern.worklistStepIf_preserves
       dsimp only at run
       split at run
       next bound =>
-        split at run
         next dead =>
           cases run
-          exact steps.deadStep { before with worklist := before.worklist.pop.2 } _ bound dead.1 dead.2 initial accepted
-        next notDead =>
-          exact steps.patternStep { before with worklist := before.worklist.pop.2 } _ bound _ initial accepted run
+          exact steps.deadStep { before with worklist := before.worklist.pop.2 } _ bound _ _
       next outside => contradiction
     next rejected =>
       cases run
