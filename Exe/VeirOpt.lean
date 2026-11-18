@@ -160,6 +160,8 @@ def parsePipelineOption (args : List String) :
     match PassPipeline.ofString? availablePasses expanded with
     | .ok pipeline => passes := passes ++ pipeline.passes
     | .error errMsg => throw s!"Error parsing -p flag: {errMsg}"
+  if passes.any (·.1.name == "instcombine") then
+    throw "instcombine should not be invoked"
   return ({ passes }, rest)
 
 /--
