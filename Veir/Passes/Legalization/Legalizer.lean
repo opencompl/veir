@@ -109,24 +109,29 @@ def legalizeBlockArguments (info : LegalizerInfo) (ctx : WfIRContext OpCode)
 /-! ## Branch conditions
 
 `g_brcond` forwards a variable number of operands to its successors, which a Puddle pattern cannot
-match, so its condition is widened by a local rewrite (`widenBrcondCondition`, through
-`widenScalar?`), in a step of its own before the rules, which then legalize the `g_zext` it
-creates. -/
+match, so its condition is widened by a step of its own (`widenBrcondCondition`) before the rules,
+which then legalize the `g_zext` it creates. -/
 
-/-- Widens the condition of `op`, if it is a `g_brcond`, as the rules ask. -/
-def widenBrcondLocal (info : LegalizerInfo) : LocalRewritePattern OpCode := fun ctx op =>
+/-- Widens the condition of `op` if it is a `g_brcond` whose condition the rules widen. -/
+def widenBrcond (info : LegalizerInfo) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Except String (WfIRContext OpCode) :=
   if op.getOpType! ctx.raw = .gmir .g_brcond then
     match info.getAction ctx.raw op .g_brcond with
-    | .widenScalar typeIdx width =>
-      match widenScalar? .g_brcond typeIdx width with
-      | some rewrite => rewrite ctx op
-      | none => some (ctx, none)
-    | _ => some (ctx, none)
-  else some (ctx, none)
+    | .widenScalar (.type 0) width =>
+      if op.getNumResults! ctx.raw ≠ 0 ∨ op.getNumRegions! ctx.raw ≠ 0 then
+        .error "unable to widen a branch condition: the branch has results or regions"
+      else
+        match widenBrcondCondition width ctx op with
+        | some ctx' => .ok ctx'
+        | none => .error "unable to widen a branch condition: it is not a narrower integer"
+    | _ => .ok ctx
+  else .ok ctx
 
-/-- The step of the legalizer widening the conditions of the `g_brcond`s. -/
-def widenBrconds (info : LegalizerInfo) : RewritePattern OpCode :=
-  RewritePattern.fromLocalRewrite (widenBrcondLocal info)
+/-- Widens the conditions of the `g_brcond`s as the rules ask. The operations to visit are fixed up
+front, so the branches the step creates are not visited. -/
+def widenBrconds (info : LegalizerInfo) (ctx : WfIRContext OpCode) :
+    Except String (WfIRContext OpCode) :=
+  ctx.raw.operations.keys.foldlM (widenBrcond info) ctx
 
 /-- Fails if a block argument that is a phi is not legal. -/
 private def checkBlockArguments (info : LegalizerInfo) (ctx : IRContext OpCode) :
@@ -153,8 +158,8 @@ private def checkOperations (info : LegalizerInfo) (ctx : IRContext OpCode) :
 /-! ## Legalization
 
 The legalizer widens the narrow phis (`legalizeBlockArguments`, assumed to refine the module:
-`legalizeBlockArguments_sound`) and the narrow branch conditions (`widenBrconds`, whose soundness
-`widenBrconds_pointwise` is not proven yet), then runs the rules of the registries, which are all
+`legalizeBlockArguments_sound`) and the narrow branch conditions (`widenBrconds`, proved to refine
+the module: `widenBrconds_isModuleRefinedByCTree`), checks that the module still verifies, then runs the rules of the registries, which are all
 proved to refine the module, through the module-filtered driver, and rejects what they cannot
 legalize.
 
@@ -194,7 +199,8 @@ rewriter does not report the operations it could not rewrite). -/
 def legalize (info : LegalizerInfo) (pass : String) : PurePass := fun ctx root => do
   checkModuleRoot pass ctx root
   let ctx ← info.legalizeBlockArguments ctx root
-  let ctx ← applyToFunctionsChecked pass (widenBrconds info) ctx root
+  let ctx ← info.widenBrconds ctx
+  checkModuleRoot pass ctx root
   let ctx ← applyToFunctionsChecked pass (legalizePattern info) ctx root
   info.checkOperations ctx.raw
   info.checkBlockArguments ctx.raw

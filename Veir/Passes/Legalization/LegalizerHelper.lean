@@ -250,23 +250,32 @@ def lowerZext : Pattern OpCode :=
     (fun op => op)
 
 /--
-Widens the condition of `g_brcond` to `width` bits with a `g_zext`, which is what LLVM's
-`LegalizerHelper::widenScalar` extends it with on a target whose booleans are 0 or 1, as on RISC-V.
-`g_brcond` forwards a variable number of operands to its successors, which a Puddle pattern cannot
-match, so this is a local rewrite.
+Widens the condition of the `g_brcond` `op` to `width` bits with a `g_zext`, which is what LLVM's
+`LegalizerHelper::widenScalar` extends it with on a target whose booleans are 0 or 1, as on RISC-V:
+the `g_zext` and a new `g_brcond` on it are created in front of `op`, which is erased. `g_brcond`
+forwards a variable number of operands to its successors, which a Puddle pattern cannot match, so
+this rewrites the context directly. Fails unless the condition is an integer narrower than `width`.
 -/
-def widenBrcondCondition (width : Nat) : LocalRewritePattern OpCode := fun ctx op => do
+public def widenBrcondCondition (width : Nat) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode) :=
   -- Read `ctx` before creating operations: any later read makes the first one copy the context.
   let operands := op.getOperands! ctx.raw
   let successors := op.getSuccessors! ctx.raw
-  let props := op.getProperties! ctx.raw GMIR.g_brcond
-  let .integerType type := (operands[0]!.getType! ctx.raw).val | return (ctx, none)
-  if width ≤ type.bitwidth then return (ctx, none)
-  let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_zext #[IntegerType.signless width]
-    #[operands[0]!] #[] #[] (NnegProperties.mk false) none
-  let (ctx, branch) ← WfRewriter.createOp! ctx GMIR.g_brcond #[]
-    (#[ValuePtr.opResult (ext.getResult 0)] ++ operands.extract 1) successors #[] props none
-  return (ctx, some (#[ext, branch], #[]))
+  let props : GMIRBrCondProperties := op.getProperties! ctx.raw (OpCode.gmir .g_brcond)
+  match (operands[0]!.getType! ctx.raw).val with
+  | .integerType type =>
+    if type.bitwidth < width then
+      match WfRewriter.createOp! ctx GMIR.g_zext #[IntegerType.signless width] #[operands[0]!] #[]
+          #[] (NnegProperties.mk false) (some (.before op)) with
+      | some (ctx₁, ext) =>
+        match WfRewriter.createOp! ctx₁ GMIR.g_brcond #[]
+            (#[ValuePtr.opResult (ext.getResult 0)] ++ operands.extract 1) successors #[] props
+            (some (.before op)) with
+        | some (ctx₂, _) => some (WfRewriter.eraseOp! ctx₂ op)
+        | none => none
+      | none => none
+    else none
+  | _ => none
 
 /--
 Lowers the `w`-bit funnel shift `g_fshl` (`isLeft`) or `g_fshr` to shifts, as the generic case of
@@ -795,7 +804,6 @@ def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → O
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
     Option (LocalRewritePattern OpCode)
-  | .g_brcond, .type 0, width => widenBrcondCondition width
   | opcode, typeIdx, width => (widenScalarPattern? opcode typeIdx width).map Puddle.Pattern.interpret
 
 /-- Narrows type group `typeIdx` of `opcode` to `width` bits. -/
