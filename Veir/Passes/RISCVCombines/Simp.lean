@@ -9,3 +9,6 @@ public section
 
 /-- Simp set reducing a normalized RISC-V combine validity goal to register equalities. -/
 register_simp_attr riscv_combine
+
+/- Simp set unfolding the RISC-V combine patterns. -/
+register_simp_attr riscv_pattern
