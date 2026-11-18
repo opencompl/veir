@@ -1,6 +1,7 @@
 module
 
 public import Veir.Passes.LLVMToGMIR.BranchSimulation
+public import Veir.Passes.KeptValuesSimulation
 public import Veir.Passes.LLVMToGMIR.BranchPass
 public import Veir.Passes.InstructionSelection.Branches.Pass
 public import Veir.Passes.Legalization.Legalizer
@@ -32,8 +33,9 @@ public section
 `g_brcond` it widens is replaced, in the list of its block, by a `g_zext` of its condition and a
 `g_brcond` on it, with the other operands, the successors and the properties of the branch.
 Everything else, the values and their types included, is unchanged. The module it returns refines
-its input, if the operations of the input are monotone in CTrees, as for the branch step of
-`llvm-to-gmir` (`Veir.Passes.LLVMToGMIR.BranchSimulation`), which this proof follows.
+its input, if the operations of the input are monotone in CTrees: the widening keeps every value
+(`Veir.Passes.KeptValuesSimulation`), so it only has to show that the operations of each block
+simulate those of the source, as the branch step of `llvm-to-gmir` does.
 -/
 
 open CTree Veir.CTree
@@ -170,31 +172,37 @@ namespace BrcondWidening
 
 variable (W : BrcondWidening ctx ctx')
 
+include W
+
 /-! ## The relations of the proof -/
 
+/-- An operation that is not a `g_brcond` is not widened. -/
+theorem widened_eq_false {op : OperationPtr} (opIn : op.InBounds ctx.raw)
+    (hType : op.getOpType! ctx.raw ≠ .gmir .g_brcond) : W.widened op = false := by
+  cases hW : W.widened op
+  · rfl
+  · exact absurd (W.spec opIn hW).brcond hType
+
+/-- The widening keeps every value: it only replaces branches. -/
+theorem keptValues : KeptValues ctx ctx' :=
+  ⟨W.ctxSame, W.types, fun funcIn hFunc => W.opSame funcIn (W.widened_eq_false funcIn (by simp [hFunc]))⟩
+
 /-- Every value of the source stands for itself in the target. -/
-@[expose]
-def mapping : ValueMapping ctx ctx' :=
-  fun ⟨value, valueIn⟩ => ⟨value, (W.types value valueIn).1⟩
+abbrev mapping : ValueMapping ctx ctx' := W.keptValues.mapping
 
 @[simp] theorem mapping_val {value : ValuePtr} {valueIn : value.InBounds ctx.raw} :
     (W.mapping ⟨value, valueIn⟩).val = value := rfl
 
 theorem applyToArray_mapping {values : Array ValuePtr}
     (valuesIn : ∀ v ∈ values, v.InBounds ctx.raw) :
-    W.mapping.applyToArray values valuesIn = values := by
-  simp [ValueMapping.applyToArray]
+    W.mapping.applyToArray values valuesIn = values :=
+  W.keptValues.applyToArray_mapping valuesIn
 
 /-- Two states whose variables and memories refine. -/
-abbrev StateRel (source : InterpreterState ctx) (target : InterpreterState ctx') : Prop :=
-  source.RefinedUnder (· ⊒ ·) target W.mapping
+abbrev StateRel := W.keptValues.StateRel
 
 /-- How the outcomes of an operation and of what stands for it relate. -/
-abbrev OpRel (target : InterpreterState ctx' × Option ControlFlowAction)
-    (source : InterpreterState ctx × Option ControlFlowAction) : Prop :=
-  W.StateRel source.1 target.1 ∧ ControlFlowAction.optionIsRefinedBy source.2 target.2
-
-include W
+abbrev OpRel := W.keptValues.OpRel
 
 /-- The values of source values in a related target state refine their values in the source. -/
 theorem mapM_getVar?_isRefinedBy {state : InterpreterState ctx} {state' : InterpreterState ctx'}
@@ -364,13 +372,6 @@ theorem interpretOp_widened {op : OperationPtr} (opIn : op.InBounds ctx.raw)
       simpa [hc', ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy] using
         RuntimeValue.arrayIsRefinedBy_extract hRefined 1 (n.toNat + 1)
 
-/-- An operation that is not a `g_brcond` is not widened. -/
-theorem widened_eq_false {op : OperationPtr} (opIn : op.InBounds ctx.raw)
-    (hType : op.getOpType! ctx.raw ≠ .gmir .g_brcond) : W.widened op = false := by
-  cases hW : W.widened op
-  · rfl
-  · exact absurd (W.spec opIn hW).brcond hType
-
 /-- An operation that is not widened is the same operation after the widening. -/
 theorem preservesOperation {op : OperationPtr} (opIn : op.InBounds ctx.raw)
     (hW : W.widened op = false) :
@@ -482,196 +483,18 @@ theorem sim_opList (hKept : W.KeptOpsSim) : ∀ {ops : List OperationPtr}
       simp only [monadLift, MonadLift.monadLift, pure_bind]
       exact hCont _ _ _ _ _ _ hRel hAction
 
-/-- The calls of the closed CFG loops of the two modules that correspond to each other. -/
-@[expose]
-def CallRel : BlockCallRel ctx ctx' :=
-  fun block values state block' values' state' =>
-    block' = block ∧ values ⊒ values' ∧ W.StateRel state state'
-
-/-- The results of the two modules that correspond to each other. -/
-abbrev ResultRel (source : CFGResult ctx) (target : CFGResult ctx') : Prop :=
-  source.1.memory ⊒ target.1.memory ∧ source.2 ⊒ target.2
-
-/-- A block with the same arguments sets refined values on refined states. -/
-theorem setArgumentValues? {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
-    {blockIn' : block.InBounds ctx'.raw} {state : InterpreterState ctx}
-    {state' : InterpreterState ctx'} (hState : W.StateRel state state')
-    {values values' : Array RuntimeValue} (hValues : values ⊒ values')
-    {variables : VariableState ctx}
-    (hSet : state.variables.setArgumentValues? block values blockIn = some variables) :
-    ∃ variables',
-      state'.variables.setArgumentValues? block values' blockIn' = some variables' ∧
-      W.StateRel ⟨variables, state.memory⟩ ⟨variables', state'.memory⟩ := by
-  have hNum := W.ctxSame.numArguments blockIn
-  have hSizeEq : values.size = block.getNumArguments! ctx.raw := by
-    grind [VariableState.setArgumentValues?]
-  have hSourceConforms := (VariableState.setArgumentValues?_isSome_iff_conforms
-    state.variables (blockInBounds := blockIn) hSizeEq).mpr ⟨variables, hSet⟩
-  have hRefined : ∀ i : Nat, values[i]! ⊒ values'[i]! := by
-    intro i
-    by_cases hi : i < values.size
-    · exact hValues.2 i hi
-    · rw [getElem!_neg values i hi, getElem!_neg values' i (by rw [← hValues.1]; exact hi)]
-      exact RuntimeValue.isRefinedBy_refl _
-  obtain ⟨variables', hSet'⟩ := (VariableState.setArgumentValues?_isSome_iff_conforms
-      state'.variables (blockInBounds := blockIn') (values := values')
-      (by rw [hNum, ← hValues.1, hSizeEq])).mp (by
-    intro j hj
-    rw [hNum] at hj
-    rw [(W.types _ (by grind)).2]
-    exact (hSourceConforms j hj).of_isRefinedBy (hRefined j))
-  refine ⟨variables', hSet', hState.1, fun v vIn sv hv => ?_⟩
-  simp only [mapping_val]
-  by_cases hMem : v ∈ block.getArguments! ctx.raw
-  · obtain ⟨i, hi, rfl⟩ := BlockPtr.getArguments!.mem_iff_exists_index.mp hMem
-    rw [VariableState.getVar?_getArgument_of_setArgumentValues? hi hSet] at hv
-    rw [VariableState.getVar?_getArgument_of_setArgumentValues? (by rw [hNum]; exact hi) hSet']
-    exact ⟨_, rfl, by simpa using (Option.some.inj hv) ▸ hRefined i⟩
-  · rw [VariableState.getVar?_setArgumentValues?_of_notMem_getArguments! hMem hSet] at hv
-    obtain ⟨tv, hTv, hRef⟩ := hState.2 v vIn sv hv
-    refine ⟨tv, ?_, hRef⟩
-    rw [VariableState.getVar?_setArgumentValues?_of_notMem_getArguments! ?_ hSet']
-    · simpa using hTv
-    · intro hMem'
-      obtain ⟨j, hj, hEq⟩ := BlockPtr.getArguments!.mem_iff_exists_index.mp hMem'
-      exact hMem (BlockPtr.getArguments!.mem_iff_exists_index.mpr
-        ⟨j, by rw [← hNum]; exact hj, hEq⟩)
-
-/-- A block step is refined by its widening, and the blocks they branch to correspond again. -/
-theorem sim_blockStep (hKept : W.KeptOpsSim) {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
-    {blockIn' : block.InBounds ctx'.raw} {values values' : Array RuntimeValue}
-    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
-    (hValues : values ⊒ values') (hState : W.StateRel state state') :
-    Sim (Sum.LiftRel (EntryRel W.CallRel) (fun t s => ResultRel s t))
-      (blockStep (CFGState.entry blockIn' values' state'))
-      (blockStep (CFGState.entry blockIn values state)) := by
-  have hNum := W.ctxSame.numArguments blockIn
-  rw [blockStep_entry, blockStep_entry]
-  by_cases hSize : (values.size != block.getNumArguments ctx.raw) = true
-  · simp only [hSize, ↓reduceIte]
-    exact sim_fail _ _
-  have hSize' : (values'.size != block.getNumArguments ctx'.raw) = false := by
-    rw [← BlockPtr.getNumArguments!_eq_getNumArguments blockIn', hNum,
-      BlockPtr.getNumArguments!_eq_getNumArguments blockIn, ← hValues.1]
-    simpa using hSize
-  simp only [hSize, hSize', Bool.false_eq_true, ↓reduceIte]
-  rcases hSet : state.variables.setArgumentValues? block values blockIn with _ | variables
-  · exact sim_fail _ _
-  obtain ⟨variables', hSet', hRel⟩ := W.setArgumentValues? blockIn (blockIn' := blockIn')
-    hState hValues hSet
-  simp only [hSet']
+/-- The blocks of the widening simulate those of the source. -/
+theorem blockListsSim (hKept : W.KeptOpsSim) : W.keptValues.BlockListsSim := by
+  intro block blockIn blockIn' state state' hState
   have hList := W.opList blockIn
   simp only [BlockPtr.opList] at hList
-  rw [terminatedOpListTree_eq, terminatedOpListTree_eq, opListTree_congr hList, tree_bind_eq,
-    tree_bind_eq, tree_bind_eq, tree_bind_eq]
-  refine Sim.bind (RR := fun (t : InterpreterState ctx' × ControlFlowAction)
-      (s : InterpreterState ctx × ControlFlowAction) => W.StateRel s.1 t.1 ∧ s.2 ⊒ t.2) _ _ _ _
-    (Sim.bind _ _ _ _ (W.sim_opList hKept _ _ (state := ⟨variables, state.memory⟩)
-      (state' := ⟨variables', state'.memory⟩) hRel) ?_) ?_
-  · rintro ⟨target, action'⟩ ⟨source, action⟩ ⟨hRel, hAction⟩
-    rcases action with _ | cf <;> rcases action' with _ | cf' <;>
-      simp only [ControlFlowAction.optionIsRefinedBy] at hAction
-    · exact sim_fail _ _
-    · exact (Sim.pure _ _ _).mpr ⟨hRel, hAction⟩
-  · rintro ⟨target, cf'⟩ ⟨source, cf⟩ ⟨hRel, hCf⟩
-    rcases cf with results | ⟨args, dest⟩ <;> rcases cf' with results' | ⟨args', dest'⟩ <;>
-      simp only [ControlFlowAction.isRefinedBy] at hCf
-    · simp only [finishBlock_return]
-      exact (Sim.pure _ _ _).mpr (Sum.LiftRel.inr ⟨hRel.1, hCf⟩)
-    · obtain ⟨rfl, hArgs⟩ := hCf
-      simp only [finishBlock_branch]
-      by_cases destIn : dest.InBounds ctx.raw
-      · simp only [destIn, W.ctxSame.blockIn destIn, ↓reduceDIte]
-        exact (Sim.pure _ _ _).mpr (Sum.LiftRel.inl ⟨dest, destIn, args, source, dest,
-          W.ctxSame.blockIn destIn, args', target, rfl, rfl, rfl, hArgs, hRel⟩)
-      · simp only [destIn, ↓reduceDIte]
-        exact sim_fail _ _
-
-/-- The closed CFG loop from a block is refined by that of its widening. -/
-theorem sim_cfg (hKept : W.KeptOpsSim) {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
-    {blockIn' : block.InBounds ctx'.raw} {values values' : Array RuntimeValue}
-    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
-    (hValues : values ⊒ values') (hState : W.StateRel state state') :
-    Sim (fun t s => ResultRel s t)
-      (_root_.CTree.iter cfgStep (CFGState.entry blockIn' values' state'))
-      (_root_.CTree.iter cfgStep (CFGState.entry blockIn values state)) :=
-  iter_cfgStep_sim (Rel := W.CallRel)
-    (fun _ blockIn _ _ _ _ _ _ hRel => by
-      obtain ⟨rfl, hValues, hState⟩ := hRel
-      exact W.sim_blockStep hKept blockIn hValues hState)
-    blockIn blockIn' ⟨rfl, hValues, hState⟩
-
-/-! ## Functions and modules -/
-
-/-- A function is refined by its widening. -/
-theorem isRefinedByAsFunctionCTree (hKept : W.KeptOpsSim) {func : OperationPtr}
-    (funcIn : func.InBounds ctx.raw) (hFunc : func.getOpType! ctx.raw = .func .func)
-    {funcIn' : func.InBounds ctx'.raw} :
-    func.isRefinedByAsFunctionCTree ctx func ctx' funcIn funcIn' := by
-  have hSame := W.opSame funcIn (W.widened_eq_false funcIn (by simp [hFunc]))
-  have hFunc' : func.getOpType! ctx'.raw = .func .func := by rw [hSame.opType, hFunc]
-  have f : FunctionOp ctx.raw func := .of func ctx.raw
-    (by unfold OperationPtr.isFunctionLike; rw [hFunc]; rfl)
-  have f' : FunctionOp ctx'.raw func := .of func ctx'.raw
-    (by unfold OperationPtr.isFunctionLike; rw [hFunc']; rfl)
-  rw [OperationPtr.isRefinedByAsFunctionCTree, FunctionOp.of?_eq_some f,
-    FunctionOp.of?_eq_some f']
-  intro values values' mem hValues
-  have hNum : func.getNumRegions ctx'.raw funcIn' = func.getNumRegions ctx.raw funcIn := by
-    have := hSame.numRegions
-    grind
-  simp only [CTree.interpretFunction, FunctionOp.of?_eq_some f, FunctionOp.of?_eq_some f', hNum]
-  split
-  · exact sim_fail _ _
-  next hRegions =>
-  have hRegions' : 0 < func.getNumRegions ctx.raw funcIn := by omega
-  have regionIn : (f.getFunctionBody funcIn hRegions').InBounds ctx.raw := by
-    have := ctx.wellFormed.inBounds
-    simp only [FunctionOp.getFunctionBody]
-    grind
-  have hBody : f'.getFunctionBody funcIn' (by omega) = f.getFunctionBody funcIn hRegions' := by
-    have := hSame.region 0
-    simp only [FunctionOp.getFunctionBody]
-    grind
-  rw [tree_bind_eq, tree_bind_eq]
-  refine Sim.bind (RR := fun t s => ResultRel s t) _ _ _ _ ?_
-    (fun ⟨_, results'⟩ ⟨_, results⟩ h => (Sim.pure _ _ _).mpr h.2)
-  rw [interpretRegion_eq_inflateCFGTree, interpretRegion_eq_inflateCFGTree]
-  apply Sim.interp
-  simp only [interpretCFGTree]
-  have hFirst := W.ctxSame.firstBlock regionIn
-  split
-  · next block' hBlock' =>
-    split
-    · next block hBlock =>
-      have blockIn : block.InBounds ctx.raw := by grind
-      obtain rfl : block' = block := by grind
-      exact W.sim_cfg hKept blockIn (state := ⟨VariableState.empty ctx, mem⟩)
-        (state' := ⟨VariableState.empty ctx', mem⟩) hValues
-        ⟨MemoryState.isRefinedBy_refl _, fun v vIn sv hv => by
-          simp [VariableState.empty, VariableState.getVar?] at hv⟩
-    · exact sim_fail _ _
-  · next hNone' =>
-    split
-    · next block hBlock => exfalso; grind
-    · exact sim_fail _ _
-
-/-- A top-level function of the source is one of the widening. -/
-theorem isTopLevelFuncWithName {func module : OperationPtr} {name : StringAttr}
-    (funcIn : func.InBounds ctx.raw) (hTop : func.IsTopLevelFuncWithName module ctx.raw name) :
-    func.IsTopLevelFuncWithName module ctx'.raw name := by
-  have hSame := W.opSame funcIn (W.widened_eq_false funcIn (by simp [hTop.isFunc]))
-  refine ⟨?_, ?_, ?_⟩
-  · rw [hSame.opType, hTop.isFunc]
-  · rw [hSame.properties]; exact hTop.hasName
-  · rw [hSame.getParentOp! W.ctxSame funcIn]; exact hTop.isTopLevel
+  rw [opListTree_congr hList]
+  exact W.sim_opList hKept _ _ hState
 
 /-- A module is refined by its widening, in CTrees. -/
 theorem isModuleRefinedByCTree (hKept : W.KeptOpsSim) (module : OperationPtr) :
-    module.isModuleRefinedByCTree ctx module ctx' := by
-  intro func funcIn name hTop
-  exact ⟨func, (W.opSame funcIn (W.widened_eq_false funcIn (by simp [hTop.isFunc]))).inBounds,
-    W.isTopLevelFuncWithName funcIn hTop, W.isRefinedByAsFunctionCTree hKept funcIn hTop.isFunc⟩
+    module.isModuleRefinedByCTree ctx module ctx' :=
+  W.keptValues.isModuleRefinedByCTree (W.blockListsSim hKept) module
 
 end BrcondWidening
 
