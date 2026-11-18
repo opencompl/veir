@@ -12,6 +12,7 @@ namespace CTree
 The `iter` combinator loops over `body` while it returns a value in `I`,
 and finally returns when it returns a value in `X`.
 -/
+@[expose]
 def iter {I X} (body : I -> CTree E C (I ⊕ X)) (i : I) : CTree E C X := do
   let r ← body i
   match r with
