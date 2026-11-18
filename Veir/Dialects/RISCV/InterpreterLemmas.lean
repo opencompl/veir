@@ -56,25 +56,24 @@ theorem forall_riscvLoadCTree_canInterpretTo_ok {EIn : Type}
     exact h _ x hx
 
 /-- A root store and a created store that write the same bytes simulate each other.
-The statement keeps the source as a lifted `Interp` computation, so that it can be transported
-into a normalized goal through `Veir.Sim.monadLift_right_iff` without rewriting below the
-dependent size proof of `MemoryState.store`. -/
-theorem Sim.bind_store_pure_store {R : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
-      (Array RuntimeValue × MemoryState × Option ControlFlowAction) → Prop}
-    (hR : ∀ mem, R (#[], mem, none) (#[], mem, none))
+The statement is the normal form that `Veir.Sim.bind_monadLift_left_iff` and
+`Veir.Sim.monadLift_right_iff` give for the simulation of the two lifted stores: a match on the
+root store, whose success case matches on the created store. It is polymorphic in the result type
+`β`, so that its matchers have the same shape as the matchers of those lemmas and unify with them. -/
+theorem store_pure_store {β : Type} {P : β → β → Prop} {Qub Qfail : β → Prop}
+    (f : MemoryState → β) (hP : ∀ mem, P (f mem) (f mem))
     (mem : MemoryState) (p : Data.Pointer) (source target poison : ByteArray)
     (hsource : poison.size = source.size) (htarget : poison.size = target.size)
     (hbytes : source = target) :
-    CTree.Sim R
-      (CTree.bind (monadLift (mem.store p target poison htarget >>= fun mem =>
-          (Interp.ok (#[], mem, none))) :
-          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-        fun result => pure (#[], result.2.fst, none))
-      (monadLift (mem.store p source poison hsource >>= fun mem =>
-          (Interp.ok (#[], mem, none) :
-            Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))) :
-          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) := by
+    match (mem.store p source poison hsource >>= fun mem => Interp.ok (f mem)) with
+    | .ok value =>
+      match (mem.store p target poison htarget >>= fun mem => Interp.ok (f mem)) with
+      | .ok value' => P value value'
+      | .ub _ => Qub value
+      | .fail _ => Qfail value
+    | .ub _ => True
+    | .fail _ => True := by
   subst hbytes
-  cases mem.store p source poison hsource <;> simp [hR, monadLift, MonadLift.monadLift]
+  cases mem.store p source poison hsource <;> simp [hP, Bind.bind]
 
 end Veir

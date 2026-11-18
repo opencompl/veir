@@ -419,11 +419,6 @@ theorem sexth_xor_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sexth .xor true true) := by
   proveCombineValid
 
-section
-
-/- Keep both store computations lifted, as `Sim.bind_store_pure_store` expects them. -/
-attribute [-puddle] Veir.Sim.bind_monadLift_left_iff Veir.Sim.monadLift_right_iff
-
 /-! ## Extensions of a stored value
 
 A word store (`sw`) writes the first four little-endian bytes of its value register, a halfword
@@ -431,19 +426,16 @@ store (`sh`) two and a byte store (`sb`) one (see the store cases of `Riscv.inte
 extension below leaves those bytes unchanged. -/
 
 /-- Prove the validity of a store combine, given a proof `bytes` that the dropped extension
-does not change the stored bytes, usually `by veir_bv_decide`.
-The caller must erase `Veir.Sim.bind_monadLift_left_iff` and `Veir.Sim.monadLift_right_iff`
-from `puddle`, so that both store computations stay lifted for `Sim.bind_store_pure_store`. -/
+does not change the stored bytes, usually `by veir_bv_decide`. -/
 macro "proveStoreValid" bytes:term : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
   simp [puddle, riscv_combine]
   all_goals
     intros
-    exact Sim.bind_store_pure_store
+    exact store_pure_store _
       (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
       _ _ _ _ _ _ _ $bytes))
-
 
 theorem drop_zextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sw) := by
@@ -476,8 +468,6 @@ theorem drop_zextw_sb_valid :
 theorem drop_sextw_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sb) := by
   proveStoreValid (by veir_bv_decide)
-
-end
 
 /-! ## Extensions of `x0`
 
