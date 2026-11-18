@@ -35,3 +35,12 @@ example (operands : Array RuntimeValue) (unknown : TypeAttr) (felt : FeltType)
 
 example (operands : Array RuntimeValue) : ArrayConforms operands #[] ↔ operands = #[] := by
   simp
+
+/-! Tensor values simplify through `Conforms.tensorType`. -/
+example (operands : Array RuntimeValue) (t : TensorType) :
+    ArrayConforms operands #[.of TensorType t] ↔
+    ∃ elems,
+      (elems.size = t.numElements ∧
+        ∃ h : t.elementType.isType, ∀ e ∈ elems, Conforms e ⟨t.elementType, h⟩) ∧
+      operands = #[.tensor elems] := by
+  simp

@@ -2,6 +2,8 @@ module
 
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
+public import Veir.Interpreter.RuntimeValue.Tensor
+public import Veir.Interpreter.Interp
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -86,6 +88,24 @@ def Tensor.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"{instrName}: Expected scalar type to match the tensor element type"
     op.verifyResultTypeMatches ctx (operandType 1)
       s!"{instrName}: Expected result type to match the destination type"
+
+/--
+  Interpret supported `tensor` operations.
+  `tensor.empty` fills a `.tensor` with element poison when the element type has one;
+  otherwise interpretation fails. Other ops are not implemented yet.
+-/
+def Tensor.interpretOp' (opType : Veir.Tensor) (_properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (_operands : Array RuntimeValue)
+    (_blockOperands : Array BlockPtr) :
+    Interp (Array RuntimeValue × Option ControlFlowAction) :=
+  match opType with
+  | .empty => do
+    let ⟨.tensorType ty, _⟩ ← resultTypes[0]? | none
+    if h : ty.elementType.isType then
+      let elemPoison ← RuntimeValue.getPoisonForType ⟨ty.elementType, h⟩
+      return (#[RuntimeValue.emptyTensor ty.shape elemPoison], none)
+    else none
+  | .extract | .insert => none
 
 instance : HasOpInfo Tensor where
   verifyLocalInvariants := Tensor.verifyLocalInvariants

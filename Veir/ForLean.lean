@@ -3,6 +3,7 @@ module
 public import Std.Data.ExtHashSet
 public import Veir.Meta.Tactic.BVNormalizeSimp
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
+import all Init.Data.Array.OfFn -- unfold Array.ofFnM in Array.ofFnM_eq_mapM_finRange
 public section
 
 /--
@@ -243,6 +244,40 @@ theorem Array.exists_mapM_option_eq_some_iff {f : α → Option β} {l : Array �
   · intro h
     apply Array.mapM_option_isSome
     grind
+
+theorem Array.ofFnM_eq_mapM_finRange [Monad m] [LawfulMonad m] (f : Fin n → m α) :
+    Array.ofFnM f = (Array.finRange n).mapM f := by
+  simp [Array.ofFnM, Array.mapM_eq_mapM_toList, Fin.foldlM_eq_foldlM_finRange,
+    Array.finRange, List.finRange]
+
+/-- An optional array construction succeeds exactly when its size and elements match. -/
+theorem Array.ofFnM_option_eq_some_iff [Inhabited α] {f : Fin n → Option α} {xs : Array α} :
+    Array.ofFnM f = some xs ↔
+      n = xs.size ∧ ∀ i : Fin n, f i = some xs[i.val]! := by
+  cases n with
+  | zero => simp [Array.ofFnM_zero, eq_comm]
+  | succ k =>
+      rw [Array.ofFnM_eq_mapM_finRange]
+      constructor
+      · intro h
+        have hs : k + 1 = xs.size := by simpa using Array.size_eq_of_mapM_eq_some h
+        refine ⟨hs, fun i => ?_⟩
+        simpa [getElem!_pos, ← hs] using Array.mapM_option_eq_some_implies h i.val (by omega)
+      · rintro ⟨hs, h⟩
+        apply (Array.mapM_eq_some_iff_of_size_eq (by simpa using hs)).2
+        intro i hi
+        have hi' : i < k + 1 := by simpa using hi
+        simpa [getElem!_pos, hi'] using h ⟨i, hi'⟩
+
+/-- An optional array construction succeeds exactly when every element computation succeeds. -/
+theorem Array.exists_ofFnM_option_eq_some_iff {f : Fin n → Option α} :
+    (∃ xs, Array.ofFnM f = some xs) ↔ ∀ i, ∃ x, f i = some x := by
+  rw [Array.ofFnM_eq_mapM_finRange, Array.exists_mapM_option_eq_some_iff]
+  constructor
+  · intro h i
+    simpa using h i.val (by simp)
+  · intro h i hi
+    simpa using h ⟨i, by simpa using hi⟩
 
 namespace ForLean.List
 
