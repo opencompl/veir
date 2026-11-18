@@ -54,5 +54,8 @@ theorem riscvPipeline_sound
     exact ISelBrPass.impl_eq_runVerified true ctx op h
   exact PassPipeline.run_sound hPure (riscvPipelinePure_passes_sound sound) run
 
+
+#print axioms riscvPipeline_sound
+
 end Veir
 end
