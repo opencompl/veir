@@ -22,7 +22,6 @@ theorem rv64_interpretOp'_get_register (property : propertiesOf Rv64.get_registe
   simp [Rv64.interpretOp', TypeAttr.of, Attribute.of, -Attribute.registerType_eq_of]
 
 
-
 end
 
 end Veir
