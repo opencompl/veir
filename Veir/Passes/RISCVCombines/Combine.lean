@@ -1194,7 +1194,7 @@ def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
 closures are initialized once and reused for every operation. Each has a CTree validity
 certificate in `Veir.Passes.RISCVCombines.Proofs`; the soundness of the pass is
 `Combine.run_sound` (`Veir.Passes.RISCVCombines.Validity.Pass`). -/
-def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
+public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
     #[ packh_low_bytes
      , packh_low_bytes_commuted
      , packh_high_bytes
@@ -1363,18 +1363,15 @@ def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , li_zero_to_x0
      ]
 
-/-- The pass as a pure function: the greedy combination of the combines, applied everywhere
-below `op`. `none` reports a failed rewrite. Its soundness is `Combine.run_sound`. -/
-def Combine.run (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode) :=
-  RewritePattern.applyInContext
-    (RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run))) ctx op
+/-- The pass: the combines, through the module-filtered driver. Its soundness is
+`Combine.run_sound`. -/
+public def Combine.run : PurePass :=
+  checkedContextPass "riscv-combine"
+    (RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run)))
 
 public def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
-    ExceptT String IO (WfIRContext OpCode) := do
-  match Combine.run ctx op with
-  | none => throw "Error while applying pattern rewrites"
-  | some ctx => pure ctx
+    ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (Combine.run ctx op))
 
 public def Combine : Pass OpCode :=
   { name := "riscv-combine"
