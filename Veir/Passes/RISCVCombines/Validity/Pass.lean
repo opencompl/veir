@@ -3,18 +3,14 @@ module
 public import Veir.Passes.RISCVCombines.Combine
 public import Veir.Passes.Pipeline.Soundness
 import all Veir.Passes.RISCVCombines.Combine
-import all Veir.Passes.RISCVCombines.Validity.Basic
-import all Veir.Passes.RISCVCombines.Validity.Bitwise
-import all Veir.Passes.RISCVCombines.Validity.SignExtending
-import all Veir.Passes.RISCVCombines.Validity.LowWord
-import all Veir.Passes.RISCVCombines.Validity.Store
-import all Veir.Passes.RISCVCombines.Validity.Load
+import all Veir.Passes.RISCVCombines.Proofs
 
 /-!
 # Soundness of the `riscv-combine` pass
 
-Every entry of `combinePatterns` is pointwise valid, by the validity proof of its pattern or, for
-the combines that try several patterns, of each of them. The pass is then sound.
+Every entry of `combinePatterns` is pointwise valid, by the validity proof of its pattern in
+`Veir.Passes.RISCVCombines.Proofs` or, for the combines that try several patterns, of each of
+them. The `ext_x0` combines rest on the axioms `*_x0_valid` there. The pass is then sound.
 -/
 
 namespace Veir.RISCV.CTreeProofs
@@ -61,7 +57,7 @@ theorem combinePatterns_pointwise :
   obtain ⟨entry, entryMember, rfl⟩ := Array.mem_map.mp member
   simp only [combinePatterns, List.mem_toArray, List.mem_cons, List.not_mem_nil,
     or_false] at entryMember
-  rcases entryMember with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases entryMember with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exact PointwiseValid.compile packh_low_bytes_valid
   · exact PointwiseValid.compile packh_low_bytes_commuted_valid
   · exact PointwiseValid.compile packh_high_bytes_valid
@@ -177,6 +173,7 @@ theorem combinePatterns_pointwise :
   · exact drop_ext_of_bitwise_false_pointwise zextw_or_valid
   · exact drop_ext_of_bitwise_false_pointwise zextw_xor_valid
   · exact PointwiseValid.compile drop_zextw_sw_valid
+  · exact PointwiseValid.compile zextw_x0_valid
   · exact PointwiseValid.compile zextw_li_low32_valid
   · exact PointwiseValid.compile sextw_sextw_valid
   · exact drop_ext_low_word_pointwise (arity := 2) fun i hi => match i with
@@ -258,6 +255,7 @@ theorem combinePatterns_pointwise :
   · exact drop_ext_of_bitwise_false_pointwise sextw_or_valid
   · exact drop_ext_of_bitwise_false_pointwise sextw_xor_valid
   · exact PointwiseValid.compile drop_sextw_sw_valid
+  · exact PointwiseValid.compile sextw_x0_valid
   · exact PointwiseValid.compile sextw_li_low32_valid
   · exact PointwiseValid.compile (sextw_lw_valid _)
   · exact PointwiseValid.compile (sextw_lh_valid _)
@@ -325,6 +323,10 @@ theorem combinePatterns_pointwise :
   · exact PointwiseValid.compile drop_sextb_sb_valid
   · exact PointwiseValid.compile drop_zextw_sb_valid
   · exact PointwiseValid.compile drop_sextw_sb_valid
+  · exact PointwiseValid.compile zextb_x0_valid
+  · exact PointwiseValid.compile zexth_x0_valid
+  · exact PointwiseValid.compile sextb_x0_valid
+  · exact PointwiseValid.compile sexth_x0_valid
   · exact PointwiseValid.compile zextb_li_low8_valid
   · exact PointwiseValid.compile zexth_li_low16_valid
   · exact PointwiseValid.compile sextb_li_low8_valid

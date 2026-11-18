@@ -277,18 +277,6 @@ theorem monadLift_interp_ok_iff (outcome : Interp R) (v : R) :
     simp [monadLift, MonadLift.monadLift, Veir.fail, Veir.ub, CTree.trigger_def,
       Bind.bind, CTree.CTree.bind_vis, eq_comm]
 
-/-- Lifting into the standard error/UB tree preserves outcomes and erases error locations. -/
-@[simp, grind =]
-theorem monadLift_interp_iff (outcome : Interp R) (r : Interp R) :
-    CanInterpretTo (monadLift outcome : CTree (ErrorE ⊕ₑ UBE) C R) r ↔
-      r = match outcome with
-      | .ok v => .ok v
-      | .fail _ => .fail none
-      | .ub _ => .ub none := by
-  cases outcome <;>
-    simp [monadLift, MonadLift.monadLift, Veir.fail, Veir.ub, CTree.trigger_def,
-      Bind.bind, CTree.CTree.bind_vis]
-
 /-- Binding continues successful outcomes and propagates failure or UB. -/
 @[grind =]
 theorem bind_iff {X} (t : CTree E C X) (k : X → CTree E C R)
@@ -330,6 +318,16 @@ theorem map_iff {X} (f : X → R) (t : CTree E C X) (r : Interp R) :
       (CanInterpretTo t (.ub none) ∧ r = .ub none) := by
   simpa only [map_eq_pure_bind, Bind.bind, pure_iff] using
     (bind_iff t (fun x => pure (f x)) r)
+
+/-- An interpreter failure has no successful outcome. -/
+@[simp, grind =]
+theorem fail_ok_iff (v : R) : CanInterpretTo (Veir.fail : CTree E C R) (.ok v) ↔ False := by
+  simp [Veir.fail, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
+
+/-- Undefined behavior has no successful outcome. -/
+@[simp, grind =]
+theorem ub_ok_iff (v : R) : CanInterpretTo (Veir.ub : CTree E C R) (.ok v) ↔ False := by
+  simp [Veir.ub, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
 
 end PureOrErr.CanInterpretTo
 

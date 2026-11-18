@@ -96,7 +96,7 @@ elab "simpPuddleValid" : tactic => withMainContext do
       List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ,
       Array.toList_push, Array.emptyWithCapacity, Array.size_map, Array.size_range,
       /- Resolve builders that replace one handle of a concrete handle array. -/
-      Array.toList_set!, List.set_cons_zero, List.set_cons_succ, List.set_nil,
+      Array.toList_set!, Array.toList_setIfInBounds, List.set_cons_zero, List.set_cons_succ, List.set_nil,
       getElem!_pos, Array.getElem_map, Array.getElem_range,
       List.mapM_cons, List.mapM_nil, Option.pure_def, Option.bind_eq_bind, Option.bind_some,
       Option.bind_fun_some, Nat.add_zero, Nat.reduceAdd, Nat.reduceEqDiff, Nat.reduceLT,

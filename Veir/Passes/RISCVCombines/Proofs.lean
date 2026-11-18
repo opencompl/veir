@@ -1,202 +1,241 @@
 module
 
-public import Veir.Data.RISCV.Reg.Basic
-public import Veir.Data.RISCV.Reg.Lemmas
-public import Veir.ForLean
-public import Veir.Dialects.RISCV.Properties
-public import Veir.Passes.RISCVCombines.Combine
-
-import Veir.Meta.Tactic.BVDecide
-import Std.Tactic.BVDecide
-meta import Veir.Meta.Tactic.BVDecide
-meta import Std.Tactic.BVDecide
-meta import Std.Tactic.BVDecide.Reflect
+import all Veir.Passes.RISCVCombines.Combine
+import all Veir.Dialects.RISCV.Properties
+import all Veir.Dialects.RV64.OpInfo
+import all Veir.GlobalOpInfo
+import all Veir.Interpreter.CTreeInterpreter
+import all Veir.Dialects.RISCV.Interpreter
+import all Veir.IR.Attribute
+import all Veir.Data.LLVM.Byte.Basic
+import Veir.PatternRewriter.Puddle.CTreeValidityTactics
+import Veir.Passes.RISCVCombines.Simp
 meta import Veir.Meta.ProofKind
 
-import all Veir.Data.RISCV.Reg.Basic
-import all Veir.Data.RISCV.Reg.Lemmas
-import all Veir.Passes.RISCVCombines.Combine
-import all Veir.Dialects.RISCV.OpInfo
-import all Veir.Dialects.RISCV.Properties
-import all Veir.GlobalOpInfo
+/-! # Correctness of the RISC-V combines -/
 
-public section
+namespace Veir.RISCV.CTreeProofs
 
-/-!
-  Correctness proofs for the RISC-V combines in `Combine.lean`.
--/
+open Puddle
+open _root_.CTree
 
-namespace Veir.Data.RISCV
+attribute [local puddle]
+  OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
+  Riscv.interpretOp' Riscv.interpretOpCTree
 
-/-- `li 0` is the value of `x0`. -/
-theorem li_zero_to_x0 : li 0#64 = ⟨0#64⟩ := by simp [li]
+attribute [local riscv_combine]
+  RuntimeValue.isRefinedBy
 
-/-! ## Conventions
+/-- Split a matched input value, i.e. a value with a `Conforms` hypothesis, by constructor. -/
+theorem forall_conforms_iff {t : TypeAttr} {P : RuntimeValue → Prop} :
+    (∀ v : RuntimeValue, v.Conforms t → P v) ↔
+      (∀ bw x, (RuntimeValue.int bw x).Conforms t → P (.int bw x)) ∧
+      (∀ bw x, (RuntimeValue.byte bw x).Conforms t → P (.byte bw x)) ∧
+      (∀ ty x, (RuntimeValue.float ty x).Conforms t → P (.float ty x)) ∧
+      (∀ x, (RuntimeValue.addr x).Conforms t → P (.addr x)) ∧
+      (∀ x, (RuntimeValue.reg x).Conforms t → P (.reg x)) ∧
+      (∀ ty x, (RuntimeValue.felt ty x).Conforms t → P (.felt ty x)) := by
+  constructor
+  · intro h
+    exact ⟨fun _ _ => h _, fun _ _ => h _, fun _ _ => h _, fun _ => h _, fun _ => h _,
+      fun _ _ => h _⟩
+  · rintro ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ v
+    cases v <;> simp_all
 
-Each lemma in this namespace that is named after a combine is the local correctness statement of
-that combine's Puddle pattern, stated exactly as its CTree validity proof in
-`Veir.Passes.RISCVCombines.Validity` sees it:
+/-- `rv64.get_register` with a register result type reads `x0` as zero. -/
+@[riscv_combine]
+theorem rv64_interpretOp'_get_register (property : propertiesOf Rv64.get_register)
+    (reg : RegisterType) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr) :
+    Rv64.interpretOp' .get_register property #[TypeAttr.of RegisterType reg] operands
+        blockOperands =
+      if reg.index = some 0 then some (#[.reg ⟨0⟩], none) else none := by
+  simp [Rv64.interpretOp', TypeAttr.of, Attribute.of, -Attribute.registerType_eq_of]
 
-* register operations take their operands as `(rs2, rs1)`, the reverse of the SSA operand order,
-  because that is how `Riscv.interpretOp'` applies them;
-* an immediate the pattern constrains is read through `RISCVImmediateProperties.immField`, and the
-  constraint is a hypothesis in the form the Puddle matcher states it;
-* an immediate the pattern does not constrain is an arbitrary bit vector.
+attribute [local riscv_combine] _root_.Veir.RISCV.liFitsSImm12 RISCVImmediateProperties.immField
 
-The validity proofs close their register goals with these lemmas (`proveCombineValid using`), so a
-statement that drifts from its pattern no longer builds. -/
-
-/-! ### Signed immediate guards
-
-Combine guards compare `value.toInt` with integer literals. `bv_decide` does not see these `Int`
-facts, so they are restated as signed bit-vector comparisons. -/
-
-section toInt
-
-variable {x : BitVec 64} {c : Int}
-
-theorem le_toInt_iff_sle (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    c ≤ x.toInt ↔ (BitVec.ofInt 64 c).sle x := by
-  rw [BitVec.sle_iff_toInt_le, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-theorem toInt_le_iff_sle (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    x.toInt ≤ c ↔ x.sle (BitVec.ofInt 64 c) := by
-  rw [BitVec.sle_iff_toInt_le, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-theorem lt_toInt_iff_slt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    c < x.toInt ↔ (BitVec.ofInt 64 c).slt x := by
-  rw [BitVec.slt_iff_toInt_lt, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-theorem toInt_lt_iff_slt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    x.toInt < c ↔ x.slt (BitVec.ofInt 64 c) := by
-  rw [BitVec.slt_iff_toInt_lt, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-theorem toInt_eq_iff_eq_ofInt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    x.toInt = c ↔ x = BitVec.ofInt 64 c := by
-  rw [← BitVec.toInt_inj, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-end toInt
-
-/-- Normalize the matcher guards on immediates into bit-vector facts, then bit-blast. -/
-local macro "guarded_bv_decide" : tactic => `(tactic| (
-  simp_all [_root_.Veir.RISCV.liFitsSImm12, RISCVImmediateProperties.immField,
-    le_toInt_iff_sle, toInt_le_iff_sle, lt_toInt_iff_slt, toInt_lt_iff_slt, toInt_eq_iff_eq_ofInt]
+/-- Prove the validity of a combine pattern: unfold it, discharge the structural obligations,
+normalize the semantics to register equalities under the matcher's guards, and bit-blast them.
+The simp call is contextual, so that each guard rewrites the conclusion it guards. -/
+macro "proveCombineValid" : tactic => `(tactic| (
+  simp only [riscv_pattern]
+  simpPuddleValid
+  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
   all_goals veir_bv_decide))
 
-/-! ### Stored bytes
+/-! ### Stores
 
 A store writes a little-endian prefix of its value register, which depends only on the low bits
-of the register. -/
+of the register: four bytes for `sw`, two for `sh` and one for `sb`. -/
 
-theorem toByteArrayLE_extract_four {a b : BitVec 64} (h : a.setWidth 32 = b.setWidth 32) :
-    (UInt64.ofBitVec a).toByteArrayLE.extract 0 4 = (UInt64.ofBitVec b).toByteArrayLE.extract 0 4 := by
-  apply ByteArray.ext
-  simp [ByteArray.data_extract, UInt64.toByteArrayLE, ← UInt8.toBitVec_inj]
-  bv_decide
+/-- The first `i` little-endian bytes of two registers agree iff their low `8 * i` bits do (for
+`8 ≤ i` both sides say that the registers are equal). Registered in `veir_bv_normalize`, so
+`veir_bv_decide` turns the byte equality of a store into a bitvector equality. -/
+@[veir_bv_normalize]
+theorem toByteArrayLE_extract_eq_iff {a b : BitVec 64} :
+    (UInt64.ofBitVec a).toByteArrayLE.extract 0 i = (UInt64.ofBitVec b).toByteArrayLE.extract 0 i ↔
+      a.setWidth (8 * i) = b.setWidth (8 * i) := by
+  rw [show ∀ x y : ByteArray, x = y ↔ x.data = y.data from fun _ _ => ⟨congrArg _, ByteArray.ext⟩]
+  simp only [ByteArray.data_extract, UInt64.toByteArrayLE]
+  by_cases hi : 8 ≤ i
+  · have hw : 2 ^ 64 ≤ 2 ^ (8 * i) := Nat.pow_le_pow_right (by omega) (by omega)
+    have hset : a.setWidth (8 * i) = b.setWidth (8 * i) ↔ a = b := by
+      rw [← BitVec.toNat_inj, BitVec.toNat_setWidth, BitVec.toNat_setWidth,
+        Nat.mod_eq_of_lt (by have := a.isLt; omega), Nat.mod_eq_of_lt (by have := b.isLt; omega),
+        BitVec.toNat_inj]
+    rw [Array.extract_eq_self_of_le (by simpa using hi),
+      Array.extract_eq_self_of_le (by simpa using hi),
+      hset]
+    simp [← UInt8.toBitVec_inj]
+    bv_decide
+  · obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl :
+        i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
+    all_goals
+      simp [← UInt8.toBitVec_inj]
+      all_goals bv_decide
 
-theorem toByteArrayLE_extract_two {a b : BitVec 64} (h : a.setWidth 16 = b.setWidth 16) :
-    (UInt64.ofBitVec a).toByteArrayLE.extract 0 2 = (UInt64.ofBitVec b).toByteArrayLE.extract 0 2 := by
-  apply ByteArray.ext
-  simp [ByteArray.data_extract, UInt64.toByteArrayLE, ← UInt8.toBitVec_inj]
-  bv_decide
+/-- A root store and a created store that write the same bytes simulate each other.
+The statement keeps the source as a lifted `Interp` computation, so that it can be transported
+into a normalized goal through `Veir.Sim.monadLift_right_iff` without rewriting below the
+dependent size proof of `MemoryState.store`. -/
+theorem sim_store {R : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
+      (Array RuntimeValue × MemoryState × Option ControlFlowAction) → Prop}
+    (hR : ∀ mem, R (#[], mem, none) (#[], mem, none))
+    (mem : MemoryState) (p : Data.Pointer) (source target poison : ByteArray)
+    (hsource : poison.size = source.size) (htarget : poison.size = target.size)
+    (hbytes : source = target) :
+    CTree.Sim R
+      (CTree.bind (monadLift (mem.store p target poison htarget >>= fun mem =>
+          (Interp.ok (#[], mem, none) :
+            Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))) :
+          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction))
+        fun result => pure (#[], result.2.fst, none))
+      (monadLift (mem.store p source poison hsource >>= fun mem =>
+          (Interp.ok (#[], mem, none) :
+            Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))) :
+          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) := by
+  subst hbytes
+  cases mem.store p source poison hsource <;> simp [hR, monadLift, MonadLift.monadLift]
 
-theorem toByteArrayLE_extract_one {a b : BitVec 64} (h : a.setWidth 8 = b.setWidth 8) :
-    (UInt64.ofBitVec a).toByteArrayLE.extract 0 1 = (UInt64.ofBitVec b).toByteArrayLE.extract 0 1 := by
-  apply ByteArray.ext
-  simp [ByteArray.data_extract, UInt64.toByteArrayLE, ← UInt8.toBitVec_inj]
-  bv_decide
+/-- A lifted failing source is simulated by any target. -/
+@[simp]
+theorem sim_monadLift_fail_right {α β : Type} (R : α → β → Prop) (target : Tree α)
+    (location : Option OperationPtr) :
+    CTree.Sim R target (monadLift (Interp.fail location : Interp β) : Tree β) := by
+  simp [monadLift, MonadLift.monadLift]
+
+/-- A lifted source with undefined behavior is simulated by any target. -/
+@[simp]
+theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target : Tree α)
+    (location : Option OperationPtr) :
+    CTree.Sim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
+  simp [monadLift, MonadLift.monadLift]
 
 /-! ## Identities, booleans and immediates -/
 
 /-- `riscv.add x (riscv.li 0) -> x` (`right_identity_zero_add`). The matcher fixes the
     materialized constant to `0#64`. -/
-theorem right_identity_zero_add {x : Reg} :
-    RISCV.add (RISCV.li 0#64) x = x := by
-  veir_bv_decide
+@[proof_bv]
+theorem right_identity_zero_add_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_zero_add_pattern) := by
+  proveCombineValid
 
 /-- `riscv.add x (riscv.li c) -> riscv.addi x c` (`add_li_to_addi`): the signed bounds from
     `liFitsSImm12` ensure that truncating `c` to 12 bits and sign-extending recovers `c`. -/
-theorem add_li_to_addi {x : Reg} {p : RISCVImmediateProperties}
-    (h : _root_.Veir.RISCV.liFitsSImm12 p = true) :
-    RISCV.add (RISCV.li p.value) x = RISCV.addi (p.immField 12) x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem add_li_to_addi_valid :
+    Puddle.CTree.Pattern.Valid (add_li_to_addi_pattern false) := by
+  proveCombineValid
 
 /-- `riscv.add (riscv.li c) x -> riscv.addi x c` (`add_li_to_addi_commuted`). -/
-theorem add_li_to_addi_commuted {x : Reg} {p : RISCVImmediateProperties}
-    (h : _root_.Veir.RISCV.liFitsSImm12 p = true) :
-    RISCV.add x (RISCV.li p.value) = RISCV.addi (p.immField 12) x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem add_li_to_addi_commuted_valid :
+    Puddle.CTree.Pattern.Valid (add_li_to_addi_pattern true) := by
+  proveCombineValid
 
-/-- Both sides retain bits 31:0 and clear bits 63:32. -/
-theorem and_li_to_zextw {x : Reg} :
-    RISCV.and (RISCV.li 0xffffffff#64) x = RISCV.zextw x := by
-  veir_bv_decide
+/-- `riscv.and (riscv.li 0xffffffff) x -> riscv.zextw x` (`and_li_to_zextw`): both sides retain
+    bits 31:0 and clear bits 63:32. -/
+@[proof_bv]
+theorem and_li_to_zextw_valid :
+    Puddle.CTree.Pattern.Valid (and_li_to_zextw_pattern false) := by
+  proveCombineValid
 
 /-- The other operand order matched by `and_li_to_zextw_commuted`. -/
-theorem and_li_to_zextw_commuted {x : Reg} :
-    RISCV.and x (RISCV.li 0xffffffff#64) = RISCV.zextw x := by
-  veir_bv_decide
+@[proof_bv]
+theorem and_li_to_zextw_commuted_valid :
+    Puddle.CTree.Pattern.Valid (and_li_to_zextw_pattern true) := by
+  proveCombineValid
 
-/-! Shift-amount combines (R1). Register semantics take `(amount, data)`,
-    the reverse of the SSA operand order. The mask hypotheses use the exact
-    64-bit immediate-property predicate from the Puddle matcher. -/
+/-- The created `rv64.get_register` reads `x0`, whose value is zero. -/
+@[proof_bv]
+theorem li_zero_to_x0_valid :
+    Puddle.CTree.Pattern.Valid li_zero_to_x0_pattern := by
+  proveCombineValid
 
-/-! Shift-amount combines. The amount is SSA operand 1, i.e. the first argument of the
-    register operation. The mask hypotheses are the guard of `drop_shift_amount_mask_pattern`. -/
+/-! ## Shift amounts
 
-theorem sll_amount_andi {x amount : Reg} {p : RISCVImmediateProperties}
-    (h : (p.value &&& 63#64 == 63#64) = true) :
-    RISCV.sll (RISCV.andi (p.immField 12) amount) x = RISCV.sll amount x := by
-  guarded_bv_decide
+A shift reads only the low bits of its amount (SSA operand 1): six for the 64-bit shifts, five
+for the word shifts. Masking the amount with `andi` (under the guard of
+`drop_shift_amount_mask_pattern`) or zero-extending it with `zextw` leaves those bits unchanged. -/
 
-theorem srl_amount_andi {x amount : Reg} {p : RISCVImmediateProperties}
-    (h : (p.value &&& 63#64 == 63#64) = true) :
-    RISCV.srl (RISCV.andi (p.immField 12) amount) x = RISCV.srl amount x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_sll_amount_mask_valid :
+    Puddle.CTree.Pattern.Valid (drop_shift_amount_mask_pattern .sll 63) := by
+  proveCombineValid
 
-theorem sra_amount_andi {x amount : Reg} {p : RISCVImmediateProperties}
-    (h : (p.value &&& 63#64 == 63#64) = true) :
-    RISCV.sra (RISCV.andi (p.immField 12) amount) x = RISCV.sra amount x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_srl_amount_mask_valid :
+    Puddle.CTree.Pattern.Valid (drop_shift_amount_mask_pattern .srl 63) := by
+  proveCombineValid
 
-theorem sllw_amount_andi {x amount : Reg} {p : RISCVImmediateProperties}
-    (h : (p.value &&& 31#64 == 31#64) = true) :
-    RISCV.sllw (RISCV.andi (p.immField 12) amount) x = RISCV.sllw amount x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_sra_amount_mask_valid :
+    Puddle.CTree.Pattern.Valid (drop_shift_amount_mask_pattern .sra 63) := by
+  proveCombineValid
 
-theorem srlw_amount_andi {x amount : Reg} {p : RISCVImmediateProperties}
-    (h : (p.value &&& 31#64 == 31#64) = true) :
-    RISCV.srlw (RISCV.andi (p.immField 12) amount) x = RISCV.srlw amount x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_sllw_amount_mask_valid :
+    Puddle.CTree.Pattern.Valid (drop_shift_amount_mask_pattern .sllw 31) := by
+  proveCombineValid
 
-theorem sraw_amount_andi {x amount : Reg} {p : RISCVImmediateProperties}
-    (h : (p.value &&& 31#64 == 31#64) = true) :
-    RISCV.sraw (RISCV.andi (p.immField 12) amount) x = RISCV.sraw amount x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_srlw_amount_mask_valid :
+    Puddle.CTree.Pattern.Valid (drop_shift_amount_mask_pattern .srlw 31) := by
+  proveCombineValid
 
-theorem sll_amount_zextw {x amount : Reg} :
-    RISCV.sll (RISCV.zextw amount) x = RISCV.sll amount x := by
-  veir_bv_decide
+@[proof_bv]
+theorem drop_sraw_amount_mask_valid :
+    Puddle.CTree.Pattern.Valid (drop_shift_amount_mask_pattern .sraw 31) := by
+  proveCombineValid
 
-theorem srl_amount_zextw {x amount : Reg} :
-    RISCV.srl (RISCV.zextw amount) x = RISCV.srl amount x := by
-  veir_bv_decide
+@[proof_bv]
+theorem drop_sll_amount_zextw_valid :
+    Puddle.CTree.Pattern.Valid (drop_zextw_shift_amount_pattern .sll) := by
+  proveCombineValid
 
-theorem sra_amount_zextw {x amount : Reg} :
-    RISCV.sra (RISCV.zextw amount) x = RISCV.sra amount x := by
-  veir_bv_decide
+@[proof_bv]
+theorem drop_srl_amount_zextw_valid :
+    Puddle.CTree.Pattern.Valid (drop_zextw_shift_amount_pattern .srl) := by
+  proveCombineValid
 
-theorem sllw_amount_zextw {x amount : Reg} :
-    RISCV.sllw (RISCV.zextw amount) x = RISCV.sllw amount x := by
-  veir_bv_decide
+@[proof_bv]
+theorem drop_sra_amount_zextw_valid :
+    Puddle.CTree.Pattern.Valid (drop_zextw_shift_amount_pattern .sra) := by
+  proveCombineValid
 
-theorem srlw_amount_zextw {x amount : Reg} :
-    RISCV.srlw (RISCV.zextw amount) x = RISCV.srlw amount x := by
-  veir_bv_decide
+@[proof_bv]
+theorem drop_zextw_sllw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .sllw 2 1) := by
+  proveCombineValid
 
-theorem sraw_amount_zextw {x amount : Reg} :
-    RISCV.sraw (RISCV.zextw amount) x = RISCV.sraw amount x := by
-  veir_bv_decide
+@[proof_bv]
+theorem drop_zextw_srlw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .srlw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_sraw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .sraw 2 1) := by
+  proveCombineValid
 
 /--
   `riscv.srli 63 (riscv.srai _ x) -> riscv.srli 63 x` (`srl_sra_signbit`): an arithmetic right
@@ -205,16 +244,16 @@ theorem sraw_amount_zextw {x amount : Reg} :
   `DAGCombiner::visitSRL` rule `fold (srl (sra X, Y), 31) -> (srl X, 31)`.
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L11628-L11633
 -/
-theorem srl_sra_signbit {x : Reg} {shamt : BitVec 6} {p : RISCVImmediateProperties}
-    (h : p.value.toInt = ((64 : Nat) : Int) - 1) :
-    RISCV.srli (p.immField 6) (RISCV.srai shamt x) = RISCV.srli (p.immField 6) x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem srl_sra_signbit_valid :
+    Puddle.CTree.Pattern.Valid (srl_sra_signbitGen_pattern .srli rfl .srai 64) := by
+  proveCombineValid
 
 /-- The `i32` analogue of `srl_sra_signbit`, at bit 31 (`srlw_sraw_signbit`). -/
-theorem srlw_sraw_signbit {x : Reg} {shamt : BitVec 5} {p : RISCVImmediateProperties}
-    (h : p.value.toInt = ((32 : Nat) : Int) - 1) :
-    RISCV.srliw (p.immField 5) (RISCV.sraiw shamt x) = RISCV.srliw (p.immField 5) x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem srlw_sraw_signbit_valid :
+    Puddle.CTree.Pattern.Valid (srl_sra_signbitGen_pattern .srliw rfl .sraiw 32) := by
+  proveCombineValid
 
 /-!
   The `drop_slli_srli_boolGen` family: for a comparison op producing exactly 0 or 1,
@@ -222,87 +261,92 @@ theorem srlw_sraw_signbit {x : Reg} {shamt : BitVec 5} {p : RISCVImmediateProper
   the round trip is the identity and both shifts can be dropped entirely.
 -/
 
-theorem drop_slli_srli_slt {rs1 rs2 : Reg} {p q : RISCVImmediateProperties}
-    (hp : p.value = 63#64) (hq : q.value = 63#64) :
-    RISCV.srli (p.immField 6) (RISCV.slli (q.immField 6) (RISCV.slt rs2 rs1)) =
-      RISCV.slt rs2 rs1 := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_slli_srli_slt_valid :
+    Puddle.CTree.Pattern.Valid (drop_slli_srli_boolGen_pattern .slt 2) := by
+  proveCombineValid
 
-theorem drop_slli_srli_sltu {rs1 rs2 : Reg} {p q : RISCVImmediateProperties}
-    (hp : p.value = 63#64) (hq : q.value = 63#64) :
-    RISCV.srli (p.immField 6) (RISCV.slli (q.immField 6) (RISCV.sltu rs2 rs1)) =
-      RISCV.sltu rs2 rs1 := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_slli_srli_sltu_valid :
+    Puddle.CTree.Pattern.Valid (drop_slli_srli_boolGen_pattern .sltu 2) := by
+  proveCombineValid
 
-theorem drop_slli_srli_slti {rs1 : Reg} {imm : BitVec 12} {p q : RISCVImmediateProperties}
-    (hp : p.value = 63#64) (hq : q.value = 63#64) :
-    RISCV.srli (p.immField 6) (RISCV.slli (q.immField 6) (RISCV.slti imm rs1)) =
-      RISCV.slti imm rs1 := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_slli_srli_slti_valid :
+    Puddle.CTree.Pattern.Valid (drop_slli_srli_boolGen_pattern .slti 1) := by
+  proveCombineValid
 
-theorem drop_slli_srli_sltiu {rs1 : Reg} {imm : BitVec 12} {p q : RISCVImmediateProperties}
-    (hp : p.value = 63#64) (hq : q.value = 63#64) :
-    RISCV.srli (p.immField 6) (RISCV.slli (q.immField 6) (RISCV.sltiu imm rs1)) =
-      RISCV.sltiu imm rs1 := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_slli_srli_sltiu_valid :
+    Puddle.CTree.Pattern.Valid (drop_slli_srli_boolGen_pattern .sltiu 1) := by
+  proveCombineValid
 
-theorem drop_slli_srli_seqz {rs1 : Reg} {p q : RISCVImmediateProperties}
-    (hp : p.value = 63#64) (hq : q.value = 63#64) :
-    RISCV.srli (p.immField 6) (RISCV.slli (q.immField 6) (RISCV.seqz rs1)) =
-      RISCV.seqz rs1 := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_slli_srli_seqz_valid :
+    Puddle.CTree.Pattern.Valid (drop_slli_srli_boolGen_pattern .seqz 1) := by
+  proveCombineValid
 
-theorem drop_slli_srli_snez {rs1 : Reg} {p q : RISCVImmediateProperties}
-    (hp : p.value = 63#64) (hq : q.value = 63#64) :
-    RISCV.srli (p.immField 6) (RISCV.slli (q.immField 6) (RISCV.snez rs1)) =
-      RISCV.snez rs1 := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_slli_srli_snez_valid :
+    Puddle.CTree.Pattern.Valid (drop_slli_srli_boolGen_pattern .snez 1) := by
+  proveCombineValid
 
-theorem drop_slli_srli_sltz {rs1 : Reg} {p q : RISCVImmediateProperties}
-    (hp : p.value = 63#64) (hq : q.value = 63#64) :
-    RISCV.srli (p.immField 6) (RISCV.slli (q.immField 6) (RISCV.sltz rs1)) =
-      RISCV.sltz rs1 := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_slli_srli_sltz_valid :
+    Puddle.CTree.Pattern.Valid (drop_slli_srli_boolGen_pattern .sltz 1) := by
+  proveCombineValid
 
-theorem drop_slli_srli_sgtz {rs1 : Reg} {p q : RISCVImmediateProperties}
-    (hp : p.value = 63#64) (hq : q.value = 63#64) :
-    RISCV.srli (p.immField 6) (RISCV.slli (q.immField 6) (RISCV.sgtz rs1)) =
-      RISCV.sgtz rs1 := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_slli_srli_sgtz_valid :
+    Puddle.CTree.Pattern.Valid (drop_slli_srli_boolGen_pattern .sgtz 1) := by
+  proveCombineValid
 
 /-- `riscv.andi 1 (riscv.srli 63 x) -> riscv.srli 63 x` (`drop_andi_one_srli`): `srli 63` leaves
     only bit 0, so masking it with 1 changes nothing. -/
-theorem drop_andi_one_srli {x : Reg} {p q : RISCVImmediateProperties}
-    (hp : p.value = 1#64) (hq : q.value = 63#64) :
-    RISCV.andi (p.immField 12) (RISCV.srli (q.immField 6) x) = RISCV.srli (q.immField 6) x := by
-  guarded_bv_decide
+@[proof_bv]
+theorem drop_andi_one_srli_valid :
+    Puddle.CTree.Pattern.Valid (drop_andi_one_srli_pattern) := by
+  proveCombineValid
 
 /-! ## Redundant extensions -/
 
 /-- Each extension is idempotent (`drop_redundant_ext`): the inner extension already establishes
     the high-bit pattern the outer one would. -/
-theorem zextw_zextw {x : Reg} : RISCV.zextw (RISCV.zextw x) = RISCV.zextw x := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextw_zextw_valid :
+    Puddle.CTree.Pattern.Valid (drop_redundant_ext_pattern .zextw) := by
+  proveCombineValid
 
-theorem sextw_sextw {x : Reg} : RISCV.sextw (RISCV.sextw x) = RISCV.sextw x := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_sextw_valid :
+    Puddle.CTree.Pattern.Valid (drop_redundant_ext_pattern .sextw) := by
+  proveCombineValid
 
-theorem zextb_zextb {x : Reg} : RISCV.zextb (RISCV.zextb x) = RISCV.zextb x := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextb_zextb_valid :
+    Puddle.CTree.Pattern.Valid (drop_redundant_ext_pattern .zextb) := by
+  proveCombineValid
 
-theorem zexth_zexth {x : Reg} : RISCV.zexth (RISCV.zexth x) = RISCV.zexth x := by
-  veir_bv_decide
+@[proof_bv]
+theorem zexth_zexth_valid :
+    Puddle.CTree.Pattern.Valid (drop_redundant_ext_pattern .zexth) := by
+  proveCombineValid
 
-theorem sextb_sextb {x : Reg} : RISCV.sextb (RISCV.sextb x) = RISCV.sextb x := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextb_sextb_valid :
+    Puddle.CTree.Pattern.Valid (drop_redundant_ext_pattern .sextb) := by
+  proveCombineValid
 
-theorem sexth_sexth {x : Reg} : RISCV.sexth (RISCV.sexth x) = RISCV.sexth x := by
-  veir_bv_decide
+@[proof_bv]
+theorem sexth_sexth_valid :
+    Puddle.CTree.Pattern.Valid (drop_redundant_ext_pattern .sexth) := by
+  proveCombineValid
 
 /-- A byte zero-extension is already a word zero-extension (`zextw_zextb`). -/
-theorem zextw_zextb {x : Reg} :
-    RISCV.zextw (RISCV.zextb x) = RISCV.zextb x := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextw_zextb_valid :
+    Puddle.CTree.Pattern.Valid (zextw_zextb_pattern) := by
+  proveCombineValid
 
 /-! ## Extensions of materialized constants
 
@@ -310,228 +354,287 @@ theorem zextw_zextb {x : Reg} :
 zero-extension the unsigned range below `2^width`, for a sign-extension the signed range
 `[-2^(width-1), 2^(width-1))`. -/
 
-theorem zextw_li_low32 {c : BitVec 64} (h : (!decide (c ≥ 4294967296#64)) = true) :
-    RISCV.zextw (RISCV.li c) = RISCV.li c := by
-  guarded_bv_decide
+@[proof_bv]
+theorem zextw_li_low32_valid :
+    Puddle.CTree.Pattern.Valid
+      (ext_of_li_pattern .zextw fun cst => !decide (cst.value ≥ 4294967296#64)) := by
+  proveCombineValid
 
-theorem sextw_li_low32 {c : BitVec 64}
-    (h : (!decide (c.toInt < -2147483648 ∨ c.toInt ≥ 2147483648)) = true) :
-    RISCV.sextw (RISCV.li c) = RISCV.li c := by
-  guarded_bv_decide
+@[proof_bv]
+theorem sextw_li_low32_valid :
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .sextw fun cst =>
+      !decide (cst.value.toInt < -2147483648 ∨ cst.value.toInt ≥ 2147483648)) := by
+  proveCombineValid
 
-theorem zextb_li_low8 {c : BitVec 64} (h : (!decide (c.toInt < 0 ∨ c.toInt ≥ 256)) = true) :
-    RISCV.zextb (RISCV.li c) = RISCV.li c := by
-  guarded_bv_decide
+@[proof_bv]
+theorem zextb_li_low8_valid :
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .zextb fun cst =>
+      !decide (cst.value.toInt < 0 ∨ cst.value.toInt ≥ 256)) := by
+  proveCombineValid
 
-theorem zexth_li_low16 {c : BitVec 64} (h : (!decide (c.toInt < 0 ∨ c.toInt ≥ 65536)) = true) :
-    RISCV.zexth (RISCV.li c) = RISCV.li c := by
-  guarded_bv_decide
+@[proof_bv]
+theorem zexth_li_low16_valid :
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .zexth fun cst =>
+      !decide (cst.value.toInt < 0 ∨ cst.value.toInt ≥ 65536)) := by
+  proveCombineValid
 
-theorem sextb_li_low8 {c : BitVec 64} (h : (!decide (c.toInt < -128 ∨ c.toInt ≥ 128)) = true) :
-    RISCV.sextb (RISCV.li c) = RISCV.li c := by
-  guarded_bv_decide
+@[proof_bv]
+theorem sextb_li_low8_valid :
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .sextb fun cst =>
+      !decide (cst.value.toInt < (-128) ∨ cst.value.toInt ≥ 128)) := by
+  proveCombineValid
 
-theorem sexth_li_low16 {c : BitVec 64} (h : (!decide (c.toInt < -32768 ∨ c.toInt ≥ 32768)) = true) :
-    RISCV.sexth (RISCV.li c) = RISCV.li c := by
-  guarded_bv_decide
+@[proof_bv]
+theorem sexth_li_low16_valid :
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .sexth fun cst =>
+      !decide (cst.value.toInt < (-32768) ∨ cst.value.toInt ≥ 32768)) := by
+  proveCombineValid
+
+section
+
+/-- `x` is a value a RISC-V load of `n` bytes at `p` can produce: the bits stored at `p`, with each
+poison bit frozen to some concrete value. It is kept folded, so that the validity proofs treat the
+loaded value as an arbitrary bitvector. -/
+def LoadsBits (mem : MemoryState) (p : Data.Pointer) (n : Nat) (x : BitVec (8 * n)) : Prop :=
+  ∃ b, mem.loadByte p (8 * n) = .ok b ∧ ∃ bits, x = b.val ||| (b.poison &&& bits)
+
+/-- A RISC-V load CTree that succeeds returns the bits it read, extended to a register, and leaves
+memory unchanged. -/
+theorem riscvLoadCTree_canInterpretTo_ok {EIn : Type} {E : EIn → Type}
+    [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
+    {mem mem' : MemoryState} {n : Nat} {ext : LoadExtension} {v : RuntimeValue} :
+    PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
+        (.ok (#[v], mem', none)) ↔
+      ∃ x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x ∧
+        v = .reg ⟨match ext with
+          | .signExt => x.signExtend 64
+          | .zeroExt => x.setWidth 64⟩ ∧
+        mem' = mem := by
+  simp [riscvLoadCTree, Bind.bind, PureOrErr.CanInterpretTo.bind_iff, LoadsBits]
+  constructor
+  · rintro ⟨b, hb, ⟨bits, rfl⟩, rfl⟩
+    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp [Data.LLVM.Byte.fillPoison], rfl⟩
+  · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
+    exact ⟨b, hb, ⟨bits, by cases ext <;> simp [Data.LLVM.Byte.fillPoison]⟩, rfl⟩
+
+/-- `riscvLoadCTree_canInterpretTo_ok` for the matched result of a load, which the validity goal
+quantifies over together with the input and output memories: the result is substituted by the
+extended loaded bits and the output memory by the input memory. -/
+@[local riscv_combine] theorem forall_riscvLoadCTree_canInterpretTo_ok {EIn : Type}
+    {E : EIn → Type} [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
+    {n : Nat} {ext : LoadExtension} {P : RuntimeValue → MemoryState → MemoryState → Prop} :
+    (∀ v mem mem', PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
+        (.ok (#[v], mem', none)) → P v mem mem') ↔
+      ∀ mem x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x →
+        P (.reg ⟨match ext with
+          | .signExt => x.signExtend 64
+          | .zeroExt => x.setWidth 64⟩) mem mem := by
+  simp only [riscvLoadCTree_canInterpretTo_ok]
+  constructor
+  · exact fun h mem x hx => h _ _ _ ⟨x, hx, rfl, rfl⟩
+  · rintro h v mem mem' ⟨x, hx, rfl, rfl⟩
+    exact h _ x hx
 
 /-! ## Byte-load and byte-packing combines.
 
     A load returns the bytes it read, extended to a register: `lbu` the byte `x`
     zero-extended, `⟨x.setWidth 64⟩`. These combines reuse the load results without
-    moving or recreating memory accesses; the equalities here establish the value
-    transformations. The immediates are those of the matched (`p`, `q`) and created
-    (`r`) operations, fixed by the matchers' guards. -/
+    moving or recreating memory accesses. -/
 
 /-- `zextb (lbu x) = lbu x`: an unsigned byte load is already zero-extended. -/
-theorem zextb_lbu {x : BitVec 8} :
-    RISCV.zextb ⟨x.setWidth 64⟩ = ⟨x.setWidth 64⟩ := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextb_lbu_valid : Puddle.CTree.Pattern.Valid (zextb_lbu_pattern) := by
+  proveCombineValid
 
 /-- `andi 255 (lbu x) = lbu x`: an unsigned byte load is already masked. -/
-theorem andi_255_lbu {x : BitVec 8} {p : RISCVImmediateProperties} (hp : p.value = 255#64) :
-    RISCV.andi (p.immField 12) ⟨x.setWidth 64⟩ = ⟨x.setWidth 64⟩ := by
-  guarded_bv_decide
+@[proof_bv]
+theorem andi_255_lbu_valid : Puddle.CTree.Pattern.Valid (andi_255_lbu_pattern) := by
+  proveCombineValid
 
 /-- The byte-packing pre-canonicalization is valid for each selected shift:
     a word shift of a zero-extended byte, followed by `zextw`, is the same as
     the corresponding full-width shift. -/
-theorem zextw_slliw_lbu_8 {x : BitVec 8} {p q : RISCVImmediateProperties}
-    (hp : p.value = 8#64) (hq : q.value = 8#64) :
-    RISCV.zextw (RISCV.slliw (p.immField 5) ⟨x.setWidth 64⟩) =
-      RISCV.slli (q.immField 6) ⟨x.setWidth 64⟩ := by
-  guarded_bv_decide
+@[proof_bv]
+theorem zextw_slliw_lbu_8_valid : Puddle.CTree.Pattern.Valid (zextw_slliw_lbu_pattern 8) := by
+  proveCombineValid
 
-theorem zextw_slliw_lbu_16 {x : BitVec 8} {p q : RISCVImmediateProperties}
-    (hp : p.value = 16#64) (hq : q.value = 16#64) :
-    RISCV.zextw (RISCV.slliw (p.immField 5) ⟨x.setWidth 64⟩) =
-      RISCV.slli (q.immField 6) ⟨x.setWidth 64⟩ := by
-  guarded_bv_decide
+@[proof_bv]
+theorem zextw_slliw_lbu_16_valid : Puddle.CTree.Pattern.Valid (zextw_slliw_lbu_pattern 16) := by
+  proveCombineValid
 
-theorem zextw_slliw_lbu_24 {x : BitVec 8} {p q : RISCVImmediateProperties}
-    (hp : p.value = 24#64) (hq : q.value = 24#64) :
-    RISCV.zextw (RISCV.slliw (p.immField 5) ⟨x.setWidth 64⟩) =
-      RISCV.slli (q.immField 6) ⟨x.setWidth 64⟩ := by
-  guarded_bv_decide
+@[proof_bv]
+theorem zextw_slliw_lbu_24_valid : Puddle.CTree.Pattern.Valid (zextw_slliw_lbu_pattern 24) := by
+  proveCombineValid
 
-/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
+/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`. -/
 
-    `RISCV.or` takes its operands as `(rs2, rs1)`, so the register-level
-    expression lists the shifted `hi` before `lo`. -/
-theorem packh_low_bytes {lo hi : BitVec 8} {p : RISCVImmediateProperties} (hp : p.value = 8#64) :
-    RISCV.or (RISCV.slli (p.immField 6) ⟨hi.setWidth 64⟩) ⟨lo.setWidth 64⟩ =
-      RISCV.packh ⟨hi.setWidth 64⟩ ⟨lo.setWidth 64⟩ := by
-  guarded_bv_decide
+@[proof_bv]
+theorem packh_low_bytes_valid : Puddle.CTree.Pattern.Valid (packh_low_bytes_pattern false) := by
+  proveCombineValid
 
 /-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`. -/
-theorem packh_low_bytes_commuted {lo hi : BitVec 8} {p : RISCVImmediateProperties}
-    (hp : p.value = 8#64) :
-    RISCV.or ⟨lo.setWidth 64⟩ (RISCV.slli (p.immField 6) ⟨hi.setWidth 64⟩) =
-      RISCV.packh ⟨hi.setWidth 64⟩ ⟨lo.setWidth 64⟩ := by
-  guarded_bv_decide
+@[proof_bv]
+theorem packh_low_bytes_commuted_valid : Puddle.CTree.Pattern.Valid (packh_low_bytes_pattern true) := by
+  proveCombineValid
 
-/-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) -> slli (packh b2 b3), 16`.
+/-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) -> slli (packh b2 b3), 16`. -/
 
-    `RISCV.or` takes its operands as `(rs2, rs1)`, so the register-level
-    expression lists the `b3` shift before the `b2` shift. -/
-theorem packh_high_bytes {b2 b3 : BitVec 8} {p q r : RISCVImmediateProperties}
-    (hp : p.value = 24#64) (hq : q.value = 16#64) (hr : r.value = 16#64) :
-    RISCV.or (RISCV.slli (p.immField 6) ⟨b3.setWidth 64⟩) (RISCV.slli (q.immField 6) ⟨b2.setWidth 64⟩) =
-      RISCV.slli (r.immField 6) (RISCV.packh ⟨b3.setWidth 64⟩ ⟨b2.setWidth 64⟩) := by
-  guarded_bv_decide
+@[proof_bv]
+theorem packh_high_bytes_valid : Puddle.CTree.Pattern.Valid (packh_high_bytes_pattern false) := by
+  proveCombineValid
 
 /-- `or (slli (lbu b3), 24) (slli (lbu b2), 16) -> slli (packh b2 b3), 16`. -/
-theorem packh_high_bytes_commuted {b2 b3 : BitVec 8} {p q r : RISCVImmediateProperties}
-    (hp : p.value = 16#64) (hq : q.value = 24#64) (hr : r.value = 16#64) :
-    RISCV.or (RISCV.slli (p.immField 6) ⟨b2.setWidth 64⟩) (RISCV.slli (q.immField 6) ⟨b3.setWidth 64⟩) =
-      RISCV.slli (r.immField 6) (RISCV.packh ⟨b3.setWidth 64⟩ ⟨b2.setWidth 64⟩) := by
-  guarded_bv_decide
+@[proof_bv]
+theorem packh_high_bytes_commuted_valid : Puddle.CTree.Pattern.Valid (packh_high_bytes_pattern true) := by
+  proveCombineValid
 
 /-! ## `sextw` of a load
 
     A signed load sign-extends its value to the register and an unsigned one zero-extends it, so
     the value is already a sign-extended word. -/
 
-theorem sextw_lw {x : BitVec 32} : RISCV.sextw ⟨x.signExtend 64⟩ = ⟨x.signExtend 64⟩ := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_lw_valid (h : IsSignExtendingOpW .lw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lw 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_lh {x : BitVec 16} : RISCV.sextw ⟨x.signExtend 64⟩ = ⟨x.signExtend 64⟩ := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_lh_valid (h : IsSignExtendingOpW .lh 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lh 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_lb {x : BitVec 8} : RISCV.sextw ⟨x.signExtend 64⟩ = ⟨x.signExtend 64⟩ := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_lb_valid (h : IsSignExtendingOpW .lb 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lb 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_lhu {x : BitVec 16} : RISCV.sextw ⟨x.setWidth 64⟩ = ⟨x.setWidth 64⟩ := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_lhu_valid (h : IsSignExtendingOpW .lhu 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lhu 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_lbu {x : BitVec 8} : RISCV.sextw ⟨x.setWidth 64⟩ = ⟨x.setWidth 64⟩ := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_lbu_valid (h : IsSignExtendingOpW .lbu 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lbu 1 _ h) := by
+  proveCombineValid
+
+end
 
 /-! ## Extensions of bitwise operations
 
 `riscv.<ext> (riscv.<op> a b) -> riscv.<op> a b` when the guarded operands already carry the
 extension's high-bit pattern. `and` under a zero-extension needs only one guarded operand (SSA
-`lhs` or `rhs`); every other combination needs both. In SSA order the operands are
-`riscv.<op> a, b`, so the register operation is applied as `RISCV.<op> b a`. -/
+`lhs` or `rhs`); every other combination needs both. -/
 
-theorem zextw_and_lhs {a b : Reg} :
-    RISCV.zextw (RISCV.and b (RISCV.zextw a)) = RISCV.and b (RISCV.zextw a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextw_and_lhs_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zextw .and true false) := by
+  proveCombineValid
 
-theorem zextw_and_rhs {a b : Reg} :
-    RISCV.zextw (RISCV.and (RISCV.zextw b) a) = RISCV.and (RISCV.zextw b) a := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextw_and_rhs_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zextw .and false true) := by
+  proveCombineValid
 
-theorem zextw_or {a b : Reg} :
-    RISCV.zextw (RISCV.or (RISCV.zextw b) (RISCV.zextw a)) =
-      RISCV.or (RISCV.zextw b) (RISCV.zextw a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextw_or_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zextw .or true true) := by
+  proveCombineValid
 
-theorem zextw_xor {a b : Reg} :
-    RISCV.zextw (RISCV.xor (RISCV.zextw b) (RISCV.zextw a)) =
-      RISCV.xor (RISCV.zextw b) (RISCV.zextw a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextw_xor_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zextw .xor true true) := by
+  proveCombineValid
 
-theorem zextb_and_lhs {a b : Reg} :
-    RISCV.zextb (RISCV.and b (RISCV.zextb a)) = RISCV.and b (RISCV.zextb a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextb_and_lhs_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zextb .and true false) := by
+  proveCombineValid
 
-theorem zextb_and_rhs {a b : Reg} :
-    RISCV.zextb (RISCV.and (RISCV.zextb b) a) = RISCV.and (RISCV.zextb b) a := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextb_and_rhs_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zextb .and false true) := by
+  proveCombineValid
 
-theorem zextb_or {a b : Reg} :
-    RISCV.zextb (RISCV.or (RISCV.zextb b) (RISCV.zextb a)) =
-      RISCV.or (RISCV.zextb b) (RISCV.zextb a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextb_or_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zextb .or true true) := by
+  proveCombineValid
 
-theorem zextb_xor {a b : Reg} :
-    RISCV.zextb (RISCV.xor (RISCV.zextb b) (RISCV.zextb a)) =
-      RISCV.xor (RISCV.zextb b) (RISCV.zextb a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem zextb_xor_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zextb .xor true true) := by
+  proveCombineValid
 
-theorem zexth_and_lhs {a b : Reg} :
-    RISCV.zexth (RISCV.and b (RISCV.zexth a)) = RISCV.and b (RISCV.zexth a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem zexth_and_lhs_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zexth .and true false) := by
+  proveCombineValid
 
-theorem zexth_and_rhs {a b : Reg} :
-    RISCV.zexth (RISCV.and (RISCV.zexth b) a) = RISCV.and (RISCV.zexth b) a := by
-  veir_bv_decide
+@[proof_bv]
+theorem zexth_and_rhs_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zexth .and false true) := by
+  proveCombineValid
 
-theorem zexth_or {a b : Reg} :
-    RISCV.zexth (RISCV.or (RISCV.zexth b) (RISCV.zexth a)) =
-      RISCV.or (RISCV.zexth b) (RISCV.zexth a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem zexth_or_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zexth .or true true) := by
+  proveCombineValid
 
-theorem zexth_xor {a b : Reg} :
-    RISCV.zexth (RISCV.xor (RISCV.zexth b) (RISCV.zexth a)) =
-      RISCV.xor (RISCV.zexth b) (RISCV.zexth a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem zexth_xor_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .zexth .xor true true) := by
+  proveCombineValid
 
-theorem sextw_and {a b : Reg} :
-    RISCV.sextw (RISCV.and (RISCV.sextw b) (RISCV.sextw a)) =
-      RISCV.and (RISCV.sextw b) (RISCV.sextw a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_and_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sextw .and true true) := by
+  proveCombineValid
 
-theorem sextw_or {a b : Reg} :
-    RISCV.sextw (RISCV.or (RISCV.sextw b) (RISCV.sextw a)) =
-      RISCV.or (RISCV.sextw b) (RISCV.sextw a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_or_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sextw .or true true) := by
+  proveCombineValid
 
-theorem sextw_xor {a b : Reg} :
-    RISCV.sextw (RISCV.xor (RISCV.sextw b) (RISCV.sextw a)) =
-      RISCV.xor (RISCV.sextw b) (RISCV.sextw a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_xor_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sextw .xor true true) := by
+  proveCombineValid
 
-theorem sextb_and {a b : Reg} :
-    RISCV.sextb (RISCV.and (RISCV.sextb b) (RISCV.sextb a)) =
-      RISCV.and (RISCV.sextb b) (RISCV.sextb a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextb_and_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sextb .and true true) := by
+  proveCombineValid
 
-theorem sextb_or {a b : Reg} :
-    RISCV.sextb (RISCV.or (RISCV.sextb b) (RISCV.sextb a)) =
-      RISCV.or (RISCV.sextb b) (RISCV.sextb a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextb_or_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sextb .or true true) := by
+  proveCombineValid
 
-theorem sextb_xor {a b : Reg} :
-    RISCV.sextb (RISCV.xor (RISCV.sextb b) (RISCV.sextb a)) =
-      RISCV.xor (RISCV.sextb b) (RISCV.sextb a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextb_xor_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sextb .xor true true) := by
+  proveCombineValid
 
-theorem sexth_and {a b : Reg} :
-    RISCV.sexth (RISCV.and (RISCV.sexth b) (RISCV.sexth a)) =
-      RISCV.and (RISCV.sexth b) (RISCV.sexth a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem sexth_and_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sexth .and true true) := by
+  proveCombineValid
 
-theorem sexth_or {a b : Reg} :
-    RISCV.sexth (RISCV.or (RISCV.sexth b) (RISCV.sexth a)) =
-      RISCV.or (RISCV.sexth b) (RISCV.sexth a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem sexth_or_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sexth .or true true) := by
+  proveCombineValid
 
-theorem sexth_xor {a b : Reg} :
-    RISCV.sexth (RISCV.xor (RISCV.sexth b) (RISCV.sexth a)) =
-      RISCV.xor (RISCV.sexth b) (RISCV.sexth a) := by
-  veir_bv_decide
+@[proof_bv]
+theorem sexth_xor_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sexth .xor true true) := by
+  proveCombineValid
+
+section
+
+/- Keep both store computations lifted, as `sim_store` expects them. -/
+attribute [-puddle] Veir.Sim.bind_monadLift_left_iff Veir.Sim.monadLift_right_iff
 
 /-! ## Extensions of a stored value
 
@@ -539,640 +642,608 @@ A word store (`sw`) writes the first four little-endian bytes of its value regis
 store (`sh`) two and a byte store (`sb`) one (see the store cases of `Riscv.interpretOp'`). Each
 extension below leaves those bytes unchanged. -/
 
-theorem drop_zextw_sw {rs1 : Reg} :
-    (UInt64.ofBitVec (RISCV.zextw rs1).val).toByteArrayLE.extract 0 4 =
-      (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 4 :=
-  toByteArrayLE_extract_four (by veir_bv_decide)
+/-- Prove the validity of a store combine, given a proof `bytes` that the dropped extension
+does not change the stored bytes, usually `by veir_bv_decide`.
+The caller must erase `Veir.Sim.bind_monadLift_left_iff` and `Veir.Sim.monadLift_right_iff`
+from `puddle`, so that both store computations stay lifted for `sim_store`. -/
+macro "proveStoreValid" bytes:term : tactic => `(tactic| (
+  simp only [riscv_pattern]
+  simpPuddleValid
+  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
+  all_goals
+    intros
+    exact sim_store
+      (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
+      _ _ _ _ _ _ _ $bytes))
 
-theorem drop_sextw_sw {rs1 : Reg} :
-    (UInt64.ofBitVec (RISCV.sextw rs1).val).toByteArrayLE.extract 0 4 =
-      (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 4 :=
-  toByteArrayLE_extract_four (by veir_bv_decide)
 
-theorem drop_zexth_sh {rs1 : Reg} :
-    (UInt64.ofBitVec (RISCV.zexth rs1).val).toByteArrayLE.extract 0 2 =
-      (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 2 :=
-  toByteArrayLE_extract_two (by veir_bv_decide)
+@[proof_bv]
+theorem drop_zextw_sw_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sw) := by
+  proveStoreValid (by veir_bv_decide)
 
-theorem drop_sexth_sh {rs1 : Reg} :
-    (UInt64.ofBitVec (RISCV.sexth rs1).val).toByteArrayLE.extract 0 2 =
-      (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 2 :=
-  toByteArrayLE_extract_two (by veir_bv_decide)
+@[proof_bv]
+theorem drop_sextw_sw_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sw) := by
+  proveStoreValid (by veir_bv_decide)
 
-theorem drop_zextb_sb {rs1 : Reg} :
-    (UInt64.ofBitVec (RISCV.zextb rs1).val).toByteArrayLE.extract 0 1 =
-      (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 1 :=
-  toByteArrayLE_extract_one (by veir_bv_decide)
+@[proof_bv]
+theorem drop_zexth_sh_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zexth .sh) := by
+  proveStoreValid (by veir_bv_decide)
 
-theorem drop_sextb_sb {rs1 : Reg} :
-    (UInt64.ofBitVec (RISCV.sextb rs1).val).toByteArrayLE.extract 0 1 =
-      (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 1 :=
-  toByteArrayLE_extract_one (by veir_bv_decide)
+@[proof_bv]
+theorem drop_sexth_sh_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sexth .sh) := by
+  proveStoreValid (by veir_bv_decide)
 
-theorem drop_zextw_sb {rs1 : Reg} :
-    (UInt64.ofBitVec (RISCV.zextw rs1).val).toByteArrayLE.extract 0 1 =
-      (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 1 :=
-  toByteArrayLE_extract_one (by veir_bv_decide)
+@[proof_bv]
+theorem drop_zextb_sb_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextb .sb) := by
+  proveStoreValid (by veir_bv_decide)
 
-theorem drop_sextw_sb {rs1 : Reg} :
-    (UInt64.ofBitVec (RISCV.sextw rs1).val).toByteArrayLE.extract 0 1 =
-      (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 1 :=
-  toByteArrayLE_extract_one (by veir_bv_decide)
+@[proof_bv]
+theorem drop_sextb_sb_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextb .sb) := by
+  proveStoreValid (by veir_bv_decide)
+
+@[proof_bv]
+theorem drop_zextw_sb_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sb) := by
+  proveStoreValid (by veir_bv_decide)
+
+@[proof_bv]
+theorem drop_sextw_sb_valid :
+    Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sb) := by
+  proveStoreValid (by veir_bv_decide)
+
+end
 
 /-! ## Extensions of `x0`
 
-`riscv.<ext> x0 -> x0` (`ext_x0_pattern`). The normalized validity goal is `<ext> r = r` for the
-register `r` read from `x0`. That `r` is zero is a fact of the semantics (`RuntimeValue.Conforms`
-of the `x0` register type), not of the `Reg` algebra, so each lemma takes it as a hypothesis. -/
+`riscv.<ext> x0 -> x0` (`ext_x0_pattern`) is valid only if every value of the
+`x0` register type is zero. `RuntimeValue.Conforms` no longer states that invariant, because the
+verifier does not stop other operations from producing `x0`-typed results, so the proofs are
+disabled until the invariant is established elsewhere.
 
-theorem zextw_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.zextw r = r := by
-  subst h
-  veir_bv_decide
+We leave these as axioms for now. -/
 
-theorem sextw_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.sextw r = r := by
-  subst h
-  veir_bv_decide
+axiom zextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextw)
 
-theorem zextb_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.zextb r = r := by
-  subst h
-  veir_bv_decide
+axiom sextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextw)
 
-theorem zexth_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.zexth r = r := by
-  subst h
-  veir_bv_decide
+axiom zextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextb)
 
-theorem sextb_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.sextb r = r := by
-  subst h
-  veir_bv_decide
+axiom zexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zexth)
 
-theorem sexth_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.sexth r = r := by
-  subst h
-  veir_bv_decide
+axiom sextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextb)
+
+axiom sexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sexth)
 
 /-! ## `sextw` of a sign-extending producer
 
 `riscv.sextw (op …) -> op …` (`sextw_signExtendingOpW`) when `op` already returns a sign-extended
 32-bit value. -/
 
-theorem sextw_addw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.addw rs2 rs1) = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_addw_valid (h : IsSignExtendingOpW .addw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .addw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_addiw {rs1 : Reg} {imm : BitVec 12} :
-    RISCV.sextw (RISCV.addiw imm rs1) = RISCV.addiw imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_addiw_valid (h : IsSignExtendingOpW .addiw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .addiw 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_subw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.subw rs2 rs1) = RISCV.subw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_subw_valid (h : IsSignExtendingOpW .subw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .subw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_mulw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.mulw rs2 rs1) = RISCV.mulw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_mulw_valid (h : IsSignExtendingOpW .mulw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .mulw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_divw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.divw rs2 rs1) = RISCV.divw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_divw_valid (h : IsSignExtendingOpW .divw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .divw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_divuw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.divuw rs2 rs1) = RISCV.divuw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_divuw_valid (h : IsSignExtendingOpW .divuw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .divuw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_remw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.remw rs2 rs1) = RISCV.remw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_remw_valid (h : IsSignExtendingOpW .remw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .remw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_remuw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.remuw rs2 rs1) = RISCV.remuw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_remuw_valid (h : IsSignExtendingOpW .remuw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .remuw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_sllw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.sllw rs2 rs1) = RISCV.sllw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_sllw_valid (h : IsSignExtendingOpW .sllw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .sllw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_slliw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.sextw (RISCV.slliw imm rs1) = RISCV.slliw imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_slliw_valid (h : IsSignExtendingOpW .slliw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .slliw 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_srlw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.srlw rs2 rs1) = RISCV.srlw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_srlw_valid (h : IsSignExtendingOpW .srlw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .srlw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_srliw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.sextw (RISCV.srliw imm rs1) = RISCV.srliw imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_srliw_valid (h : IsSignExtendingOpW .srliw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .srliw 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_sraw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.sraw rs2 rs1) = RISCV.sraw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_sraw_valid (h : IsSignExtendingOpW .sraw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .sraw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_sraiw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.sextw (RISCV.sraiw imm rs1) = RISCV.sraiw imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_sraiw_valid (h : IsSignExtendingOpW .sraiw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .sraiw 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_rolw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.rolw rs2 rs1) = RISCV.rolw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_rolw_valid (h : IsSignExtendingOpW .rolw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .rolw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_rorw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.rorw rs2 rs1) = RISCV.rorw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_rorw_valid (h : IsSignExtendingOpW .rorw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .rorw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_roriw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.sextw (RISCV.roriw imm rs1) = RISCV.roriw imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_roriw_valid (h : IsSignExtendingOpW .roriw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .roriw 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_packw {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.packw rs2 rs1) = RISCV.packw rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_packw_valid (h : IsSignExtendingOpW .packw 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .packw 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_lui {imm : BitVec 20} :
-    RISCV.sextw (RISCV.lui imm) = RISCV.lui imm := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_lui_valid (h : IsSignExtendingOpW .lui 0 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lui 0 _ h) := by
+  proveCombineValid
 
-theorem sextw_cpop {rs1 : Reg} :
-    RISCV.sextw (RISCV.cpop rs1) = RISCV.cpop rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_cpop_valid (h : IsSignExtendingOpW .cpop 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .cpop 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_cpopw {rs1 : Reg} :
-    RISCV.sextw (RISCV.cpopw rs1) = RISCV.cpopw rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_cpopw_valid (h : IsSignExtendingOpW .cpopw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .cpopw 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_clz {rs1 : Reg} :
-    RISCV.sextw (RISCV.clz rs1) = RISCV.clz rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_clz_valid (h : IsSignExtendingOpW .clz 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .clz 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_clzw {rs1 : Reg} :
-    RISCV.sextw (RISCV.clzw rs1) = RISCV.clzw rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_clzw_valid (h : IsSignExtendingOpW .clzw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .clzw 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_ctz {rs1 : Reg} :
-    RISCV.sextw (RISCV.ctz rs1) = RISCV.ctz rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_ctz_valid (h : IsSignExtendingOpW .ctz 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .ctz 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_ctzw {rs1 : Reg} :
-    RISCV.sextw (RISCV.ctzw rs1) = RISCV.ctzw rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_ctzw_valid (h : IsSignExtendingOpW .ctzw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .ctzw 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_slt {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.slt rs2 rs1) = RISCV.slt rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_slt_valid (h : IsSignExtendingOpW .slt 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .slt 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_sltu {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.sltu rs2 rs1) = RISCV.sltu rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_sltu_valid (h : IsSignExtendingOpW .sltu 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .sltu 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_slti {rs1 : Reg} {imm : BitVec 12} :
-    RISCV.sextw (RISCV.slti imm rs1) = RISCV.slti imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_slti_valid (h : IsSignExtendingOpW .slti 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .slti 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_sltiu {rs1 : Reg} {imm : BitVec 12} :
-    RISCV.sextw (RISCV.sltiu imm rs1) = RISCV.sltiu imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_sltiu_valid (h : IsSignExtendingOpW .sltiu 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .sltiu 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_bext {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.bext rs2 rs1) = RISCV.bext rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_bext_valid (h : IsSignExtendingOpW .bext 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .bext 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_bexti {rs1 : Reg} {imm : BitVec 6} :
-    RISCV.sextw (RISCV.bexti imm rs1) = RISCV.bexti imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_bexti_valid (h : IsSignExtendingOpW .bexti 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .bexti 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_sextb {rs1 : Reg} :
-    RISCV.sextw (RISCV.sextb rs1) = RISCV.sextb rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_sextb_valid (h : IsSignExtendingOpW .sextb 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .sextb 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_sexth {rs1 : Reg} :
-    RISCV.sextw (RISCV.sexth rs1) = RISCV.sexth rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_sexth_valid (h : IsSignExtendingOpW .sexth 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .sexth 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_zexth {rs1 : Reg} :
-    RISCV.sextw (RISCV.zexth rs1) = RISCV.zexth rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_zexth_valid (h : IsSignExtendingOpW .zexth 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .zexth 1 _ h) := by
+  proveCombineValid
 
-/-- `sextw_lbu`: an unsigned byte load is already a sign-extended word. -/
-theorem sextw_zextb {rs1 : Reg} :
-    RISCV.sextw (RISCV.zextb rs1) = RISCV.zextb rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_packh_valid (h : IsSignExtendingOpW .packh 2 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .packh 2 _ h) := by
+  proveCombineValid
 
-theorem sextw_packh {rs1 rs2 : Reg} :
-    RISCV.sextw (RISCV.packh rs2 rs1) = RISCV.packh rs2 rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_srai_valid
+    (h : IsSignExtendingOpW .srai 1 (fun p => 32#6 ≤ p.immField 6)) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .srai 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_srai {rs1 : Reg} {imm : BitVec 6} (h : 32#6 ≤ imm) :
-    RISCV.sextw (RISCV.srai imm rs1) = RISCV.srai imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_srli_valid
+    (h : IsSignExtendingOpW .srli 1 (fun p => 32#6 < p.immField 6)) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .srli 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_srli {rs1 : Reg} {imm : BitVec 6} (h : 32#6 < imm) :
-    RISCV.sextw (RISCV.srli imm rs1) = RISCV.srli imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_andi_valid
+    (h : IsSignExtendingOpW .andi 1 (fun p => !(p.immField 12).msb)) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .andi 1 _ h) := by
+  proveCombineValid
 
-theorem sextw_andi {rs1 : Reg} {imm : BitVec 12} (h : (!imm.msb) = true) :
-    RISCV.sextw (RISCV.andi imm rs1) = RISCV.andi imm rs1 := by
-  veir_bv_decide
-
-theorem sextw_ori {rs1 : Reg} {imm : BitVec 12} (h : imm.msb = true) :
-    RISCV.sextw (RISCV.ori imm rs1) = RISCV.ori imm rs1 := by
-  veir_bv_decide
+@[proof_bv]
+theorem sextw_ori_valid
+    (h : IsSignExtendingOpW .ori 1 (fun p => (p.immField 12).msb)) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .ori 1 _ h) := by
+  proveCombineValid
 
 /-! ## Extensions of an operand the consumer ignores
 
 `riscv.<dst> (riscv.<ext> x) … -> riscv.<dst> x …` (`drop_ext_low_word`): the consumer reads only
 operand bits 31:0, which `zextw` and `sextw` leave unchanged. `_rs1` and `_rs2` name the extended
 SSA operand of a binary consumer. The amount (`rs2`) cases of `sllw`/`srlw`/`sraw` under `zextw`
-are `sllw_amount_zextw`, `srlw_amount_zextw` and `sraw_amount_zextw`. -/
-
-theorem drop_zextw_addw_rs1 {rs1 rs2 : Reg} :
-    RISCV.addw rs2 (RISCV.zextw rs1) = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_addw_rs2 {rs1 rs2 : Reg} :
-    RISCV.addw (RISCV.zextw rs2) rs1 = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_addiw {rs1 : Reg} {imm : BitVec 12} :
-    RISCV.addiw imm (RISCV.zextw rs1) = RISCV.addiw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_roriw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.roriw imm (RISCV.zextw rs1) = RISCV.roriw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_srliw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.srliw imm (RISCV.zextw rs1) = RISCV.srliw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_subw_rs1 {rs1 rs2 : Reg} :
-    RISCV.subw rs2 (RISCV.zextw rs1) = RISCV.subw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_subw_rs2 {rs1 rs2 : Reg} :
-    RISCV.subw (RISCV.zextw rs2) rs1 = RISCV.subw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_mulw_rs1 {rs1 rs2 : Reg} :
-    RISCV.mulw rs2 (RISCV.zextw rs1) = RISCV.mulw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_mulw_rs2 {rs1 rs2 : Reg} :
-    RISCV.mulw (RISCV.zextw rs2) rs1 = RISCV.mulw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_divw_rs1 {rs1 rs2 : Reg} :
-    RISCV.divw rs2 (RISCV.zextw rs1) = RISCV.divw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_divw_rs2 {rs1 rs2 : Reg} :
-    RISCV.divw (RISCV.zextw rs2) rs1 = RISCV.divw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_divuw_rs1 {rs1 rs2 : Reg} :
-    RISCV.divuw rs2 (RISCV.zextw rs1) = RISCV.divuw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_divuw_rs2 {rs1 rs2 : Reg} :
-    RISCV.divuw (RISCV.zextw rs2) rs1 = RISCV.divuw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_remw_rs1 {rs1 rs2 : Reg} :
-    RISCV.remw rs2 (RISCV.zextw rs1) = RISCV.remw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_remw_rs2 {rs1 rs2 : Reg} :
-    RISCV.remw (RISCV.zextw rs2) rs1 = RISCV.remw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_remuw_rs1 {rs1 rs2 : Reg} :
-    RISCV.remuw rs2 (RISCV.zextw rs1) = RISCV.remuw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_remuw_rs2 {rs1 rs2 : Reg} :
-    RISCV.remuw (RISCV.zextw rs2) rs1 = RISCV.remuw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_sllw_rs1 {rs1 rs2 : Reg} :
-    RISCV.sllw rs2 (RISCV.zextw rs1) = RISCV.sllw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_srlw_rs1 {rs1 rs2 : Reg} :
-    RISCV.srlw rs2 (RISCV.zextw rs1) = RISCV.srlw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_sraw_rs1 {rs1 rs2 : Reg} :
-    RISCV.sraw rs2 (RISCV.zextw rs1) = RISCV.sraw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_rolw_rs1 {rs1 rs2 : Reg} :
-    RISCV.rolw rs2 (RISCV.zextw rs1) = RISCV.rolw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_rolw_rs2 {rs1 rs2 : Reg} :
-    RISCV.rolw (RISCV.zextw rs2) rs1 = RISCV.rolw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_rorw_rs1 {rs1 rs2 : Reg} :
-    RISCV.rorw rs2 (RISCV.zextw rs1) = RISCV.rorw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_rorw_rs2 {rs1 rs2 : Reg} :
-    RISCV.rorw (RISCV.zextw rs2) rs1 = RISCV.rorw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_sraiw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.sraiw imm (RISCV.zextw rs1) = RISCV.sraiw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_slliuw {rs1 : Reg} {imm : BitVec 6} :
-    RISCV.slliuw imm (RISCV.zextw rs1) = RISCV.slliuw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_clzw {rs1 : Reg} :
-    RISCV.clzw (RISCV.zextw rs1) = RISCV.clzw rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_ctzw {rs1 : Reg} :
-    RISCV.ctzw (RISCV.zextw rs1) = RISCV.ctzw rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_cpopw {rs1 : Reg} :
-    RISCV.cpopw (RISCV.zextw rs1) = RISCV.cpopw rs1 := by
-  veir_bv_decide
-
-theorem drop_zextw_sextw {rs1 : Reg} :
-    RISCV.sextw (RISCV.zextw rs1) = RISCV.sextw rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_addw_rs1 {rs1 rs2 : Reg} :
-    RISCV.addw rs2 (RISCV.sextw rs1) = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_addw_rs2 {rs1 rs2 : Reg} :
-    RISCV.addw (RISCV.sextw rs2) rs1 = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_addiw {rs1 : Reg} {imm : BitVec 12} :
-    RISCV.addiw imm (RISCV.sextw rs1) = RISCV.addiw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_roriw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.roriw imm (RISCV.sextw rs1) = RISCV.roriw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_srliw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.srliw imm (RISCV.sextw rs1) = RISCV.srliw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_subw_rs1 {rs1 rs2 : Reg} :
-    RISCV.subw rs2 (RISCV.sextw rs1) = RISCV.subw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_subw_rs2 {rs1 rs2 : Reg} :
-    RISCV.subw (RISCV.sextw rs2) rs1 = RISCV.subw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_mulw_rs1 {rs1 rs2 : Reg} :
-    RISCV.mulw rs2 (RISCV.sextw rs1) = RISCV.mulw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_mulw_rs2 {rs1 rs2 : Reg} :
-    RISCV.mulw (RISCV.sextw rs2) rs1 = RISCV.mulw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_divw_rs1 {rs1 rs2 : Reg} :
-    RISCV.divw rs2 (RISCV.sextw rs1) = RISCV.divw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_divw_rs2 {rs1 rs2 : Reg} :
-    RISCV.divw (RISCV.sextw rs2) rs1 = RISCV.divw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_divuw_rs1 {rs1 rs2 : Reg} :
-    RISCV.divuw rs2 (RISCV.sextw rs1) = RISCV.divuw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_divuw_rs2 {rs1 rs2 : Reg} :
-    RISCV.divuw (RISCV.sextw rs2) rs1 = RISCV.divuw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_remw_rs1 {rs1 rs2 : Reg} :
-    RISCV.remw rs2 (RISCV.sextw rs1) = RISCV.remw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_remw_rs2 {rs1 rs2 : Reg} :
-    RISCV.remw (RISCV.sextw rs2) rs1 = RISCV.remw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_remuw_rs1 {rs1 rs2 : Reg} :
-    RISCV.remuw rs2 (RISCV.sextw rs1) = RISCV.remuw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_remuw_rs2 {rs1 rs2 : Reg} :
-    RISCV.remuw (RISCV.sextw rs2) rs1 = RISCV.remuw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_sllw_rs1 {rs1 rs2 : Reg} :
-    RISCV.sllw rs2 (RISCV.sextw rs1) = RISCV.sllw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_sllw_rs2 {rs1 rs2 : Reg} :
-    RISCV.sllw (RISCV.sextw rs2) rs1 = RISCV.sllw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_srlw_rs1 {rs1 rs2 : Reg} :
-    RISCV.srlw rs2 (RISCV.sextw rs1) = RISCV.srlw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_srlw_rs2 {rs1 rs2 : Reg} :
-    RISCV.srlw (RISCV.sextw rs2) rs1 = RISCV.srlw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_sraw_rs1 {rs1 rs2 : Reg} :
-    RISCV.sraw rs2 (RISCV.sextw rs1) = RISCV.sraw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_sraw_rs2 {rs1 rs2 : Reg} :
-    RISCV.sraw (RISCV.sextw rs2) rs1 = RISCV.sraw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_rolw_rs1 {rs1 rs2 : Reg} :
-    RISCV.rolw rs2 (RISCV.sextw rs1) = RISCV.rolw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_rolw_rs2 {rs1 rs2 : Reg} :
-    RISCV.rolw (RISCV.sextw rs2) rs1 = RISCV.rolw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_rorw_rs1 {rs1 rs2 : Reg} :
-    RISCV.rorw rs2 (RISCV.sextw rs1) = RISCV.rorw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_rorw_rs2 {rs1 rs2 : Reg} :
-    RISCV.rorw (RISCV.sextw rs2) rs1 = RISCV.rorw rs2 rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_sraiw {rs1 : Reg} {imm : BitVec 5} :
-    RISCV.sraiw imm (RISCV.sextw rs1) = RISCV.sraiw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_slliuw {rs1 : Reg} {imm : BitVec 6} :
-    RISCV.slliuw imm (RISCV.sextw rs1) = RISCV.slliuw imm rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_clzw {rs1 : Reg} :
-    RISCV.clzw (RISCV.sextw rs1) = RISCV.clzw rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_ctzw {rs1 : Reg} :
-    RISCV.ctzw (RISCV.sextw rs1) = RISCV.ctzw rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_cpopw {rs1 : Reg} :
-    RISCV.cpopw (RISCV.sextw rs1) = RISCV.cpopw rs1 := by
-  veir_bv_decide
-
-theorem drop_sextw_zextw {rs1 : Reg} :
-    RISCV.zextw (RISCV.sextw rs1) = RISCV.zextw rs1 := by
-  veir_bv_decide
-
-
-end Veir.Data.RISCV
-
-end
-
-namespace Veir.RISCV
-
-open Puddle
-
-/-- R2 preserves semantics and satisfies Puddle's structural obligations in
-    both operand orders, for arbitrary register types and shared masks. -/
-@[proof_manual]
-theorem and_li_to_zextw_valid (liFirst : Bool) :
-    Pattern.Valid (and_li_to_zextw_pattern liFirst) := by
-  cases liFirst <;> simp only [and_li_to_zextw_pattern, Bool.false_eq_true, ↓reduceIte]
-  all_goals
-    provePuddleValid
-    simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
-      forall_eq_apply_imp_iff]
-    rintro xType x maskType ⟨mask⟩ maskValue rfl - hli resultType props result - hand
-    -- These pure operations have the same results in every memory state.
-    cases hli.2 .empty
-    cases hand.2 .empty
-    refine ⟨.reg (Data.RISCV.zextw x), ⟨?_, fun _ => rfl⟩, ?_⟩
-    · simp [RuntimeValue.ArrayConforms]
-  -- Register refinement is equality, so the register lemmas close both cases.
-  · exact Data.RISCV.and_li_to_zextw
-  · exact Data.RISCV.and_li_to_zextw_commuted
-
-/-! Connect the R1 register equalities to the actual Puddle matchers and
-    replacements, including structural validity and runtime value conformance. -/
-
--- The shared operand matcher uses `Array.mapM`. This local instance lets the
--- proof normalize that builder through its list representation.
-local instance : LawfulMonad MatchProg.Builder := by
-  refine LawfulMonad.mk' _ ?_ ?_ ?_ <;> intros <;> rfl
-
-/-- A pure register instruction's interpretation determines its sole result. -/
-private theorem interprets_reg_iff {op : OpCode} {props : propertiesOf op}
-    {ty : RegisterType} {args : Array RuntimeValue} {v : RuntimeValue} {result : Data.RISCV.Reg}
-    (h : ∀ mem, interpretOp' op props #[ty] args #[] mem =
-      .ok (#[.reg result], mem, none)) :
-    InterpretsTo op props #[ty] args #[v] ↔ v = .reg result := by
-  constructor
-  · intro hv
-    simpa [h] using (hv.2 .empty).symm
-  · rintro rfl
-    refine ⟨?_, h⟩
-    simp [RuntimeValue.ArrayConforms]
-
-local macro "normalizeShiftAmountPattern" : tactic => `(tactic| (
-  simp only [drop_shift_amount_mask_pattern, drop_zextw_shift_amount_pattern,
-    drop_ext_low_word_pattern, drop_unary_operand_pattern]
-  simp only [← List.toArray_range, List.mapM_toArray, List.range_succ,
-    List.range_zero, List.mapM_cons, List.mapM_nil, List.cons_append,
-    List.nil_append, Nat.reduceEqDiff, ↓reduceIte, pure_bind, map_eq_pure_bind]
-  provePuddleValid
-  simp only [Array.toList_set!, List.set]
-  simpPuddleSemantics
-  simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
-    forall_eq_apply_imp_iff]))
-
-local macro "proveShiftAmountMaskValid" equality:ident : tactic => `(tactic| (
-  normalizeShiftAmountPattern
-  rintro aty amount ⟨mask⟩ v hmask _ hprod xty x rty sprops result _verifiedShift hshift
-  cases (interprets_reg_iff fun _ => rfl).mp hprod
-  cases (interprets_reg_iff fun _ => rfl).mp hshift
-  refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
-  rw [$equality (by simpa using hmask)]
-  exact RuntimeValue.isRefinedBy_refl _))
-
-local macro "proveShiftAmountZextValid" equality:ident : tactic => `(tactic| (
-  normalizeShiftAmountPattern
-  intro aty amount props v _ hprod xty x rty sprops result _verifiedShift hshift
-  cases (interprets_reg_iff fun _ => rfl).mp hprod
-  cases (interprets_reg_iff fun _ => rfl).mp hshift
-  refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
-  rw [($equality)]
-  exact RuntimeValue.isRefinedBy_refl _))
-
-@[proof_manual]
-theorem drop_sll_amount_mask_valid :
-    Pattern.Valid (drop_shift_amount_mask_pattern .sll 63) := by
-  proveShiftAmountMaskValid Data.RISCV.sll_amount_andi
-
-@[proof_manual]
-theorem drop_srl_amount_mask_valid :
-    Pattern.Valid (drop_shift_amount_mask_pattern .srl 63) := by
-  proveShiftAmountMaskValid Data.RISCV.srl_amount_andi
-
-@[proof_manual]
-theorem drop_sra_amount_mask_valid :
-    Pattern.Valid (drop_shift_amount_mask_pattern .sra 63) := by
-  proveShiftAmountMaskValid Data.RISCV.sra_amount_andi
-
-@[proof_manual]
-theorem drop_sllw_amount_mask_valid :
-    Pattern.Valid (drop_shift_amount_mask_pattern .sllw 31) := by
-  proveShiftAmountMaskValid Data.RISCV.sllw_amount_andi
-
-@[proof_manual]
-theorem drop_srlw_amount_mask_valid :
-    Pattern.Valid (drop_shift_amount_mask_pattern .srlw 31) := by
-  proveShiftAmountMaskValid Data.RISCV.srlw_amount_andi
-
-@[proof_manual]
-theorem drop_sraw_amount_mask_valid :
-    Pattern.Valid (drop_shift_amount_mask_pattern .sraw 31) := by
-  proveShiftAmountMaskValid Data.RISCV.sraw_amount_andi
-
-@[proof_manual]
-theorem drop_sll_amount_zextw_valid :
-    Pattern.Valid (drop_zextw_shift_amount_pattern .sll) := by
-  proveShiftAmountZextValid Data.RISCV.sll_amount_zextw
-
-@[proof_manual]
-theorem drop_srl_amount_zextw_valid :
-    Pattern.Valid (drop_zextw_shift_amount_pattern .srl) := by
-  proveShiftAmountZextValid Data.RISCV.srl_amount_zextw
-
-@[proof_manual]
-theorem drop_sra_amount_zextw_valid :
-    Pattern.Valid (drop_zextw_shift_amount_pattern .sra) := by
-  proveShiftAmountZextValid Data.RISCV.sra_amount_zextw
-
--- The existing low-word family supplies the word-shift zero-extension cases.
-@[proof_manual]
-theorem drop_sllw_amount_zextw_valid (h : ReadsLowWord .sllw 2) :
-    Pattern.Valid (drop_ext_low_word_pattern .zextw .sllw 2 1 h) := by
-  proveShiftAmountZextValid Data.RISCV.sllw_amount_zextw
-
-@[proof_manual]
-theorem drop_srlw_amount_zextw_valid (h : ReadsLowWord .srlw 2) :
-    Pattern.Valid (drop_ext_low_word_pattern .zextw .srlw 2 1 h) := by
-  proveShiftAmountZextValid Data.RISCV.srlw_amount_zextw
-
-@[proof_manual]
-theorem drop_sraw_amount_zextw_valid (h : ReadsLowWord .sraw 2) :
-    Pattern.Valid (drop_ext_low_word_pattern .zextw .sraw 2 1 h) := by
-  proveShiftAmountZextValid Data.RISCV.sraw_amount_zextw
-
-end Veir.RISCV
+are proved with the shift amounts above. -/
+
+@[proof_bv]
+theorem drop_zextw_addw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .addw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_addw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .addw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_addiw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .addiw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_roriw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .roriw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_srliw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .srliw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_subw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .subw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_subw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .subw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_mulw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .mulw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_mulw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .mulw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_divw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .divw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_divw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .divw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_divuw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .divuw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_divuw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .divuw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_remw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .remw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_remw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .remw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_remuw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .remuw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_remuw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .remuw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_sllw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .sllw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_srlw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .srlw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_sraw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .sraw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_rolw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .rolw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_rolw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .rolw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_rorw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .rorw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_rorw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .rorw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_sraiw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .sraiw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_slliuw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .slliuw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_clzw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .clzw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_ctzw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .ctzw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_cpopw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .cpopw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_zextw_sextw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .zextw .sextw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_addw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .addw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_addw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .addw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_addiw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .addiw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_roriw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .roriw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_srliw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .srliw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_subw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .subw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_subw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .subw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_mulw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .mulw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_mulw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .mulw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_divw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .divw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_divw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .divw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_divuw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .divuw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_divuw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .divuw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_remw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .remw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_remw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .remw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_remuw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .remuw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_remuw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .remuw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_sllw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .sllw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_sllw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .sllw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_srlw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .srlw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_srlw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .srlw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_sraw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .sraw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_sraw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .sraw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_rolw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .rolw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_rolw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .rolw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_rorw_rs1_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .rorw 2 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_rorw_rs2_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .rorw 2 1) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_sraiw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .sraiw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_slliuw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .slliuw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_clzw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .clzw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_ctzw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .ctzw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_cpopw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .cpopw 1 0) := by
+  proveCombineValid
+
+@[proof_bv]
+theorem drop_sextw_zextw_valid :
+    Puddle.CTree.Pattern.Valid (drop_unary_operand_pattern .sextw .zextw 1 0) := by
+  proveCombineValid
+
+end Veir.RISCV.CTreeProofs

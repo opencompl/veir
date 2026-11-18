@@ -13,6 +13,7 @@ import all Veir.Dialects.RISCV.OpInfo
 import all Veir.ForLean
 import Veir.PatternRewriter.Puddle.Validity
 import Veir.IR.Simp
+import Veir.Passes.RISCVCombines.Simp
 
 namespace Veir.RISCV
 
@@ -286,7 +287,7 @@ def andi_255_lbu : Puddle.CompiledPattern OpCode :=
 
 /-- `li c` whose value fits the signed 12-bit immediate of `addi`. `0` is left to
     `right_identity_zero_add`. -/
-public def liFitsSImm12 (props : RISCVImmediateProperties) : Bool :=
+def liFitsSImm12 (props : RISCVImmediateProperties) : Bool :=
   props.value != 0#64 && -2048 ≤ props.value.toInt && props.value.toInt ≤ 2047
 
 /-- `riscv.add x (riscv.li c) -> riscv.addi x c` (and `riscv.add (riscv.li c) x`
@@ -1189,10 +1190,11 @@ def sextb_li_low8 := ext_li_range .sextb (-128) 128
 /-- `riscv.sexth (riscv.li v) -> riscv.li v` when `-2^15 ≤ v < 2^15`. -/
 def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
 
-/-- The combines of the pass, all proved to refine the module
-(`Veir.Passes.RISCVCombines.Validity.Pass`), kept as compiled patterns, closed data whose matchers
-and rewrite closures are initialized once and reused for every operation. The six
-`riscv.<ext> x0 -> x0` combines (`ext_x0`) are unproven, so not run. -/
+/-- The combines of the pass, kept as compiled patterns: closed data whose matchers and rewrite
+closures are initialized once and reused for every operation. Each has a CTree validity
+certificate in `Veir.Passes.RISCVCombines.Proofs` (the six `riscv.<ext> x0 -> x0` combines,
+`ext_x0`, are axiomatized there); the soundness of the pass is `Combine.run_sound`
+(`Veir.Passes.RISCVCombines.Validity.Pass`). -/
 public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
     #[ packh_low_bytes
      , packh_low_bytes_commuted
@@ -1255,6 +1257,7 @@ public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , zextw_or
      , zextw_xor
      , drop_zextw_sw
+     , zextw_x0
      , zextw_li_low32
      , sextw_sextw
      , drop_sextw_addw
@@ -1282,6 +1285,7 @@ public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , sextw_or
      , sextw_xor
      , drop_sextw_sw
+     , sextw_x0
      , sextw_li_low32
      , sextw_lw
      , sextw_lh
@@ -1349,6 +1353,10 @@ public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , drop_sextb_sb
      , drop_zextw_sb
      , drop_sextw_sb
+     , zextb_x0
+     , zexth_x0
+     , sextb_x0
+     , sexth_x0
      , zextb_li_low8
      , zexth_li_low16
      , sextb_li_low8

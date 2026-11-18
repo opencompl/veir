@@ -775,6 +775,49 @@ theorem sdiv_neg_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k 
     Int.tdiv_eq_ediv_of_dvd hdvd, ← Int.shiftRight_eq_div_pow,
     BitVec.toInt_neg, toInt_sshiftRight'']
 
+/-! ### Comparisons of `toInt` with integer constants
+
+`bv_decide` does not see `Int` facts such as `-2048 ≤ x.toInt`. When the constant `c` is
+representable in `w` bits (the side conditions, which `veir_bv_normalize` discharges for literals), such a
+comparison is a signed bit-vector comparison with `BitVec.ofInt w c`. -/
+
+section toInt
+
+variable {w : Nat} {x : BitVec w} {c : Int}
+
+/-- `toInt_ofInt_eq_self` with the width condition as an instance, which `simp` synthesizes for a
+literal width. -/
+theorem toInt_ofInt_eq_self' [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    (BitVec.ofInt w c).toInt = c :=
+  BitVec.toInt_ofInt_eq_self (Nat.pos_of_neZero w) h₁ h₂
+
+@[veir_bv_normalize]
+theorem le_toInt_iff_sle [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    c ≤ x.toInt ↔ (BitVec.ofInt w c).sle x := by
+  rw [BitVec.sle_iff_toInt_le, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem lt_toInt_iff_slt [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    c < x.toInt ↔ (BitVec.ofInt w c).slt x := by
+  rw [BitVec.slt_iff_toInt_lt, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem toInt_le_iff_sle [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    x.toInt ≤ c ↔ x.sle (BitVec.ofInt w c) := by
+  rw [BitVec.sle_iff_toInt_le, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem toInt_lt_iff_slt [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    x.toInt < c ↔ x.slt (BitVec.ofInt w c) := by
+  rw [BitVec.slt_iff_toInt_lt, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem toInt_eq_iff_eq_ofInt [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    x.toInt = c ↔ x = BitVec.ofInt w c := by
+  rw [← BitVec.toInt_inj, toInt_ofInt_eq_self' h₁ h₂]
+
+end toInt
+
 end BitVec
 
 /-- The Hacker's-Delight bias/shift identity underlying `sdiv_by_pow2_pattern`: truncating
