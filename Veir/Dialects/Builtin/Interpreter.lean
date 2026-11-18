@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.CTree
+import all Veir.Data.LLVM.Byte.Basic
 
 public section
 
@@ -17,7 +18,7 @@ def Builtin.byteToIntCTree {EIn : Type} {E : EIn → Type} {width : Nat}
   if value.poison = BitVec.allOnes width then pure .poison
   else do
     let bits : FreezeC (.mk width) ← CTree.choose (FreezeCIn.mk width)
-    pure (.val (value.val ||| (value.poison &&& bits)))
+    pure (.val (value.fillPoison bits))
 
 /-- Cast an integer to a register. Poison is cast to a non-deterministic register value. -/
 def Builtin.intToRegCTree {EIn : Type} {E : EIn → Type} {width : Nat}
@@ -35,7 +36,7 @@ def Builtin.byteToRegCTree {EIn : Type} {E : EIn → Type} {width : Nat}
     return ⟨value.val.setWidth 64⟩
   else do
     let bits : FreezeC (.mk width) ← CTree.choose (FreezeCIn.mk width)
-    return ⟨(value.val ||| (value.poison &&& bits)).setWidth 64⟩
+    return ⟨(value.fillPoison bits).setWidth 64⟩
 
 /-- Interpret an unrealized conversion cast using CTrees. -/
 def Builtin.interpretUnrealizedConversionCastCTree {EIn : Type} {E : EIn → Type}
@@ -120,7 +121,8 @@ theorem Builtin.interpretOpCTree_cast_byte (hType : resultTypes[0]? = some type)
           pure (#[.reg ⟨(b.val ||| (b.poison &&& bits)).zeroExtend 64⟩], mem, none) := by
   unfold interpretOpCTree interpretUnrealizedConversionCastCTree
   simp only [hType, hRegister]
-  by_cases h : b.poison = 0#w <;> simp [Builtin.byteToRegCTree, LLVM.Byte.toReg_eq, h]
+  by_cases h : b.poison = 0#w <;>
+    simp [Builtin.byteToRegCTree, Data.LLVM.Byte.fillPoison, LLVM.Byte.toReg_eq, h]
 
 /-- A register is cast to the integer of its low bits. -/
 theorem Builtin.interpretOpCTree_cast_toInt (hType : resultTypes[0]? = some type)

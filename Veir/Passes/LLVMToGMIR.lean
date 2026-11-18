@@ -436,6 +436,8 @@ def lowerZero : Puddle.Pattern OpCode :=
     (fun resultType => createConstant resultType 0)
     (fun newOp => newOp)
 
+def g_zero := lowerZero.compile
+
 /--
   `llvm.mlir.poison` (integer or pointer) -> `gmir.g_poison`, as LLVM's IRTranslator turns poison
   of any type into `G_IMPLICIT_DEF`. Byte poison is translated by `lowerBytePoison`.

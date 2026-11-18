@@ -133,6 +133,10 @@ def fromBitVec {w : Nat} (x : BitVec w) : Byte w :=
 def fromUInt64 (x : UInt64) : Byte 64 :=
   fromBitVec x.toBitVec
 
+/-- Fill all poison bits with bits from `chosen`. -/
+def fillPoison {w : Nat} (b : Byte w) (chosen : BitVec w) : BitVec w :=
+  b.val ||| (b.poison &&& chosen)
+
 /--
   i is refined by i' if for each bit, either i is poison, or the bits are the same and i' is not poison.
 -/

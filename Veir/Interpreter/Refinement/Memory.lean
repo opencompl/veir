@@ -620,7 +620,7 @@ theorem MemoryState.llvmLoad_isRefinedBy {mem mem' : MemoryState}
     refine Interp.isRefinedBy_bind (loadByte_isRefinedBy h p _) fun b b' hb => ?_
     refine Interp.isRefinedBy_ok_target_iff.mpr ⟨_, rfl, ?_⟩
     by_cases hp : b.poison = 0#64
-    · rw [LLVM.Byte.eq_of_isRefinedBy_of_poison_eq_zero hb hp, ptrOfByte_eq_of_objects h.objects_eq]
+    · rw [Veir.Data.LLVM.Byte.eq_of_isRefinedBy_of_poison_eq_zero hb hp, ptrOfByte_eq_of_objects h.objects_eq]
       exact RuntimeValue.isRefinedBy_refl _
     · simp [MemoryState.ptrOfByte, hp, RuntimeValue.isRefinedBy]
   case h_9 => simp [liftM]

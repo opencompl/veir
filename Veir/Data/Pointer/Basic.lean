@@ -29,7 +29,7 @@ def isRefinedBy (p p' : Pointer) : Prop := p' = p
 @[simp, grind =]
 theorem isRefinedBy_iff {p p' : Pointer} : p ⊒ p' ↔ p' = p := Iff.rfl
 
-/-- A refinement of a pointer has its address. -/
+/-- A refinement of a pointer has the same address as the pointer. -/
 theorem isRefinedBy.address_eq {p p' : Pointer} (h : p ⊒ p') : p'.address = p.address := by
   rw [h]
 

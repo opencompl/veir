@@ -102,7 +102,7 @@ private theorem sim_riscvLoadCTree {Q : Array RuntimeValue → Prop} (hQ : RegsA
       have hQ' := hT _ _ hv
       simp only [monadLift, MonadLift.monadLift, pure_bind]
       refine sim_choose_left _ fun bits => sim_choose_right _ (b'.val ||| (b'.poison &&& bits)) ?_
-      rw [LLVM.Byte.resolve_of_isRefinedBy hb]
+      rw [Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb]
       exact (Sim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr
         ⟨RuntimeValue.arrayIsRefinedBy_refl _, hMem, ControlFlowAction.optionIsRefinedBy_refl _⟩,
         hQ _ _ hQ'⟩

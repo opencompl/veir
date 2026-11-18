@@ -5,6 +5,8 @@ import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Byte.Bitblast
 import Veir.ForLean
 
+public section
+
 namespace Veir.Data.LLVM.Byte
 
 public section
@@ -242,6 +244,47 @@ theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : i ⊒ i') :
   · simp
 
 
+/-! ## fillPoison -/
+
+/--
+  Filling the poison bits of a byte from `chosen` gives `chosen` back, provided `chosen` already
+  agrees with the byte on its non-poison bits.
+-/
+theorem fillPoison_eq_of_agree {w : Nat} {b : Byte w} {chosen : BitVec w}
+    (h : chosen &&& ~~~b.poison = b.val) : b.fillPoison chosen = chosen := by
+  grind [Byte.fillPoison]
+
+/--
+  Any filling of the poison bits of a refinement of `b` agrees with `b` wherever `b` is not poison.
+-/
+theorem fillPoison_agree_of_isRefinedBy {w : Nat} {b b' : Byte w} (h : b ⊒ b')
+    (chosen : BitVec w) : b'.fillPoison chosen &&& ~~~b.poison = b.val := by
+  ext i hi
+  grind [Byte.fillPoison, congrArg (·.getLsbD i) h, congrArg (·.getLsbD i) b.h]
+
+/--
+  A filling of the poison bits of a refinement of `b` is itself a filling of the poison bits of
+  `b`: filling `b` from it gives it back.
+-/
+theorem fillPoison_of_isRefinedBy {w : Nat} {b b' : Byte w} (h : b ⊒ b') (chosen : BitVec w) :
+    b.fillPoison (b'.fillPoison chosen) = b'.fillPoison chosen :=
+  fillPoison_eq_of_agree (fillPoison_agree_of_isRefinedBy h chosen)
+
+/-- A byte refined by a wholly poison byte is itself wholly poison. -/
+theorem poison_eq_allOnes_of_isRefinedBy {w : Nat} {b b' : Byte w} (h : b ⊒ b')
+    (h' : b'.poison = BitVec.allOnes w) : b.poison = BitVec.allOnes w := by
+  simpa [Byte.isRefinedBy, h'] using h
+
+/-- A byte without poison is refined only by itself. -/
+theorem eq_of_isRefinedBy_of_poison_eq_zero {w : Nat} {b b' : Byte w} (h : b ⊒ b')
+    (h₀ : b.poison = 0) : b' = b := by
+  have hv := fillPoison_agree_of_isRefinedBy h 0
+  have hp := fillPoison_agree_of_isRefinedBy h (BitVec.allOnes w)
+  simp only [h₀, BitVec.and_allOnes, Byte.fillPoison] at hv hp
+  cases b; cases b'; simp_all; grind
+
 end
 
 end Veir.Data.LLVM.Byte
+
+end

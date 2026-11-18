@@ -204,7 +204,7 @@ theorem RuntimeValue.isRefinedBy_ofReg?_of_castsTo {type : TypeAttr} {value : Ru
     refine ⟨_, rfl, ?_, rfl⟩
     obtain ⟨bits, rfl⟩ := hCasts
     simpa [RuntimeValue.isRefinedBy] using
-      LLVM.Byte.isRefinedBy_toByte_of_poison h64 b bits
+      LLVM.Byte.isRefinedBy_toByte_fillPoison h64 b bits
   case inr.inr.addr x =>
     simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject]
     refine ⟨_, rfl, ?_, trivial⟩

@@ -102,7 +102,7 @@ theorem CTree.Sim.bind_monadLift_iff {EIn : Type} {E : EIn → Type}
     | .ok value => CTree.Sim relation (after value) other
     | .ub _ => CTree.Sim relation (ub : CTree E C β) other
     | .fail _ => CTree.Sim relation (fail : CTree E C β) other := by
-  exact sim_monadLift_bind_left relation other func after
+  exact Sim.bind_monadLift_left_iff relation other func after
 
 /-- Expose the outcome of an `Interp` computation forming the entire right tree. -/
 @[ctree_semantics]

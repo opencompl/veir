@@ -76,6 +76,12 @@ def IntegerType.signed (bitwidth : Nat) : IntegerType :=
 def IntegerType.unsigned (bitwidth : Nat) : IntegerType :=
   { bitwidth, signedness := .unsigned }
 
+@[simp]
+theorem IntegerType.forall_bitwidth_eq_implies_iff (P : IntegerType → Prop) :
+    (∀ (x : IntegerType), x.bitwidth = y → P x) ↔
+      ∀ signedness, P (IntegerType.mk y signedness) := by
+  grind [cases IntegerType]
+
 /--
   A floating point type.
 -/
@@ -2251,6 +2257,12 @@ Grind also needs the reverse direction to expose the subtype constructor when ma
 theorem mk_of {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr)
     (h : (Attribute.of Attr specificAttr).isType) :
     (⟨.of Attr specificAttr, h⟩ : TypeAttr) = TypeAttr.of Attr specificAttr := by rfl
+
+@[simp]
+theorem forall_of_eq_imp_iff {T : Type} [IsTypeAttr T] {P : TypeAttr → T → Prop} :
+    (∀ (type : TypeAttr) (x : T), TypeAttr.of T x = type → P type x) ↔
+      (∀ (x : T), P (TypeAttr.of T x) x) := by
+  grind
 
 end TypeAttr
 

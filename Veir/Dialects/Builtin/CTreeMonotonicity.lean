@@ -51,11 +51,11 @@ theorem sim_byteToIntCTree {w : Nat} {b b' : Data.LLVM.Byte w} (hb : b ⊒ b') {
     · simp only [LawfulMonad.bind_assoc, LawfulMonad.pure_bind]
       exact sim_choose_left _ fun _ => hk _ _ (by simp)
   · have hp' : ¬ b'.poison = BitVec.allOnes w :=
-      fun h => hp (LLVM.Byte.poison_eq_allOnes_of_isRefinedBy hb h)
+      fun h => hp (Veir.Data.LLVM.Byte.poison_eq_allOnes_of_isRefinedBy hb h)
     simp only [hp, hp', ↓reduceIte, LawfulMonad.bind_assoc, LawfulMonad.pure_bind]
     refine sim_choose_left _ fun bits =>
       sim_choose_right _ (b'.val ||| (b'.poison &&& bits)) (hk _ _ ?_)
-    simp [LLVM.Byte.resolve_of_isRefinedBy hb]
+    simp [Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb]
 
 /-- Every builtin opcode is monotone in CTrees. -/
 instance (op : Veir.Builtin) : InterpretOpTreeMonotone (.builtin op) where
@@ -112,7 +112,7 @@ instance (op : Veir.Builtin) : InterpretOpTreeMonotone (.builtin op) where
           (BitVec.setWidth 64 b'.val ||| BitVec.setWidth 64 b'.poison &&& BitVec.setWidth 64 T) =
           BitVec.setWidth 64 b'.val ||| BitVec.setWidth 64 b'.poison &&& BitVec.setWidth 64 T := by
         intro T
-        have := congrArg (BitVec.setWidth 64) (LLVM.Byte.resolve_of_isRefinedBy hb T)
+        have := congrArg (BitVec.setWidth 64) (Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb T)
         simp only [BitVec.setWidth_or, BitVec.setWidth_and] at this
         exact this
       rcases hT : resType.val <;> (try simp only) <;> first | (simp; done) | skip
@@ -125,7 +125,7 @@ instance (op : Veir.Builtin) : InterpretOpTreeMonotone (.builtin op) where
         · simp only [hw, ↓reduceIte]
           exact sim_fail _ _
       · by_cases hp : b.poison = 0
-        · obtain rfl := LLVM.Byte.eq_of_isRefinedBy_of_poison_eq_zero hb hp
+        · obtain rfl := Veir.Data.LLVM.Byte.eq_of_isRefinedBy_of_poison_eq_zero hb hp
           simp only [hp, BitVec.ofNat_eq_ofNat, ↓reduceIte, map_pure]
           exact sim_result (RuntimeValue.isRefinedBy_refl _) hMem
         · simp only [show b.poison ≠ 0#w from hp, ↓reduceIte, Functor.map_map]
