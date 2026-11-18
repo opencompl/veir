@@ -143,15 +143,15 @@ instance [ErrorE -< E] [UBE -< E] : MonadLift Interp (CTree E C) where
     | .ok v => return v
 
 @[simp]
-theorem Sim.monadLift_of_ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
+theorem Sim.monadLift_ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
     (location : Option OperationPtr) :
-    (monadLift (Interp.ub location : Interp α) : CTree E C α) = ub := by
+    (monadLift (Interp.ub location) : CTree E C α) = ub := by
   rfl
 
 @[simp]
-theorem Sim.monadLift_of_fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
+theorem Sim.monadLift_fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
     (location : Option OperationPtr) :
-    (monadLift (Interp.fail location : Interp α) : CTree E C α) = fail := by
+    (monadLift (Interp.fail location) : CTree E C α) = fail := by
   rfl
 
 theorem Sim.bind_monadLift_left_iff {EIn CIn C'In} {E : EIn → Type}
