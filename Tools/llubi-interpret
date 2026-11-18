@@ -64,12 +64,19 @@ def main(argv: list[str]) -> int:
     if result.returncode < 0 or result.returncode in (134, 139) or "Stack dump:" in log:
         print("Crashed")
         return 0
-    # Keep only the trace of the test's own function, so the standard `main`
-    # wrapper that llubi insists on cannot be mistaken for the result.
-    start = log.find("Entering function: veir_test_main")
-    if start >= 0:
-        end = log.find("Exiting function: veir_test_main", start)
-        log = log[start:] if end < 0 else log[start:end]
+    # Keep only the trace of the test's own function: the classifier takes the
+    # first `ret` it sees, which could otherwise be a callee's.
+    # UB ends the whole run, wherever it occurs.
+    frames: list[str] = []
+    kept: list[str] = []
+    for line in log.splitlines():
+        if line.startswith("Entering function: "):
+            frames.append(line.removeprefix("Entering function: "))
+        elif line.startswith("Exiting function: "):
+            frames.pop()
+        elif (frames and frames[-1] == "veir_test_main") or "immediate ub" in line.lower():
+            kept.append(line)
+    log = "\n".join(kept)
     try:
         verdict, _ = vsmith.classify_llubi_output(log)
     except ValueError as e:
