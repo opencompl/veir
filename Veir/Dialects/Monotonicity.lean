@@ -1,6 +1,8 @@
 module
 
-public import Veir.Interpreter.Lemmas
+public import Veir.Dialects.GMIR.Monotonicity
+public import Veir.Dialects.LLVM.Monotonicity
+public import Veir.Dialects.RISCV.Monotonicity
 public import Veir.Interpreter.CTreePrimitiveRefinement
 
 public section
@@ -8,7 +10,7 @@ public section
 /-!
 # Monotonicity of the dialects
 
-Every opcode is monotone in its operands and its memory, in `Interp` and in CTrees: the
+Every opcode is monotone in its operands, and in CTrees in its operands and its memory: the
 opcodes that have a proof through their own instance, the rest by assumption. The split is per
 opcode, so a dialect can prove the ones it can and leave the rest. Importing this module is what
 gives `interpretOp'_monotone` and `OpCode.interpretCTree_monotone_of_opCode` an opcode they know
