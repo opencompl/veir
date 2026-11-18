@@ -115,6 +115,24 @@ def eraseParamNames (f : ResolvedFunction) : ResolvedFunction :=
 def EqModuloRenaming (f g : ResolvedFunction) : Prop :=
   eraseParamNames f = eraseParamNames g
 
+/-- Two operands of type `ty` agree, treating integer literals as bit patterns. -/
+def ValueEquiv : LLType → ResolvedValue → ResolvedValue → Prop
+  | .int w, .intConst a, .intConst b => BitVec.ofInt w a = BitVec.ofInt w b
+  | _, a, b => a = b
+
+theorem ValueEquiv.refl : ValueEquiv ty x x := by cases ty; cases x <;> simp [ValueEquiv]
+
+def InstEquiv : ResolvedAST → ResolvedAST → Prop
+  | .bin o t l r, .bin o' t' l' r' => o = o' ∧ t = t' ∧ ValueEquiv t l l' ∧ ValueEquiv t r r'
+
+/-- Equal up to local names, the block label and the spelling of integer literals. -/
+def ResolvedFunction.Equiv (f g : ResolvedFunction) : Prop :=
+  f.header.name = g.header.name ∧ f.header.retType = g.header.retType ∧
+  f.header.params.map (·.ty) = g.header.params.map (·.ty) ∧
+  ResolvesList InstEquiv f.insts g.insts ∧ ValueEquiv f.header.retType f.result g.result
+
+def ResolvedModule.Equiv (m m' : ResolvedModule) : Prop := ResolvesList ResolvedFunction.Equiv m.funcs m'.funcs
+
 /-- Reintroduce the canonical local names used by the resolved-function printer. -/
 def unresolveValue : ResolvedValue → Value
   | .ref (.param i) => .localIdent s!"arg{i}"

@@ -5,6 +5,7 @@ import Veir.IR.Basic
 import Veir.IR.Mutators
 import Veir.IR.Fields
 import Veir.IR.WellFormed
+import Veir.IR.RootedIso
 import Veir.IRNesting
 import Veir.Rewriter.LinkedList.WellFormed
 import Veir.Rewriter.WellFormed
@@ -25,6 +26,7 @@ import Veir.Parser.Lexer
 import Veir.Parser.LLVMLexer
 import Veir.Parser.LLVMAST
 import Veir.Interpreter
+import Veir.Interpreter.RootedIso
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.CastsReconciliation.Reconciliation

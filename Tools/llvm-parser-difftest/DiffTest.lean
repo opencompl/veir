@@ -1,6 +1,7 @@
 import Veir.Parser.LLVMLowering
 import Veir.Input
 import Veir.Printer
+import Veir.IR.RootedIso
 
 /-!
 # Differential testing of the verified LLVM IR parser
@@ -12,8 +13,9 @@ Compares two ways of bringing textual LLVM IR into VeIR:
 * new: `LLVMParserProp.parse` → `NameResolutionSketch.resolveModule`
   → `LLVMLowering.lowerModule`.
 
-Both IR graphs are printed in generic form by VeIR's printer and compared with strict
-string equality. As an auxiliary signal, both graphs are also decoded with
+The two IR graphs are compared with `rootedIso?`, the executable form of `RootedIso`: equality
+up to a renaming of operations and blocks. Both are also printed in generic form for
+inspection. As an auxiliary signal, mismatching graphs are also decoded with
 `LLVMLowering.reverseModule`, which forgets SSA names, constant placement and sharing,
 and attributes the new path does not produce.
 
@@ -60,14 +62,14 @@ def newPath (src : String) : Except String (WfIRContext OpCode × OperationPtr) 
   (lowerModule r).mapError (s!"lowerModule: {·}")
 
 inductive Outcome where
-  | equal
+  | iso
   | mismatch (normalisedEqual : Bool)
   | referenceError (msg : String)
   | newError (msg : String)
   | bothError (ref new : String)
 
 def Outcome.label : Outcome → String
-  | .equal => "EQUAL"
+  | .iso => "ISOMORPHIC"
   | .mismatch true => "MISMATCH (equal after reverseModule)"
   | .mismatch false => "MISMATCH (differs after reverseModule)"
   | .referenceError _ => "REFERENCE-ERROR"
@@ -90,7 +92,7 @@ def compareFile (file outDir : System.FilePath) : IO Outcome := do
     IO.FS.writeFile (outDir / s!"{stem}.mlir-translate.mlir") generic
     IO.FS.writeFile (outDir / s!"{stem}.reference.mlir") refText
     IO.FS.writeFile (outDir / s!"{stem}.new.mlir") newText
-    if refText == newText then return .equal
+    if rootedIso? rctx rroot nctx nroot then return .iso
     let normalisedEqual := match reverseModule rctx rroot, reverseModule nctx nroot with
       | .ok a, .ok b => decide (a = b)
       | _, _ => false
@@ -104,11 +106,11 @@ def main (args : List String) : IO UInt32 := do
   let mut equal := 0
   for file in files do
     let outcome ← compareFile file out
-    if let .equal := outcome then equal := equal + 1
+    if let .iso := outcome then equal := equal + 1
     IO.println s!"{file.fileName.getD ""}: {outcome.label}"
     match outcome with
     | .referenceError m | .newError m => IO.println s!"    {(m.trimAsciiEnd.toString.replace "\n" "\n    ")}"
     | .bothError r n => IO.println s!"    reference: {r}\n    new: {n}"
     | _ => pure ()
-  IO.println s!"\n{equal}/{files.size} strictly equal"
+  IO.println s!"\n{equal}/{files.size} isomorphic"
   return 0
