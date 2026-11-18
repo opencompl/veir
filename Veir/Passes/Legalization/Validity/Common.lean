@@ -81,7 +81,8 @@ theorem selectNonzero_zext {w W : Nat} {v : Nat} (h : w < W) (c : LLVM.Int w) (x
 /-- Zero extension without `nneg` keeps refinement both ways. -/
 theorem zext_isRefinedBy_zext {w W : Nat} (x y : LLVM.Int w) (h : w < W) :
     x.zext W false h ⊒ y.zext W false h ↔ x ⊒ y := by
-  cases x <;> cases y <;> simp [Int.zext, Id.run, Data.LLVM.Int.isRefinedBy_eq, Data.LLVM.Int.poison_isRefinedBy, pure]
+  cases x <;> cases y <;> simp only [Int.zext, Id.run, Bool.false_and, Bool.false_eq_true,
+    ↓reduceIte, BitVec.truncate_eq_setWidth, Int.isRefinedBy_eq]
   rename_i a b
   constructor
   · intro hab
