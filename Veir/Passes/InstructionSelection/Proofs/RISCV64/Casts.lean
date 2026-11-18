@@ -92,6 +92,7 @@ private theorem bitcastType_cases (ty : TypeAttr) (h : checkBitcastType ty = tru
   · exact .inr (.inl ⟨_,rfl⟩)
   · exact .inr (.inr ⟨_,rfl⟩)
 
+@[proof_manual]
 theorem trunc_pattern_valid :
     Puddle.CTree.Pattern.Valid trunc_pattern := by
   unfold trunc_pattern lowerRegCast
@@ -146,6 +147,7 @@ private theorem llvm_bitcast_singleton (props : propertiesOf (OpCode.llvm .bitca
 
 attribute [-ctree_semantics] Llvm.interpretOp'
 
+@[proof_manual]
 theorem bitcast_pattern_valid :
     Puddle.CTree.Pattern.Valid bitcast_pattern := by
   unfold bitcast_pattern lowerRegCast
@@ -211,6 +213,7 @@ private theorem anyext_reg_refinement {src dst : Nat} (hw : src ≤ 64) (hlt : s
       simp [RISCV.Reg.toInt, hreg, BitVec.setWidth_setWidth_of_le bits hw]
     simpa only [hx] using Data.RISCV.anyext_of_reg_refinement src dst hlt reg
 
+@[proof_manual]
 theorem gmirTrunc_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirTrunc_pattern := by
   unfold gmirTrunc_pattern lowerRegCast
@@ -234,6 +237,7 @@ theorem gmirTrunc_pattern_valid :
     simpa [RuntimeValue.isRefinedBy, RISCV.Reg.toInt] using
       trunc_reg_refinement hw (Nat.lt_of_not_ge hle) x reg hr props.nsw props.nuw
 
+@[proof_manual]
 theorem gmirAnyext_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAnyext_pattern := by
   unfold gmirAnyext_pattern lowerRegCast
@@ -301,6 +305,7 @@ private theorem isLegal_ptrtoint_types (dst src : TypeAttr) (props : GMIR.proper
       exact ⟨ext_scalar_type dst 64 hd, pointer_type src 0 hs⟩
     · simp [hpair] at hlegal
 
+@[proof_manual]
 theorem gmirPtrToInt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirPtrIntCast_pattern .g_ptrtoint) := by
   unfold gmirPtrIntCast_pattern lowerRegCast
@@ -340,7 +345,8 @@ private theorem isLegal_inttoptr_types (dst src : TypeAttr) (props : GMIR.proper
       exact ⟨pointer_type dst 0 hd, ext_scalar_type src 64 hs⟩
     · simp [hpair] at hlegal
 
-theorem gmirIntToPtr_pattern_valid :
+@[proof_manual]
+theorem   gmirIntToPtr_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirPtrIntCast_pattern .g_inttoptr) := by
   unfold gmirPtrIntCast_pattern lowerRegCast
   simpPuddleValid
@@ -357,6 +363,7 @@ theorem gmirIntToPtr_pattern_valid :
 /- The checked wide witnesses below document failures of the unguarded register
    round trips. The selector guards exclude precisely the widths that lose defined bits. -/
 
+@[proof_manual]
 theorem gmirAnyextOfReg_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAnyextOfReg_pattern := by
   unfold gmirAnyextOfReg_pattern

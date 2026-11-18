@@ -255,6 +255,7 @@ theorem constant_valid : Puddle.CTree.Pattern.Valid lowerIntegerConstant := by
 
 /-- `llvm.mlir.zero` and the `g_constant 0` of its type both give the zero integer, or the null
 pointer, whose address is `0`. -/
+@[proof_manual]
 theorem zero_valid : Puddle.CTree.Pattern.Valid lowerZero := by
   proveLegalValid with
     first
@@ -319,9 +320,11 @@ theorem ashr_valid : Puddle.CTree.Pattern.Valid (lowerBinop .ashr .g_ashr) := by
 theorem mul_valid : Puddle.CTree.Pattern.Valid (lowerBinop .mul .g_mul) := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
+@[proof_manual]
 theorem smulh_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__smulh .g_smulh) := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
+@[proof_manual]
 theorem umulh_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__umulh .g_umulh) := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
@@ -734,6 +737,7 @@ theorem byte_poison_valid : Puddle.CTree.Pattern.Valid lowerBytePoison := by
 
 Both sides return a defined integer unchanged and choose the bits of a poison one. -/
 
+@[proof_manual]
 theorem freeze_valid : Puddle.CTree.Pattern.Valid lowerIntegerFreeze := by
   conv => arg 1; cbv
   simpPuddleValid
@@ -753,10 +757,12 @@ Both sides cast between a pointer and its 64-bit address (`Data.LLVM.Ptr.toInt` 
 `MemoryState.ptrFromInt`); the matchers fix the widths the interpreters check. -/
 
 set_option maxRecDepth 10000 in
+@[proof_manual]
 theorem ptrtoint_valid : Puddle.CTree.Pattern.Valid lowerPtrToInt := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
 
 set_option maxRecDepth 10000 in
+@[proof_manual]
 theorem inttoptr_valid : Puddle.CTree.Pattern.Valid lowerIntToPtr := by
   conv => arg 1; cbv
   simpPuddleValid

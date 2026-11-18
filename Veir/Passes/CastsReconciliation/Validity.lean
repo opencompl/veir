@@ -210,6 +210,7 @@ theorem srli_slli_eq {w : Nat} (h0 : w ≠ 0) (h : w < 64) (r : Data.RISCV.Reg) 
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
+
 @[proof_manual]
 theorem reg_i64_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRegToI64RoundTrip) := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
@@ -217,6 +218,7 @@ theorem reg_i64_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRegTo
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
+
 @[proof_manual]
 theorem reg_ptr_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRiscvRegToPtrCast) := by
   proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
@@ -224,6 +226,7 @@ theorem reg_ptr_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRiscv
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
+
 @[proof_manual]
 theorem mod_arith_int_valid :
     Puddle.CTree.Pattern.Valid (reconcilePairingCast isPreservingModArithToIntCast) := by
@@ -232,6 +235,7 @@ theorem mod_arith_int_valid :
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
+
 @[proof_manual]
 theorem cir_int_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isCirToIntRoundTrip) := by
   proveLegalValid with
@@ -251,6 +255,7 @@ theorem reg_i32_valid : Puddle.CTree.Pattern.Valid (reconcileRegIntExt 32 .zextw
 
 /-- The register round trip through any other width below 64 is the two shifts by `64 - w`:
 the matcher excludes width 0 and the over-wide casts, which `srli_slli_eq` needs. -/
+@[proof_manual]
 theorem reg_int_shift_valid : Puddle.CTree.Pattern.Valid reconcileRegIntShift := by
   proveLegalValid with exact (srli_slli_eq ‹_› ‹_› _).symm
 

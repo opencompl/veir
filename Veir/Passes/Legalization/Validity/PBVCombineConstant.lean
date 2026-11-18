@@ -513,20 +513,20 @@ theorem combine_double_icmp_zero_or_status :
 --     Puddle.CTree.Pattern.Valid (urem_pow2_to_mask_pattern) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid, proof_norm]
+@[combine_valid, proof_pbv]
 theorem combine_constant_fold_add_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_add (fun a b => a + b)) := by
-  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+  proveLegalValid with (normalizeConstants; veir_pbv_decide 64 (bv_decide := false); bv_decide (config := { timeout := 300 }))
 
 @[legalization_status]
 theorem combine_constant_fold_add_status :
     Status Unproven (constant_fold_binop_pattern .g_add (fun a b => a + b)) :=
   .proven (combine_constant_fold_add_valid)
 
-@[combine_valid, proof_norm]
+@[combine_valid, proof_pbv]
 theorem combine_constant_fold_sub_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_sub ((· - ·))) := by
-  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+  proveLegalValid with (normalizeConstants; veir_pbv_decide 64 (bv_decide := false); bv_decide (config := { timeout := 300 }))
 
 @[legalization_status]
 theorem combine_constant_fold_sub_status :
@@ -538,20 +538,20 @@ theorem combine_constant_fold_sub_status :
 --     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_mul ((· * ·))) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
-@[combine_valid, proof_norm]
+@[combine_valid, proof_pbv]
 theorem combine_constant_fold_smin_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smin (min)) := by
-  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+  proveLegalValid with (normalizeConstants; veir_pbv_decide 64 (bv_decide := false); bv_decide (config := { timeout := 300 }))
 
 @[legalization_status]
 theorem combine_constant_fold_smin_status :
     Status Unproven (constant_fold_binop_pattern .g_smin (min)) :=
   .proven (combine_constant_fold_smin_valid)
 
-@[combine_valid, proof_norm]
+@[combine_valid, proof_pbv]
 theorem combine_constant_fold_smax_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smax (max)) := by
-  proveLegalValid with (normalizeConstants; all_goals (veir_pbv_decide 64 (bv_decide := false)); all_goals bv_decide (config := { timeout := 300 }))
+  proveLegalValid with (normalizeConstants; veir_pbv_decide 64 (bv_decide := false); bv_decide (config := { timeout := 300 }))
 
 @[legalization_status]
 theorem combine_constant_fold_smax_status :

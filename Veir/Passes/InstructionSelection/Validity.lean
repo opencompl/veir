@@ -247,32 +247,6 @@ theorem memcpy_call_status : Status Unproven (memIntrinsicCallPattern false) :=
 theorem memset_call_status : Status Unproven (memIntrinsicCallPattern true) :=
   .proven (memIntrinsicCall_valid true)
 
-/-- `gmirTrunc_pattern` is valid as soon as the round trip of the operand through a register
-keeps its low bits at every operand width: the only goal left over `Data.LLVM.Int`, which
-`trunc_narrow` proves up to 64 bits and `trunc_wide` refutes above. -/
-theorem gmir_trunc_valid_of_narrow (narrow : TruncRoundTrip) :
-    Puddle.CTree.Pattern.Valid gmirTrunc_pattern := by
-  unfold gmirTrunc_pattern lowerRegCast
-  simpPuddleValid
-  simpLegalSemantics
-  normalizeIselValid
-  exact narrow _ _ _ _ _
-
-theorem gmir_trunc_status : Status Unproven gmirTrunc_pattern := .unproven .wideOperand
-
-/-- `gmirAnyext_pattern` is valid as soon as the round trip of the operand through a register is
-a choice of high bits of the matched `g_anyext` at every operand width: the only goal left over
-`Data.LLVM.Int`, which `anyext_narrow` proves up to 64 bits and `anyext_wide` refutes above. -/
-theorem gmir_anyext_valid_of_narrow (narrow : AnyextRoundTrip) :
-    Puddle.CTree.Pattern.Valid gmirAnyext_pattern := by
-  unfold gmirAnyext_pattern lowerRegCast
-  simpPuddleValid
-  simpLegalSemantics
-  normalizeIselValid
-  exact narrow _ _ _
-
-theorem gmir_anyext_status : Status Unproven gmirAnyext_pattern := .unproven .wideOperand
-
 /-! ## The remaining rewrites
 
 The split loads and stores, the inline memory intrinsics, the `getelementptr` lowering and the

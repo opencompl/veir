@@ -122,10 +122,12 @@ theorem add_li_to_addi_commuted_valid :
     Puddle.CTree.Pattern.Valid (add_li_to_addi_pattern true) := by
   proveCombineValid using Data.RISCV.add_li_to_addi_commuted
 
+@[proof_bv]
 theorem and_li_to_zextw_valid :
     Puddle.CTree.Pattern.Valid (and_li_to_zextw_pattern false) := by
   proveCombineValid using Data.RISCV.and_li_to_zextw
 
+@[proof_bv]
 theorem and_li_to_zextw_commuted_valid :
     Puddle.CTree.Pattern.Valid (and_li_to_zextw_pattern true) := by
   proveCombineValid using Data.RISCV.and_li_to_zextw_commuted
