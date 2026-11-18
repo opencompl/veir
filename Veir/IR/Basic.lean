@@ -1971,6 +1971,25 @@ theorem hasUses!_def {value : ValuePtr} :
     value.hasUses! ctx = (value.getFirstUse! ctx).isSome := by
   grind [hasUses!]
 
+/--
+Returns true if the value has exactly one use.
+-/
+def hasOneUse! (value : ValuePtr) (ctx : IRContext OpInfo) : Bool :=
+  match value.getFirstUse! ctx with
+  | some use => (use.getNextUse! ctx).isNone
+  | none => false
+
+/--
+Returns the operations using the value, in use-list order.
+-/
+def users! (value : ValuePtr) (ctx : IRContext OpInfo) : List OperationPtr := Id.run do
+  let mut users := []
+  let mut use? := value.getFirstUse! ctx
+  while let some use := use? do
+    users := use.op :: users
+    use? := use.getNextUse! ctx
+  return users.reverse
+
 end ValuePtr
 
 namespace OperationPtr

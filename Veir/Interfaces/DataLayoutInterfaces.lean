@@ -80,6 +80,16 @@ def GEPIndex.decode [Inhabited α] (rawConstantIndices : Array Int) (dynamic : A
       indices := indices.push (.const raw)
   return indices
 
+/-- A dynamic index of a `getelementptr` and the constant byte offset added before it. -/
+structure GEPStep (α : Type) where
+  /-- The constant byte offset accumulated since the previous dynamic index. -/
+  before : Int
+  /-- The dynamic index. -/
+  index : α
+  /-- The byte stride the index is multiplied by. -/
+  stride : Nat
+  deriving DecidableEq
+
 /--
   A target data layout. Unsupported or unsized types return `none`.
 
@@ -112,14 +122,14 @@ def getTypeAllocSize (layout : DataLayout) (type : Attribute) : Option Nat :=
   (layout.query type).map (·.allocSize)
 
 /--
-  Decompose the address a `getelementptr` over `elemType` computes into a
-  constant byte offset plus, for each dynamic index, its byte stride: the address
-  is the base, plus the constant, plus each dynamic index times its stride.
+  Decompose the address a `getelementptr` over `elemType` computes into a step for each dynamic
+  index and a constant byte offset after the last: the address is the base, plus each step's
+  offset and dynamic index times its stride, plus the constant.
 -/
-def gepOffsets (layout : DataLayout) (elemType : Attribute) (indices : Array (GEPIndex α)) :
-    Option (Int × Array (α × Nat)) := do
+def gepSteps (layout : DataLayout) (elemType : Attribute) (indices : Array (GEPIndex α)) :
+    Option (Array (GEPStep α) × Int) := do
   let mut offset : Int := 0
-  let mut dynamic := #[]
+  let mut steps := #[]
   let mut outer := Attribute.llvmArrayType { size := 0, type := elemType }
   for index in indices do
     match outer, index with
@@ -127,14 +137,26 @@ def gepOffsets (layout : DataLayout) (elemType : Attribute) (indices : Array (GE
       let stride ← layout.getTypeAllocSize type
       match index with
       | .const c => offset := offset + c * stride
-      | .dynamic v => dynamic := dynamic.push (v, stride)
+      | .dynamic v =>
+        steps := steps.push { before := offset, index := v, stride }
+        offset := 0
       outer := type
     | .llvmStructType { packed, body, .. }, .const c =>
       let (offsets, _) := structLayout (← body.mapM layout.query) packed
       offset := offset + offsets[c.toNat]!
       outer := body[c.toNat]!
     | _, _ => none
-  return (offset, dynamic)
+  return (steps, offset)
+
+/--
+  Decompose the address a `getelementptr` over `elemType` computes into a
+  constant byte offset plus, for each dynamic index, its byte stride: the address
+  is the base, plus the constant, plus each dynamic index times its stride.
+-/
+def gepOffsets (layout : DataLayout) (elemType : Attribute) (indices : Array (GEPIndex α)) :
+    Option (Int × Array (α × Nat)) := do
+  let (steps, after) ← layout.gepSteps elemType indices
+  return (steps.foldl (· + ·.before) after, steps.map fun step => (step.index, step.stride))
 
 end DataLayout
 

@@ -2,6 +2,7 @@ module
 
 public meta import Veir.Meta.Tactic.BVDecide
 public import Veir.Data.LLVM.Int.Bitblast
+public import Veir.Data.LLVM.Ptr.Basic
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Bitblast
 
@@ -38,6 +39,15 @@ theorem getValue_selectNonzero {wc w : Nat} (x y : Int w) (c : Int wc)
   cases c with
   | poison => simp [selectNonzero, Id.run, Int.isPoison] at h
   | val c' => by_cases hc : c' = 0#wc <;> simp [selectNonzero, Id.run, hc]
+
+/--
+ The pointer `p` plus the byte offset `offset`, as gMIR's `G_PTR_ADD`. The address wraps around, as
+ we do not model the `nuw`, `nusw` and `inbounds` flags.
+-/
+def ptrAdd (p : Ptr) (offset : Int 64) : Ptr :=
+  match p, offset with
+  | .val p, .val offset => .val (p.addBytes offset.toNat)
+  | _, _ => .poison
 
 /--
  The amount `z` of a `w`-bit funnel shift or rotate, reduced modulo `w`. In gMIR, the amount (type

@@ -26,9 +26,8 @@ def castToRegLocal (ctx : WfIRContext OpCode) (v : ValuePtr) :
   Create a detached `unrealized_conversion_cast` from `reg` back to `op`'s
   result type, returning the updated context and the cast operation. The target
   type is read from `op`, so this is type-agnostic (it also handles non-`i64`
-  results, e.g. the `!llvm.ptr` produced by `getelementptr`). The caller is
-  responsible for inserting the returned operation and replacing `op`'s result
-  with its result.
+  results, e.g. a pointer). The caller is responsible for inserting the returned
+  operation and replacing `op`'s result with its result.
 -/
 def replaceWithRegLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (reg : ValuePtr) :
     Option (WfIRContext OpCode × OperationPtr) :=

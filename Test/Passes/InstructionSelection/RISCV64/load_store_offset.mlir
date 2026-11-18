@@ -76,14 +76,14 @@
 
     // The range is checked on the *scaled* offset: the index 1000 fits a signed
     // 12-bit field but 1000 * 8 = 8000 does not, so the address is computed into
-    // a register by the `getelementptr` lowering and the load keeps offset 0.
+    // a register and the load keeps offset 0.
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "nofold_scaled_out_of_range"}> ({
     ^bb0(%p: !llvm.ptr):
         %i = "llvm.mlir.constant"() <{value = 1000 : i64}> : () -> i64
         %g = "llvm.getelementptr"(%p, %i) <{elem_type = i64, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
         %v = "llvm.load"(%g) : (!llvm.ptr) -> i64
-        // CHECK:      {{.*}} = "riscv.li"() <{"value" = 1000 : i64}> : () -> !riscv.reg
-        // CHECK:      {{.*}} = "riscv.sh3add"({{.*}}, {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK:      {{.*}} = "riscv.li"() <{"value" = 8000 : i64}> : () -> !riscv.reg
+        // CHECK:      {{.*}} = "riscv.add"({{.*}}, {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK:      {{.*}} = "riscv.ld"({{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
         "test.test"(%v) : (i64) -> ()
         "func.return"() : () -> ()
@@ -101,14 +101,14 @@
     }) : () -> ()
 
     // Folding does not depend on the gep having a single user: as in LLVM, the
-    // load takes the offset and the gep is still selected for its other user,
-    // duplicating the address arithmetic.
+    // load takes the offset and the `g_ptr_add` is still selected for its other
+    // user, duplicating the address arithmetic.
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "fold_multi_use"}> ({
     ^bb0(%p: !llvm.ptr):
         %i = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
         %g = "llvm.getelementptr"(%p, %i) <{elem_type = i64, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
         %v = "llvm.load"(%g) : (!llvm.ptr) -> i64
-        // CHECK:      {{.*}} = "riscv.sh3add"({{.*}}, {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK:      {{.*}} = "riscv.addi"({{.*}}) <{"value" = 16 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK:      {{.*}} = "riscv.ld"({{.*}}) <{"value" = 16 : i64}> : (!riscv.reg) -> !riscv.reg
         "test.test"(%v) : (i64) -> ()
         "test.test"(%g) : (!llvm.ptr) -> ()
