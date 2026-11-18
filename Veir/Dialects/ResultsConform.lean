@@ -1,6 +1,12 @@
 module
 
 public import Veir.Dialects.Cf.ResultsConform
+public import Veir.Dialects.LLVM.CTreeResultsConform
+public import Veir.Dialects.LLVM.ResultsConform
+public import Veir.Dialects.GMIR.CTreeResultsConform
+public import Veir.Dialects.GMIR.ResultsConform
+public import Veir.Dialects.RISCV.CTreeResultsConform
+public import Veir.Dialects.RISCV.ResultsConform
 
 public section
 
