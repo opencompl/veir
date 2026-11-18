@@ -329,141 +329,6 @@ theorem and_icmp_one (m : Nat) (h : 1 < m) (c : LLVM.Int 1) :
   simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_and]
   grind
 
-/--
-A widened `g_icmp` result is poison, zero or one: apply this to `LLVM.Int.icmp x y pred`.
-These are the nonconstant arms matched by `matchBoolArm`; the constant arms are zero or one
-directly.
--/
-theorem zext_i1_eq_poison_or_zero_or_one {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
-    LLVM.Int.zext c w false h = .poison ∨
-    LLVM.Int.zext c w false h = .val 0#w ∨
-    LLVM.Int.zext c w false h = .val 1#w := by
-  cases c with
-  | poison => simp [LLVM.Int.zext, Id.run]
-  | val c =>
-    rcases BitVec.eq_zero_or_eq_one c with rfl | rfl <;>
-      simp [LLVM.Int.zext, Id.run,
-        BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt (by decide : 0 < 1)]
-
-/--
-Prove all four `redundant_and_select_pattern` arm combinations at every width, for any mask with
-its low bit set. The hypotheses admit poison from a comparison, including on an unselected arm;
-`zext_i1_eq_poison_or_zero_or_one` supplies them for widened comparisons.
--/
-theorem and_select_bool {w wc : Nat} (c : LLVM.Int wc) (t f : LLVM.Int w)
-    (mask : BitVec w) (hmask : mask.toNat % 2 = 1)
-    (ht : t = .poison ∨ t = .val 0#w ∨ t = .val 1#w)
-    (hf : f = .poison ∨ f = .val 0#w ∨ f = .val 1#w) :
-    LLVM.Int.and (GMIR.selectNonzero c t f) (.val mask) = GMIR.selectNonzero c t f := by
-  have hone : 1#w &&& mask = 1#w := by
-    apply BitVec.eq_of_toNat_eq
-    cases w <;> simp_all
-  cases c with
-  | poison => simp [GMIR.selectNonzero, LLVM.Int.and, Id.run]
-  | val c =>
-    rcases ht with rfl | rfl | rfl <;> rcases hf with rfl | rfl | rfl <;>
-      by_cases hc : c = 0#wc <;> simp [GMIR.selectNonzero, LLVM.Int.and, Id.run, hone, hc]
-
-/-! ### Power-of-two division combines
-
-The combines are proved for every width `w`. The divisor is the constant `±2^k`, and the created
-shift amounts are the constants `k`, `w - 1` and `w - k`.
--/
-
-/-- Prove the correctness of `udiv_by_pow2_pattern`, whatever the `exact` flag. -/
-theorem udiv_by_pow2 {w : Nat} (x : LLVM.Int w) (k : Nat) (hk : k < w) (exact : Bool) :
-    LLVM.Int.udiv x (LLVM.Int.val (BitVec.twoPow w k)) exact ⊒
-      LLVM.Int.lshr x (LLVM.Int.constant w k) := by
-  veir_bv_normalize
-  grind [BitVec.lt_ofInt_natCast_ofNat_of_lt, BitVec.toNat_ofInt_natCast_of_lt,
-    BitVec.udiv_twoPow_eq_of_lt]
-
-/-- Prove the correctness of `sdiv_exact_by_pow2_pattern` for a positive divisor. -/
-theorem sdiv_exact_by_pow2_pos {w : Nat} (x : LLVM.Int w) (k : Nat) (hk : k + 1 < w) :
-    LLVM.Int.sdiv x (LLVM.Int.val (BitVec.twoPow w k)) true ⊒
-      LLVM.Int.ashr x (LLVM.Int.constant w k) := by
-  veir_bv_normalize
-  grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
-    BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_one_shl_of_smod_eq_zero]
-
-/-- Prove the correctness of `sdiv_exact_by_pow2_pattern` for a negative divisor, including
-    `-2^(w-1)`. -/
-theorem sdiv_exact_by_pow2_neg {w : Nat} (x : LLVM.Int w) (k : Nat) (hk : k < w) :
-    LLVM.Int.sdiv x (LLVM.Int.val (-BitVec.twoPow w k)) true ⊒
-      LLVM.Int.sub (LLVM.Int.constant w 0) (LLVM.Int.ashr x (LLVM.Int.constant w k)) := by
-  veir_bv_normalize
-  grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
-    BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_neg_one_shl_of_smod_eq_zero]
-
-/-- The quotient that `sdiv_by_pow2_pattern` builds for `sdiv x, 2^k`. -/
-@[expose] def sdivPow2Shift {w : Nat} (x : LLVM.Int w) (k : Nat) : LLVM.Int w :=
-  LLVM.Int.ashr
-    (LLVM.Int.add x
-      (LLVM.Int.lshr (LLVM.Int.ashr x (LLVM.Int.constant w (w - 1 : Nat)))
-        (LLVM.Int.constant w (w - k : Nat))))
-    (LLVM.Int.constant w k)
-
-/-- Prove the correctness of `sdiv_by_pow2_pattern` for a positive divisor. -/
-theorem sdiv_by_pow2_pos {w : Nat} (x : LLVM.Int w) (k : Nat) (hk0 : 0 < k) (hk : k + 1 < w) :
-    LLVM.Int.sdiv x (LLVM.Int.val (BitVec.twoPow w k)) ⊒ sdivPow2Shift x k := by
-  simp only [sdivPow2Shift]
-  veir_bv_normalize
-  grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
-    BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_one_shl_eq_biased_sshiftRight]
-
-/-- Prove the correctness of `sdiv_by_pow2_pattern` for a negative divisor, including
-    `-2^(w-1)`. -/
-theorem sdiv_by_pow2_neg {w : Nat} (x : LLVM.Int w) (k : Nat) (hk0 : 0 < k) (hk : k < w) :
-    LLVM.Int.sdiv x (LLVM.Int.val (-BitVec.twoPow w k)) ⊒
-      LLVM.Int.sub (LLVM.Int.constant w 0) (sdivPow2Shift x k) := by
-  simp only [sdivPow2Shift]
-  veir_bv_normalize
-  grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
-    BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_neg_one_shl_eq_neg_biased_sshiftRight]
-
-/-! ### `tryFoldSelectOfConstants`
-
-The combines are proved for every width `w` wider than the `i1` condition.
--/
-
-/-- A property of `GMIR.selectNonzero` on an `i1` condition follows from its three cases. -/
-private theorem selectNonzero_refines {w : Nat} (c : LLVM.Int 1) (x y : LLVM.Int w)
-    (r : LLVM.Int w)
-    (hp : c = .poison → r = .poison)
-    (h1 : c = .val 1#1 → x ⊒ r) (h0 : c = .val 0#1 → y ⊒ r) :
-    GMIR.selectNonzero c x y ⊒ r := by
-  cases c with
-  | poison => simp [GMIR.selectNonzero, Id.run, hp, LLVM.Int.isRefinedBy]
-  | val c =>
-    rcases BitVec.eq_zero_or_eq_one c with rfl | rfl
-    · simpa [GMIR.selectNonzero, Id.run] using h0 rfl
-    · simpa [GMIR.selectNonzero, Id.run] using h1 rfl
-
-/-- The `i1` negation that `createNot` builds. -/
-@[expose] def notI1 (c : LLVM.Int 1) : LLVM.Int 1 := LLVM.Int.xor c (LLVM.Int.constant 1 (-1))
-
-/-- Closes one case of a `tryFoldSelectOfConstants` proof, where the condition is known. -/
-local macro "select_const_tac" : tactic =>
-  `(tactic| (simp_all [notI1, Nat.not_le_of_gt, Nat.mod_eq_of_lt,
-      BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt, BitVec.signExtend, BitVec.ofInt_neg,
-      BitVec.twoPow_eq, BitVec.add_comm, BitVec.sub_eq_add_neg, BitVec.neg_one_eq_allOnes,
-      LLVM.Int.xor, LLVM.Int.zext, LLVM.Int.sext, LLVM.Int.add, LLVM.Int.shl, LLVM.Int.or,
-      LLVM.Int.constant, Id.run, LLVM.Int.isRefinedBy]))
-
-/-- Prove the correctness of combining `c ? 2^k : 0` to `shl (zext c), k`. -/
-theorem select_pow2_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : k < w) :
-    GMIR.selectNonzero c (LLVM.Int.val (BitVec.twoPow w k)) (LLVM.Int.constant w 0) ⊒
-      LLVM.Int.shl (LLVM.Int.zext c w false h) (LLVM.Int.constant w k) := by
-  have hkpow := Nat.lt_trans hk Nat.lt_two_pow_self
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
-/-- Prove the correctness of combining `c ? 0 : 2^k` to `shl (zext (not c)), k`. -/
-theorem select_zero_pow2 {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : k < w) :
-    GMIR.selectNonzero c (LLVM.Int.constant w 0) (LLVM.Int.val (BitVec.twoPow w k)) ⊒
-      LLVM.Int.shl (LLVM.Int.zext (notI1 c) w false h) (LLVM.Int.constant w k) := by
-  have hkpow := Nat.lt_trans hk Nat.lt_two_pow_self
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
-
 /-! ### Word operations -/
 
 /--
@@ -1601,22 +1466,11 @@ end Saturating
 
 /-! ## gMIR combines
 
-The local correctness lemmas of the gMIR combines of `Veir.Passes.Legalization.CombinerHelper`,
-whatever the flags of the matched operations, which only add poison to the source.
-
-The combines that run after legalization match integer types of at most 64 bits
-(`matchLegalInt`), the types the RISC-V 64 legalizer leaves. Their lemmas take that bound
-(`hw : w ≤ 64`) and are decided: `veir_bv_normalize` reduces the operations to bit-vector
-arithmetic under their poison checks, and `pbv_decide 64` bit-blasts it at every width up to the
-bound. A lemma that mentions the integer value of a constant first rewrites it into bit-vector
-arithmetic (`ofInt_toInt_add` and the like).
-
-The remaining lemmas hold at every width: those of the combines that run before legalization,
-and those `pbv_decide` does not decide, such as a bit reverse, a multiplication by a power of two
-given as a natural number, or a constant known by its integer value. `combine_tac` unfolds their
-operations, splits their poison checks, and closes the remaining bit-vector identity with `simp`,
-`omega` or `grind`'s ring solver. The interpreters are written in the `Id` monad, so their poison
-checks are equations at `Id (LLVM.Int w)`, which the `_id` lemmas below rewrite. -/
+Definitions and tactics for the correctness lemmas of the gMIR combines, which are stated next to
+the validity theorems at the end of this file. `combine_tac` unfolds the operations, splits their
+poison checks, and closes the remaining bit-vector identity with `simp`, `omega` or `grind`'s ring
+solver. The interpreters are written in the `Id` monad, so their poison checks are equations at
+`Id (LLVM.Int w)`, which the `_id` lemmas below rewrite. -/
 
 section Combines
 
@@ -1649,11 +1503,11 @@ private meta partial def casesAnd (goal : MVarId) : MetaM (List MVarId) :=
     return [goal]
 
 open Lean Elab Tactic in
-local elab "casesAnd" : tactic => do
+elab "casesAnd" : tactic => do
   let goals ← getGoals
   setGoals (← goals.flatMapM fun goal => casesAnd goal)
 
-local macro "llvm_refines" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
+macro "llvm_refines" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
   (repeat' split) <;>
     try simp_all [Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl, Data.LLVM.Int.isRefinedBy_eq, ite_poison_eq_val_id, val_eq_val_id,
       poison_eq_val_id, $ls,*]
@@ -1665,7 +1519,7 @@ local macro "llvm_refines" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic =>
     BitVec.natCast_eq_ofNat, ge_iff_le] at *; omega)
   all_goals grind))
 
-local macro "combine_tac" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
+macro "combine_tac" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
   simp only [Int.add, Int.sub, Int.and, Int.or, Int.xor, Int.shl, Int.lshr, Int.ashr, Int.icmp, Int.zext,
     Int.sext, Int.trunc, Int.bitreverse, Int.smin, Int.smax, Int.umin, Int.umax, GMIR.selectNonzero,
     Id.run, pure]
@@ -1673,83 +1527,8 @@ local macro "combine_tac" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => 
 
 variable {w : Nat}
 
-/-! ### Combines of a matched constant
-
-The constant `c` is matched at the width of its result (see `matchConstant`), and the hypotheses on
-it are the predicates of its matcher.
--/
-
-theorem ofInt_toInt_mul (x y : BitVec w) : BitVec.ofInt w (x.toInt * y.toInt) = x * y := by
-  apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_mul]
-
-theorem ofInt_neg_toInt (x : BitVec w) : BitVec.ofInt w (-x.toInt) = -x := by
-  apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_neg]
-
-theorem right_identity_zero_add (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
-    x.add (.val c) n u ⊒ x := by
-  veir_pbv_decide 64
-
-theorem right_identity_one_mul (x : LLVM.Int w) (c : BitVec w) (hc : c.toNat = 1) (n u : Bool) :
-    x.mul (.val c) n u ⊒ x := by
-  have : c = 1#w := by
-    apply BitVec.eq_of_toNat_eq; rw [hc]
-    have : 1 < 2 ^ w := by
-      rcases Nat.lt_or_ge 1 (2 ^ w) with h | h
-      · exact h
-      · have := c.isLt; omega
-    simp [Nat.mod_eq_of_lt this]
-  subst this
-  cases x <;> simp only [LLVM.Int.mul, Id.run, pure] <;>
-    llvm_refines [BitVec.mul_zero, BitVec.zero_mul, BitVec.mul_one]
-
-theorem sub_one_from_sub (x y : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 1) (n₁ u₁ n₂ u₂ : Bool) :
-    (x.sub y n₁ u₁).sub (.val c) n₂ u₂ ⊒ (y.xor (.val (BitVec.ofInt w (-1)))).add x := by
-  have : c = 1#w := by
-    rw [← BitVec.ofInt_toInt (x := c), hc]; simp
-  subst this
-  have hsub (a b : BitVec w) : a - b - 1#w = ~~~b + a := by
-    rw [BitVec.not_eq_neg_add]; simp only [BitVec.sub_eq_add_neg]; ac_rfl
-  rw [ofInt_neg_one]
-  cases x <;> cases y <;> combine_tac [BitVec.xor_allOnes, hsub]
-
-theorem sub_of_mul_const (a x : LLVM.Int w) (c : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
-    a.sub (x.mul (.val c) n₁ u₁) n₂ u₂ ⊒ a.add (x.mul (.val (BitVec.ofInt w (-c.toInt)))) := by
-  rw [ofInt_neg_toInt]
-  cases a <;> cases x <;> simp only [LLVM.Int.mul, Id.run, pure] <;>
-    combine_tac [BitVec.mul_neg, BitVec.sub_eq_add_neg]
-
-theorem mul_by_neg_one (x : LLVM.Int w) (c : BitVec w) (hc : c = -1) (n u : Bool) :
-    x.mul (.val c) n u ⊒ (LLVM.Int.val 0#w).sub x n := by
-  subst hc
-  cases x with
-  | poison => simp [LLVM.Int.mul, Id.run, Data.LLVM.Int.poison_isRefinedBy]
-  | val x =>
-    have hov : BitVec.smulOverflow x (-1#w) = BitVec.ssubOverflow 0#w x := by
-      rcases Nat.eq_zero_or_pos w with rfl | hw
-      · simp [BitVec.smulOverflow, BitVec.ssubOverflow, BitVec.toInt_of_zero_length]
-      have hm : (-1#w).toInt = -1 := by
-        rw [BitVec.neg_one_eq_allOnes, BitVec.toInt_allOnes]; simp [hw]
-      simp only [BitVec.smulOverflow, BitVec.ssubOverflow, hm, BitVec.toInt_zero]
-      congr 1 <;> simp <;> omega
-    simp only [LLVM.Int.mul, LLVM.Int.sub, Id.run, pure, hov]
-    llvm_refines [BitVec.mul_neg, BitVec.mul_one, BitVec.zero_sub]
-
-theorem mulo_by_2 (x : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 2) (n u : Bool) :
-    x.mul (.val c) n u ⊒ x.add x n u := by
-  have hn : c.toNat = 2 := by
-    have := BitVec.toInt_eq_toNat_of_msb (x := c); grind [BitVec.toInt_eq_toNat_cond]
-  cases x with
-  | poison => simp [LLVM.Int.mul, Id.run, Data.LLVM.Int.poison_isRefinedBy]
-  | val x =>
-    have hs : BitVec.smulOverflow x c = BitVec.saddOverflow x x := by
-      simp only [BitVec.smulOverflow, BitVec.saddOverflow, hc]; congr 1 <;> simp <;> omega
-    have hu : BitVec.umulOverflow x c = BitVec.uaddOverflow x x := by
-      simp only [BitVec.umulOverflow, BitVec.uaddOverflow, hn]; congr 1; simp; omega
-    have hv : x * c = x + x := by
-      apply BitVec.eq_of_toNat_eq
-      rw [BitVec.toNat_mul, BitVec.toNat_add, hn, Nat.mul_two]
-    simp only [LLVM.Int.mul, LLVM.Int.add, Id.run, hs, hu, hv]
-    exact Data.LLVM.Int.isRefinedBy_refl _
+/-- The `i1` negation that `createNot` builds. -/
+@[expose] def notI1 (c : LLVM.Int 1) : LLVM.Int 1 := LLVM.Int.xor c (LLVM.Int.constant 1 (-1))
 
 /-- The predicate of the negated comparison, as `not_cmp_fold_pattern` pairs them. -/
 @[expose] def IntPred.inverse : IntPred → IntPred
@@ -1765,138 +1544,6 @@ theorem IntPred.eval_inverse {v : Nat} (p : IntPred) (a b : BitVec v) :
     | simp [bne]
     | (rw [Bool.eq_iff_iff]; simp only [Bool.not_eq_true', decide_eq_true_eq, decide_eq_false_iff_not]; omega)
 
-theorem not_cmp_fold {v : Nat} (x y : LLVM.Int v) (p : IntPred) (c : BitVec 1) (hc : c.toNat = 1) :
-    (x.icmp y p).xor (.val c) ⊒ x.icmp y p.inverse := by
-  have : c = 1#1 := BitVec.eq_of_toNat_eq (by simp [hc])
-  subst this
-  cases x <;> cases y <;> simp [LLVM.Int.icmp, LLVM.Int.xor, Id.run, Data.LLVM.Int.poison_isRefinedBy,
-    IntPred.eval_inverse]
-  rename_i a b
-  cases p.eval a b <;> exact Data.LLVM.Int.isRefinedBy_refl _
-
-theorem not_cmp_fold_zext {v W : Nat} (x y : LLVM.Int v) (p : IntPred) (h : 1 < W) (c : BitVec W)
-    (hc : c.toNat = 1) :
-    ((x.icmp y p).zext W false h).xor (.val c) ⊒ (x.icmp y p.inverse).zext W false h := by
-  have : c = 1#W := BitVec.eq_of_toNat_eq (by
-    simp [hc, Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le h (Nat.le_of_lt Nat.lt_two_pow_self))])
-  subst this
-  cases x <;> cases y <;> simp [LLVM.Int.icmp, LLVM.Int.xor, LLVM.Int.zext, Id.run,
-    Data.LLVM.Int.poison_isRefinedBy, IntPred.eval_inverse]
-  rename_i a b
-  cases p.eval a b <;>
-    simp [BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt (by decide : 0 < 1), Data.LLVM.Int.isRefinedBy_refl]
-
-theorem constant_fold_mul (c₁ c₂ : BitVec w) (n u : Bool) :
-    (LLVM.Int.val c₁).mul (.val c₂) n u ⊒ .val (BitVec.ofInt w (c₁.toInt * c₂.toInt)) := by
-  simp only [ofInt_toInt_mul]
-  veir_bv_normalize
-
-theorem sub_to_add (a : LLVM.Int w) (c : BitVec w) (n u : Bool) :
-    a.sub (.val c) n u ⊒
-      a.add (.val (BitVec.ofInt w (-c.toInt))) (n && !decide (c = BitVec.intMin w)) := by
-  rw [ofInt_neg_toInt]
-  cases a with
-  | poison => simp [LLVM.Int.sub, Id.run, Data.LLVM.Int.poison_isRefinedBy]
-  | val a =>
-    by_cases hmin : c = BitVec.intMin w
-    · simp only [hmin, decide_true, Bool.not_true, Bool.and_false]
-      simp only [LLVM.Int.sub, LLVM.Int.add, Id.run, pure]
-      llvm_refines [BitVec.sub_eq_add_neg]
-    · have hs : BitVec.saddOverflow a (-c) = BitVec.ssubOverflow a c := by
-        simp only [BitVec.saddOverflow, BitVec.ssubOverflow, BitVec.toInt_neg_of_ne_intMin hmin]
-        congr 1 <;> simp <;> omega
-      simp only [hmin, decide_false, Bool.not_false, Bool.and_true]
-      simp only [LLVM.Int.sub, LLVM.Int.add, Id.run, pure, hs]
-      llvm_refines [BitVec.sub_eq_add_neg]
-
-/-- `redundant_and_select_pattern`, whose mask `k` is odd as an integer, at every width. -/
-theorem and_select_bool_odd {wc : Nat} (c : LLVM.Int wc) (t f : LLVM.Int w) (k : _root_.Int)
-    (hk : k % 2 = 1)
-    (ht : t = .poison ∨ t = .val 0#w ∨ t = .val 1#w)
-    (hf : f = .poison ∨ f = .val 0#w ∨ f = .val 1#w) :
-    LLVM.Int.and (GMIR.selectNonzero c t f) (.val (BitVec.ofInt w k)) ⊒ GMIR.selectNonzero c t f := by
-  rcases Nat.eq_zero_or_pos w with rfl | hw
-  · generalize GMIR.selectNonzero c t f = r
-    cases r <;> simp [LLVM.Int.and, Id.run, Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl,
-      BitVec.of_length_zero]
-  · rw [and_select_bool c t f _ _ ht hf]
-    · exact Data.LLVM.Int.isRefinedBy_refl _
-    · have hd : (2 : _root_.Int) ∣ ((2 ^ w : Nat) : _root_.Int) := by
-        refine ⟨((2 ^ (w - 1) : Nat) : _root_.Int), ?_⟩
-        rw [show w = (w - 1) + 1 by omega, Nat.pow_succ]
-        push_cast
-        rw [_root_.Int.mul_comm]
-      have h0 : 0 ≤ k % ((2 ^ w : Nat) : _root_.Int) :=
-        _root_.Int.emod_nonneg _ (by have := Nat.two_pow_pos w; omega)
-      have h1 : (k % ((2 ^ w : Nat) : _root_.Int)) % 2 = 1 := by
-        rw [_root_.Int.emod_emod_of_dvd _ hd]; exact hk
-      simp only [BitVec.toNat_ofInt]
-      omega
-
-/-- An `i1` comparison arm of `redundant_and_select_pattern` is poison, zero or one. -/
-theorem icmp_eq_poison_or_zero_or_one {v : Nat} (x y : LLVM.Int v) (p : IntPred) :
-    x.icmp y p = .poison ∨ x.icmp y p = .val 0#1 ∨ x.icmp y p = .val 1#1 := by
-  cases x <;> cases y <;> simp [LLVM.Int.icmp, Id.run]
-  rename_i a b
-  cases p.eval a b <;> simp
-
-/-- A constant arm of `redundant_and_select_pattern` is zero or one. -/
-theorem boolArm_of_constant (c : BitVec w) (h : c = 0 ∨ c = 1) :
-    LLVM.Int.val c = .poison ∨ LLVM.Int.val c = .val 0#w ∨ LLVM.Int.val c = .val 1#w := by
-  rcases h with rfl | rfl <;> simp
-
-/-- Prove the correctness of `mul_to_shl_pattern`: `x * 2^k` → `x << k`, whose flags carry over. A
-multiplication that does not overflow makes the shift's no-wrap checks pass. -/
-theorem mul_twoPow_shl (x : LLVM.Int w) (k : Nat) (hk : k + 1 < w) (n u : Bool) :
-    x.mul (.val (BitVec.twoPow w k)) n u ⊒ x.shl (LLVM.Int.constant w k) n u := by
-  have hkw : k < 2 ^ w := Nat.lt_trans (by omega) Nat.lt_two_pow_self
-  have hlt : 2 ^ k < 2 ^ w := Nat.pow_lt_pow_right (by decide) (by omega)
-  have hkn : (BitVec.ofInt w (k : _root_.Int)).toNat = k := by
-    rw [BitVec.ofInt_natCast, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hkw]
-  have hrange : ¬ (w : BitVec w) ≤ BitVec.ofInt w (k : _root_.Int) :=
-    BitVec.not_le.mpr (BitVec.lt_ofInt_natCast_ofNat_of_lt (by omega))
-  have hti : (BitVec.twoPow w k).toInt = 2 ^ k := by
-    rw [BitVec.toInt_twoPow]
-    simp only [show ¬ w ≤ k by omega, show ¬ k + 1 = w by omega, ite_false]
-  cases x with
-  | poison => simp [LLVM.Int.mul, Id.run, Data.LLVM.Int.poison_isRefinedBy]
-  | val x =>
-    have hv : x <<< BitVec.ofInt w (k : _root_.Int) = x * BitVec.twoPow w k := by
-      rw [BitVec.shiftLeft_eq', hkn, BitVec.shiftLeft_eq_mul_twoPow]
-    have hnuw (h : ¬ BitVec.umulOverflow x (BitVec.twoPow w k) = true) :
-        x <<< BitVec.ofInt w (k : _root_.Int) >>> BitVec.ofInt w (k : _root_.Int) = x := by
-      simp only [BitVec.umulOverflow, BitVec.toNat_twoPow_of_lt (by omega : k < w),
-        decide_eq_true_eq, ge_iff_le, Nat.not_le] at h
-      apply BitVec.eq_of_toNat_eq
-      rw [BitVec.ushiftRight_eq', hkn, hv, BitVec.toNat_ushiftRight, BitVec.toNat_mul,
-        BitVec.toNat_twoPow_of_lt (by omega), Nat.mod_eq_of_lt h, Nat.shiftRight_eq_div_pow,
-        Nat.mul_div_cancel _ (Nat.two_pow_pos k)]
-    have hnsw (h : ¬ BitVec.smulOverflow x (BitVec.twoPow w k) = true) :
-        (x <<< BitVec.ofInt w (k : _root_.Int)).sshiftRight' (BitVec.ofInt w (k : _root_.Int)) = x := by
-      simp only [BitVec.smulOverflow, hti, Bool.or_eq_true, decide_eq_true_eq, not_or,
-        ge_iff_le, _root_.Int.not_le, _root_.Int.not_lt] at h
-      apply BitVec.eq_of_toInt_eq
-      rw [BitVec.sshiftRight_eq', hkn, hv, BitVec.toInt_sshiftRight, BitVec.toInt_mul, hti,
-        bmod_two_pow_of_range (by omega) h.2 h.1, _root_.Int.shiftRight_eq_div_pow]
-      have hpos : (0 : _root_.Int) < 2 ^ k := by exact_mod_cast Nat.two_pow_pos k
-      push_cast
-      exact _root_.Int.mul_ediv_cancel _ (_root_.Int.ne_of_gt hpos)
-    simp only [LLVM.Int.mul, LLVM.Int.shl, LLVM.Int.constant, Id.run, pure, ge_iff_le, hrange,
-      ite_false]
-    by_cases hs : n = true ∧ BitVec.smulOverflow x (BitVec.twoPow w k) = true
-    · simp [hs, Data.LLVM.Int.poison_isRefinedBy]
-    by_cases hu : u = true ∧ BitVec.umulOverflow x (BitVec.twoPow w k) = true
-    · simp [hu, Data.LLVM.Int.poison_isRefinedBy]
-    have hs' : ¬ (n = true ∧ (x <<< BitVec.ofInt w (k : _root_.Int)).sshiftRight'
-        (BitVec.ofInt w (k : _root_.Int)) ≠ x) := by
-      rintro ⟨hn, hne⟩; exact hne (hnsw fun h => hs ⟨hn, h⟩)
-    have hu' : ¬ (u = true ∧ x <<< BitVec.ofInt w (k : _root_.Int) >>>
-        BitVec.ofInt w (k : _root_.Int) ≠ x) := by
-      rintro ⟨hn, hne⟩; exact hne (hnuw fun h => hu ⟨hn, h⟩)
-    simp only [hs, hu, hs', hu', ite_false]
-    rw [hv]
-    exact Data.LLVM.Int.isRefinedBy_refl _
-
 end Combines
 
 end Veir.Data.LLVM
@@ -1907,15 +1554,13 @@ end
 
 The `Pattern.Valid` and `Status` theorems of the combines of `RISCV64PostLegalizerCombiner` and
 `RISCV64PreLegalizerCombiner`. Most are proven by `proveLegalValid with veir_pbv_decide`
-(namespace `PBV`); the others by `proveLegalValid using` a correctness lemma, either one of the
-`Veir.Data.LLVM` lemmas above or a local one. -/
+(namespace `PBV`). The others, which `pbv_decide` does not decide, are proven with a correctness
+lemma stated directly above them. -/
 
 /-! CTree validity of the gMIR combines of `Veir.Passes.Legalization.CombinerHelper`. The combines
-that test or compute the value of a matched `g_constant` are in
-`Veir.Passes.Legalization.Validity.CombineConstant`. -/
+that test or compute the value of a matched `g_constant` follow. -/
 
 namespace Veir.Legalization.CTreeProofs
-
 
 open Puddle
 open Puddle.CTree
@@ -1933,9 +1578,12 @@ attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 attribute [local implicit_reducible] TypeAttr
 
 /-- `canonicalize_icmp_pattern`: swapping the operands of a comparison swaps its predicate. -/
-private theorem icmp_swap {w : Nat} (hw : w ≤ 64) (k x : Data.LLVM.Int w) (p : Data.LLVM.IntPred) :
-    k.icmp x p ⊒ x.icmp k (swapIntPred p) := by
-  cases p <;> simp only [swapIntPred] <;> veir_pbv_decide 64
+@[combine_valid, proof_pbv]
+theorem combine_canonicalize_icmp_valid : Puddle.CTree.Pattern.Valid canonicalize_icmp_pattern := by
+  proveLegalValid with
+    (casesLocalsOf Data.LLVM.IntPred)
+    all_goals (try simp only [swapIntPred, Data.LLVM.IntPred.inverse] at *)
+    all_goals (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
 /-- The low bit of an odd constant is set. -/
 private theorem one_and_ofInt_of_odd {W : Nat} (hW : 0 < W) (v : _root_.Int) (hv : v % 2 = 1) :
@@ -1979,10 +1627,6 @@ private theorem and_zext_icmp_odd {v W : Nat} (x y : Data.LLVM.Int v) (p : Data.
     apply BitVec.eq_of_toNat_eq
     simp [BitVec.toNat_setWidth, Nat.one_mod_two_pow (by omega : 0 < W)]
   cases Data.LLVM.IntPred.eval p a b <;> simp_all [BitVec.setWidth_eq]
-
-@[combine_valid, proof_pbv]
-theorem combine_canonicalize_icmp_valid : Puddle.CTree.Pattern.Valid canonicalize_icmp_pattern := by
-  proveLegalValid using icmp_swap
 
 /-- `redundant_and_select_pattern .icmp .icmp`, for an `i1` result: both arms are comparisons. -/
 private theorem and_select_icmp_odd {wc v₁ v₂ : Nat} (c : Data.LLVM.Int wc) (x y : Data.LLVM.Int v₁)
@@ -2130,9 +1774,8 @@ end Veir.Legalization.CTreeProofs
 `matchConstant` requires the constant's attribute to have the type of its result, as the verifier
 does, so the combines read the constant at the width it has: `normalizeConstants` splits its
 properties and substitutes that type, which leaves each constant as `BitVec.ofInt w v` with the
-matcher's predicate as a hypothesis on it. Each goal is then closed by a local lemma stated for an
-arbitrary constant `c`, mostly in `Veir.Passes.Legalization.Proofs`; the lemmas that mention the
-private `shiftAmount` of the gMIR semantics are here.
+matcher's predicate as a hypothesis on it. Each goal is then closed by a lemma stated for an
+arbitrary constant `c`, directly above the validity theorem that uses it.
 
 Two matchers also needed a typing condition: `select_into_binop_pattern` skips `i0`, where the
 shift by the created `0` is out of range, and `matchFunnelShiftConstAmt` matches the result at the
@@ -2140,7 +1783,6 @@ type of the shifted value, since `funnel_shift_overshift_pattern` reduces the am
 result width while the funnel shift takes it modulo the width of its operands. -/
 
 namespace Veir.Legalization.CTreeProofs
-
 
 open Puddle
 open Puddle.CTree
@@ -2176,13 +1818,44 @@ macro "normalizeConstants" : tactic => `(tactic| (
   all_goals (try subst_vars)
   all_goals (try simpConstantPreds)))
 
+open Veir.Data Veir.Data.LLVM in
+/--
+A widened `g_icmp` result is poison, zero or one: apply this to `LLVM.Int.icmp x y pred`.
+These are the nonconstant arms matched by `matchBoolArm`; the constant arms are zero or one
+directly.
+-/
+private theorem zext_i1_eq_poison_or_zero_or_one {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
+    LLVM.Int.zext c w false h = .poison ∨
+    LLVM.Int.zext c w false h = .val 0#w ∨
+    LLVM.Int.zext c w false h = .val 1#w := by
+  cases c with
+  | poison => simp [LLVM.Int.zext, Id.run]
+  | val c =>
+    rcases BitVec.eq_zero_or_eq_one c with rfl | rfl <;>
+      simp [LLVM.Int.zext, Id.run,
+        BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt (by decide : 0 < 1)]
+
+open Veir.Data Veir.Data.LLVM in
+/-- An `i1` comparison arm of `redundant_and_select_pattern` is poison, zero or one. -/
+private theorem icmp_eq_poison_or_zero_or_one {v : Nat} (x y : LLVM.Int v) (p : IntPred) :
+    x.icmp y p = .poison ∨ x.icmp y p = .val 0#1 ∨ x.icmp y p = .val 1#1 := by
+  cases x <;> cases y <;> simp [LLVM.Int.icmp, Id.run]
+  rename_i a b
+  cases p.eval a b <;> simp
+
+open Veir.Data Veir.Data.LLVM in
+/-- A constant arm of `redundant_and_select_pattern` is zero or one. -/
+private theorem boolArm_of_constant {w : Nat} (c : BitVec w) (h : c = 0 ∨ c = 1) :
+    LLVM.Int.val c = .poison ∨ LLVM.Int.val c = .val 0#w ∨ LLVM.Int.val c = .val 1#w := by
+  rcases h with rfl | rfl <;> simp
+
 /-- Closes a hypothesis of a local correctness lemma: a predicate of the matcher, or a
 comparison or constant arm that is zero or one. -/
 macro "closeConstSide" : tactic => `(tactic| first
   | assumption
-  | exact Data.LLVM.zext_i1_eq_poison_or_zero_or_one ‹_› _
-  | exact Data.LLVM.icmp_eq_poison_or_zero_or_one _ _ _
-  | exact Data.LLVM.boolArm_of_constant _ ‹_›
+  | exact zext_i1_eq_poison_or_zero_or_one ‹_› _
+  | exact icmp_eq_poison_or_zero_or_one _ _ _
+  | exact boolArm_of_constant _ ‹_›
   | simp_all
   | omega)
 
@@ -2220,15 +1893,185 @@ macro "normalizeTypedConstants" : tactic => `(tactic| (
   simpLegalSemantics
   normalizeTypedConstantsAfterSemantics))
 
-/-! ### Shifts by a matched zero
+/-! ### Multiplications and subtractions by a matched constant -/
 
-`shiftAmount` is private to the gMIR semantics, so these lemmas are stated here. -/
+open Veir.Data Veir.Data.LLVM in
+private theorem right_identity_one_mul {w : Nat} (x : LLVM.Int w) (c : BitVec w) (hc : c.toNat = 1) (n u : Bool) :
+    x.mul (.val c) n u ⊒ x := by
+  have : c = 1#w := by
+    apply BitVec.eq_of_toNat_eq; rw [hc]
+    have : 1 < 2 ^ w := by
+      rcases Nat.lt_or_ge 1 (2 ^ w) with h | h
+      · exact h
+      · have := c.isLt; omega
+    simp [Nat.mod_eq_of_lt this]
+  subst this
+  cases x <;> simp only [LLVM.Int.mul, Id.run, pure] <;>
+    llvm_refines [BitVec.mul_zero, BitVec.zero_mul, BitVec.mul_one]
 
-private theorem id_pure {α : Type} (x : α) : (pure x : Id α) = x := rfl
+@[combine_valid, proof_manual]
+theorem combine_right_identity_one_int_valid :
+    Puddle.CTree.Pattern.Valid (right_identity_one_int_pattern) := by
+  proveConstValid using right_identity_one_mul
+
+open Veir.Data Veir.Data.LLVM in
+private theorem sub_one_from_sub {w : Nat} (x y : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 1) (n₁ u₁ n₂ u₂ : Bool) :
+    (x.sub y n₁ u₁).sub (.val c) n₂ u₂ ⊒ (y.xor (.val (BitVec.ofInt w (-1)))).add x := by
+  have : c = 1#w := by
+    rw [← BitVec.ofInt_toInt (x := c), hc]; simp
+  subst this
+  have hsub (a b : BitVec w) : a - b - 1#w = ~~~b + a := by
+    rw [BitVec.not_eq_neg_add]; simp only [BitVec.sub_eq_add_neg]; ac_rfl
+  rw [ofInt_neg_one]
+  cases x <;> cases y <;> combine_tac [BitVec.xor_allOnes, hsub]
+
+@[combine_valid, proof_manual]
+theorem combine_sub_one_from_sub_valid :
+    Puddle.CTree.Pattern.Valid (sub_one_from_sub_pattern) := by
+  proveConstValid using sub_one_from_sub
+
+open Veir.Data Veir.Data.LLVM in
+private theorem ofInt_neg_toInt {w : Nat} (x : BitVec w) : BitVec.ofInt w (-x.toInt) = -x := by
+  apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_neg]
+
+open Veir.Data Veir.Data.LLVM in
+private theorem sub_of_mul_const {w : Nat} (a x : LLVM.Int w) (c : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
+    a.sub (x.mul (.val c) n₁ u₁) n₂ u₂ ⊒ a.add (x.mul (.val (BitVec.ofInt w (-c.toInt)))) := by
+  rw [ofInt_neg_toInt]
+  cases a <;> cases x <;> simp only [LLVM.Int.mul, Id.run, pure] <;>
+    combine_tac [BitVec.mul_neg, BitVec.sub_eq_add_neg]
+
+@[combine_valid, proof_manual]
+theorem combine_sub_of_mul_const_valid :
+    Puddle.CTree.Pattern.Valid (sub_of_mul_const_pattern) := by
+  proveConstValid using sub_of_mul_const
+
+open Veir.Data Veir.Data.LLVM in
+private theorem mul_by_neg_one {w : Nat} (x : LLVM.Int w) (c : BitVec w) (hc : c = -1) (n u : Bool) :
+    x.mul (.val c) n u ⊒ (LLVM.Int.val 0#w).sub x n := by
+  subst hc
+  cases x with
+  | poison => simp [LLVM.Int.mul, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  | val x =>
+    have hov : BitVec.smulOverflow x (-1#w) = BitVec.ssubOverflow 0#w x := by
+      rcases Nat.eq_zero_or_pos w with rfl | hw
+      · simp [BitVec.smulOverflow, BitVec.ssubOverflow, BitVec.toInt_of_zero_length]
+      have hm : (-1#w).toInt = -1 := by
+        rw [BitVec.neg_one_eq_allOnes, BitVec.toInt_allOnes]; simp [hw]
+      simp only [BitVec.smulOverflow, BitVec.ssubOverflow, hm, BitVec.toInt_zero]
+      congr 1 <;> simp <;> omega
+    simp only [LLVM.Int.mul, LLVM.Int.sub, Id.run, pure, hov]
+    llvm_refines [BitVec.mul_neg, BitVec.mul_one, BitVec.zero_sub]
+
+@[combine_valid, proof_manual]
+theorem combine_mul_by_neg_one_valid :
+    Puddle.CTree.Pattern.Valid (mul_by_neg_one_pattern) := by
+  proveConstValid using mul_by_neg_one
+
+open Veir.Data Veir.Data.LLVM in
+private theorem mulo_by_2 {w : Nat} (x : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 2) (n u : Bool) :
+    x.mul (.val c) n u ⊒ x.add x n u := by
+  have hn : c.toNat = 2 := by
+    have := BitVec.toInt_eq_toNat_of_msb (x := c); grind [BitVec.toInt_eq_toNat_cond]
+  cases x with
+  | poison => simp [LLVM.Int.mul, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  | val x =>
+    have hs : BitVec.smulOverflow x c = BitVec.saddOverflow x x := by
+      simp only [BitVec.smulOverflow, BitVec.saddOverflow, hc]; congr 1 <;> simp <;> omega
+    have hu : BitVec.umulOverflow x c = BitVec.uaddOverflow x x := by
+      simp only [BitVec.umulOverflow, BitVec.uaddOverflow, hn]; congr 1; simp; omega
+    have hv : x * c = x + x := by
+      apply BitVec.eq_of_toNat_eq
+      rw [BitVec.toNat_mul, BitVec.toNat_add, hn, Nat.mul_two]
+    simp only [LLVM.Int.mul, LLVM.Int.add, Id.run, hs, hu, hv]
+    exact Data.LLVM.Int.isRefinedBy_refl _
+
+@[combine_valid, proof_manual]
+theorem combine_mulo_by_2_valid :
+    Puddle.CTree.Pattern.Valid (mulo_by_2_pattern) := by
+  proveConstValid using mulo_by_2
+
+/-! ### Negated comparisons -/
+
+open Veir.Data Veir.Data.LLVM in
+private theorem not_cmp_fold {v : Nat} (x y : LLVM.Int v) (p : IntPred) (c : BitVec 1) (hc : c.toNat = 1) :
+    (x.icmp y p).xor (.val c) ⊒ x.icmp y p.inverse := by
+  have : c = 1#1 := BitVec.eq_of_toNat_eq (by simp [hc])
+  subst this
+  cases x <;> cases y <;> simp [LLVM.Int.icmp, LLVM.Int.xor, Id.run, Data.LLVM.Int.poison_isRefinedBy,
+    IntPred.eval_inverse]
+  rename_i a b
+  cases p.eval a b <;> exact Data.LLVM.Int.isRefinedBy_refl _
+
+open Veir.Data Veir.Data.LLVM in
+private theorem not_cmp_fold_zext {v W : Nat} (x y : LLVM.Int v) (p : IntPred) (h : 1 < W) (c : BitVec W)
+    (hc : c.toNat = 1) :
+    ((x.icmp y p).zext W false h).xor (.val c) ⊒ (x.icmp y p.inverse).zext W false h := by
+  have : c = 1#W := BitVec.eq_of_toNat_eq (by
+    simp [hc, Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le h (Nat.le_of_lt Nat.lt_two_pow_self))])
+  subst this
+  cases x <;> cases y <;> simp [LLVM.Int.icmp, LLVM.Int.xor, LLVM.Int.zext, Id.run,
+    Data.LLVM.Int.poison_isRefinedBy, IntPred.eval_inverse]
+  rename_i a b
+  cases p.eval a b <;>
+    simp [BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt (by decide : 0 < 1), Data.LLVM.Int.isRefinedBy_refl]
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_eq_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .eq .ne) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_ne_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ne .eq) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_ugt_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ugt .ule) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_uge_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .uge .ult) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_ult_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ult .uge) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_ule_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ule .ugt) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_sgt_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sgt .sle) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_sge_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sge .slt) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_slt_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .slt .sge) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
+
+@[combine_valid, proof_manual]
+theorem combine_not_cmp_fold_sle_valid :
+    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sle .sgt) := by
+  proveConstValid using not_cmp_fold_zext, not_cmp_fold
 
 /-! ### Powers of two
 
-The matcher reads a power of two `±2^k` with `exactLog2?`, and the rewrite shifts by `k`. -/
+The matcher reads a power of two `±2^k` with `exactLog2?`, and the rewrite shifts by `k`.
+
+The combines are proved for every width `w`. The divisor is the constant `±2^k`, and the created
+shift amounts are the constants `k`, `w - 1` and `w - k`. -/
 
 private theorem exactLog2?_eq_some {n k : Nat} (h : exactLog2? n = some k) : n = 2 ^ k := by
   unfold exactLog2? at h
@@ -2244,9 +2087,24 @@ private theorem shiftAmount_ofNat {w k : Nat} (hk : k < w) :
   have : k < 2 ^ w := Nat.lt_trans hk Nat.lt_two_pow_self
   simp [shiftAmount, Data.LLVM.Int.constant, Nat.mod_eq_of_lt this, hk]
 
-private theorem shiftAmount_ofInt {w k : Nat} (hk : k < w) :
-    shiftAmount w (Data.LLVM.Int.val (BitVec.ofInt w (k : Int))) = Data.LLVM.Int.constant w k := by
-  rw [BitVec.ofInt_natCast]; exact shiftAmount_ofNat hk
+private theorem udiv_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
+    (hc : (exactLog2? c.toNat).isSome = true) (e : Bool) :
+    x.udiv (.val c) e ⊒
+      x.lshr (shiftAmount w (.val (BitVec.ofNat w (exactLog2? c.toNat).get!))) := by
+  obtain ⟨k, hk⟩ := Option.isSome_iff_exists.mp hc
+  have hc2 := exactLog2?_eq_some hk
+  have hkw : k < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (hc2 ▸ c.isLt)
+  have : c = BitVec.twoPow w k :=
+    BitVec.eq_of_toNat_eq (by rw [hc2, BitVec.toNat_twoPow_of_lt hkw])
+  rw [hk, Option.get!_some, shiftAmount_ofNat hkw, this]
+  veir_bv_normalize
+  grind [BitVec.lt_ofInt_natCast_ofNat_of_lt, BitVec.toNat_ofInt_natCast_of_lt,
+    BitVec.udiv_twoPow_eq_of_lt]
+
+@[combine_valid, proof_manual]
+theorem combine_udiv_by_pow2_valid :
+    Puddle.CTree.Pattern.Valid (udiv_by_pow2_pattern) := by
+  proveConstValid using udiv_pow2
 
 private theorem two_pow_cast (k : Nat) : ((2 ^ k : Nat) : Int) = 2 ^ k := by push_cast; rfl
 
@@ -2262,32 +2120,6 @@ private theorem eq_twoPow_of_toInt {w k : Nat} {c : BitVec w} (h : c.toInt = 2 ^
     split at hc <;> omega
   have hk : k + 1 < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (by rw [Nat.pow_succ]; omega)
   exact ⟨hk, BitVec.eq_of_toNat_eq (by rw [hn.1, BitVec.toNat_twoPow_of_lt (by omega)])⟩
-
-/-- A constant `-2^k`, including the minimum signed value. -/
-private theorem eq_neg_twoPow_of_toInt {w k : Nat} {c : BitVec w} (h : c.toInt = -2 ^ k) :
-    k < w ∧ c = -BitVec.twoPow w k := by
-  have hc := BitVec.toInt_eq_toNat_cond c
-  have hP := two_pow_cast k
-  have hQ := two_pow_cast w
-  have := c.isLt
-  have := Nat.one_le_two_pow (n := k)
-  have hn : c.toNat = 2 ^ w - 2 ^ k ∧ 2 ^ k < 2 ^ w := by
-    split at hc <;> omega
-  have hk : k < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp hn.2
-  refine ⟨hk, BitVec.eq_of_toNat_eq ?_⟩
-  rw [hn.1, BitVec.toNat_neg, BitVec.toNat_twoPow_of_lt hk, Nat.mod_eq_of_lt (by omega)]
-
-private theorem udiv_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
-    (hc : (exactLog2? c.toNat).isSome = true) (e : Bool) :
-    x.udiv (.val c) e ⊒
-      x.lshr (shiftAmount w (.val (BitVec.ofNat w (exactLog2? c.toNat).get!))) := by
-  obtain ⟨k, hk⟩ := Option.isSome_iff_exists.mp hc
-  have hc2 := exactLog2?_eq_some hk
-  have hkw : k < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (hc2 ▸ c.isLt)
-  have : c = BitVec.twoPow w k :=
-    BitVec.eq_of_toNat_eq (by rw [hc2, BitVec.toNat_twoPow_of_lt hkw])
-  rw [hk, Option.get!_some, shiftAmount_ofNat hkw, this]
-  exact Data.LLVM.udiv_by_pow2 x k hkw e
 
 /-- The signed power of two `±2^k` that `slog2?` reads. -/
 private theorem slog2_some {w k : Nat} {c : BitVec w} (hk : exactLog2? c.toInt.natAbs = some k) :
@@ -2309,7 +2141,28 @@ private theorem sdiv_exact_pow2_pos {w : Nat} (x : Data.LLVM.Int w) (c : BitVec 
     simp only [Option.map_some, Option.get!_some]
     obtain ⟨hkw, rfl⟩ := eq_twoPow_of_toInt ((slog2_some hk).2 h)
     rw [shiftAmount_ofNat (by omega)]
-    exact Data.LLVM.sdiv_exact_by_pow2_pos x k hkw
+    veir_bv_normalize
+    grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
+      BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_one_shl_of_smod_eq_zero]
+
+@[combine_valid, proof_manual]
+theorem combine_sdiv_exact_by_pow2_pos_valid :
+    Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern false) := by
+  proveConstValid using sdiv_exact_pow2_pos
+
+/-- A constant `-2^k`, including the minimum signed value. -/
+private theorem eq_neg_twoPow_of_toInt {w k : Nat} {c : BitVec w} (h : c.toInt = -2 ^ k) :
+    k < w ∧ c = -BitVec.twoPow w k := by
+  have hc := BitVec.toInt_eq_toNat_cond c
+  have hP := two_pow_cast k
+  have hQ := two_pow_cast w
+  have := c.isLt
+  have := Nat.one_le_two_pow (n := k)
+  have hn : c.toNat = 2 ^ w - 2 ^ k ∧ 2 ^ k < 2 ^ w := by
+    split at hc <;> omega
+  have hk : k < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp hn.2
+  refine ⟨hk, BitVec.eq_of_toNat_eq ?_⟩
+  rw [hn.1, BitVec.toNat_neg, BitVec.toNat_twoPow_of_lt hk, Nat.mod_eq_of_lt (by omega)]
 
 private theorem sdiv_exact_pow2_neg {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
     (h : Option.any (fun x => x.snd)
@@ -2324,7 +2177,18 @@ private theorem sdiv_exact_pow2_neg {w : Nat} (x : Data.LLVM.Int w) (c : BitVec 
     simp only [Option.map_some, Option.get!_some]
     obtain ⟨hkw, rfl⟩ := eq_neg_twoPow_of_toInt ((slog2_some hk).1 h)
     rw [shiftAmount_ofNat hkw]
-    simpa [Data.LLVM.Int.constant] using Data.LLVM.sdiv_exact_by_pow2_neg x k hkw
+    veir_bv_normalize
+    grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
+      BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_neg_one_shl_of_smod_eq_zero]
+
+@[combine_valid, proof_manual]
+theorem combine_sdiv_exact_by_pow2_neg_valid :
+    Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern true) := by
+  proveConstValid using sdiv_exact_pow2_neg
+
+private theorem shiftAmount_ofInt {w k : Nat} (hk : k < w) :
+    shiftAmount w (Data.LLVM.Int.val (BitVec.ofInt w (k : Int))) = Data.LLVM.Int.constant w k := by
+  rw [BitVec.ofInt_natCast]; exact shiftAmount_ofNat hk
 
 /-- The shift amounts that `sdiv_by_pow2_pattern` creates are in range. -/
 private theorem sdiv_shift_amounts {w k : Nat} (hk0 : 0 < k) (hkw : k < w) :
@@ -2354,7 +2218,14 @@ private theorem sdiv_pow2_pos {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
     obtain ⟨hkw, rfl⟩ := eq_twoPow_of_toInt ((slog2_some hk).2 h.2)
     obtain ⟨h₁, h₂⟩ := sdiv_shift_amounts (Nat.pos_of_ne_zero h.1) (by omega : k < w)
     rw [h₁, h₂, shiftAmount_ofNat (by omega)]
-    exact Data.LLVM.sdiv_by_pow2_pos x k (Nat.pos_of_ne_zero h.1) hkw
+    veir_bv_normalize
+    grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
+      BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_one_shl_eq_biased_sshiftRight]
+
+@[combine_valid, proof_manual]
+theorem combine_sdiv_by_pow2_pos_valid :
+    Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern false) := by
+  proveConstValid using sdiv_pow2_pos
 
 private theorem sdiv_pow2_neg {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
     (h : Option.any (fun x => !decide (x.fst = 0) && x.snd)
@@ -2375,8 +2246,67 @@ private theorem sdiv_pow2_neg {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
     obtain ⟨hkw, rfl⟩ := eq_neg_twoPow_of_toInt ((slog2_some hk).1 h.2)
     obtain ⟨h₁, h₂⟩ := sdiv_shift_amounts (Nat.pos_of_ne_zero h.1) hkw
     rw [h₁, h₂, shiftAmount_ofNat hkw]
-    simpa [Data.LLVM.Int.constant, Data.LLVM.sdivPow2Shift] using
-      Data.LLVM.sdiv_by_pow2_neg x k (Nat.pos_of_ne_zero h.1) hkw
+    veir_bv_normalize
+    grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
+      BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_neg_one_shl_eq_neg_biased_sshiftRight]
+
+@[combine_valid, proof_manual]
+theorem combine_sdiv_by_pow2_neg_valid :
+    Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern true) := by
+  proveConstValid using sdiv_pow2_neg
+
+open Veir.Data Veir.Data.LLVM in
+/-- Prove the correctness of `mul_to_shl_pattern`: `x * 2^k` → `x << k`, whose flags carry over. A
+multiplication that does not overflow makes the shift's no-wrap checks pass. -/
+private theorem mul_twoPow_shl {w : Nat} (x : LLVM.Int w) (k : Nat) (hk : k + 1 < w) (n u : Bool) :
+    x.mul (.val (BitVec.twoPow w k)) n u ⊒ x.shl (LLVM.Int.constant w k) n u := by
+  have hkw : k < 2 ^ w := Nat.lt_trans (by omega) Nat.lt_two_pow_self
+  have hlt : 2 ^ k < 2 ^ w := Nat.pow_lt_pow_right (by decide) (by omega)
+  have hkn : (BitVec.ofInt w (k : _root_.Int)).toNat = k := by
+    rw [BitVec.ofInt_natCast, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hkw]
+  have hrange : ¬ (w : BitVec w) ≤ BitVec.ofInt w (k : _root_.Int) :=
+    BitVec.not_le.mpr (BitVec.lt_ofInt_natCast_ofNat_of_lt (by omega))
+  have hti : (BitVec.twoPow w k).toInt = 2 ^ k := by
+    rw [BitVec.toInt_twoPow]
+    simp only [show ¬ w ≤ k by omega, show ¬ k + 1 = w by omega, ite_false]
+  cases x with
+  | poison => simp [LLVM.Int.mul, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  | val x =>
+    have hv : x <<< BitVec.ofInt w (k : _root_.Int) = x * BitVec.twoPow w k := by
+      rw [BitVec.shiftLeft_eq', hkn, BitVec.shiftLeft_eq_mul_twoPow]
+    have hnuw (h : ¬ BitVec.umulOverflow x (BitVec.twoPow w k) = true) :
+        x <<< BitVec.ofInt w (k : _root_.Int) >>> BitVec.ofInt w (k : _root_.Int) = x := by
+      simp only [BitVec.umulOverflow, BitVec.toNat_twoPow_of_lt (by omega : k < w),
+        decide_eq_true_eq, ge_iff_le, Nat.not_le] at h
+      apply BitVec.eq_of_toNat_eq
+      rw [BitVec.ushiftRight_eq', hkn, hv, BitVec.toNat_ushiftRight, BitVec.toNat_mul,
+        BitVec.toNat_twoPow_of_lt (by omega), Nat.mod_eq_of_lt h, Nat.shiftRight_eq_div_pow,
+        Nat.mul_div_cancel _ (Nat.two_pow_pos k)]
+    have hnsw (h : ¬ BitVec.smulOverflow x (BitVec.twoPow w k) = true) :
+        (x <<< BitVec.ofInt w (k : _root_.Int)).sshiftRight' (BitVec.ofInt w (k : _root_.Int)) = x := by
+      simp only [BitVec.smulOverflow, hti, Bool.or_eq_true, decide_eq_true_eq, not_or,
+        ge_iff_le, _root_.Int.not_le, _root_.Int.not_lt] at h
+      apply BitVec.eq_of_toInt_eq
+      rw [BitVec.sshiftRight_eq', hkn, hv, BitVec.toInt_sshiftRight, BitVec.toInt_mul, hti,
+        bmod_two_pow_of_range (by omega) h.2 h.1, _root_.Int.shiftRight_eq_div_pow]
+      have hpos : (0 : _root_.Int) < 2 ^ k := by exact_mod_cast Nat.two_pow_pos k
+      push_cast
+      exact _root_.Int.mul_ediv_cancel _ (_root_.Int.ne_of_gt hpos)
+    simp only [LLVM.Int.mul, LLVM.Int.shl, LLVM.Int.constant, Id.run, pure, ge_iff_le, hrange,
+      ite_false]
+    by_cases hs : n = true ∧ BitVec.smulOverflow x (BitVec.twoPow w k) = true
+    · simp [hs, Data.LLVM.Int.poison_isRefinedBy]
+    by_cases hu : u = true ∧ BitVec.umulOverflow x (BitVec.twoPow w k) = true
+    · simp [hu, Data.LLVM.Int.poison_isRefinedBy]
+    have hs' : ¬ (n = true ∧ (x <<< BitVec.ofInt w (k : _root_.Int)).sshiftRight'
+        (BitVec.ofInt w (k : _root_.Int)) ≠ x) := by
+      rintro ⟨hn, hne⟩; exact hne (hnsw fun h => hs ⟨hn, h⟩)
+    have hu' : ¬ (u = true ∧ x <<< BitVec.ofInt w (k : _root_.Int) >>>
+        BitVec.ofInt w (k : _root_.Int) ≠ x) := by
+      rintro ⟨hn, hne⟩; exact hne (hnuw fun h => hu ⟨hn, h⟩)
+    simp only [hs, hu, hs', hu', ite_false]
+    rw [hv]
+    exact Data.LLVM.Int.isRefinedBy_refl _
 
 /-- The positive power of two `2^k` that `log2?` reads. -/
 private theorem log2_some {w : Nat} {c : BitVec w}
@@ -2399,7 +2329,12 @@ private theorem mul_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
         (if 0 < c.toInt then exactLog2? c.toInt.toNat else none).get!))) n u := by
   obtain ⟨k, hk, hkw, rfl⟩ := log2_some h
   rw [hk, Option.get!_some, shiftAmount_ofNat (by omega)]
-  exact Data.LLVM.mul_twoPow_shl x k hkw n u
+  exact mul_twoPow_shl x k hkw n u
+
+@[combine_valid, proof_manual]
+theorem combine_mul_to_shl_valid :
+    Puddle.CTree.Pattern.Valid (mul_to_shl_pattern) := by
+  proveConstValid using mul_pow2
 
 private theorem urem_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
     (h : (if 0 < c.toInt then exactLog2? c.toInt.toNat else none).isSome = true) :
@@ -2427,9 +2362,199 @@ private theorem urem_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)
         Nat.and_two_pow_sub_one_eq_mod]
     simp [Data.LLVM.Int.urem, Data.LLVM.Int.and, Id.run, hne, hv, Data.LLVM.Int.isRefinedBy_refl]
 
-/-! ### Selects of a shift on the other arm -/
+@[combine_valid, proof_manual]
+theorem combine_urem_pow2_to_mask_valid :
+    Puddle.CTree.Pattern.Valid (urem_pow2_to_mask_pattern) := by
+  proveConstValid using urem_pow2
+
+/-! ### Constant folding -/
+
+@[combine_valid, proof_pbv]
+theorem combine_constant_fold_mul_valid :
+    Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_mul ((· * ·))) := by
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
+  normalizeLegalValid
+  normalizeConstants
+  all_goals (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
+
+/-! ### Selects of two constants -/
+
+open Veir.Data Veir.Data.LLVM in
+/--
+Prove all four `redundant_and_select_pattern` arm combinations at every width, for any mask with
+its low bit set. The hypotheses admit poison from a comparison, including on an unselected arm;
+`zext_i1_eq_poison_or_zero_or_one` supplies them for widened comparisons.
+-/
+private theorem and_select_bool {w wc : Nat} (c : LLVM.Int wc) (t f : LLVM.Int w)
+    (mask : BitVec w) (hmask : mask.toNat % 2 = 1)
+    (ht : t = .poison ∨ t = .val 0#w ∨ t = .val 1#w)
+    (hf : f = .poison ∨ f = .val 0#w ∨ f = .val 1#w) :
+    LLVM.Int.and (GMIR.selectNonzero c t f) (.val mask) = GMIR.selectNonzero c t f := by
+  have hone : 1#w &&& mask = 1#w := by
+    apply BitVec.eq_of_toNat_eq
+    cases w <;> simp_all
+  cases c with
+  | poison => simp [GMIR.selectNonzero, LLVM.Int.and, Id.run]
+  | val c =>
+    rcases ht with rfl | rfl | rfl <;> rcases hf with rfl | rfl | rfl <;>
+      by_cases hc : c = 0#wc <;> simp [GMIR.selectNonzero, LLVM.Int.and, Id.run, hone, hc]
+
+open Veir.Data Veir.Data.LLVM in
+/-- `redundant_and_select_pattern`, whose mask `k` is odd as an integer, at every width. -/
+private theorem and_select_bool_odd {w : Nat} {wc : Nat} (c : LLVM.Int wc) (t f : LLVM.Int w) (k : _root_.Int)
+    (hk : k % 2 = 1)
+    (ht : t = .poison ∨ t = .val 0#w ∨ t = .val 1#w)
+    (hf : f = .poison ∨ f = .val 0#w ∨ f = .val 1#w) :
+    LLVM.Int.and (GMIR.selectNonzero c t f) (.val (BitVec.ofInt w k)) ⊒ GMIR.selectNonzero c t f := by
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · generalize GMIR.selectNonzero c t f = r
+    cases r <;> simp [LLVM.Int.and, Id.run, Data.LLVM.Int.poison_isRefinedBy, Data.LLVM.Int.isRefinedBy_refl,
+      BitVec.of_length_zero]
+  · rw [and_select_bool c t f _ _ ht hf]
+    · exact Data.LLVM.Int.isRefinedBy_refl _
+    · have hd : (2 : _root_.Int) ∣ ((2 ^ w : Nat) : _root_.Int) := by
+        refine ⟨((2 ^ (w - 1) : Nat) : _root_.Int), ?_⟩
+        rw [show w = (w - 1) + 1 by omega, Nat.pow_succ]
+        push_cast
+        rw [_root_.Int.mul_comm]
+      have h0 : 0 ≤ k % ((2 ^ w : Nat) : _root_.Int) :=
+        _root_.Int.emod_nonneg _ (by have := Nat.two_pow_pos w; omega)
+      have h1 : (k % ((2 ^ w : Nat) : _root_.Int)) % 2 = 1 := by
+        rw [_root_.Int.emod_emod_of_dvd _ hd]; exact hk
+      simp only [BitVec.toNat_ofInt]
+      omega
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_redundant_and_select_icmp_constant_valid :
+    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .icmp .constant) := by
+  proveConstValid using and_select_bool_odd
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_redundant_and_select_constant_icmp_valid :
+    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .icmp) := by
+  proveConstValid using and_select_bool_odd
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_redundant_and_select_constant_constant_valid :
+    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .constant) := by
+  proveConstValid using and_select_bool_odd
+
+open Veir.Data Veir.Data.LLVM in
+/-- A property of `GMIR.selectNonzero` on an `i1` condition follows from its three cases. -/
+private theorem selectNonzero_refines {w : Nat} (c : LLVM.Int 1) (x y : LLVM.Int w)
+    (r : LLVM.Int w)
+    (hp : c = .poison → r = .poison)
+    (h1 : c = .val 1#1 → x ⊒ r) (h0 : c = .val 0#1 → y ⊒ r) :
+    GMIR.selectNonzero c x y ⊒ r := by
+  cases c with
+  | poison => simp [GMIR.selectNonzero, Id.run, hp, LLVM.Int.isRefinedBy]
+  | val c =>
+    rcases BitVec.eq_zero_or_eq_one c with rfl | rfl
+    · simpa [GMIR.selectNonzero, Id.run] using h0 rfl
+    · simpa [GMIR.selectNonzero, Id.run] using h1 rfl
+
+/-- Closes one case of a `tryFoldSelectOfConstants` proof, where the condition is known. -/
+macro "select_const_tac" : tactic =>
+  `(tactic| (simp_all [Veir.Data.LLVM.notI1, Nat.not_le_of_gt, Nat.mod_eq_of_lt,
+      BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt, BitVec.signExtend, BitVec.ofInt_neg,
+      BitVec.twoPow_eq, BitVec.add_comm, BitVec.sub_eq_add_neg, BitVec.neg_one_eq_allOnes,
+      Veir.Data.LLVM.Int.xor, Veir.Data.LLVM.Int.zext, Veir.Data.LLVM.Int.sext, Veir.Data.LLVM.Int.add, Veir.Data.LLVM.Int.shl, Veir.Data.LLVM.Int.or,
+      Veir.Data.LLVM.Int.constant, Id.run, Veir.Data.LLVM.Int.isRefinedBy]))
+
+open Veir.Data Veir.Data.LLVM in
+/-- Prove the correctness of combining `c ? 2^k : 0` to `shl (zext c), k`. -/
+private theorem select_pow2_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : k < w) :
+    GMIR.selectNonzero c (LLVM.Int.val (BitVec.twoPow w k)) (LLVM.Int.constant w 0) ⊒
+      LLVM.Int.shl (LLVM.Int.zext c w false h) (LLVM.Int.constant w k) := by
+  have hkpow := Nat.lt_trans hk Nat.lt_two_pow_self
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
+private theorem constant_eq {w : Nat} (v : Int) :
+    Data.LLVM.Int.constant w v = .val (BitVec.ofInt w v) := rfl
+
+/-- The constant `2^k` that `ulog2?` reads. -/
+private theorem ulog2_some {w : Nat} {t : BitVec w} (h : (exactLog2? t.toNat).isSome = true) :
+    ∃ k, exactLog2? t.toNat = some k ∧ k < w ∧ t = BitVec.twoPow w k := by
+  obtain ⟨k, hk⟩ := Option.isSome_iff_exists.mp h
+  have hc2 := exactLog2?_eq_some hk
+  have hkw : k < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (hc2 ▸ t.isLt)
+  exact ⟨k, hk, hkw, BitVec.eq_of_toNat_eq (by rw [hc2, BitVec.toNat_twoPow_of_lt hkw])⟩
+
+private theorem soc_pow2_zero {w : Nat} (h : 1 < w) (_hw : w ≤ 64) (c : Data.LLVM.Int 1)
+    (t f : BitVec w) (ht : (exactLog2? t.toNat).isSome = true) (hf : f = 0) :
+    GMIR.selectNonzero c (.val t) (.val f) ⊒
+      (c.zext w false h).shl (shiftAmount w (.val (BitVec.ofNat w (exactLog2? t.toNat).get!))) := by
+  obtain ⟨k, hk, hkw, rfl⟩ := ulog2_some ht
+  subst hf
+  rw [hk, Option.get!_some, shiftAmount_ofNat hkw]
+  simpa [constant_eq] using select_pow2_zero h c k hkw
+
+@[combine_valid, proof_manual]
+theorem combine_select_pow2_zero_valid :
+    Puddle.CTree.Pattern.Valid (select_pow2_zero_pattern) := by
+  proveConstValid using soc_pow2_zero
+
+open Veir.Data Veir.Data.LLVM in
+/-- Prove the correctness of combining `c ? 0 : 2^k` to `shl (zext (not c)), k`. -/
+private theorem select_zero_pow2 {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : k < w) :
+    GMIR.selectNonzero c (LLVM.Int.constant w 0) (LLVM.Int.val (BitVec.twoPow w k)) ⊒
+      LLVM.Int.shl (LLVM.Int.zext (notI1 c) w false h) (LLVM.Int.constant w k) := by
+  have hkpow := Nat.lt_trans hk Nat.lt_two_pow_self
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
+private theorem ofInt_one_neg_one : BitVec.ofInt 1 (-1) = 1#1 := by decide
+
+private theorem notI1_eq (c : Data.LLVM.Int 1) : Data.LLVM.notI1 c = c.xor (.val 1#1) := by
+  simp [Data.LLVM.notI1, constant_eq, ofInt_one_neg_one]
+
+private theorem soc_zero_pow2 {w : Nat} (h : 1 < w) (_hw : w ≤ 64) (c : Data.LLVM.Int 1)
+    (t f : BitVec w) (hf : (exactLog2? f.toNat).isSome = true) (ht : t = 0) :
+    GMIR.selectNonzero c (.val t) (.val f) ⊒
+      ((c.xor (.val 1#1)).zext w false h).shl
+        (shiftAmount w (.val (BitVec.ofNat w (exactLog2? f.toNat).get!))) := by
+  obtain ⟨k, hk, hkw, rfl⟩ := ulog2_some hf
+  subst ht
+  rw [hk, Option.get!_some, shiftAmount_ofNat hkw]
+  simpa [constant_eq, notI1_eq] using select_zero_pow2 h c k hkw
+
+@[combine_valid, proof_manual]
+theorem combine_select_zero_pow2_valid :
+    Puddle.CTree.Pattern.Valid (select_zero_pow2_pattern) := by
+  proveConstValid using soc_zero_pow2
 
 /-! ### Funnel shifts by a constant -/
+
+private theorem fshr_zero {w v : Nat} (x y : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0) :
+    x.fshr y (GMIR.funnelShiftAmount w (.val c)) ⊒ y := by
+  subst hc
+  cases x <;> cases y <;> simp [Data.LLVM.Int.fshr, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  ext i hi; simp [hi, BitVec.getLsbD_append]
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_funnel_shift_right_zero_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshr true) := by
+  normalizeTypedConstants
+  all_goals closeConstWith fshr_zero
+
+private theorem fshl_zero {w v : Nat} (x y : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0) :
+    x.fshl y (GMIR.funnelShiftAmount w (.val c)) ⊒ x := by
+  subst hc
+  cases x <;> cases y <;> simp [Data.LLVM.Int.fshl, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy]
+  ext i hi; simp [hi, BitVec.getLsbD_append, BitVec.getElem_extractLsb', BitVec.getElem_append,
+    show ¬ w + i < w by omega]
+
+set_option maxHeartbeats 4000000 in
+@[combine_valid, proof_manual]
+theorem combine_funnel_shift_left_zero_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshl false) := by
+  normalizeTypedConstants
+  all_goals closeConstWith fshl_zero
 
 /-- The matcher of `funnel_shift_overshift_pattern` only accepts an integer result type. -/
 private theorem overshiftAmount?_isSome {p : GMIRConstantProperties} {attr : Attribute}
@@ -2445,19 +2570,6 @@ private theorem overshiftAmount?_integerType (v : Int) (t' t : IntegerType)
       else some ⟨IntegerAttr.ofInt (((BitVec.ofInt t'.bitwidth v).toNat % t.bitwidth : Nat) : Int) t'⟩ := by
   by_cases hc : (BitVec.ofInt t'.bitwidth v).toNat < t.bitwidth <;>
     simp only [overshiftAmount?, GMIRConstantProperties.bits, hc, ite_true, ite_false] <;> rfl
-
-private theorem fshr_zero {w v : Nat} (x y : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0) :
-    x.fshr y (GMIR.funnelShiftAmount w (.val c)) ⊒ y := by
-  subst hc
-  cases x <;> cases y <;> simp [Data.LLVM.Int.fshr, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy]
-  ext i hi; simp [hi, BitVec.getLsbD_append]
-
-private theorem fshl_zero {w v : Nat} (x y : Data.LLVM.Int w) (c : BitVec v) (hc : c = 0) :
-    x.fshl y (GMIR.funnelShiftAmount w (.val c)) ⊒ x := by
-  subst hc
-  cases x <;> cases y <;> simp [Data.LLVM.Int.fshl, GMIR.funnelShiftAmount, Id.run, Data.LLVM.Int.poison_isRefinedBy]
-  ext i hi; simp [hi, BitVec.getLsbD_append, BitVec.getElem_extractLsb', BitVec.getElem_append,
-    show ¬ w + i < w by omega]
 
 /-- The amount `C % w` that replaces an over-large constant amount `C`: the funnel shift takes its
 amount modulo `w` anyway. -/
@@ -2476,202 +2588,6 @@ private theorem funnelShiftAmount_overshift' {w v : Nat} (x : Int) (s : IntegerT
       GMIR.funnelShiftAmount w (.val (BitVec.ofInt v x)) := by
   have := funnelShiftAmount_overshift (w := w) (BitVec.ofInt v x) s
   simpa using this
-
-/-! ### Selects of two constants -/
-
-private theorem ofInt_one_neg_one : BitVec.ofInt 1 (-1) = 1#1 := by decide
-
-private theorem constant_eq {w : Nat} (v : Int) :
-    Data.LLVM.Int.constant w v = .val (BitVec.ofInt w v) := rfl
-
-private theorem notI1_eq (c : Data.LLVM.Int 1) : Data.LLVM.notI1 c = c.xor (.val 1#1) := by
-  simp [Data.LLVM.notI1, constant_eq, ofInt_one_neg_one]
-
-/-- The constant `2^k` that `ulog2?` reads. -/
-private theorem ulog2_some {w : Nat} {t : BitVec w} (h : (exactLog2? t.toNat).isSome = true) :
-    ∃ k, exactLog2? t.toNat = some k ∧ k < w ∧ t = BitVec.twoPow w k := by
-  obtain ⟨k, hk⟩ := Option.isSome_iff_exists.mp h
-  have hc2 := exactLog2?_eq_some hk
-  have hkw : k < w := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (hc2 ▸ t.isLt)
-  exact ⟨k, hk, hkw, BitVec.eq_of_toNat_eq (by rw [hc2, BitVec.toNat_twoPow_of_lt hkw])⟩
-
-private theorem soc_pow2_zero {w : Nat} (h : 1 < w) (_hw : w ≤ 64) (c : Data.LLVM.Int 1)
-    (t f : BitVec w) (ht : (exactLog2? t.toNat).isSome = true) (hf : f = 0) :
-    GMIR.selectNonzero c (.val t) (.val f) ⊒
-      (c.zext w false h).shl (shiftAmount w (.val (BitVec.ofNat w (exactLog2? t.toNat).get!))) := by
-  obtain ⟨k, hk, hkw, rfl⟩ := ulog2_some ht
-  subst hf
-  rw [hk, Option.get!_some, shiftAmount_ofNat hkw]
-  simpa [constant_eq] using Data.LLVM.select_pow2_zero h c k hkw
-
-private theorem soc_zero_pow2 {w : Nat} (h : 1 < w) (_hw : w ≤ 64) (c : Data.LLVM.Int 1)
-    (t f : BitVec w) (hf : (exactLog2? f.toNat).isSome = true) (ht : t = 0) :
-    GMIR.selectNonzero c (.val t) (.val f) ⊒
-      ((c.xor (.val 1#1)).zext w false h).shl
-        (shiftAmount w (.val (BitVec.ofNat w (exactLog2? f.toNat).get!))) := by
-  obtain ⟨k, hk, hkw, rfl⟩ := ulog2_some hf
-  subst ht
-  rw [hk, Option.get!_some, shiftAmount_ofNat hkw]
-  simpa [constant_eq, notI1_eq] using Data.LLVM.select_zero_pow2 h c k hkw
-
-/-! ## Validity of every combine that matches a constant -/
-
-@[combine_valid, proof_manual]
-theorem combine_right_identity_one_int_valid :
-    Puddle.CTree.Pattern.Valid (right_identity_one_int_pattern) := by
-  proveConstValid using Data.LLVM.right_identity_one_mul
-
-@[combine_valid, proof_manual]
-theorem combine_sub_one_from_sub_valid :
-    Puddle.CTree.Pattern.Valid (sub_one_from_sub_pattern) := by
-  proveConstValid using Data.LLVM.sub_one_from_sub
-
-@[combine_valid, proof_manual]
-theorem combine_sub_of_mul_const_valid :
-    Puddle.CTree.Pattern.Valid (sub_of_mul_const_pattern) := by
-  proveConstValid using Data.LLVM.sub_of_mul_const
-
-@[combine_valid, proof_manual]
-theorem combine_mul_by_neg_one_valid :
-    Puddle.CTree.Pattern.Valid (mul_by_neg_one_pattern) := by
-  proveConstValid using Data.LLVM.mul_by_neg_one
-
-@[combine_valid, proof_manual]
-theorem combine_mulo_by_2_valid :
-    Puddle.CTree.Pattern.Valid (mulo_by_2_pattern) := by
-  proveConstValid using Data.LLVM.mulo_by_2
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_eq_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .eq .ne) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_ne_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ne .eq) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_ugt_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ugt .ule) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_uge_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .uge .ult) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_ult_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ult .uge) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_ule_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .ule .ugt) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_sgt_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sgt .sle) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_sge_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sge .slt) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_slt_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .slt .sge) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_not_cmp_fold_sle_valid :
-    Puddle.CTree.Pattern.Valid (not_cmp_fold_pattern .sle .sgt) := by
-  proveConstValid using Data.LLVM.not_cmp_fold_zext, Data.LLVM.not_cmp_fold
-
-@[combine_valid, proof_manual]
-theorem combine_udiv_by_pow2_valid :
-    Puddle.CTree.Pattern.Valid (udiv_by_pow2_pattern) := by
-  proveConstValid using udiv_pow2
-
-@[combine_valid, proof_manual]
-theorem combine_sdiv_exact_by_pow2_pos_valid :
-    Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern false) := by
-  proveConstValid using sdiv_exact_pow2_pos
-
-@[combine_valid, proof_manual]
-theorem combine_sdiv_exact_by_pow2_neg_valid :
-    Puddle.CTree.Pattern.Valid (sdiv_exact_by_pow2_pattern true) := by
-  proveConstValid using sdiv_exact_pow2_neg
-
-@[combine_valid, proof_manual]
-theorem combine_sdiv_by_pow2_pos_valid :
-    Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern false) := by
-  proveConstValid using sdiv_pow2_pos
-
-@[combine_valid, proof_manual]
-theorem combine_sdiv_by_pow2_neg_valid :
-    Puddle.CTree.Pattern.Valid (sdiv_by_pow2_pattern true) := by
-  proveConstValid using sdiv_pow2_neg
-
-@[combine_valid, proof_manual]
-theorem combine_mul_to_shl_valid :
-    Puddle.CTree.Pattern.Valid (mul_to_shl_pattern) := by
-  proveConstValid using mul_pow2
-
-@[combine_valid, proof_manual]
-theorem combine_urem_pow2_to_mask_valid :
-    Puddle.CTree.Pattern.Valid (urem_pow2_to_mask_pattern) := by
-  proveConstValid using urem_pow2
-
-@[combine_valid, proof_norm]
-theorem combine_constant_fold_mul_valid :
-    Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_mul ((· * ·))) := by
-  proveConstValid using Data.LLVM.constant_fold_mul
-
-set_option maxHeartbeats 4000000 in
-@[combine_valid, proof_manual]
-theorem combine_redundant_and_select_icmp_constant_valid :
-    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .icmp .constant) := by
-  proveConstValid using Data.LLVM.and_select_bool_odd
-
-set_option maxHeartbeats 4000000 in
-@[combine_valid, proof_manual]
-theorem combine_redundant_and_select_constant_icmp_valid :
-    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .icmp) := by
-  proveConstValid using Data.LLVM.and_select_bool_odd
-
-set_option maxHeartbeats 4000000 in
-@[combine_valid, proof_manual]
-theorem combine_redundant_and_select_constant_constant_valid :
-    Puddle.CTree.Pattern.Valid (redundant_and_select_pattern .constant .constant) := by
-  proveConstValid using Data.LLVM.and_select_bool_odd
-
-@[combine_valid, proof_manual]
-theorem combine_select_pow2_zero_valid :
-    Puddle.CTree.Pattern.Valid (select_pow2_zero_pattern) := by
-  proveConstValid using soc_pow2_zero
-
-@[combine_valid, proof_manual]
-theorem combine_select_zero_pow2_valid :
-    Puddle.CTree.Pattern.Valid (select_zero_pow2_pattern) := by
-  proveConstValid using soc_zero_pow2
-
-set_option maxHeartbeats 4000000 in
-@[combine_valid, proof_manual]
-theorem combine_funnel_shift_right_zero_valid :
-    Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshr true) := by
-  normalizeTypedConstants
-  all_goals closeConstWith fshr_zero
-
-set_option maxHeartbeats 4000000 in
-@[combine_valid, proof_manual]
-theorem combine_funnel_shift_left_zero_valid :
-    Puddle.CTree.Pattern.Valid (funnel_shift_zero_pattern .g_fshl false) := by
-  normalizeTypedConstants
-  all_goals closeConstWith fshl_zero
 
 set_option maxHeartbeats 4000000 in
 @[combine_valid, proof_manual]
@@ -3194,10 +3110,6 @@ theorem combine_sext_of_sext_valid : Puddle.CTree.Pattern.Valid (ext_of_ext_patt
 theorem combine_sext_of_sext_status :
     Status Unproven (ext_of_ext_pattern .g_sext) :=
   .proven (combine_sext_of_sext_valid )
-
--- the `icmp` predicate is abstracted
--- theorem combine_canonicalize_icmp_valid : Puddle.CTree.Pattern.Valid canonicalize_icmp_pattern := by
---   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
 @[combine_valid, proof_pbv]
 theorem combine_bitreverse_shl_valid : Puddle.CTree.Pattern.Valid (bitreverse_shift_pattern .g_shl .g_lshr) := by
@@ -4029,11 +3941,6 @@ theorem combine_constant_fold_sub_valid :
 theorem combine_constant_fold_sub_status :
     Status Unproven (constant_fold_binop_pattern .g_sub ((· - ·))) :=
   .proven (combine_constant_fold_sub_valid)
-
--- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
--- theorem combine_constant_fold_mul_valid :
---     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_mul ((· * ·))) := by
---   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))
 
 @[combine_valid, proof_pbv]
 theorem combine_constant_fold_smin_valid :
