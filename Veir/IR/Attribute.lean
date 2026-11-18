@@ -930,6 +930,11 @@ instance : Inhabited VectorType where
 instance : Inhabited TensorType where
   default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
 
+/-- Number of elements of a statically shaped tensor: the product of its dimensions. -/
+@[expose]
+def TensorType.numElements (type : TensorType) : Nat :=
+  type.shape.foldl Nat.mul 1
+
 instance : Coe FunctionType LLVMFunctionType where
   coe := .mk
 
