@@ -5,6 +5,7 @@ import all Veir.Interpreter.VariableState
 import all Veir.Interpreter.Basic
 public import Veir.Interpreter.Refinement.Basic
 public import Veir.Interpreter.Refinement.Lemmas
+public import Veir.Interpreter.BranchDestination
 import Veir.Dominance.Lemmas
 
 
@@ -752,15 +753,6 @@ theorem InterpretOp'ContextuallyMonotone.of_frame {opType : OpCode}
     obtain ⟨⟨hValues, -, hAction⟩, -⟩ := hm
     simpa [Interp.isRefinedBy, Interp.map, OperationResult.isRefinedBy] using
       ⟨hValues, hMem, hAction⟩
-
-/--
-A branch control-flow action returned by interpreting an operation always targets one of the
-provided successor blocks.
--/
-axiom interpretOp'_branch_dest_mem
-    (h : interpretOp' opType properties resultTypes operands blockOperands mem
-      = .ok (vals, mem', some (.branch res dest))) :
-    dest ∈ blockOperands
 
 /--
 A branch control-flow action returned by interpreting an operation always targets one of the
