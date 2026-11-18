@@ -14,12 +14,10 @@ structure RewritePattern.ContextStepPreserves (pattern : RewritePattern OpInfo)
     (opIn : op.InBounds before.ctx.raw) (after : PatternRewriter OpInfo),
     invariant before.ctx → pattern before op opIn = some after →
       invariant after.ctx ∧ relation before.ctx after.ctx
-  deadStep : ∀ (before : PatternRewriter OpInfo) (op : OperationPtr)
-    (opIn : op.InBounds before.ctx.raw) (dead : op.isTriviallyDead before.ctx.raw)
-    (_noAllocation : (op.getEffects before.ctx.raw).allocates = false),
+  eraseStep : ∀ (before : PatternRewriter OpInfo) (op : OperationPtr)
+    (_opIn : op.InBounds before.ctx.raw),
     invariant before.ctx →
-      invariant (before.eraseOp op dead.1 dead.2.1 opIn).ctx ∧
-      relation before.ctx (before.eraseOp op dead.1 dead.2.1 opIn).ctx
+      invariant (before.eraseOp! op).ctx ∧ relation before.ctx (before.eraseOp! op).ctx
 
 /-- Popping only changes the worklist; either successful dispatch branch satisfies
 its corresponding concrete pattern or dead-operation obligation. -/
@@ -34,13 +32,8 @@ theorem RewritePattern.worklistStep_preserves
   dsimp only at run
   split at run
   next opIn =>
-    split at run
-    next dead =>
-      cases run
-      simp only [PatternRewriter.eraseOp!, opIn, dead.1.1, dead.1.2.1, ↓reduceDIte]
-      exact steps.deadStep { before with worklist := before.worklist.pop.2 } _ opIn dead.1 dead.2 initial
-    next notDead =>
-      exact steps.patternStep { before with worklist := before.worklist.pop.2 } _ opIn _ initial run
+    cases run
+    exact steps.eraseStep { before with worklist := before.worklist.pop.2 } _ opIn initial
   next outside => cases run
 
 /-- Every successful execution of the unbounded driver has a finite proof by

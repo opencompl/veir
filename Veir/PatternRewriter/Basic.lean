@@ -457,16 +457,13 @@ def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo
 
 /-- Pop and process one operation. Either delete the operation if it is trivially dead, or
 apply the given pattern to it. -/
-def RewritePattern.worklistStep (pattern : RewritePattern OpInfo)
+def RewritePattern.worklistStep (_ : RewritePattern OpInfo)
     (rewriter : PatternRewriter OpInfo) : Option (PatternRewriter OpInfo) := do
   let (opOpt, newWorklist) := rewriter.worklist.pop
   let op := opOpt.get!
   let rewriter := { rewriter with worklist := newWorklist }
-  if hin : op.InBounds rewriter.ctx.raw then
-    if op.isTriviallyDead rewriter.ctx.raw ∧ (op.getEffects rewriter.ctx.raw).allocates = false then
+  if op.InBounds rewriter.ctx.raw then
       return rewriter.eraseOp! op
-    else
-      pattern rewriter op hin
   else
     failure
 

@@ -15,12 +15,10 @@ structure RewritePattern.ContextStepPreservesIf (pattern : RewritePattern OpInfo
     (opIn : op.InBounds before.ctx.raw) (after : PatternRewriter OpInfo),
     invariant before.ctx → eligible before.ctx op = true → pattern before op opIn = some after →
       invariant after.ctx ∧ relation before.ctx after.ctx
-  deadStep : ∀ (before : PatternRewriter OpInfo) (op : OperationPtr)
-    (opIn : op.InBounds before.ctx.raw) (dead : op.isTriviallyDead before.ctx.raw)
-    (_noAllocation : (op.getEffects before.ctx.raw).allocates = false),
+  eraseStep : ∀ (before : PatternRewriter OpInfo) (op : OperationPtr)
+    (_opIn : op.InBounds before.ctx.raw),
     invariant before.ctx → eligible before.ctx op = true →
-      invariant (before.eraseOp op dead.1 dead.2.1 opIn).ctx ∧
-      relation before.ctx (before.eraseOp op dead.1 dead.2.1 opIn).ctx
+      invariant (before.eraseOp! op).ctx ∧ relation before.ctx (before.eraseOp! op).ctx
 
 /-- Popping only changes the worklist; either successful dispatch branch satisfies
 its corresponding concrete pattern or dead-operation obligation. -/
@@ -43,15 +41,9 @@ theorem RewritePattern.worklistStepIf_preserves
       dsimp only at run
       split at run
       next bound =>
-        split at run
-        next dead =>
-          cases run
-          simp only [PatternRewriter.eraseOp!, bound, dead.1.1, dead.1.2.1, ↓reduceDIte]
-          exact steps.deadStep { before with worklist := before.worklist.pop.2 } _ bound dead.1
-            dead.2 initial accepted
-        next notDead =>
-          exact steps.patternStep { before with worklist := before.worklist.pop.2 } _ bound _ initial
-            accepted run
+        cases run
+        exact steps.eraseStep { before with worklist := before.worklist.pop.2 } _ bound initial
+          accepted
       next outside => contradiction
     next rejected =>
       cases run
