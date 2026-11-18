@@ -1,7 +1,7 @@
 module
 
 public import Veir.Interpreter.Lemmas
-public import Veir.Dialects.RISCV.Monotonicity
+public import Veir.Interpreter.ResultsConformLemmas
 public import Veir.Verifier
 import all Veir.Verifier.Basic
 import all Veir.Verifier.Lemmas
@@ -19,7 +19,7 @@ public section
 # The results of RISC-V operations conform to their types
 
 A verified RISC-V operation returns, if its interpretation succeeds, results that conform to its
-result types (`OpCode.InterpResultsConform`). Every result of a RISC-V operation is a register, the
+result types (`OpCode.resultsConform`). Every result of a RISC-V operation is a register, the
 verifier makes every result type `!riscv.reg`, and a store has no result where every other opcode
 has one.
 -/
@@ -28,10 +28,31 @@ namespace Veir
 
 variable {ctx : WfIRContext OpCode} {op : OperationPtr} {opIn : op.InBounds ctx.raw}
 
+/--
+The RISC-V opcodes that load from memory. It is reducible, so that instance resolution decides it
+for a concrete opcode.
+-/
+@[reducible]
+def Riscv.isLoad : Riscv → Bool
+  | .ld | .lw | .lwu | .lh | .lhu | .lb | .lbu => true
+  | _ => false
+
+/-- Unfold `Riscv.isLoad`, whose body modules importing this one do not see. -/
+theorem Riscv.isLoad_eq (opT : Riscv) :
+    opT.isLoad = match opT with
+      | .ld | .lw | .lwu | .lh | .lhu | .lb | .lbu => true
+      | _ => false := by
+  cases opT <;> rfl
+
 /-- The number of results of a RISC-V opcode: none for a store, one otherwise. -/
-private def Riscv.numResults : Riscv → Nat
+def Riscv.numResults : Riscv → Nat
   | .sd | .sw | .sh | .sb => 0
   | _ => 1
+
+/-- A RISC-V load has a single result. -/
+theorem Riscv.numResults_of_isLoad {opT : Riscv} (h : opT.isLoad = true) :
+    opT.numResults = 1 := by
+  cases opT <;> first | rfl | simp at h
 
 /-- A register conforms to a register type. -/
 private theorem reg_conforms_of_val {r : Data.RISCV.Reg} {ty : TypeAttr}
@@ -39,6 +60,18 @@ private theorem reg_conforms_of_val {r : Data.RISCV.Reg} {ty : TypeAttr}
   obtain ⟨a, _⟩ := ty; obtain ⟨rt, h⟩ := h; simp only at h; subst h; trivial
 
 /-! ## Interpretation -/
+
+/--
+A RISC-V operation that interprets successfully produces register results and no
+control flow action.
+-/
+private theorem Riscv.interpretOp'_ok_results {opType : Riscv} {properties : propertiesOf opType}
+    {resultTypes : Array TypeAttr} {operands : Array RuntimeValue} {blockOperands : Array BlockPtr}
+    {mem mem' : MemoryState} {vals : Array RuntimeValue} {act : Option ControlFlowAction}
+    (h : Riscv.interpretOp' opType properties resultTypes operands blockOperands mem
+      = .ok (vals, mem', act)) :
+    ((∃ r, vals = #[.reg r]) ∨ vals = #[]) ∧ act = none := by
+  cases opType <;> simp only [Riscv.interpretOp'] at h <;> grind
 
 /-- A RISC-V operation returns as many registers as its opcode has results. -/
 private theorem Riscv.interpretOp'_ok_vals {opT : Riscv} {properties : propertiesOf opT}
@@ -52,55 +85,12 @@ private theorem Riscv.interpretOp'_ok_vals {opT : Riscv} {properties : propertie
 
 /-! ## Verifier -/
 
-/-- The first check of a successful sequence of checks succeeds. -/
-private theorem bind_ok_left {ε α : Type} {x : Except ε PUnit} {f : PUnit → Except ε α}
-    {a : α} (h : (x >>= f) = .ok a) : x = .ok () := by
-  cases x with
-  | ok u => rfl
-  | error e => simp [bind, Except.bind] at h
-
 private theorem riscvVerified {opT : Riscv} (hType : op.getOpType! ctx.raw = .riscv opT)
     (hV : op.Verified ctx opIn) : Riscv.verifyLocalInvariants opT op ctx opIn = .ok () := by
   simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
     HasOpInfo.verifyLocalInvariants, OpCode.verifyLocalInvariants,
     ← OperationPtr.getOpType!_eq_getOpType, hType] at hV
   exact hV
-
-/--
-What every step of a successful loop that only yields or throws establishes holds for every element.
--/
-private theorem Except.forIn_list_ok {α ε : Type} {l : List α}
-    {f : α → PUnit → Except ε (ForInStep PUnit)} (P : α → Prop)
-    (hf : ∀ a s, f a PUnit.unit = .ok s → s = .yield PUnit.unit ∧ P a)
-    (h : forIn l PUnit.unit f = .ok PUnit.unit) : ∀ a ∈ l, P a := by
-  induction l with
-  | nil => simp
-  | cons a l ih =>
-    simp only [List.forIn_cons] at h
-    rcases hfa : f a PUnit.unit with e | s <;> rw [hfa] at h
-    · simp [bind, Except.bind] at h
-    · obtain ⟨rfl, hP⟩ := hf a _ hfa
-      simp only [bind, Except.bind] at h
-      intro b hb
-      rcases List.mem_cons.mp hb with rfl | hb
-      · exact hP
-      · exact ih h b hb
-
-private theorem Except.forIn_range_ok {ε : Type} {n : Nat}
-    {f : Nat → PUnit → Except ε (ForInStep PUnit)} (P : Nat → Prop)
-    (hf : ∀ a s, f a PUnit.unit = .ok s → s = .yield PUnit.unit ∧ P a)
-    (h : forIn [0:n] PUnit.unit f = .ok PUnit.unit) : ∀ i < n, P i := by
-  simp only [Std.Legacy.Range.forIn_eq_forIn_range'] at h
-  intro i hi
-  exact Except.forIn_list_ok P hf h i (by simp [List.mem_range'_1]; omega)
-
-private theorem verifyNonOperandCounts_ok {r g s : Nat}
-    (h : op.verifyNonOperandCounts ctx opIn r g s = .ok ()) : op.getNumResults! ctx.raw = r := by
-  rw [OperationPtr.getNumResults!_eq_getNumResults opIn]
-  simp only [OperationPtr.verifyNonOperandCounts] at h
-  split at h
-  · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
-  · rename_i hne; simpa using hne
 
 private theorem verifyPlainOpCounts_ok {o r : Nat}
     (h : op.verifyPlainOpCounts ctx opIn o r = .ok ()) : op.getNumResults! ctx.raw = r := by
@@ -110,7 +100,7 @@ private theorem verifyPlainOpCounts_ok {o r : Nat}
   · exact verifyNonOperandCounts_ok h
 
 /-- A verified RISC-V operation has as many results as its opcode. -/
-private theorem riscv_verify_numResults {opT : Riscv}
+theorem riscv_verify_numResults {opT : Riscv}
     (h : Riscv.verifyLocalInvariants opT op ctx opIn = .ok ()) :
     op.getNumResults! ctx.raw = opT.numResults := by
   unfold Riscv.verifyLocalInvariants at h
@@ -134,27 +124,22 @@ private theorem verifyRISCVRegisterTypes_ok (h : op.verifyRISCVRegisterTypes ctx
     exact ⟨hs.symm, _, hT⟩
   · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at hs
 
-/-- The type of a result, as an element of the result types. -/
-private theorem resultType_eq {i : Nat} (hi : i < op.getNumResults ctx.raw opIn) :
-    (op.getResult i).getType! ctx.raw = (op.getResultTypes! ctx.raw)[i]! := by
-  rw [OperationPtr.getResultTypes!.getElem!_eq]
-  rwa [OperationPtr.getNumResults!_eq_getNumResults opIn]
-
 /-! ## The opcodes -/
 
 /--
-A verified RISC-V operation returns, if its interpretation succeeds, results that conform to its
-result types.
+Results that are registers, and as many as the opcode has, conform to the result types of a
+verified RISC-V operation: the verifier requires every result type to be a register type.
+
+The CTree of a RISC-V load chooses the bits of its result that memory marks poison, so this is
+what carries conformance over to each value it may choose.
 -/
-theorem Riscv.interpretOp'_results_conform (opT : Riscv)
+theorem Riscv.regs_results_conform (opT : Riscv)
     (hType : op.getOpType! ctx.raw = .riscv opT) (hV : op.Verified ctx opIn)
-    (h : Riscv.interpretOp' opT (op.getProperties! ctx.raw (OpCode.riscv opT))
-      (op.getResultTypes! ctx.raw) operands bs mem = .ok (vals, mem', act)) :
+    (hs : vals.size = opT.numResults) (hr : ∀ v ∈ vals, ∃ r, v = .reg r) :
     RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) := by
   have hVL := riscvVerified hType hV
   have hN := riscv_verify_numResults hVL
   have hRegs := verifyRISCVRegisterTypes_ok (bind_ok_left hVL)
-  obtain ⟨hs, hr⟩ := Riscv.interpretOp'_ok_vals h
   have hsN : vals.size = op.getNumResults ctx.raw opIn := by
     rw [← OperationPtr.getNumResults!_eq_getNumResults opIn, hN, hs]
   refine ⟨by rw [OperationPtr.getResultTypes!.size_eq_getNumResults!, hN, hs], fun i hi => ?_⟩
@@ -164,25 +149,17 @@ theorem Riscv.interpretOp'_results_conform (opT : Riscv)
   rw [getElem!_pos vals i hi, hv]
   exact reg_conforms_of_val hT
 
-/-- The results of every RISC-V opcode conform to their types. -/
-theorem OpCode.interpResultsConform_riscv (opT : Riscv) : OpCode.InterpResultsConform (.riscv opT) := by
-  refine OpCode.interpResultsConform_def.mpr
-    fun ctx op opIn hType hV operands vals mem mem' act _ h => ?_
-  have hType! : op.getOpType! ctx.raw = .riscv opT := by
-    rw [OperationPtr.getOpType!_eq_getOpType opIn]; exact hType
-  simp only [OperationPtr.interpret] at h
-  rw [hType!] at h
-  simp only [Veir.interpretOp'] at h
-  exact Riscv.interpretOp'_results_conform opT hType! hV h
-
 /--
-info: 'Veir.OpCode.interpResultsConform_riscv' depends on axioms: [propext, Classical.choice, Quot.sound]
+A verified RISC-V operation returns, if its `Interp` interpretation succeeds, results that
+conform to its result types.
 -/
-#guard_msgs in
-#print axioms OpCode.interpResultsConform_riscv
-
-instance (op : Riscv) : InterpResultsConform (.riscv op) :=
-  ⟨OpCode.interpResultsConform_riscv op⟩
+theorem Riscv.interpretOp'_results_conform (opT : Riscv)
+    (hType : op.getOpType! ctx.raw = .riscv opT) (hV : op.Verified ctx opIn)
+    (h : Riscv.interpretOp' opT (op.getProperties! ctx.raw (OpCode.riscv opT))
+      (op.getResultTypes! ctx.raw) operands bs mem = .ok (vals, mem', act)) :
+    RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) :=
+  have ⟨hs, hr⟩ := Riscv.interpretOp'_ok_vals h
+  Riscv.regs_results_conform opT hType hV hs hr
 
 end Veir
 

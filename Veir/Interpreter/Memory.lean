@@ -304,6 +304,12 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
       return .addr (mem.ptrOfByte (← mem.loadByte p 64))
   | _ => none
 
+/-- A load that succeeds through a pointer loads the same through a refinement of it. -/
+theorem MemoryState.llvmLoad_of_isRefinedBy_of_ok {mem : MemoryState} {p p' : Pointer}
+    {type : TypeAttr} {v : RuntimeValue} (hp : p ⊒ p') (h : mem.llvmLoad p type = .ok v) :
+    mem.llvmLoad p' type = .ok v := by
+  rwa [Pointer.isRefinedBy_iff.mp hp]
+
 /--
   A load that succeeds through a pointer loads the same through a refinement of it.
 -/

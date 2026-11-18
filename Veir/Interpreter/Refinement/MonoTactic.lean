@@ -8,10 +8,10 @@ public section
 # A tactic for monotonicity in the operands
 
 Most opcodes match their operands as a list of integers or a pointer, compute a result from
-them, and return the memory they are given. `op_mono` proves such an opcode monotone in its
-operands: the target operands have the same shape, each is poison in the source or the same
-value in both, and unfolding the operations on the values reduces the source to poison or to
-the target.
+them, and return the memory they are given. `op_mono` proves such an opcode monotone: the target
+operands have the same shape, each is poison in the source or the same value in both, and
+unfolding the operations on the values reduces the source to poison or to the target, with the
+memory of the result the refined memory the opcode was given.
 -/
 
 namespace Veir
@@ -23,16 +23,17 @@ theorem Interp.liftM_none_eq {α : Type} :
     (liftM (none : Option α) : Interp α) = .fail none := rfl
 
 /--
-Closes the goals that `op_mono` leaves: both sides are the same computation, on operands where
-the source has poison and the target a value. Unfolding the operations `ls` reduces the source to
-poison or to the target.
+Closes the goals that `op_mono` leaves: both sides are the same computation on refined memories,
+on operands where the source has poison and the target a value. Unfolding the operations `ls`
+reduces the source to poison or to the target.
 -/
 macro "op_mono_finish" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
   (repeat' split) <;> (try simp_all [Interp.pure_eq, Interp.isRefinedBy_ok_ok,
     Interp.liftM_none_eq, OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy,
     RuntimeValue.isRefinedBy, Veir.Data.LLVM.Int.isRefinedBy, Id.run, $ls,*])
   all_goals ((repeat' split) <;> (try simp_all [Interp.isRefinedBy_ok_ok,
-    Interp.liftM_none_eq]))))
+    Interp.liftM_none_eq]))
+  all_goals (try grind)))
 
 /--
 Proves an opcode monotone that matches its operands as a list of one to three integers or one
@@ -58,9 +59,7 @@ macro "op_mono" "[" us:Lean.Parser.Tactic.simpLemma,* "]"
       | (obtain ⟨_, hT, h1⟩ := RuntimeValue.toList_addr1_of_isRefinedBy (by assumption) heq
          simp only [hT]
          rcases h1 with rfl | ⟨_, rfl, rfl | rfl⟩)
-    all_goals first
-      | exact Interp.isRefinedBy_refl_operationResult_sameMemory _
-      | op_mono_finish [$ls,*]
+    all_goals op_mono_finish [$ls,*]
   · simp [Interp.isRefinedBy_ok_ok, Interp.liftM_none_eq]))
 
 end Veir

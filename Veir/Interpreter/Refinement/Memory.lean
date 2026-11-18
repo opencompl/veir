@@ -6,10 +6,8 @@ import all Veir.Interpreter.Memory
 import all Veir.ForLean
 import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Ptr.Basic
-import Veir.Data.LLVM.Ptr.Lemmas
-import all Std.Data.ByteSlice
-import Veir.Data.Casting
 import Veir.Data.LLVM.Byte.Lemmas
+import all Std.Data.ByteSlice
 
 public section
 
@@ -132,21 +130,6 @@ namespace Veir
 Refined memories have the same objects, so these agree on them.
 -/
 
-theorem MemoryState.decode_eq_of_objects {mem mem' : MemoryState}
-    (_h : mem.objects = mem'.objects) : mem.decode = mem'.decode := by
-  funext addr
-  simp [MemoryState.decode]
-
-theorem MemoryState.ptrFromInt_eq_of_objects {mem mem' : MemoryState}
-    (h : mem.objects = mem'.objects) : mem.ptrFromInt = mem'.ptrFromInt := by
-  funext i
-  cases i <;> simp [MemoryState.ptrFromInt, decode_eq_of_objects h]
-
-theorem MemoryState.ptrOfByte_eq_of_objects {mem mem' : MemoryState}
-    (h : mem.objects = mem'.objects) : mem.ptrOfByte = mem'.ptrOfByte := by
-  funext b
-  simp [MemoryState.ptrOfByte, decode_eq_of_objects h]
-
 theorem MemoryState.checkAccess_eq_of_objects {mem mem' : MemoryState}
     (h : mem.objects = mem'.objects) : mem.checkAccess = mem'.checkAccess := by
   funext p size
@@ -158,14 +141,11 @@ theorem MemoryState.pointerToGlobal_eq_of_isRefinedBy {mem mem' : MemoryState}
   funext symbol
   simp [MemoryState.pointerToGlobal, h.objects_eq, (MemoryState.isRefinedBy_def.mp h).2]
 
-/-! ## Refinement of interpretations -/
-
 /-! ## Refinement of memory bytes -/
 
 private theorem UInt8.toBitVec_0xff_getLsbD {m : Nat} (hm : m < 8) :
     (0xff : UInt8).toBitVec.getLsbD m = true := by
-  have : (0xff : UInt8).toBitVec = BitVec.allOnes 8 := rfl
-  rw [this, BitVec.getLsbD_allOnes]; simp [hm]
+  revert m; decide
 
 theorem MemoryByte.getLsbD_of_isRefinedBy {b b' : MemoryByte} (h : b ⊒ b') {m : Nat}
     (hm : m < 8) :
@@ -176,11 +156,7 @@ theorem MemoryByte.getLsbD_of_isRefinedBy {b b' : MemoryByte} (h : b ⊒ b') {m 
   simp only [UInt8.toBitVec_or, UInt8.toBitVec_and, UInt8.toBitVec_xor, UInt8.toBitVec_not,
     BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_xor, BitVec.getLsbD_not, hm,
     decide_true, Bool.true_and, UInt8.toBitVec_0xff_getLsbD hm] at h'
-  rcases Bool.eq_false_or_eq_true (b.poison.toBitVec.getLsbD m) with h₁ | h₁ <;>
-  rcases Bool.eq_false_or_eq_true (b.value.toBitVec.getLsbD m) with h₂ | h₂ <;>
-  rcases Bool.eq_false_or_eq_true (b'.value.toBitVec.getLsbD m) with h₃ | h₃ <;>
-  rcases Bool.eq_false_or_eq_true (b'.poison.toBitVec.getLsbD m) with h₄ | h₄ <;>
-  simp_all
+  grind
 
 theorem MemoryByte.isRefinedBy_of_getLsbD {b b' : MemoryByte}
     (h : ∀ m < 8, b.poison.toBitVec.getLsbD m = true ∨
@@ -196,43 +172,19 @@ theorem MemoryByte.isRefinedBy_of_getLsbD {b b' : MemoryByte}
   · simp [h₁]
   · simp [h₂, h₃]
 
-theorem Data.LLVM.Byte.getLsbD_of_isRefinedBy {w : Nat} {b b' : LLVM.Byte w} (h : b ⊒ b')
-    {m : Nat} (hm : m < w) :
-    b.poison.getLsbD m = true ∨
-      (b.val.getLsbD m = b'.val.getLsbD m ∧ b'.poison.getLsbD m = false) := by
-  have h' := congrArg (·.getLsbD m) h
-  simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_xor,
-    BitVec.getLsbD_not, BitVec.getLsbD_allOnes, hm, decide_true, Bool.true_and] at h'
-  rcases Bool.eq_false_or_eq_true (b.poison.getLsbD m) with h₁ | h₁ <;>
-  rcases Bool.eq_false_or_eq_true (b.val.getLsbD m) with h₂ | h₂ <;>
-  rcases Bool.eq_false_or_eq_true (b'.val.getLsbD m) with h₃ | h₃ <;>
-  rcases Bool.eq_false_or_eq_true (b'.poison.getLsbD m) with h₄ | h₄ <;>
-  simp_all
-
 theorem MemoryByte.isRefinedBy_ofBitVec {b b' : LLVM.Byte 8} (hb : b ⊒ b') :
     (⟨UInt8.ofBitVec b.val, UInt8.ofBitVec b.poison⟩ : MemoryByte) ⊒
       ⟨UInt8.ofBitVec b'.val, UInt8.ofBitVec b'.poison⟩ :=
-  MemoryByte.isRefinedBy_of_getLsbD fun _ hm => LLVM.Byte.getLsbD_of_isRefinedBy hb hm
+  MemoryByte.isRefinedBy_of_getLsbD fun _ _ => LLVM.Byte.getLsbD_of_isRefinedBy' hb
 
 theorem MemoryByte.eq_of_isRefinedBy {b b' : MemoryByte} (h : b ⊒ b') (hp : b.poison = 0) :
     b' = b := by
   have hbit : ∀ m < 8, b.value.toBitVec.getLsbD m = b'.value.toBitVec.getLsbD m ∧
-      b'.poison.toBitVec.getLsbD m = false := by
-    intro m hm
-    rcases MemoryByte.getLsbD_of_isRefinedBy h hm with h₁ | h₁
-    · simp [hp] at h₁
-    · exact h₁
-  rcases b with ⟨v, p⟩
-  rcases b' with ⟨v', p'⟩
-  simp only at hp hbit
-  subst hp
-  simp only [MemoryByte.mk.injEq]
-  constructor
-  · apply UInt8.toBitVec_inj.mp
-    exact BitVec.eq_of_getLsbD_eq fun m hm => (hbit m hm).1.symm
-  · apply UInt8.toBitVec_inj.mp
-    apply BitVec.eq_of_getLsbD_eq fun m hm => ?_
-    simp [(hbit m hm).2]
+      b'.poison.toBitVec.getLsbD m = false :=
+    fun m hm => (MemoryByte.getLsbD_of_isRefinedBy h hm).resolve_left (by simp [hp])
+  cases b; cases b'; simp only at hp hbit; subst hp
+  congr 1 <;> apply UInt8.toBitVec_inj.mp <;> apply BitVec.eq_of_getLsbD_eq <;> intro m hm <;>
+    simp [hbit m hm]
 
 theorem MemoryByte.isRefinedBy_of_poison_eq {b : MemoryByte} (hp : b.poison = 0xff)
     (b' : MemoryByte) : b ⊒ b' :=
@@ -368,7 +320,7 @@ theorem MemoryState.storeByte64_isRefinedBy {mem mem' : MemoryState}
   obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl :
     i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
   all_goals simp [UInt64.toByteArrayLE, ByteArray.mk_getElem!, hm]
-  all_goals exact LLVM.Byte.getLsbD_of_isRefinedBy hb (by omega)
+  all_goals exact LLVM.Byte.getLsbD_of_isRefinedBy' hb
 
 /-- A store of a refined value into refined memory gives refined memory. -/
 theorem MemoryState.llvmStore_isRefinedBy {mem mem' : MemoryState}
@@ -463,14 +415,11 @@ private theorem getLsbD_toBitVecLE_ofFn {n : Nat} (f : Fin n → UInt8) (w j : N
       (decide (j < w) &&
         if h : j / 8 < n then (f ⟨j / 8, h⟩).toBitVec.getLsbD (j % 8) else false) := by
   rw [ByteArray.getLsbD_toBitVecLE]
-  have hs : (ByteArray.mk (Array.ofFn f)).size = n := by simp [ByteArray.size]
-  by_cases h : j / 8 < n
-  · have h' : j / 8 < (ByteArray.mk (Array.ofFn f)).size := by rw [hs]; exact h
-    simp only [h, h', dite_true]
-    rw [show (ByteArray.mk (Array.ofFn f))[j / 8] = (Array.ofFn f)[j / 8]'(by simpa using h)
-      from rfl, Array.getElem_ofFn]
-  · have h' : ¬ j / 8 < (ByteArray.mk (Array.ofFn f)).size := by rw [hs]; exact h
-    simp only [h, h', dite_false]
+  simp only [ByteArray.size, Array.size_ofFn]
+  split
+  · exact congrArg _
+      (congrArg (fun b : UInt8 => b.toBitVec.getLsbD (j % 8)) (Array.getElem_ofFn ..))
+  · rfl
 
 /-- A bit of a loaded byte, with its value bit masked by its poison bit, refines. -/
 private theorem loadedBit_of_isRefinedBy {b b' : MemoryByte} (h : b ⊒ b') {m : Nat}
@@ -504,16 +453,6 @@ theorem MemoryState.loadByte_isRefinedBy {mem mem' : MemoryState}
     split
     · exact loadedBit_of_isRefinedBy (h.byte_refines _) (Nat.mod_lt _ (by omega))
     · simp
-
-/-- A load of the bytes of `w` bits succeeds where a load of the bits with their poison does. -/
-theorem MemoryState.load_eq_ok_of_loadByte_eq_ok {mem : MemoryState} {p : Pointer} {w : Nat}
-    {b : LLVM.Byte w} (h : mem.loadByte p w = .ok b) :
-    ∃ ba, mem.load p (w / 8).toUInt64 = .ok ba := by
-  unfold MemoryState.loadByte MemoryState.loadPoison at h
-  unfold MemoryState.load
-  split at h
-  · simp at h
-  cases hc : mem.checkAccess p (w / 8).toUInt64 <;> simp_all
 
 /--
   An integer load from refined memory: poison if any byte is, otherwise the bytes are those of
@@ -584,7 +523,7 @@ private theorem MemoryState.anyIntLoad_isRefinedBy {mem mem' : MemoryState}
       have hpm := congrArg (·.getLsbD m) hp
       simp only [BitVec.truncate_eq_setWidth, BitVec.getLsbD_setWidth, hm, decide_true,
         Bool.true_and] at hpm
-      rcases LLVM.Byte.getLsbD_of_isRefinedBy hb (m := m) (by omega) with h₁ | ⟨h₁, h₂⟩
+      rcases LLVM.Byte.getLsbD_of_isRefinedBy' hb (m := m) with h₁ | ⟨h₁, h₂⟩
       · simp_all
       · exact ⟨h₂, h₁.symm⟩
     have hp' : b'.poison.truncate n = 0 := by
@@ -620,7 +559,7 @@ theorem MemoryState.llvmLoad_isRefinedBy {mem mem' : MemoryState}
     refine Interp.isRefinedBy_bind (loadByte_isRefinedBy h p _) fun b b' hb => ?_
     refine Interp.isRefinedBy_ok_target_iff.mpr ⟨_, rfl, ?_⟩
     by_cases hp : b.poison = 0#64
-    · rw [Veir.Data.LLVM.Byte.eq_of_isRefinedBy_of_poison_eq_zero hb hp, ptrOfByte_eq_of_objects h.objects_eq]
+    · rw [Data.LLVM.Byte.eq_of_isRefinedBy_of_poison_eq_zero hb hp]
       exact RuntimeValue.isRefinedBy_refl _
     · simp [MemoryState.ptrOfByte, hp, RuntimeValue.isRefinedBy]
   case h_9 => simp [liftM]

@@ -1,6 +1,7 @@
 module
 
 public import Veir.Interpreter.Lemmas
+public import Veir.Interpreter.ResultsConformLemmas
 public import Veir.Verifier
 import all Veir.Verifier.Basic
 import all Veir.Verifier.Lemmas
@@ -19,7 +20,7 @@ public section
 # The results of gMIR operations conform to their types
 
 A verified gMIR operation with operands that conform to their types returns, if its interpretation
-succeeds, results that conform to its result types (`OpCode.InterpResultsConform`). An operation either
+succeeds, results that conform to its result types (`GMIR.interpretOp'_results_conform`). An operation either
 computes its results from an operand whose type group the verifier makes match the type group of
 the result, or builds its results from its result types.
 -/
@@ -35,25 +36,11 @@ private theorem int_conforms {w : Nat} {x y : Data.LLVM.Int w} {ty : TypeAttr}
     (h : (RuntimeValue.int w x).Conforms ty) : (RuntimeValue.int w y).Conforms ty := by
   obtain ⟨a, _⟩ := ty; cases a <;> exact h
 
-private theorem int_conforms_of_val {w : Nat} {x : Data.LLVM.Int w} {ty : TypeAttr}
-    {it : IntegerType} (h : ty.val = .integerType it) (hw : it.bitwidth = w) :
-    (RuntimeValue.int w x).Conforms ty := by
-  obtain ⟨a, _⟩ := ty; simp only at h; subst h; exact hw
-
 /-- An integer conforms to an integer type of its width. -/
 private theorem bitwidth_of_conforms {w : Nat} {x : Data.LLVM.Int w} {ty : TypeAttr}
     {it : IntegerType} (h : ty.val = .integerType it) (hc : (RuntimeValue.int w x).Conforms ty) :
     it.bitwidth = w := by
   obtain ⟨a, _⟩ := ty; simp only at h; subst h; exact hc
-
-private theorem byte_conforms_of_val {w : Nat} {x : Data.LLVM.Byte w} {ty : TypeAttr}
-    {bt : LLVM.ByteType} (h : ty.val = .byteType bt) (hw : bt.bitwidth = w) :
-    (RuntimeValue.byte w x).Conforms ty := by
-  obtain ⟨a, _⟩ := ty; simp only at h; subst h; exact hw
-
-private theorem addr_conforms_of_val {x : Data.LLVM.Ptr} {ty : TypeAttr}
-    (h : ∃ p, ty.val = .llvmPointerType p) : (RuntimeValue.addr x).Conforms ty := by
-  obtain ⟨a, _⟩ := ty; obtain ⟨p, h⟩ := h; simp only at h; subst h; trivial
 
 private theorem bitwidthOfType_integerType {it : IntegerType} :
     Attribute.bitwidthOfType (Attribute.of IntegerType it) = some it.bitwidth := rfl
@@ -104,42 +91,12 @@ private theorem results_toList {v : RuntimeValue} {R : Array TypeAttr} {t : Type
   obtain rfl : R = #[t] := List.eq_toArray_iff.mpr ht
   exact results_one rfl (by simpa using hv)
 
-/-! ## Interpretation -/
-
-private theorem Interp.exists_of_bind_eq_ok {α β : Type} {x : Interp α} {f : α → Interp β}
-    {b : β} (h : (x >>= f) = .ok b) : ∃ a, x = .ok a ∧ f a = .ok b := by
-  cases x <;> simp_all
-
-/-- A load returns a value of the type it loads. -/
-private theorem llvmLoad_conforms {mem : MemoryState} {p : Data.Pointer} {t : TypeAttr}
-    {v : RuntimeValue} (h : mem.llvmLoad p t = .ok v) : v.Conforms t := by
-  simp only [MemoryState.llvmLoad] at h
-  split at h
-  · simp at h
-  split at h <;>
-    (repeat' (first
-      | (obtain ⟨_, -, h⟩ := Interp.exists_of_bind_eq_ok h)
-      | split at h)) <;>
-    (try simp only [Interp.pure_eq, Interp.ok.injEq] at h) <;> (try subst h) <;>
-    first
-      | (simp at h; done)
-      | exact int_conforms_of_val ‹_› rfl
-      | exact byte_conforms_of_val ‹_› rfl
-      | exact addr_conforms_of_val ⟨_, ‹_›⟩
-
 private theorem vals_of_ok {vs vals : Array RuntimeValue} {m m' : MemoryState}
     {a a' : Option ControlFlowAction}
     (h : (Interp.ok (vs, m, a) : Interp _) = .ok (vals, m', a')) : vals = vs := by
   simp only [Interp.ok.injEq, Prod.mk.injEq] at h; exact h.1.symm
 
 /-! ## Verifier -/
-
-/-- The first check of a successful sequence of checks succeeds. -/
-private theorem bind_ok_left {ε α : Type} {x : Except ε PUnit} {f : PUnit → Except ε α}
-    {a : α} (h : (x >>= f) = .ok a) : x = .ok () := by
-  cases x with
-  | ok u => rfl
-  | error e => simp [bind, Except.bind] at h
 
 private theorem gmirVerified {opT : GMIR} (hType : op.getOpType! ctx.raw = .gmir opT)
     (hV : op.Verified ctx opIn) : GMIR.verifyLocalInvariants opT op ctx opIn = .ok () := by
@@ -148,34 +105,6 @@ private theorem gmirVerified {opT : GMIR} (hType : op.getOpType! ctx.raw = .gmir
     ← OperationPtr.getOpType!_eq_getOpType, hType] at hV
   exact hV
 
-/--
-What every step of a successful loop that only yields or throws establishes holds for every element.
--/
-private theorem Except.forIn_list_ok {α ε : Type} {l : List α}
-    {f : α → PUnit → Except ε (ForInStep PUnit)} (P : α → Prop)
-    (hf : ∀ a s, f a PUnit.unit = .ok s → s = .yield PUnit.unit ∧ P a)
-    (h : forIn l PUnit.unit f = .ok PUnit.unit) : ∀ a ∈ l, P a := by
-  induction l with
-  | nil => simp
-  | cons a l ih =>
-    simp only [List.forIn_cons] at h
-    rcases hfa : f a PUnit.unit with e | s <;> rw [hfa] at h
-    · simp [bind, Except.bind] at h
-    · obtain ⟨rfl, hP⟩ := hf a _ hfa
-      simp only [bind, Except.bind] at h
-      intro b hb
-      rcases List.mem_cons.mp hb with rfl | hb
-      · exact hP
-      · exact ih h b hb
-
-private theorem Except.forIn_range_ok {ε : Type} {n : Nat}
-    {f : Nat → PUnit → Except ε (ForInStep PUnit)} (P : Nat → Prop)
-    (hf : ∀ a s, f a PUnit.unit = .ok s → s = .yield PUnit.unit ∧ P a)
-    (h : forIn [0:n] PUnit.unit f = .ok PUnit.unit) : ∀ i < n, P i := by
-  simp only [Std.Legacy.Range.forIn_eq_forIn_range'] at h
-  intro i hi
-  exact Except.forIn_list_ok P hf h i (by simp [List.mem_range'_1]; omega)
-
 private theorem Except.forIn_array_ok {α ε : Type} {arr : Array α}
     {f : α → PUnit → Except ε (ForInStep PUnit)} (P : α → Prop)
     (hf : ∀ a s, f a PUnit.unit = .ok s → s = .yield PUnit.unit ∧ P a)
@@ -183,14 +112,6 @@ private theorem Except.forIn_array_ok {α ε : Type} {arr : Array α}
   rw [← Array.forIn_toList] at h
   intro a ha
   exact Except.forIn_list_ok P hf h a (Array.mem_toList_iff.mpr ha)
-
-private theorem verifyNonOperandCounts_ok {r g s : Nat}
-    (h : op.verifyNonOperandCounts ctx opIn r g s = .ok ()) : op.getNumResults! ctx.raw = r := by
-  rw [OperationPtr.getNumResults!_eq_getNumResults opIn]
-  simp only [OperationPtr.verifyNonOperandCounts] at h
-  split at h
-  · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
-  · rename_i hne; simpa using hne
 
 private theorem verifyPlainOpCounts_ok {o r : Nat}
     (h : op.verifyPlainOpCounts ctx opIn o r = .ok ()) : op.getNumResults! ctx.raw = r := by
@@ -258,12 +179,6 @@ private theorem gmir_verify_common {opT : GMIR} (hb : opT ≠ .g_br ∧ opT ≠ 
   refine ⟨verifyPlainOpCounts_ok (bind_ok_left h), fun g t t' ht ht' => ?_⟩
   exact typedGroups_ok (bind_ok_left (Except.ok_of_bind_ok h)) ht ht'
 
-private theorem ite_throw_ok {ε : Type} {c : Prop} [Decidable c] {e : ε}
-    (h : (if c then throw e else pure () : Except ε PUnit) = .ok ()) : ¬c := by
-  split at h
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-  · assumption
-
 /-- The opcode-specific checks of the verifier for a gMIR operation that is not a branch. -/
 private theorem gmir_verify_specific {opT : GMIR} (hb : opT ≠ .g_br ∧ opT ≠ .g_brcond)
     (h : GMIR.verifyLocalInvariants opT op ctx opIn = .ok ()) :
@@ -294,12 +209,6 @@ private theorem gmir_verify_specific {opT : GMIR} (hb : opT ≠ .g_br ∧ opT �
   rw [ite_eq_left (by cases opT <;> simp_all)] at h
   have h' := Except.ok_of_bind_ok (Except.ok_of_bind_ok h)
   cases opT <;> first | rfl | exact h' | simp_all
-
-/-- The type of a result, as an element of the result types. -/
-private theorem resultType_eq {i : Nat} (hi : i < op.getNumResults ctx.raw opIn) :
-    (op.getResult i).getType! ctx.raw = (op.getResultTypes! ctx.raw)[i]! := by
-  rw [OperationPtr.getResultTypes!.getElem!_eq]
-  rwa [OperationPtr.getNumResults!_eq_getNumResults opIn]
 
 /-- The type of an operand, as an element of the operand types. -/
 private theorem operandType_eq {i : Nat} (hi : i < op.getNumOperands ctx.raw opIn) :
@@ -353,13 +262,6 @@ private theorem verifyGMIRIntegerTypes_ok (h : op.verifyGMIRIntegerTypes ctx opI
       simp only [bind, Except.bind, pure, Except.pure, Except.ok.injEq] at hs
       exact ⟨hs.symm, _, hT⟩
     · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at hs
-
-private theorem verifyLlvmPointerType_ok {ty : TypeAttr} {msg : String}
-    (h : ty.verifyLlvmPointerType msg = .ok ()) : ∃ p, ty.val = .llvmPointerType p := by
-  simp only [TypeAttr.verifyLlvmPointerType] at h
-  split at h
-  · exact ⟨_, by assumption⟩
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- A gMIR branch has no results. -/
 private theorem gmir_verify_branch {opT : GMIR} (hb : opT = .g_br ∨ opT = .g_brcond)
@@ -456,16 +358,29 @@ theorem GMIR.interpretOp'_results_conform (opT : GMIR)
       (op.getResultTypes! ctx.raw) operands bs mem = .ok (vals, mem', act)) :
     RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) := by
   cases opT
-  case g_add | g_sub | g_mul | g_smulh | g_umulh | g_and | g_or | g_xor | g_sdiv | g_udiv | g_srem
-     | g_urem
+  case g_add | g_sub | g_mul | g_and | g_or | g_xor | g_sdiv | g_udiv | g_srem | g_urem
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_smin | g_smax | g_umin | g_umax
      | g_shl | g_lshr | g_ashr | g_sshlsat | g_ushlsat | g_rotl | g_rotr | g_fshl | g_fshr
-     | g_bswap | g_bitreverse | g_brev8 | g_abs | g_sext_inreg | g_freeze =>
+     | g_bswap | g_bitreverse | g_brev8 | g_abs | g_sext_inreg
+     | g_smulh | g_umulh | g_freeze =>
     rc_same 1 0
   case g_select => rc_same 1 1
   case g_uaddo | g_uadde | g_usubo | g_usube | g_saddo | g_ssubo => rc_carry
   case g_anyext | g_sext | g_zext | g_trunc | g_ptrtoint
      | g_ctlz | g_cttz | g_ctlz_zero_poison | g_cttz_zero_poison | g_ctpop => rc_restype
+  /- `g_constant` builds an integer, or an address where its result type is a pointer. -/
+  case g_constant =>
+    rc_common 1
+    rc_peel
+    all_goals (obtain rfl := vals_of_ok h
+               first
+                 | exact results_getElem? hR ‹_› (int_conforms_of_val ‹_› rfl)
+                 | exact results_getElem? hR ‹_› (addr_conforms_of_val ⟨_, ‹_›⟩))
+  /- `g_scmp` and `g_ucmp` read their result type from the result types directly. -/
+  case g_scmp | g_ucmp =>
+    rc_peel
+    all_goals (obtain rfl := vals_of_ok h
+               exact results_toList ‹_› (int_conforms_of_val ‹_› rfl))
   case g_icmp =>
     rc_common 1
     have hS := gmir_verify_specific (by decide) hVL
@@ -482,11 +397,7 @@ theorem GMIR.interpretOp'_results_conform (opT : GMIR)
         rw [Array.getElem!_eq_getD, Array.getD_eq_getD_getElem?, hRes, Option.getD_some]
       have := hNZ resBw (by rw [hR0, hBw])
       exact results_getElem? hR hRes (int_conforms_of_val hBw (by omega))
-  case g_scmp | g_ucmp =>
-    rc_peel
-    all_goals (obtain rfl := vals_of_ok h
-               exact results_toList ‹_› (int_conforms_of_val ‹_› rfl))
-  case g_poison | g_constant =>
+  case g_poison =>
     rc_common 1
     rc_peel
     all_goals (obtain rfl := vals_of_ok h
@@ -588,24 +499,19 @@ theorem GMIR.interpretOp'_results_conform (opT : GMIR)
              (by simpa using int_conforms_of_val hit1 (by omega)))
     · simp at h
 
-/-- The results of every gMIR opcode conform to their types. -/
-theorem OpCode.interpResultsConform_gmir (opT : GMIR) : OpCode.InterpResultsConform (.gmir opT) := by
-  refine OpCode.interpResultsConform_def.mpr
-    fun ctx op opIn hType hV operands vals mem mem' act hConf h => ?_
-  have hType! : op.getOpType! ctx.raw = .gmir opT := by
-    rw [OperationPtr.getOpType!_eq_getOpType opIn]; exact hType
-  simp only [OperationPtr.interpret] at h
-  rw [hType!] at h
-  exact GMIR.interpretOp'_results_conform opT hType! hV hConf h
-
 /--
-info: 'Veir.OpCode.interpResultsConform_gmir' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms OpCode.interpResultsConform_gmir
+Conformance of a single integer result does not depend on its value, only on its width.
 
-instance (op : GMIR) : InterpResultsConform (.gmir op) :=
-  ⟨OpCode.interpResultsConform_gmir op⟩
+The CTree of `g_anyext`, `g_load` and `g_freeze` chooses the value of its result, keeping the
+width its `Interp` interpreter gives, so this is what carries conformance over to each value it
+may choose.
+-/
+theorem arrayConforms_int_congr {w : Nat} {x y : Data.LLVM.Int w} {R : Array TypeAttr}
+    (h : RuntimeValue.ArrayConforms #[.int w x] R) :
+    RuntimeValue.ArrayConforms #[.int w y] R := by
+  refine ⟨h.1, fun i hi => ?_⟩
+  obtain rfl : i = 0 := by simp at hi; omega
+  exact int_conforms (by simpa using h.2 0 (by simp))
 
 end Veir
 

@@ -11,58 +11,22 @@ public section
 /-!
 # Monotonicity of the LLVM memory opcodes
 
-The LLVM opcodes that read or write memory are monotone with refined memory
-(`InterpretOp'ContextuallyMonotone`): refined operands and refined memory give refined results
-and refined memory. Loops over memory, as in `memset`, `memcpy` and `memmove`, keep the two
-memories refined step by step.
+The LLVM opcodes that read or write memory are monotone: refined operands and refined memory give
+refined results and refined memory. Loops over memory, as in `memset`, `memcpy` and `memmove`,
+keep the two memories refined step by step.
 -/
 
 open Veir.Data
 
 namespace Veir
 
-/-- A result of one value and refined memory. -/
-private theorem result_single {v v' : RuntimeValue} {m m' : MemoryState} (hv : v ⊒ v')
-    (hm : m ⊒ m') :
-    OperationResult.isRefinedBy (#[v], m, none) (#[v'], m', none) :=
-  OperationResult.isRefinedBy_def.mpr
-    ⟨RuntimeValue.singleton_isRefinedBy_iff.mpr ⟨_, rfl, hv⟩, hm, trivial⟩
-
-/-- A result of no values and refined memory. -/
-private theorem result_empty {m m' : MemoryState} (hm : m ⊒ m') :
-    OperationResult.isRefinedBy (#[], m, none) (#[], m', none) :=
-  OperationResult.isRefinedBy_def.mpr
-    ⟨RuntimeValue.arrayIsRefinedBy_refl _, hm, trivial⟩
-
-/-- A computation of memories gives the results without values of its memories. -/
+/-- Refined computations of memories give refined results of no values. -/
 private theorem isRefinedBy_memory_result {s t : Interp MemoryState}
     (h : Interp.isRefinedBy MemoryState.isRefinedBy s t) :
     Interp.isRefinedBy OperationResult.isRefinedBy
       (do let m ← s; pure ((#[] : Array RuntimeValue), m, (none : Option ControlFlowAction)))
       (do let m ← t; pure ((#[] : Array RuntimeValue), m, (none : Option ControlFlowAction))) :=
   Interp.isRefinedBy_bind h fun _ _ hm => by simpa using result_empty hm
-
-/--
-`llvm.load` is monotone: a poison pointer is undefined behavior, and a load through a pointer
-from refined memory gives a refined value.
--/
-instance llvm_contextuallyMonotone_load : InterpretOp'ContextuallyMonotone (.llvm .load) where
-  monotone properties resultTypes operands operands' blockOperands mem mem' h hMem := by
-    simp only [interpretOp', Llvm.interpretOp']
-    split
-    · next x heq =>
-      obtain ⟨x', hT, rfl | ⟨c, rfl, hc⟩⟩ := RuntimeValue.toList_addr1_of_isRefinedBy h heq
-      · simp
-      obtain ⟨c', rfl, hc'⟩ : ∃ c', x' = .val c' ∧ (c ⊒ c') := by
-        rcases hc with rfl | rfl <;> simp
-      simp only [hT, Pointer.checkAlignment_of_isRefinedBy hc']
-      rcases resultTypes.toList with _ | ⟨type, _ | _⟩
-      · simp [liftM]
-      · refine Interp.isRefinedBy_bind_same fun _ => ?_
-        exact Interp.isRefinedBy_bind (MemoryState.llvmLoad_isRefinedBy_of_refines hMem hc' type)
-          fun v v' hv => by simpa using result_single hv hMem
-      · simp [liftM]
-    · simp [Interp.isRefinedBy]
 
 /-- A step that yields the results of related computations. -/
 private theorem yield_isRefinedBy {α α' β β' : Type} {S : α → α' → Prop}
@@ -164,7 +128,7 @@ theorem RuntimeValue.storedType_eq_of_isRefinedBy {v v' : RuntimeValue} (h : v �
 `llvm.store` is monotone: a poison pointer is undefined behavior, a refined value has the same
 type and so the same alignment, and storing it into refined memory gives refined memory.
 -/
-instance llvm_contextuallyMonotone_store : InterpretOp'ContextuallyMonotone (.llvm .store) where
+instance llvm_monotone_store : InterpretOp'Monotone (.llvm .store) where
   monotone properties resultTypes operands operands' blockOperands mem mem' h hMem := by
     simp only [interpretOp', Llvm.interpretOp']
     split
@@ -198,8 +162,8 @@ theorem MemoryState.alloc_isRefinedBy {mem mem' : MemoryState}
     exact MemoryState.isRefinedBy_def.mpr ⟨⟨rfl, hbytes⟩, hglobals⟩
 
 /-- `llvm.mlir.addressof` is monotone: refined memories have the same globals. -/
-instance llvm_contextuallyMonotone_mlir__addressof :
-    InterpretOp'ContextuallyMonotone (.llvm .mlir__addressof) where
+instance llvm_monotone_mlir__addressof :
+    InterpretOp'Monotone (.llvm .mlir__addressof) where
   monotone properties resultTypes operands operands' blockOperands mem mem' h hMem := by
     simp only [interpretOp', Llvm.interpretOp',
       MemoryState.pointerToGlobal_eq_of_isRefinedBy hMem]
@@ -211,7 +175,7 @@ instance llvm_contextuallyMonotone_mlir__addressof :
 `llvm.alloca` is monotone: a poison count fails, and an allocation in refined memory gives the
 same pointer and refined memory.
 -/
-instance llvm_contextuallyMonotone_alloca : InterpretOp'ContextuallyMonotone (.llvm .alloca) where
+instance llvm_monotone_alloca : InterpretOp'Monotone (.llvm .alloca) where
   monotone properties resultTypes operands operands' blockOperands mem mem' h hMem := by
     simp only [interpretOp', Llvm.interpretOp']
     split
@@ -230,8 +194,8 @@ instance llvm_contextuallyMonotone_alloca : InterpretOp'ContextuallyMonotone (.l
 `llvm.intr.memset` is monotone: a poison length or pointer is undefined behavior, and the same
 length and pointer set refined memory to a refined value.
 -/
-instance llvm_contextuallyMonotone_intr__memset :
-    InterpretOp'ContextuallyMonotone (.llvm .intr__memset) where
+instance llvm_monotone_intr__memset :
+    InterpretOp'Monotone (.llvm .intr__memset) where
   monotone properties resultTypes operands operands' blockOperands mem mem' h hMem := by
     simp only [interpretOp', Llvm.interpretOp']
     split
@@ -256,8 +220,8 @@ instance llvm_contextuallyMonotone_intr__memset :
 `llvm.intr.memcpy` is monotone: a poison length or pointer is undefined behavior, and copying
 in refined memory gives refined memory.
 -/
-instance llvm_contextuallyMonotone_intr__memcpy :
-    InterpretOp'ContextuallyMonotone (.llvm .intr__memcpy) where
+instance llvm_monotone_intr__memcpy :
+    InterpretOp'Monotone (.llvm .intr__memcpy) where
   monotone properties resultTypes operands operands' blockOperands mem mem' h hMem := by
     simp only [interpretOp', Llvm.interpretOp']
     split
@@ -288,8 +252,8 @@ instance llvm_contextuallyMonotone_intr__memcpy :
 `llvm.intr.memmove` is monotone: a poison length or pointer is undefined behavior, and moving
 in refined memory gives refined memory.
 -/
-instance llvm_contextuallyMonotone_intr__memmove :
-    InterpretOp'ContextuallyMonotone (.llvm .intr__memmove) where
+instance llvm_monotone_intr__memmove :
+    InterpretOp'Monotone (.llvm .intr__memmove) where
   monotone properties resultTypes operands operands' blockOperands mem mem' h hMem := by
     simp only [interpretOp', Llvm.interpretOp']
     split

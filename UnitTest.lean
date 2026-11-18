@@ -39,3 +39,4 @@ import UnitTest.MemoryLayout
 import UnitTest.DataLayout
 import UnitTest.RegisterAllocation
 import UnitTest.ResultsConform
+import UnitTest.Monotonicity

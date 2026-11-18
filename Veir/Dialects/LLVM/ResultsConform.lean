@@ -1,6 +1,6 @@
 module
 
-public import Veir.Interpreter.Lemmas
+public import Veir.Interpreter.ResultsConformLemmas
 public import Veir.Verifier
 import all Veir.Verifier.Basic
 import all Veir.Verifier.Lemmas
@@ -17,10 +17,13 @@ public section
 /-!
 # The results of LLVM operations conform to their types
 
-A verified LLVM operation with operands that conform to their types returns, if its interpretation
-succeeds, results that conform to its result types (`OpCode.InterpResultsConform`). An operation either
-computes its results from its operands, whose types the verifier makes match its result types, or
-builds its results from its result types.
+A verified LLVM operation with operands that conform to their types returns, if its `Interp`
+interpretation succeeds, results that conform to its result types. An operation either computes
+its results from its operands, whose types the verifier makes match its result types, or builds
+its results from its result types.
+
+This is the workhorse behind the conformance of the results of an LLVM opcode's CTree, which
+`Veir.Dialects.LLVM.CTreeResultsConform` proves on top of it.
 -/
 
 namespace Veir
@@ -35,7 +38,7 @@ private theorem conforms_of_val_eq {v : RuntimeValue} {ty ty' : TypeAttr} (h : t
   obtain ⟨a, _⟩ := ty; obtain ⟨b, _⟩ := ty'; cases h; exact hv
 
 /-- A single result conforms to the result types of an operation with a single result. -/
-private theorem results_one {v : RuntimeValue} (hn' : op.getNumResults! ctx.raw = 1)
+theorem results_one {v : RuntimeValue} (hn' : op.getNumResults! ctx.raw = 1)
     (hv : v.Conforms ((op.getResult 0).getType! ctx.raw)) :
     RuntimeValue.ArrayConforms #[v] (op.getResultTypes! ctx.raw) := by
   refine ⟨by simp [OperationPtr.getResultTypes!.size_eq_getNumResults!, hn'], fun i hi => ?_⟩
@@ -57,31 +60,17 @@ private theorem operand_conforms {operands : Array RuntimeValue}
     rw [← OperationPtr.getOperandTypes!.size_eq_getNumOperands!, ← h.1]; exact hi)] at this
 
 /-- The width alone decides whether an integer conforms. -/
-private theorem int_conforms {w : Nat} {x y : Data.LLVM.Int w} {ty : TypeAttr}
+theorem int_conforms {w : Nat} {x y : Data.LLVM.Int w} {ty : TypeAttr}
     (h : (RuntimeValue.int w x).Conforms ty) : (RuntimeValue.int w y).Conforms ty := by
   obtain ⟨a, _⟩ := ty; cases a <;> exact h
 
-private theorem byte_conforms {w : Nat} {x y : Data.LLVM.Byte w} {ty : TypeAttr}
+theorem byte_conforms {w : Nat} {x y : Data.LLVM.Byte w} {ty : TypeAttr}
     (h : (RuntimeValue.byte w x).Conforms ty) : (RuntimeValue.byte w y).Conforms ty := by
   obtain ⟨a, _⟩ := ty; cases a <;> exact h
 
-private theorem addr_conforms {x y : Data.LLVM.Ptr} {ty : TypeAttr}
+theorem addr_conforms {x y : Data.LLVM.Ptr} {ty : TypeAttr}
     (h : (RuntimeValue.addr x).Conforms ty) : (RuntimeValue.addr y).Conforms ty := by
   obtain ⟨a, _⟩ := ty; cases a <;> exact h
-
-private theorem int_conforms_of_val {w : Nat} {x : Data.LLVM.Int w} {ty : TypeAttr}
-    {it : IntegerType} (h : ty.val = .integerType it) (hw : it.bitwidth = w) :
-    (RuntimeValue.int w x).Conforms ty := by
-  obtain ⟨a, _⟩ := ty; simp only at h; subst h; exact hw
-
-private theorem byte_conforms_of_val {w : Nat} {x : Data.LLVM.Byte w} {ty : TypeAttr}
-    {bt : LLVM.ByteType} (h : ty.val = .byteType bt) (hw : bt.bitwidth = w) :
-    (RuntimeValue.byte w x).Conforms ty := by
-  obtain ⟨a, _⟩ := ty; simp only at h; subst h; exact hw
-
-private theorem addr_conforms_of_val {x : Data.LLVM.Ptr} {ty : TypeAttr}
-    (h : ∃ p, ty.val = .llvmPointerType p) : (RuntimeValue.addr x).Conforms ty := by
-  obtain ⟨a, _⟩ := ty; obtain ⟨p, h⟩ := h; simp only at h; subst h; trivial
 
 private theorem float_conforms_of_val {ft : FloatType} {x : Data.Float.FloatValue ft.format}
     {ty : TypeAttr} (h : ty.val = .floatType ft) : (RuntimeValue.float ft x).Conforms ty := by
@@ -107,12 +96,6 @@ private theorem results_getElem? {v : RuntimeValue} {t : TypeAttr}
     apply List.ext_getElem <;> simp_all
   exact results_toList this hv
 
-/-! ## Interpretation -/
-
-private theorem Interp.exists_of_bind_eq_ok {α β : Type} {x : Interp α} {f : α → Interp β}
-    {b : β} (h : (x >>= f) = .ok b) : ∃ a, x = .ok a ∧ f a = .ok b := by
-  cases x <;> simp_all
-
 /-- An invariant of every step of a loop holds after the loop. -/
 private theorem Interp.forIn_list_inv {α β : Type} (l : List α) (P : β → Prop)
     {f : α → β → Interp (ForInStep β)} (hf : ∀ a b s, P b → f a b = .ok s → P s.value)
@@ -132,23 +115,6 @@ private theorem Interp.forIn_range_inv {β : Type} (r : Std.Legacy.Range) (P : �
     {init s : β} (hi : P init) (h : forIn r init f = .ok s) : P s := by
   simp only [Std.Legacy.Range.forIn_eq_forIn_range'] at h
   exact Interp.forIn_list_inv _ P hf hi h
-
-/-- A load returns a value of the type it loads. -/
-private theorem llvmLoad_conforms {mem : MemoryState} {p : Data.Pointer} {t : TypeAttr}
-    {v : RuntimeValue} (h : mem.llvmLoad p t = .ok v) : v.Conforms t := by
-  simp only [MemoryState.llvmLoad] at h
-  split at h
-  · simp at h
-  split at h <;>
-    (repeat' (first
-      | (obtain ⟨_, -, h⟩ := Interp.exists_of_bind_eq_ok h)
-      | split at h)) <;>
-    (try simp only [Interp.pure_eq, Interp.ok.injEq] at h) <;> (try subst h) <;>
-    first
-      | (simp at h; done)
-      | exact int_conforms_of_val ‹_› rfl
-      | exact byte_conforms_of_val ‹_› rfl
-      | exact addr_conforms_of_val ⟨_, ‹_›⟩
 
 /-- A bitcast returns a value of the type it casts to. -/
 private theorem bitcastValue_conforms {mem : MemoryState} {val r : RuntimeValue}
@@ -178,13 +144,6 @@ private theorem getProperties!_llvm {op : OperationPtr} {ctx : IRContext OpCode}
 
 /-! ## Verifier -/
 
-/-- The first check of a successful sequence of checks succeeds. -/
-private theorem bind_ok_left {ε α : Type} {x : Except ε PUnit} {f : PUnit → Except ε α}
-    {a : α} (h : (x >>= f) = .ok a) : x = .ok () := by
-  cases x with
-  | ok u => rfl
-  | error e => simp [bind, Except.bind] at h
-
 private theorem llvmVerified {opT : Llvm} (hType : op.getOpType! ctx.raw = .llvm opT)
     (hV : op.Verified ctx opIn) : Llvm.verifyLocalInvariants opT op ctx opIn = .ok () := by
   simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
@@ -192,41 +151,16 @@ private theorem llvmVerified {opT : Llvm} (hType : op.getOpType! ctx.raw = .llvm
     ← OperationPtr.getOpType!_eq_getOpType, hType] at hV
   exact hV
 
-private theorem verifyNonOperandCounts_ok {r g s : Nat}
-    (h : op.verifyNonOperandCounts ctx opIn r g s = .ok ()) : op.getNumResults! ctx.raw = r := by
-  rw [OperationPtr.getNumResults!_eq_getNumResults opIn]
-  simp only [OperationPtr.verifyNonOperandCounts] at h
-  split at h
-  · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
-  · rename_i hne; simpa using hne
-
 private theorem verifyOpCounts_ok {o r g s : Nat}
     (h : op.verifyOpCounts ctx opIn o r g s = .ok ()) : op.getNumResults! ctx.raw = r := by
   simp only [OperationPtr.verifyOpCounts] at h
   split at h
   · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
-  · exact verifyNonOperandCounts_ok h
+  · exact OperationPtr.verifyNonOperandCounts_eq_ok h
 
 private theorem verifyPlainOpCounts_ok {o r : Nat}
     (h : op.verifyPlainOpCounts ctx opIn o r = .ok ()) : op.getNumResults! ctx.raw = r :=
   verifyOpCounts_ok h
-
-private theorem verifyTerminatorCounts_ok {s : Nat}
-    (h : op.verifyTerminatorCounts ctx opIn s = .ok ()) : op.getNumResults! ctx.raw = 0 :=
-  verifyNonOperandCounts_ok h
-
-private theorem verifyLlvmPointerType_ok {ty : TypeAttr} {msg : String}
-    (h : ty.verifyLlvmPointerType msg = .ok ()) : ∃ p, ty.val = .llvmPointerType p := by
-  simp only [TypeAttr.verifyLlvmPointerType] at h
-  split at h
-  · exact ⟨_, by assumption⟩
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-
-private theorem ite_throw_ok {ε : Type} {c : Prop} [Decidable c] {e : ε}
-    (h : (if c then throw e else pure () : Except ε PUnit) = .ok ()) : ¬c := by
-  split at h
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-  · assumption
 
 private theorem verifyResultTypeMatches_ok {ty : TypeAttr} {msg : String}
     (h : op.verifyResultTypeMatches ctx ty msg = .ok ()) :
@@ -352,16 +286,12 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
   case udiv => rc_binop OperationPtr.Verified.llvm_udiv
   case srem => rc_binop OperationPtr.Verified.llvm_srem
   case urem => rc_binop OperationPtr.Verified.llvm_urem
+  case intr__smulh => rc_binop OperationPtr.Verified.llvm_intr__smulh
+  case intr__umulh => rc_binop OperationPtr.Verified.llvm_intr__umulh
   case ashr => rc_binop OperationPtr.Verified.llvm_ashr
   case and => rc_binop OperationPtr.Verified.llvm_and
   case or => rc_binop OperationPtr.Verified.llvm_or
   case xor => rc_binop OperationPtr.Verified.llvm_xor
-  case intr__smulh => rc_binop OperationPtr.Verified.llvm_intr__smulh
-  case intr__umulh => rc_binop OperationPtr.Verified.llvm_intr__umulh
-  case intr__scmp | intr__ucmp =>
-    rc_peel
-    all_goals (obtain rfl := single_of_ok h
-               exact results_toList ‹_› (int_conforms_of_val ‹_› rfl))
   case intr__smax => rc_binop OperationPtr.Verified.llvm_intr__smax
   case intr__smin => rc_binop OperationPtr.Verified.llvm_intr__smin
   case intr__umax => rc_binop OperationPtr.Verified.llvm_intr__umax
@@ -393,6 +323,15 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
       · obtain rfl := single_of_ok h
         exact results_one hR (int_conforms_of_val (by simpa using hRt) hbw)
     · simp at h
+  case intr__scmp | intr__ucmp =>
+    -- The result is an integer of the declared result type, whatever the operands are.
+    simp only [Llvm.interpretOp'] at h
+    repeat' split at h
+    all_goals first
+      | (simp at h; done)
+      | (obtain rfl := single_of_ok h
+         exact results_toList ‹(op.getResultTypes! ctx.raw).toList = _›
+           (int_conforms_of_val (by assumption) rfl))
   case select =>
     have hB := hV.llvm_select hType
     unfold OperationPtr.IsVerifiedSelect at hB
@@ -420,24 +359,26 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
   case store | intr__memset | intr__memcpy | intr__memmove =>
     have hV' := llvmVerified hType hV
     simp only [Llvm.verifyLocalInvariants] at hV'
-    have hR := verifyPlainOpCounts_ok (bind_ok_left (Except.ok_of_bind_ok hV'))
+    have hR := verifyPlainOpCounts_ok (Except.ok_left_of_bind_ok (Except.ok_of_bind_ok hV'))
     rc_empty
   case «return» | cond_br =>
     have hV' := llvmVerified hType hV
     simp only [Llvm.verifyLocalInvariants] at hV'
-    have hR := verifyTerminatorCounts_ok (bind_ok_left (Except.ok_of_bind_ok hV'))
+    have hR := OperationPtr.verifyTerminatorCounts_eq_ok
+      (Except.ok_left_of_bind_ok (Except.ok_of_bind_ok hV'))
     rc_empty
   case br =>
     have hV' := llvmVerified hType hV
     simp only [Llvm.verifyLocalInvariants] at hV'
     have hV'' := Except.ok_of_bind_ok hV'
     simp only [OperationPtr.verifyUnconditionalBranch] at hV''
-    have hR := verifyTerminatorCounts_ok (bind_ok_left hV'')
+    have hR := OperationPtr.verifyTerminatorCounts_eq_ok (Except.ok_left_of_bind_ok hV'')
     rc_empty
   case switch =>
     have hV' := llvmVerified hType hV
     simp only [Llvm.verifyLocalInvariants] at hV'
-    have hR := verifyTerminatorCounts_ok (bind_ok_left (Except.ok_of_bind_ok hV'))
+    have hR := OperationPtr.verifyTerminatorCounts_eq_ok
+      (Except.ok_left_of_bind_ok (Except.ok_of_bind_ok hV'))
     simp only [Llvm.interpretOp'] at h
     repeat' split at h
     all_goals try (simp at h; done)
@@ -465,7 +406,7 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
   case mlir__addressof =>
     have hV' := llvmVerified hType hV
     simp only [Llvm.verifyLocalInvariants] at hV'
-    have hR := verifyPlainOpCounts_ok (bind_ok_left hV')
+    have hR := verifyPlainOpCounts_ok (Except.ok_left_of_bind_ok hV')
     have hP := Except.ok_of_bind_ok hV'
     split at hP
     · next heq =>
@@ -477,8 +418,8 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
     have hV' := llvmVerified hType hV
     simp only [Llvm.verifyLocalInvariants] at hV'
     have hV1 := Except.ok_of_bind_ok hV'
-    have hR := verifyPlainOpCounts_ok (bind_ok_left hV1)
-    have hP := verifyLlvmPointerType_ok (bind_ok_left (Except.ok_of_bind_ok hV1))
+    have hR := verifyPlainOpCounts_ok (Except.ok_left_of_bind_ok hV1)
+    have hP := verifyLlvmPointerType_ok (Except.ok_left_of_bind_ok (Except.ok_of_bind_ok hV1))
     rc_peel
     all_goals (obtain rfl := single_of_ok h; exact results_one hR (addr_conforms_of_val hP))
   case getelementptr =>
@@ -499,15 +440,15 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
     · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at hV1
     /- The operand and index checks come before the one on the result. -/
     have hP := verifyLlvmPointerType_ok
-      (bind_ok_left (Except.ok_of_bind_ok (Except.ok_of_bind_ok hV1)))
+      (Except.ok_left_of_bind_ok (Except.ok_of_bind_ok (Except.ok_of_bind_ok hV1)))
     rc_peel
     all_goals (obtain rfl := single_of_ok h; exact results_one hR (addr_conforms_of_val hP))
   case freeze =>
     have hV' := llvmVerified hType hV
     simp only [Llvm.verifyLocalInvariants] at hV'
     have hV1 := Except.ok_of_bind_ok hV'
-    have hR := verifyPlainOpCounts_ok (bind_ok_left hV1)
-    have hM := verifyResultTypeMatches_ok (bind_ok_left (Except.ok_of_bind_ok hV1))
+    have hR := verifyPlainOpCounts_ok (Except.ok_left_of_bind_ok hV1)
+    have hM := verifyResultTypeMatches_ok (Except.ok_left_of_bind_ok (Except.ok_of_bind_ok hV1))
     simp only [Llvm.interpretOp'] at h
     split at h
     · next val hOps =>
@@ -549,9 +490,9 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
   case trunc =>
     have hV' := llvmVerified hType hV
     simp only [Llvm.verifyLocalInvariants] at hV'
-    have hT := bind_ok_left (Except.ok_of_bind_ok hV')
+    have hT := Except.ok_left_of_bind_ok (Except.ok_of_bind_ok hV')
     simp only [OperationPtr.verifyTruncTypes] at hT
-    have hR := verifyPlainOpCounts_ok (bind_ok_left hT)
+    have hR := verifyPlainOpCounts_ok (Except.ok_left_of_bind_ok hT)
     rc_peel
     all_goals (obtain rfl := single_of_ok h
                first
@@ -560,7 +501,7 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
   case mlir__poison | mlir__zero =>
     have hV' := llvmVerified hType hV
     simp only [Llvm.verifyLocalInvariants] at hV'
-    have hR := verifyPlainOpCounts_ok (bind_ok_left (Except.ok_of_bind_ok hV'))
+    have hR := verifyPlainOpCounts_ok (Except.ok_left_of_bind_ok (Except.ok_of_bind_ok hV'))
     rc_peel
     all_goals (obtain rfl := single_of_ok h
                first
@@ -589,24 +530,30 @@ theorem Llvm.interpretOp'_results_conform (opT : Llvm)
         exact results_getElem? hR hRes (float_conforms_of_val (hEq ▸ hBw))
   all_goals (simp only [Llvm.interpretOp'] at h; simp at h)
 
-/-- The results of every LLVM opcode conform to their types. -/
-theorem OpCode.interpResultsConform_llvm (opT : Llvm) : OpCode.InterpResultsConform (.llvm opT) := by
-  refine OpCode.interpResultsConform_def.mpr
-    fun ctx op opIn hType hV operands vals mem mem' act hConf h => ?_
-  have hType! : op.getOpType! ctx.raw = .llvm opT := by
-    rw [OperationPtr.getOpType!_eq_getOpType opIn]; exact hType
-  simp only [OperationPtr.interpret] at h
-  rw [hType!] at h
-  exact Llvm.interpretOp'_results_conform opT hType! hV hConf h
-
 /--
-info: 'Veir.OpCode.interpResultsConform_llvm' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms OpCode.interpResultsConform_llvm
+A verified `llvm.freeze` declares one result, and the verifier matches its type to the type of the
+operand, so the operand conforms to the result type.
 
-instance (op : Llvm) : InterpResultsConform (.llvm op) :=
-  ⟨OpCode.interpResultsConform_llvm op⟩
+Only `llvm.freeze` interprets a CTree of its own: where its operand carries poison it chooses a
+value. Every value it may choose has the shape of the operand, so this is what lets
+`Veir.Dialects.LLVM.CTreeResultsConform` conclude that each of them conforms.
+-/
+theorem Llvm.freeze_verified_operand_conforms {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opIn : op.InBounds ctx.raw} {operands : Array RuntimeValue} {val : RuntimeValue}
+    (hType : op.getOpType! ctx.raw = .llvm .freeze) (hV : op.Verified ctx opIn)
+    (hConf : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
+    (hOps : operands.toList = [val]) :
+    op.getNumResults! ctx.raw = 1 ∧ val.Conforms ((op.getResult 0).getType! ctx.raw) := by
+  have hV' := llvmVerified hType hV
+  simp only [Llvm.verifyLocalInvariants] at hV'
+  have hV1 := Except.ok_of_bind_ok hV'
+  have hR := verifyPlainOpCounts_ok (Except.ok_left_of_bind_ok hV1)
+  have hM := verifyResultTypeMatches_ok (Except.ok_left_of_bind_ok (Except.ok_of_bind_ok hV1))
+  obtain rfl : operands = #[val] := List.eq_toArray_iff.mpr hOps
+  have h0 := conforms_of_val_eq hM.symm (operand_conforms hConf (i := 0) (by simp))
+  simp only [Array.getElem!_eq_getD, Array.getD_eq_getD_getElem?, List.getElem?_toArray,
+    List.getElem?_cons_zero, Option.getD_some] at h0
+  exact ⟨hR, h0⟩
 
 end Veir
 
