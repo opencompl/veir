@@ -35,7 +35,7 @@ Operands and stored bytes may refine; object layout and global bindings stay fix
 axiom OpCode.interpretCTree_monotone_assumed (opType : OpCode) : interpretCTree_monotone opType
 
 /-- An opcode meets its CTree monotonicity obligation. -/
-class InterpretCTreeMonotone (opType : OpCode) : Prop where
+class InterpretOpMonotone (opType : OpCode) : Prop where
   monotone : OpCode.interpretCTree_monotone opType
 
 end Veir

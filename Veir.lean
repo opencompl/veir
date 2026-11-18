@@ -42,3 +42,4 @@ import Veir.Data.FP.FP
 import Veir.Interfaces
 import Veir.Dialects.LLVM.Interpreter
 import Veir.Dialects.ResultsConform
+import Veir.Dialects.Monotonicity
