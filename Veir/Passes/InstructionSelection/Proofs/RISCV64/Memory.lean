@@ -50,22 +50,16 @@ theorem memsetCall_semantics_counterexample :
 
 theorem lifetimeStart_valid :
     Puddle.CTree.Pattern.Valid (lowerLifetime .intr__lifetime__start) := by
-  dsimp only [lowerLifetime]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
 
 theorem lifetimeEnd_valid :
     Puddle.CTree.Pattern.Valid (lowerLifetime .intr__lifetime__end) := by
-  dsimp only [lowerLifetime]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
 
 @[proof_manual]
 theorem addressof_pattern_valid :
     Puddle.CTree.Pattern.Valid addressof_pattern := by
-  unfold addressof_pattern
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro ty props verified
   obtain ⟨p, rfl⟩ := verified.llvm_addressof_result_type
   intro _ memory

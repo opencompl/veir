@@ -159,9 +159,7 @@ theorem gmirLoad_target_expanded (memory : MemoryState) (imm : BitVec 12) (reg :
 @[proof_manual]
 theorem gmirLoad_reg_lbu_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .reg 1 .lbu) := by
-  dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro argType arg hc resultType props hv hlegal hsize memory
   obtain ⟨_, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
   simp only [RuntimeValue.Conforms.llvmPointerType] at hc
@@ -185,9 +183,7 @@ theorem gmirLoad_reg_lbu_valid :
 @[proof_manual]
 theorem gmirLoad_reg_lh_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .reg 2 .lh) := by
-  dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro argType arg hc resultType props hv hlegal hsize memory
   obtain ⟨_, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
   simp only [RuntimeValue.Conforms.llvmPointerType] at hc
@@ -211,9 +207,7 @@ theorem gmirLoad_reg_lh_valid :
 @[proof_manual]
 theorem gmirLoad_reg_lw_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .reg 4 .lw) := by
-  dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro argType arg hc resultType props hv hlegal hsize memory
   obtain ⟨_, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
   simp only [RuntimeValue.Conforms.llvmPointerType] at hc
@@ -237,9 +231,7 @@ theorem gmirLoad_reg_lw_valid :
 @[proof_manual]
 theorem gmirLoad_reg_ld_valid :
     Puddle.CTree.Pattern.Valid (gmirLoad_pattern .reg 8 .ld) := by
-  dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro argType arg hc resultType props hv hlegal hsize memory
   obtain ⟨_, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
   simp only [RuntimeValue.Conforms.llvmPointerType] at hc

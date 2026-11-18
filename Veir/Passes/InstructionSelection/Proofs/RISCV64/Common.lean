@@ -25,6 +25,8 @@ import all Veir.Dialects.RISCV.Properties
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
 import all Veir.Passes.Legalization.LegalizerInfo
 import all Veir.Verifier
+import Veir.Passes.InstructionSelection.Simp
+import Veir.PatternRewriter.Puddle.CTreeProofs
 meta import all Lean.Meta.Tactic.BVDecide.Normalize.Enums
 
 /-! Shared imports for the RISC-V 64-bit instruction-selection validity proofs. -/
@@ -199,5 +201,44 @@ theorem isLegal_g_select_types (dst cond : TypeAttr) (props : GMIR.propertiesOf 
   obtain ⟨hd | hd, hc⟩ := legal_select_llt dst cond props h
   · exact ⟨.inl (type_of_scalar64 dst hd), type_of_scalar64 cond hc⟩
   · exact ⟨.inr (type_of_pointer0 dst hd), type_of_scalar64 cond hc⟩
+
+/-! ## Opening the validity goals -/
+
+/-- Unfold an instruction-selection pattern (`isel_pattern`), resolving the choices it makes on its
+arguments, and discharge the structural obligations (`simpPuddleValid`). -/
+macro "simpIselPattern" : tactic => `(tactic| (
+  simp +decide only [isel_pattern, ↓reduceIte]
+  simpPuddleValid))
+
+/-- Open the validity goal of an instruction-selection pattern, as for the combines:
+`simpIselPattern`, then unfold the semantics of its operations (`ctree_semantics`, to which each
+proof file adds the interpreters locally, with the extra simp arguments). -/
+syntax "simpIselSemantics" (" [" Lean.Parser.Tactic.simpArg,* "]")? : tactic
+
+macro_rules
+  | `(tactic| simpIselSemantics) => `(tactic| (
+      simpIselPattern
+      simp [ctree_semantics]))
+  | `(tactic| simpIselSemantics [$args,*]) => `(tactic| (
+      simpIselPattern
+      simp [ctree_semantics, $args,*]))
+
+/-- Prove the validity of a pattern whose created operations compute on the matched values
+directly: open it, split each matched `Data.LLVM.Int` into poison and a value, and bit-blast. -/
+syntax "proveIselValid" (" [" Lean.Parser.Tactic.simpArg,* "]")? : tactic
+
+macro_rules
+  | `(tactic| proveIselValid) => `(tactic| (
+      simpIselSemantics
+      intros
+      (casesLocalsOf Data.LLVM.Int)
+      all_goals simp_all [RuntimeValue.isRefinedBy]
+      all_goals veir_bv_decide))
+  | `(tactic| proveIselValid [$args,*]) => `(tactic| (
+      simpIselSemantics [$args,*]
+      intros
+      (casesLocalsOf Data.LLVM.Int)
+      all_goals simp_all [RuntimeValue.isRefinedBy]
+      all_goals veir_bv_decide))
 
 end Veir

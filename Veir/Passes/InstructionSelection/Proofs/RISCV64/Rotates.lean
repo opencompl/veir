@@ -62,42 +62,22 @@ theorem lowerFsh_constant_match_counterexample (memory : MemoryState) :
 @[proof_bv]
 theorem fshl64_pattern_valid :
     Puddle.CTree.Pattern.Valid fshl64_pattern := by
-  unfold fshl64_pattern
-  simp only [lowerRotate]
-  simpPuddleValid
-  simp [ctree_semantics]
-  intro sign a b p _hVerified v hv w hw
-  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
+  proveIselValid
 
 @[proof_bv]
 theorem fshl32_pattern_valid :
     Puddle.CTree.Pattern.Valid fshl32_pattern := by
-  unfold fshl32_pattern
-  simp only [lowerRotate]
-  simpPuddleValid
-  simp [ctree_semantics]
-  intro sign a b p _hVerified v hv w hw
-  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
+  proveIselValid
 
 @[proof_bv]
 theorem fshr64_pattern_valid :
     Puddle.CTree.Pattern.Valid fshr64_pattern := by
-  unfold fshr64_pattern
-  simp only [lowerRotate]
-  simpPuddleValid
-  simp [ctree_semantics]
-  intro sign a b p _hVerified v hv w hw
-  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
+  proveIselValid
 
 @[proof_bv]
 theorem fshr32_pattern_valid :
     Puddle.CTree.Pattern.Valid fshr32_pattern := by
-  unfold fshr32_pattern
-  simp only [lowerRotate]
-  simpPuddleValid
-  simp [ctree_semantics]
-  intro sign a b p _hVerified v hv w hw
-  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
+  proveIselValid
 
 private theorem narrow_ofInt (v : Int) (k : Nat) (hk : k ≤ 64) :
     (BitVec.ofInt 64 v).setWidth k = BitVec.ofInt k v := by
@@ -142,9 +122,7 @@ private theorem ternaryOperandTypes (tx ty tz : TypeAttr) (out : IntegerType)
 @[proof_bv]
 theorem fshrConst64_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst false 64) := by
-  dsimp only [lowerFshConst]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro valTy amtTy sign a ha cp _hConstant b mem₀ mem₁ hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨64, sign⟩ (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
@@ -167,9 +145,7 @@ theorem fshrConst64_valid :
 @[proof_bv]
 theorem fshrConst32_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst false 32) := by
-  dsimp only [lowerFshConst]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro valTy amtTy sign a ha cp _hConstant b mem₀ mem₁ hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
@@ -192,9 +168,7 @@ theorem fshrConst32_valid :
 @[proof_bv]
 theorem fshrConst32Trunc_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst false 32 true) := by
-  dsimp only [lowerFshConst]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro valTy amtTy sign a ha cp _hConstant b mem₀ mem₁ hb truncTy tp _hTrunc c mem₂ mem₃ hc p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType truncTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
@@ -228,9 +202,7 @@ theorem fshrConst32Trunc_valid :
 @[proof_bv]
 theorem fshlConst64_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst true 64) := by
-  dsimp only [lowerFshConst]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro valTy amtTy sign a ha cp _hConstant b mem₀ mem₁ hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨64, sign⟩ (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
@@ -253,9 +225,7 @@ theorem fshlConst64_valid :
 @[proof_bv]
 theorem fshlConst32_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst true 32) := by
-  dsimp only [lowerFshConst]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro valTy amtTy sign a ha cp _hConstant b mem₀ mem₁ hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
@@ -278,9 +248,7 @@ theorem fshlConst32_valid :
 @[proof_bv]
 theorem fshlConst32Trunc_valid :
     Puddle.CTree.Pattern.Valid (lowerFshConst true 32 true) := by
-  dsimp only [lowerFshConst]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro valTy amtTy sign a ha cp _hConstant b mem₀ mem₁ hb truncTy tp _hTrunc c mem₂ mem₃ hc p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType truncTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
@@ -314,9 +282,7 @@ theorem fshlConst32Trunc_valid :
 @[proof_bv]
 theorem fshlGeneral64_valid :
     Puddle.CTree.Pattern.Valid (lowerFshlGeneral 64) := by
-  dsimp only [lowerFshlGeneral]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro tx ty tz sign a ha b hb c hc p hVerified
   obtain ⟨rfl, rfl, rfl⟩ := ternaryOperandTypes tx ty tz ⟨64, sign⟩
     (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
@@ -333,9 +299,7 @@ theorem fshlGeneral64_valid :
 @[proof_bv]
 theorem fshlGeneral32_valid :
     Puddle.CTree.Pattern.Valid (lowerFshlGeneral 32) := by
-  dsimp only [lowerFshlGeneral]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro tx ty tz sign a ha b hb c hc p hVerified
   obtain ⟨rfl, rfl, rfl⟩ := ternaryOperandTypes tx ty tz ⟨32, sign⟩
     (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
@@ -352,9 +316,7 @@ theorem fshlGeneral32_valid :
 @[proof_bv]
 theorem fshrGeneral64_valid :
     Puddle.CTree.Pattern.Valid (lowerFshrGeneral 64) := by
-  dsimp only [lowerFshrGeneral]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro tx ty tz sign a ha b hb c hc p hVerified
   obtain ⟨rfl, rfl, rfl⟩ := ternaryOperandTypes tx ty tz ⟨64, sign⟩
     (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
@@ -371,9 +333,7 @@ theorem fshrGeneral64_valid :
 @[proof_bv]
 theorem fshrGeneral32_valid :
     Puddle.CTree.Pattern.Valid (lowerFshrGeneral 32) := by
-  dsimp only [lowerFshrGeneral]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro tx ty tz sign a ha b hb c hc p hVerified
   obtain ⟨rfl, rfl, rfl⟩ := ternaryOperandTypes tx ty tz ⟨32, sign⟩
     (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)

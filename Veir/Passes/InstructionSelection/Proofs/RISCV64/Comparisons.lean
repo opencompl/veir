@@ -25,9 +25,7 @@ attribute [local implicit_reducible] TypeAttr
 @[proof_bv]
 theorem gmirSelectZeroFalse_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZero_pattern true) := by
-  dsimp only [gmirSelectZero_pattern, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   intro ty ct c a cp hconst p _verified zero legal
   have hprop := IsFromVerifiedOp.gmir_constant_type (ty := ty) (props := cp) (by assumption)
   obtain ⟨hd, ⟨cs, hc⟩⟩ := isLegal_g_select_types
@@ -55,9 +53,7 @@ theorem gmirSelectZeroFalse_pattern_valid :
 @[proof_bv]
 theorem gmirSelectZeroTrue_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZero_pattern false) := by
-  dsimp only [gmirSelectZero_pattern, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   intro ty ct c a cp hconst p _verified zero legal
   have hprop := IsFromVerifiedOp.gmir_constant_type (ty := ty) (props := cp) (by assumption)
   obtain ⟨hd, ⟨cs, hc⟩⟩ := isLegal_g_select_types
@@ -85,10 +81,7 @@ theorem gmirSelectZeroTrue_pattern_valid :
 @[proof_bv]
 theorem gmirSelect_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSelect_pattern := by
-  unfold gmirSelect_pattern
-  simp only [matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro dst ct c t ht f hf p _verified legal
   obtain ⟨hd, ⟨cs, hc⟩⟩ := isLegal_g_select_types dst (TypeAttr.of IntegerType ct) p legal
   have hct : ct = ⟨64, cs⟩ := by exact IsTypeAttr.of_injective hc
@@ -109,8 +102,7 @@ theorem gmirSelect_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_eq_zero_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .eq true) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha cp hconst b hb p hp _verified zero legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha
@@ -132,8 +124,7 @@ theorem gmirIcmp_eq_zero_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_eq_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .eq false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -149,8 +140,7 @@ theorem gmirIcmp_eq_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_ne_zero_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ne true) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha cp hconst b hb p hp _verified zero legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha
@@ -172,8 +162,7 @@ theorem gmirIcmp_ne_zero_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_ne_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ne false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -189,8 +178,7 @@ theorem gmirIcmp_ne_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_slt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .slt false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -206,8 +194,7 @@ theorem gmirIcmp_slt_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_sgt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .sgt false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -223,8 +210,7 @@ theorem gmirIcmp_sgt_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_ult_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ult false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -240,8 +226,7 @@ theorem gmirIcmp_ult_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_ugt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ugt false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -257,8 +242,7 @@ theorem gmirIcmp_ugt_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_sge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .sge false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -274,8 +258,7 @@ theorem gmirIcmp_sge_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_sle_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .sle false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -291,8 +274,7 @@ theorem gmirIcmp_sle_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_uge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .uge false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -308,8 +290,7 @@ theorem gmirIcmp_uge_pattern_valid :
 @[proof_bv]
 theorem gmirIcmp_ule_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ule false) := by
-  dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
-  simpPuddleValid
+  simpIselPattern
   intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
@@ -339,9 +320,8 @@ private theorem sltiImm_field {pred : Data.LLVM.IntPred} {c imm : Int}
 @[proof_bv]
 theorem gmirSlti_slt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .slt) := by
-  dsimp only [gmirSlti_pattern, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  dsimp only [gmirSlti_pattern]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
@@ -358,9 +338,8 @@ theorem gmirSlti_slt_pattern_valid :
 @[proof_bv]
 theorem gmirSlti_ult_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .ult) := by
-  dsimp only [gmirSlti_pattern, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  dsimp only [gmirSlti_pattern]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
@@ -377,9 +356,8 @@ theorem gmirSlti_ult_pattern_valid :
 @[proof_bv]
 theorem gmirSlti_sge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .sge) := by
-  dsimp only [gmirSlti_pattern, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  dsimp only [gmirSlti_pattern]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
@@ -396,9 +374,8 @@ theorem gmirSlti_sge_pattern_valid :
 @[proof_bv]
 theorem gmirSlti_uge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .uge) := by
-  dsimp only [gmirSlti_pattern, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  dsimp only [gmirSlti_pattern]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
@@ -415,9 +392,8 @@ theorem gmirSlti_uge_pattern_valid :
 @[proof_bv]
 theorem gmirSlti_sle_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .sle) := by
-  dsimp only [gmirSlti_pattern, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  dsimp only [gmirSlti_pattern]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
@@ -443,9 +419,8 @@ theorem gmirSlti_sle_pattern_valid :
 @[proof_bv]
 theorem gmirSlti_ule_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlti_pattern .ule) := by
-  dsimp only [gmirSlti_pattern, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  dsimp only [gmirSlti_pattern]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted

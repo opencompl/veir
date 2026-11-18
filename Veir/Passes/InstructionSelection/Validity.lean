@@ -288,7 +288,7 @@ theorem toInt_trunc_toInt (r : Data.RISCV.Reg) (tb : Nat) (h : 64 > tb) :
 by 64, which the remaining width guard contradicts. -/
 @[proof_manual]
 theorem formal_argument_valid : Puddle.CTree.Pattern.Valid lowerFormalArgument_pattern := by
-  unfold lowerFormalArgument_pattern
+  simp +decide only [isel_pattern, ↓reduceIte]
   simpPuddleValid
   simpLegalSemantics
   normalizeIselValid

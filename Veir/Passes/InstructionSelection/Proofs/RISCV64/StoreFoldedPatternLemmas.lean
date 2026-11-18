@@ -22,9 +22,7 @@ attribute [local implicit_reducible] TypeAttr
 @[proof_bv]
 theorem lowerStore_gepConst_sb_of (store_refines : StorePrimitiveRefines 1) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepConst 1 .sb) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro ty value conforms argType arg harg gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
@@ -77,9 +75,7 @@ theorem lowerStore_gepConst_sb_of (store_refines : StorePrimitiveRefines 1) :
 @[proof_bv]
 theorem lowerStore_gepConst_sh_of (store_refines : StorePrimitiveRefines 2) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepConst 2 .sh) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro ty value conforms argType arg harg gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
@@ -132,9 +128,7 @@ theorem lowerStore_gepConst_sh_of (store_refines : StorePrimitiveRefines 2) :
 @[proof_bv]
 theorem lowerStore_gepConst_sw_of (store_refines : StorePrimitiveRefines 4) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepConst 4 .sw) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro ty value conforms argType arg harg gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
@@ -188,9 +182,7 @@ set_option maxHeartbeats 800000 in
 @[proof_bv]
 theorem lowerStore_gepConst_sd_of (store_refines : StorePrimitiveRefines 8) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepConst 8 .sd) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro ty value conforms argType arg harg gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
@@ -263,9 +255,7 @@ theorem lowerStore_gepConst_sd_of (store_refines : StorePrimitiveRefines 8) :
 @[proof_bv]
 theorem lowerStore_gepIndex_sb_of (store_refines : StorePrimitiveRefines 1) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 1 .sb) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
+  simpIselSemantics [←Attribute.integerType_eq_of, -UInt64.ofInt_add]
   intro ty value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
@@ -318,9 +308,7 @@ theorem lowerStore_gepIndex_sb_of (store_refines : StorePrimitiveRefines 1) :
 @[proof_bv]
 theorem lowerStore_gepIndex_sh_of (store_refines : StorePrimitiveRefines 2) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 2 .sh) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
+  simpIselSemantics [←Attribute.integerType_eq_of, -UInt64.ofInt_add]
   intro ty value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
@@ -373,9 +361,7 @@ theorem lowerStore_gepIndex_sh_of (store_refines : StorePrimitiveRefines 2) :
 @[proof_bv]
 theorem lowerStore_gepIndex_sw_of (store_refines : StorePrimitiveRefines 4) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 4 .sw) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
+  simpIselSemantics [←Attribute.integerType_eq_of, -UInt64.ofInt_add]
   intro ty value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp
@@ -429,9 +415,7 @@ set_option maxHeartbeats 800000 in
 @[proof_bv]
 theorem lowerStore_gepIndex_sd_of (store_refines : StorePrimitiveRefines 8) :
     Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 8 .sd) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
+  simpIselSemantics [←Attribute.integerType_eq_of, -UInt64.ofInt_add]
   intro ty value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
     .riscv64 = .ok (#[address], after, none) at hinterp

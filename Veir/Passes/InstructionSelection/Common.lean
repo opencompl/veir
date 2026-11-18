@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Puddle.Builders
 import Veir.DataLayout.RISCV64
+import Veir.Passes.InstructionSelection.Simp
 
 public section
 
@@ -36,6 +37,7 @@ open Puddle
   `guard` adds conditions on the matched operand and result types and on the properties of the
   `srcOp` operation.
 -/
+@[isel_pattern]
 def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp))
     (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop srcOp) →
@@ -66,6 +68,7 @@ def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
   preserve signed order), apply `riscvOp`, and cast the result back to the source type.
   `guard` adds conditions on the matched type and on the properties of the `srcOp` operation.
 -/
+@[isel_pattern]
 def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp))
     (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none)

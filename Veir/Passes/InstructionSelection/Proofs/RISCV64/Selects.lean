@@ -29,8 +29,7 @@ theorem gmirSelectZeroOfSetcc_valid (zeroFalse neq zeroRhs : Bool) :
   cases zeroRhs
   case false =>
     cases zeroFalse <;> cases neq
-    all_goals dsimp [gmirSelectZeroOfSetcc_pattern, matchLegal]
-    all_goals simpPuddleValid
+    all_goals simpIselPattern
     all_goals
       intro ty opTy a ha b hb condTy cp hp hcmpVerified cmp hcmp v hv zp hzeroVerified zero hzero sp hselectVerified legalCmp zeroMatch legalSelect
       obtain ⟨hd, ⟨cs, hc⟩⟩ := isLegal_g_select_types
@@ -69,8 +68,7 @@ theorem gmirSelectZeroOfSetcc_valid (zeroFalse neq zeroRhs : Bool) :
         cases impossible
   case true =>
     cases zeroFalse <;> cases neq
-    all_goals dsimp [gmirSelectZeroOfSetcc_pattern, matchLegal]
-    all_goals simpPuddleValid
+    all_goals simpIselPattern
     all_goals
       intro ty opTy a ha rp hrVerified b hb condTy cp hp hcmpVerified cmp hcmp v hv zp hzeroVerified zero hzero sp hselectVerified rhsMatch legalCmp zeroMatch legalSelect
       obtain ⟨hd, ⟨cs, hc⟩⟩ := isLegal_g_select_types

@@ -57,10 +57,7 @@ private theorem singleBitImm_mask {complement : Bool} {c imm : Int}
 @[proof_bv]
 theorem gmirBseti_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBseti_pattern := by
-  unfold gmirBseti_pattern
-  simp only [gmirSingleBit_pattern, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   rintro ss a ⟨c⟩ accepted verifiedConstant p verifiedRoot legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   have mask := singleBitImm_mask himm
@@ -73,10 +70,7 @@ theorem gmirBseti_pattern_valid :
 @[proof_bv]
 theorem gmirBinvi_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBinvi_pattern := by
-  unfold gmirBinvi_pattern
-  simp only [gmirSingleBit_pattern, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   rintro ss a ⟨c⟩ accepted verifiedConstant p verifiedRoot legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   have mask := singleBitImm_mask himm
@@ -89,10 +83,7 @@ theorem gmirBinvi_pattern_valid :
 @[proof_bv]
 theorem gmirBclri_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBclri_pattern := by
-  unfold gmirBclri_pattern
-  simp only [gmirSingleBit_pattern, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   rintro ss a ⟨c⟩ accepted verifiedConstant p verifiedRoot legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   have mask := singleBitImm_mask himm
@@ -105,9 +96,7 @@ theorem gmirBclri_pattern_valid :
 @[proof_bv]
 theorem gmirOrcb_0_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 0) := by
-  dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
     ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift q verifiedRoot h m
@@ -122,9 +111,7 @@ theorem gmirOrcb_0_pattern_valid :
 @[proof_bv]
 theorem gmirOrcb_1_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 1) := by
-  dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
     ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
@@ -140,9 +127,7 @@ theorem gmirOrcb_1_pattern_valid :
 @[proof_bv]
 theorem gmirOrcb_2_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 2) := by
-  dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
     ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
@@ -158,9 +143,7 @@ theorem gmirOrcb_2_pattern_valid :
 @[proof_bv]
 theorem gmirOrcb_3_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 3) := by
-  dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
     ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
@@ -176,9 +159,7 @@ theorem gmirOrcb_3_pattern_valid :
 @[proof_bv]
 theorem gmirOrcb_4_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 4) := by
-  dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
     ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
@@ -194,9 +175,7 @@ theorem gmirOrcb_4_pattern_valid :
 @[proof_bv]
 theorem gmirOrcb_5_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 5) := by
-  dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
     ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
@@ -212,9 +191,7 @@ theorem gmirOrcb_5_pattern_valid :
 @[proof_bv]
 theorem gmirOrcb_6_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 6) := by
-  dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
     ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
@@ -230,9 +207,7 @@ theorem gmirOrcb_6_pattern_valid :
 @[proof_bv]
 theorem gmirOrcb_7_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirOrcb_pattern 7) := by
-  dsimp only [gmirOrcb_pattern, matchConstant64, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
     ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
@@ -248,10 +223,7 @@ theorem gmirOrcb_7_pattern_valid :
 @[proof_bv]
 theorem gmirBexti_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBexti_pattern := by
-  unfold gmirBexti_pattern
-  simp only [matchLegal, matchConstant64, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨⟨c, ct⟩⟩ hc verifiedShiftAmount p verifiedShift
     ⟨⟨one, onety⟩⟩ hone verifiedOne q verifiedRoot h
@@ -272,10 +244,7 @@ theorem gmirBexti_pattern_valid :
 @[proof_bv]
 theorem gmirRiscvClzw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvClzw_pattern := by
-  unfold gmirRiscvClzw_pattern
-  simp only [lowerUnary]
-  simpPuddleValid
-  simp [ctree_semantics, GMIR_RISCV.base]
+  simpIselSemantics [GMIR_RISCV.base]
   intro sign ty a p verified memory
   obtain ⟨s, _, hr⟩ := verified.gmir_riscv_clzw_types
   have ht : ty = ⟨64, s⟩ := IsTypeAttr.of_injective (by
@@ -291,10 +260,7 @@ theorem gmirRiscvClzw_pattern_valid :
 @[proof_bv]
 theorem gmirRiscvCtzw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvCtzw_pattern := by
-  unfold gmirRiscvCtzw_pattern
-  simp only [lowerUnary]
-  simpPuddleValid
-  simp [ctree_semantics, GMIR_RISCV.base]
+  simpIselSemantics [GMIR_RISCV.base]
   intro sign ty a p verified memory
   obtain ⟨s, _, hr⟩ := verified.gmir_riscv_ctzw_types
   have ht : ty = ⟨64, s⟩ := IsTypeAttr.of_injective (by
@@ -310,10 +276,7 @@ theorem gmirRiscvCtzw_pattern_valid :
 @[proof_manual]
 theorem gmirCtlz_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirCtlz_pattern := by
-  unfold gmirCtlz_pattern
-  simp only [lowerUnary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s ty a p verifiedRoot hlegal hwidth v hv
   cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.ctlz, Data.RISCV.val_clz]
   all_goals simp_all -failIfUnchanged [Id.run]
@@ -321,10 +284,7 @@ theorem gmirCtlz_pattern_valid :
 @[proof_manual]
 theorem gmirCttz_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirCttz_pattern := by
-  unfold gmirCttz_pattern
-  simp only [lowerUnary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s ty a p verifiedRoot hlegal hwidth v hv
   cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.cttz, Data.RISCV.val_ctz]
   all_goals simp_all -failIfUnchanged [Id.run]
@@ -332,10 +292,7 @@ theorem gmirCttz_pattern_valid :
 @[proof_manual]
 theorem gmirCtpop_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirCtpop_pattern := by
-  unfold gmirCtpop_pattern
-  simp only [lowerUnary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s ty a p verifiedRoot hlegal hwidth v hv
   cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.isRefinedBy, Data.LLVM.Int.ctpop, Data.RISCV.val_cpop]
   all_goals simp_all -failIfUnchanged [Id.run]
@@ -343,10 +300,7 @@ theorem gmirCtpop_pattern_valid :
 @[proof_bv]
 theorem gmirCpopw_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirCpopw_pattern false) := by
-  unfold gmirCpopw_pattern
-  simp only [matchLegal, createRegOp, matchZext32, Bool.false_eq_true, ↓reduceIte]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   intro s t a p verifiedExtend q verifiedRoot h v hv
   cases a with
@@ -363,10 +317,7 @@ theorem gmirCpopw_pattern_valid :
 @[proof_bv]
 theorem gmirCpopw_masked_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirCpopw_pattern true) := by
-  unfold gmirCpopw_pattern
-  simp only [matchLegal, createRegOp, matchZext32, matchConstant64, ↓reduceIte]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   simp [←Attribute.integerType_eq_of]
   rintro s a ⟨c⟩ mask _verifiedMask p _verifiedAnd q _verifiedRoot legal v hv
   simp only [decide_eq_true_eq] at mask
@@ -378,10 +329,7 @@ theorem gmirCpopw_masked_pattern_valid :
 @[proof_bv]
 theorem gmirBswap_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBswap_pattern := by
-  unfold gmirBswap_pattern
-  simp only [lowerUnary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro sign ty a p verifiedRoot legal v hv
   have width : ty.bitwidth = 64 := by
     by_cases h : ty.bitwidth = 64
@@ -398,10 +346,7 @@ theorem gmirBswap_pattern_valid :
 @[proof_bv]
 theorem gmirBrev8_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBrev8_pattern := by
-  unfold gmirBrev8_pattern
-  simp only [lowerUnary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro sign ty a p verifiedRoot legal v hv
   have width : ty.bitwidth = 64 := by
     by_cases h : ty.bitwidth = 64
@@ -418,12 +363,7 @@ theorem gmirBrev8_pattern_valid :
 @[proof_bv]
 theorem gmirBitreverse_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirBitreverse_pattern := by
-  unfold gmirBitreverse_pattern
-  simp only [matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
-  intro s a p verifiedRoot h v hv
-  cases a <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
+  proveIselValid
 
 set_option maxRecDepth 4096 in
 /-- Without a verification premise, the interpreter admits mismatched result types. -/

@@ -26,9 +26,7 @@ attribute [local implicit_reducible] TypeAttr
 @[proof_bv]
 theorem lowerLoad_reg_lbu_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .reg 1 .lbu) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro argType arg harg resultType props verified width memory
   obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
   · cases arg <;> simp [ctree_semantics]
@@ -54,9 +52,7 @@ theorem lowerLoad_reg_lbu_valid :
 @[proof_bv]
 theorem lowerLoad_reg_lh_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .reg 2 .lh) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro argType arg harg resultType props verified width memory
   obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
   · cases arg <;> simp [ctree_semantics]
@@ -82,9 +78,7 @@ theorem lowerLoad_reg_lh_valid :
 @[proof_bv]
 theorem lowerLoad_reg_lw_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .reg 4 .lw) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro argType arg harg resultType props verified width memory
   obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
   · cases arg <;> simp [ctree_semantics]
@@ -110,9 +104,7 @@ theorem lowerLoad_reg_lw_valid :
 @[proof_bv]
 theorem lowerLoad_reg_ld_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .reg 8 .ld) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro argType arg harg resultType props verified width memory
   obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
   · cases arg <;> simp [ctree_semantics]
@@ -154,9 +146,7 @@ theorem lowerLoad_reg_ld_valid :
 @[proof_bv]
 theorem lowerLoad_gepConst_lbu_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepConst 1 .lbu) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro argType arg harg gepType gep verifiedGEP address before after hinterp
     resultType props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
@@ -211,9 +201,7 @@ theorem lowerLoad_gepConst_lbu_valid :
 @[proof_bv]
 theorem lowerLoad_gepConst_lh_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepConst 2 .lh) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro argType arg harg gepType gep verifiedGEP address before after hinterp
     resultType props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
@@ -268,9 +256,7 @@ theorem lowerLoad_gepConst_lh_valid :
 @[proof_bv]
 theorem lowerLoad_gepConst_lw_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepConst 4 .lw) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro argType arg harg gepType gep verifiedGEP address before after hinterp
     resultType props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
@@ -325,9 +311,7 @@ theorem lowerLoad_gepConst_lw_valid :
 @[proof_bv]
 theorem lowerLoad_gepConst_ld_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepConst 8 .ld) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, -UInt64.ofInt_add]
+  simpIselSemantics [-UInt64.ofInt_add]
   intro argType arg harg gepType gep verifiedGEP address before after hinterp
     resultType props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
@@ -401,9 +385,7 @@ theorem lowerLoad_gepConst_ld_valid :
 @[proof_bv]
 theorem lowerLoad_gepIndex_lbu_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepIndex 1 .lbu) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
+  simpIselSemantics [←Attribute.integerType_eq_of, -UInt64.ofInt_add]
   intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
     resultType props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
@@ -459,9 +441,7 @@ theorem lowerLoad_gepIndex_lbu_valid :
 @[proof_bv]
 theorem lowerLoad_gepIndex_lh_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepIndex 2 .lh) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
+  simpIselSemantics [←Attribute.integerType_eq_of, -UInt64.ofInt_add]
   intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
     resultType props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
@@ -517,9 +497,7 @@ theorem lowerLoad_gepIndex_lh_valid :
 @[proof_bv]
 theorem lowerLoad_gepIndex_lw_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepIndex 4 .lw) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
+  simpIselSemantics [←Attribute.integerType_eq_of, -UInt64.ofInt_add]
   intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
     resultType props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
@@ -576,9 +554,7 @@ theorem lowerLoad_gepIndex_lw_valid :
 @[proof_bv]
 theorem lowerLoad_gepIndex_ld_valid :
     Puddle.CTree.Pattern.Valid (lowerLoad .gepIndex 8 .ld) := by
-  dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
+  simpIselSemantics [←Attribute.integerType_eq_of, -UInt64.ofInt_add]
   intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
     resultType props verified selected width memory
   change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before

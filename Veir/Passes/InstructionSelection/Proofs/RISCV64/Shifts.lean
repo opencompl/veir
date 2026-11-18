@@ -24,10 +24,7 @@ attribute [local implicit_reducible] TypeAttr
 @[proof_bv]
 theorem gmirShl_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirShl_pattern := by
-  unfold gmirShl_pattern
-  simp only [lowerBinary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s a b p _hverified h v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy, shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
@@ -35,10 +32,7 @@ theorem gmirShl_pattern_valid :
 @[proof_bv]
 theorem gmirLshr_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirLshr_pattern := by
-  unfold gmirLshr_pattern
-  simp only [lowerBinary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s a b p _hverified h v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy, shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
@@ -46,10 +40,7 @@ theorem gmirLshr_pattern_valid :
 @[proof_bv]
 theorem gmirAshr_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAshr_pattern := by
-  unfold gmirAshr_pattern
-  simp only [lowerBinary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s a b p _hverified h v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy, shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
@@ -57,10 +48,7 @@ theorem gmirAshr_pattern_valid :
 @[proof_bv]
 theorem gmirSlli_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSlli_pattern := by
-  unfold gmirSlli_pattern
-  simp only [lowerBinaryImm, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
@@ -77,10 +65,7 @@ theorem gmirSlli_pattern_valid :
 @[proof_bv]
 theorem gmirSrli_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSrli_pattern := by
-  unfold gmirSrli_pattern
-  simp only [lowerBinaryImm, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
@@ -97,10 +82,7 @@ theorem gmirSrli_pattern_valid :
 @[proof_bv]
 theorem gmirSrai_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSrai_pattern := by
-  unfold gmirSrai_pattern
-  simp only [lowerBinaryImm, matchLegal, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
@@ -117,10 +99,7 @@ theorem gmirSrai_pattern_valid :
 @[proof_bv]
 theorem gmirRiscvSlliw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSlliw_pattern := by
-  unfold gmirRiscvSlliw_pattern
-  simp only [lowerBinaryImm, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics, GMIR_RISCV.base]
+  simpIselSemantics [GMIR_RISCV.base]
   intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
@@ -137,10 +116,7 @@ theorem gmirRiscvSlliw_pattern_valid :
 @[proof_bv]
 theorem gmirRiscvSrliw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSrliw_pattern := by
-  unfold gmirRiscvSrliw_pattern
-  simp only [lowerBinaryImm, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics, GMIR_RISCV.base]
+  simpIselSemantics [GMIR_RISCV.base]
   intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
@@ -157,10 +133,7 @@ theorem gmirRiscvSrliw_pattern_valid :
 @[proof_bv]
 theorem gmirRiscvSraiw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSraiw_pattern := by
-  unfold gmirRiscvSraiw_pattern
-  simp only [lowerBinaryImm, createRegOp]
-  simpPuddleValid
-  simp [ctree_semantics, GMIR_RISCV.base]
+  simpIselSemantics [GMIR_RISCV.base]
   intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
@@ -177,10 +150,7 @@ theorem gmirRiscvSraiw_pattern_valid :
 @[proof_bv]
 theorem gmirSlliuw_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlliuw_pattern false) := by
-  unfold gmirSlliuw_pattern
-  simp only [matchLegal, createRegOp, matchZext32, Bool.false_eq_true, ↓reduceIte]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s t a p _hzext value mem₀ mem₁ heval ⟨c⟩ hrange _hconstant other mem₂ mem₃ hc q _hverified hlegal mem
   simp only [←Attribute.integerType_eq_of] at heval hc
   simp at heval hc
@@ -197,10 +167,7 @@ theorem gmirSlliuw_pattern_valid :
 @[proof_bv]
 theorem gmirSlliuw_masked_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSlliuw_pattern true) := by
-  unfold gmirSlliuw_pattern
-  simp only [matchLegal, createRegOp, matchZext32, matchConstant64, ↓reduceIte]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro s a ⟨m⟩ hmask _hmaskConstant maskValue mem₀ mem₁ hm p _hand value mem₂ mem₃ hand
     ⟨c⟩ hrange _hconstant other mem₄ mem₅ hc q _hverified hlegal mem
   simp only [decide_eq_true_eq] at hmask
@@ -222,10 +189,7 @@ theorem gmirSlliuw_masked_pattern_valid :
 @[proof_bv]
 theorem gmirRiscvSllw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSllw_pattern := by
-  unfold gmirRiscvSllw_pattern
-  simp only [lowerBinary]
-  simpPuddleValid
-  simp [ctree_semantics, GMIR_RISCV.base]
+  simpIselSemantics [GMIR_RISCV.base]
   intro sign a b props _hverified v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
@@ -234,10 +198,7 @@ theorem gmirRiscvSllw_pattern_valid :
 @[proof_bv]
 theorem gmirRiscvSrlw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSrlw_pattern := by
-  unfold gmirRiscvSrlw_pattern
-  simp only [lowerBinary]
-  simpPuddleValid
-  simp [ctree_semantics, GMIR_RISCV.base]
+  simpIselSemantics [GMIR_RISCV.base]
   intro sign a b props _hverified v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
@@ -246,10 +207,7 @@ theorem gmirRiscvSrlw_pattern_valid :
 @[proof_bv]
 theorem gmirRiscvSraw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSraw_pattern := by
-  unfold gmirRiscvSraw_pattern
-  simp only [lowerBinary]
-  simpPuddleValid
-  simp [ctree_semantics, GMIR_RISCV.base]
+  simpIselSemantics [GMIR_RISCV.base]
   intro sign a b props _hverified v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]

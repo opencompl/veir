@@ -14,7 +14,6 @@ import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Rotates
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Shifts
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Selects
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.StorePatterns
-import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Coverage
 
 /-! CTree validity proofs for the RISC-V 64-bit instruction-selection patterns.
 
@@ -24,10 +23,9 @@ including every element of its generated pattern arrays. -/
 
 /-! ## Proof coverage
 
-There are 165 proved concrete Puddle pattern instances and two excluded instances
-with checked semantic counterexamples. `RISCV64Proofs.provedPatterns` packages
-each proved pattern with its validity theorem, and `provedPatterns_size` checks
-the total. Native procedural rewrites are outside this Puddle inventory.
+Every Puddle pattern of `isel-riscv64` is proven valid except the memcpy/memset call fallbacks;
+`Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass` lists them per selection loop. Native
+procedural rewrites are outside this inventory.
 
 | Family | Proved |
 | --- | ---: |

@@ -36,9 +36,7 @@ attribute [local implicit_reducible] TypeAttr
 @[proof_manual]
 theorem constant_pattern_valid :
     Puddle.CTree.Pattern.Valid constant_pattern := by
-  unfold constant_pattern
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simpIselSemantics [←Attribute.integerType_eq_of]
   intro x xBw property hProperty _hVerified
   obtain ⟨propVal, rfl⟩ : exists value, property = { value := LLVMConstantValue.integer value } := by
     cases property; grind
@@ -50,9 +48,7 @@ theorem constant_pattern_valid :
 @[proof_manual]
 theorem gmirPoison_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirPoison_pattern := by
-  unfold gmirPoison_pattern
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro ⟨attr, hattr⟩
   cases attr <;> simp [ctree_semantics, RuntimeValue.isRefinedBy,
     Data.RISCV.val_li, MemoryState.ptrFromInt,
@@ -63,10 +59,7 @@ set_option linter.unusedSimpArgs false in
 @[proof_manual]
 theorem freeze_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirFreeze_pattern := by
-  unfold gmirFreeze_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro src dst value hc props hv hlegal
   obtain rfl := hv.gmir_freeze_type_eq
   obtain ⟨s, rfl⟩ := isLegal_g_freeze_types _ props hlegal
@@ -82,10 +75,7 @@ theorem freeze_pattern_valid :
 @[proof_manual]
 theorem gmirConstant_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirConstant_pattern := by
-  unfold gmirConstant_pattern
-  simp only [matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro ⟨attr, hattr⟩ value _hVerified legal
   -- `riscv64LegalizerInfo` makes `g_constant` legal only for `i64` and pointers.
   cases attr <;> simp [ctree_semantics, RuntimeValue.isRefinedBy,

@@ -8,6 +8,7 @@ import Veir.Passes.Matching
 import Veir.PatternRewriter.Basic
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
+import Veir.Passes.InstructionSelection.Simp
 
 namespace Veir
 
@@ -175,6 +176,7 @@ def copyFromReg (ctx : WfIRContext OpCode) (type : TypeAttr) (reg : ValuePtr)
   (see `copyFromReg`). Arguments of other blocks, and full-width arguments, which the cast already
   copies, are left alone.
 -/
+@[isel_pattern]
 def lowerFormalArgument_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do

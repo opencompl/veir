@@ -95,9 +95,7 @@ private theorem bitcastType_cases (ty : TypeAttr) (h : checkBitcastType ty = tru
 @[proof_manual]
 theorem trunc_pattern_valid :
     Puddle.CTree.Pattern.Valid trunc_pattern := by
-  unfold trunc_pattern lowerRegCast
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro src dst value hc props hv hlegal
   rcases legalTrunc_types src dst hlegal with ⟨a,b,rfl,rfl,hlt,hle⟩ | ⟨a,b,rfl,rfl,hlt,hle⟩
   · simp only [RuntimeValue.Conforms.integerType] at hc
@@ -150,9 +148,7 @@ attribute [-ctree_semantics] Llvm.interpretOp'
 @[proof_manual]
 theorem bitcast_pattern_valid :
     Puddle.CTree.Pattern.Valid bitcast_pattern := by
-  unfold bitcast_pattern lowerRegCast
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro src dst value hc props hv hlegal
   have hs : checkBitcastType src = true := by simp only [isLegalBitcast, Bool.and_eq_true] at hlegal; exact hlegal.1.1.1
   have hd : checkBitcastType dst = true := by simp only [isLegalBitcast, Bool.and_eq_true] at hlegal; exact hlegal.1.1.2
@@ -216,9 +212,7 @@ private theorem anyext_reg_refinement {src dst : Nat} (hw : src ≤ 64) (hlt : s
 @[proof_manual]
 theorem gmirTrunc_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirTrunc_pattern := by
-  unfold gmirTrunc_pattern lowerRegCast
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro ⟨src,hs⟩ ⟨dst,hd⟩ value hc props hv hguard
   cases src <;> dsimp only at hguard <;> try contradiction
   cases dst <;> dsimp only at hguard <;> try contradiction
@@ -240,9 +234,7 @@ theorem gmirTrunc_pattern_valid :
 @[proof_manual]
 theorem gmirAnyext_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAnyext_pattern := by
-  unfold gmirAnyext_pattern lowerRegCast
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro ⟨src,hs⟩ ⟨dst,hd⟩ value hc props hv hguard
   cases src <;> dsimp only at hguard <;> try contradiction
   cases dst <;> dsimp only at hguard <;> try contradiction
@@ -308,9 +300,7 @@ private theorem isLegal_ptrtoint_types (dst src : TypeAttr) (props : GMIR.proper
 @[proof_manual]
 theorem gmirPtrToInt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirPtrIntCast_pattern .g_ptrtoint) := by
-  unfold gmirPtrIntCast_pattern lowerRegCast
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro src dst value hc props hv hlegal
   obtain ⟨⟨s, rfl⟩, ⟨p, rfl⟩⟩ := isLegal_ptrtoint_types dst src props hlegal
   simp only [RuntimeValue.Conforms.llvmPointerType] at hc
@@ -348,9 +338,7 @@ private theorem isLegal_inttoptr_types (dst src : TypeAttr) (props : GMIR.proper
 @[proof_manual]
 theorem   gmirIntToPtr_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirPtrIntCast_pattern .g_inttoptr) := by
-  unfold gmirPtrIntCast_pattern lowerRegCast
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro src dst value hc props hv hlegal
   obtain ⟨⟨p, rfl⟩, ⟨s, rfl⟩⟩ := isLegal_inttoptr_types dst src props hlegal
   simp only [RuntimeValue.Conforms.integerType] at hc
@@ -366,9 +354,7 @@ theorem   gmirIntToPtr_pattern_valid :
 @[proof_manual]
 theorem gmirAnyextOfReg_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAnyextOfReg_pattern := by
-  unfold gmirAnyextOfReg_pattern
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro regType reg src _castprops _hcastVerified value mem mem' hcast dst p
     _hanyVerified hlegal memory
   cases value <;> simp [ctree_semantics]
@@ -396,10 +382,7 @@ theorem gmirAnyextOfReg_pattern_valid :
 @[proof_bv]
 theorem sext16_pattern_valid :
     Puddle.CTree.Pattern.Valid sext16_pattern := by
-  unfold sext16_pattern
-  simp only [lowerExt, lowerUnary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
   have hw : width = 32 ∨ width = 64 := by
     rcases isLegal_ext_result .g_sext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
@@ -413,10 +396,7 @@ theorem sext16_pattern_valid :
 @[proof_bv]
 theorem sext32_pattern_valid :
     Puddle.CTree.Pattern.Valid sext32_pattern := by
-  unfold sext32_pattern
-  simp only [lowerExt, lowerUnary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
   have hw : width = 32 ∨ width = 64 := by
     rcases isLegal_ext_result .g_sext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
@@ -430,9 +410,7 @@ theorem sext32_pattern_valid :
 @[proof_bv]
 theorem sextInReg8_valid :
     Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 8 .sextb ()) := by
-  dsimp only [sextInRegExt_pattern, matchSextInReg, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro src sign value hc props hsz hv hlegal mem
   have ht := hv.gmir_sext_inreg_type_eq
   subst src
@@ -448,9 +426,7 @@ theorem sextInReg8_valid :
 @[proof_bv]
 theorem sextInReg16_valid :
     Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 16 .sexth ()) := by
-  dsimp only [sextInRegExt_pattern, matchSextInReg, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro src sign value hc props hsz hv hlegal mem
   have ht := hv.gmir_sext_inreg_type_eq
   subst src
@@ -466,9 +442,7 @@ theorem sextInReg16_valid :
 @[proof_bv]
 theorem sextInReg32_valid :
     Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 32 .sextw ()) := by
-  dsimp only [sextInRegExt_pattern, matchSextInReg, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro src sign value hc props hsz hv hlegal mem
   have ht := hv.gmir_sext_inreg_type_eq
   subst src
@@ -490,10 +464,7 @@ private theorem sext_low_shift (x : BitVec 64) (w : Nat) (hpos : 0 < w) (hle : w
 @[proof_bv]
 theorem sextInRegShift_pattern_valid :
     Puddle.CTree.Pattern.Valid sextInRegShift_pattern := by
-  unfold sextInRegShift_pattern
-  simp only [matchSextInReg, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro src sign value hc props h8 h16 h32 hv hlegal mem
   have ht := hv.gmir_sext_inreg_type_eq
   subst src
@@ -523,10 +494,7 @@ theorem sextInRegShift_pattern_valid :
 @[proof_bv]
 theorem zext16_pattern_valid :
     Puddle.CTree.Pattern.Valid zext16_pattern := by
-  unfold zext16_pattern
-  simp only [lowerExt, lowerUnary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
   have hw : width = 32 ∨ width = 64 := by
     rcases isLegal_ext_result .g_zext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
@@ -540,10 +508,7 @@ theorem zext16_pattern_valid :
 @[proof_bv]
 theorem zext32_pattern_valid :
     Puddle.CTree.Pattern.Valid zext32_pattern := by
-  unfold zext32_pattern
-  simp only [lowerExt, lowerUnary, matchLegal]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
   have hw : width = 32 ∨ width = 64 := by
     rcases isLegal_ext_result .g_zext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>

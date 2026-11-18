@@ -22,9 +22,7 @@ attribute [local implicit_reducible] TypeAttr
 @[proof_manual]
 theorem lowerStore_reg_sb_of (store_refines : StorePrimitiveRefines 1) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 1 .sb) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro ty value conforms argType arg harg props verified width memory
   have types := memAccessWidth_cases width
   rcases types with (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩)
@@ -51,9 +49,7 @@ theorem lowerStore_reg_sb_of (store_refines : StorePrimitiveRefines 1) :
 @[proof_manual]
 theorem lowerStore_reg_sh_of (store_refines : StorePrimitiveRefines 2) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 2 .sh) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro ty value conforms argType arg harg props verified width memory
   have types := memAccessWidth_cases width
   rcases types with (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩)
@@ -80,9 +76,7 @@ theorem lowerStore_reg_sh_of (store_refines : StorePrimitiveRefines 2) :
 @[proof_manual]
 theorem lowerStore_reg_sw_of (store_refines : StorePrimitiveRefines 4) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 4 .sw) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro ty value conforms argType arg harg props verified width memory
   have types := memAccessWidth_cases width
   rcases types with (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩)
@@ -110,9 +104,7 @@ set_option maxHeartbeats 800000 in
 @[proof_manual]
 theorem lowerStore_reg_sd_of (store_refines : StorePrimitiveRefines 8) :
     Puddle.CTree.Pattern.Valid (lowerStore .reg 8 .sd) := by
-  dsimp only [lowerStore, lowerStoreOf, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
+  simpIselSemantics
   intro ty value conforms argType arg harg props verified width memory
   have types := memAccessWidth_cases width
   rcases types with (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩)
