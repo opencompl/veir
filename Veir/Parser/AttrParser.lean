@@ -174,13 +174,16 @@ def parseOptionalByteType (short := false) : AttrParserM (Option LLVM.ByteType) 
   An unallocated register type is represented as `!riscv.reg`.
   Allocated register types should be of the form xID, i.e. only architectural,
   and range from `!riscv.reg<x0>` to `!riscv.reg<x31>`.
-  Virtually allocated register of the form jID is rejected.
+  Virtually allocated register of the form jID and `!riscv.stack` are rejected.
+  TODO: correctly parse virtual registers
 -/
 def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
   let token ← peekToken
   let .exclamationIdent := token.kind | return none
   let input := (← getThe ParserState).input
   let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName = "riscv.stack".toByteArray then
+    throwAtCurrentPos "currently only integer registers can be parsed"
   if typeName ≠ "riscv.reg".toByteArray then return none
   let _ ← consumeToken
   if ← parseOptionalPunctuation "<" then
@@ -195,11 +198,11 @@ def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
         if reg > 31 then throwAtCurrentPos "RV64 registers range from x0 to x31"
         let _ ← consumeToken
         parsePunctuation ">"
-        return some (RegisterType.mk (some reg))
+        return some (RegisterType.mk .int (some reg))
       throwAtCurrentPos "expected RV64 register of the form xID"
     | _ => throwAtCurrentPos "expected RV64 register of the form xID"
   else
-    return some $ RegisterType.mk none
+    return some $ RegisterType.mk .int none
 
 /--
   Resolve a just-consumed `!name` as a type alias. Returns `none` when the name denotes a dialect

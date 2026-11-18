@@ -330,7 +330,7 @@ private def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
           staticAllocaProperties?
       return (resultType, props))
     (fun (resultType, props) => do
-      let regType ← Puddle.CreateProg.type (RegisterType.mk none)
+      let regType ← Puddle.CreateProg.type (RegisterType.mk .int none)
       let stackOp ← Puddle.CreateProg.operation (.riscv_stack .alloca) #[] #[regType] (.inr props)
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[stackOp.res[0]!] #[resultType])
