@@ -271,18 +271,6 @@ theorem monadLift_interp_ok_iff (outcome : Interp R) (v : R) :
     simp [monadLift, MonadLift.monadLift, Veir.fail, Veir.ub, CTree.trigger_def,
       Bind.bind, CTree.CTree.bind_vis, eq_comm]
 
-/-- Lifting into the standard error/UB tree preserves outcomes and erases error locations. -/
-@[simp, grind =]
-theorem monadLift_interp_iff (outcome : Interp R) (r : Interp R) :
-    CanInterpretTo (monadLift outcome : CTree (ErrorE ⊕ₑ UBE) C R) r ↔
-      r = match outcome with
-      | .ok v => .ok v
-      | .fail _ => .fail none
-      | .ub _ => .ub none := by
-  cases outcome <;>
-    simp [monadLift, MonadLift.monadLift, Veir.fail, Veir.ub, CTree.trigger_def,
-      Bind.bind, CTree.CTree.bind_vis]
-
 /-- Binding continues successful outcomes and propagates failure or UB. -/
 @[grind =]
 theorem bind_iff {X} (t : CTree E C X) (k : X → CTree E C R)
