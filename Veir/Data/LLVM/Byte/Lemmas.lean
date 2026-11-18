@@ -246,6 +246,11 @@ theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : i ⊒ i') :
 
 /-! ## fillPoison -/
 
+/-- Unfold `fillPoison` into its bits. -/
+theorem fillPoison_def {w : Nat} (b : Byte w) (chosen : BitVec w) :
+    b.fillPoison chosen = b.val ||| (b.poison &&& chosen) := by
+  simp [Byte.fillPoison]
+
 /--
   Filling the poison bits of a byte from `chosen` gives `chosen` back, provided `chosen` already
   agrees with the byte on its non-poison bits.

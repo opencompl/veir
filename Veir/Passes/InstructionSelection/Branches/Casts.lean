@@ -4,6 +4,7 @@ public import Veir.Passes.InstructionSelection.RISCV64Branches
 public import Veir.Interpreter.CTreeRefinement.OpList
 
 import Veir.Interpreter.Refinement.Lemmas
+import Veir.Data.LLVM.Byte.Lemmas
 import Veir.Dialects.GMIR.Lemmas
 import Veir.Dialects.RISCV_Cf.Lemmas
 import Veir.Dialects.RV64.Lemmas
@@ -203,7 +204,7 @@ theorem RuntimeValue.isRefinedBy_ofReg?_of_castsTo {type : TypeAttr} {value : Ru
     simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject]
     refine ⟨_, rfl, ?_, rfl⟩
     obtain ⟨bits, rfl⟩ := hCasts
-    simpa [RuntimeValue.isRefinedBy] using
+    simpa [RuntimeValue.isRefinedBy, Data.LLVM.Byte.fillPoison_def] using
       LLVM.Byte.isRefinedBy_toByte_fillPoison h64 b bits
   case inr.inr.addr x =>
     simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject]

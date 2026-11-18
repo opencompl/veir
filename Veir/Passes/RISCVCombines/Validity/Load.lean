@@ -1,6 +1,7 @@
 module
 
 import all Veir.Passes.RISCVCombines.Validity.Common
+import all Veir.Data.LLVM.Byte.Basic
 meta import Veir.Meta.ProofKind
 
 /-! CTree validity proofs for the RISC-V combines that match a load below their root. -/
@@ -39,9 +40,9 @@ memory unchanged. -/
   simp [riscvLoadCTree, Bind.bind, PureOrErr.CanInterpretTo.bind_iff, LoadsBits]
   constructor
   · rintro ⟨b, hb, ⟨bits, rfl⟩, rfl⟩
-    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp, rfl⟩
+    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp [Data.LLVM.Byte.fillPoison], rfl⟩
   · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
-    exact ⟨b, hb, ⟨bits, by cases ext <;> simp⟩, rfl⟩
+    exact ⟨b, hb, ⟨bits, by cases ext <;> simp [Data.LLVM.Byte.fillPoison]⟩, rfl⟩
 
 @[proof_bv]
 theorem zextb_lbu_valid : Puddle.CTree.Pattern.Valid (zextb_lbu_pattern) := by

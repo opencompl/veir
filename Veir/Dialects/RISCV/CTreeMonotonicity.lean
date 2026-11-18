@@ -9,6 +9,7 @@ import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.Dialects.RISCV.OpInfo
 import Veir.Data.Casting
+import Veir.Data.LLVM.Byte.Lemmas
 import Veir.Interpreter.Refinement.Memory
 
 public section
@@ -101,7 +102,7 @@ private theorem sim_riscvLoadCTree {Q : Array RuntimeValue → Prop} (hQ : RegsA
       obtain ⟨v, hv⟩ := riscvLoad_eq_ok_of_loadByte_eq_ok ext htgt
       have hQ' := hT _ _ hv
       simp only [monadLift, MonadLift.monadLift, pure_bind]
-      refine sim_choose_left _ fun bits => sim_choose_right _ (b'.val ||| (b'.poison &&& bits)) ?_
+      refine sim_choose_left _ fun bits => sim_choose_right _ (b'.fillPoison bits) ?_
       rw [Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb]
       exact (Sim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr
         ⟨RuntimeValue.arrayIsRefinedBy_refl _, hMem, ControlFlowAction.optionIsRefinedBy_refl _⟩,

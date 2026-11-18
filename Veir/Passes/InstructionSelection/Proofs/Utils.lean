@@ -21,19 +21,7 @@ namespace Veir
 open Puddle
 open _root_.CTree
 
-@[simp, ctree_semantics]
-theorem TypeAttr.forall_of_eq_imp_iff {T : Type} [IsTypeAttr T] {P : TypeAttr → T → Prop} :
-  (∀ (type : TypeAttr) (x : T),
-    TypeAttr.of T x = type → P type x) ↔
-  (∀ (x : T), P (TypeAttr.of T x) x)
-    := by
-  grind
-
-@[simp, ctree_semantics]
-theorem IntegerType.forall_bitwidth_eq_implies_iff (P : IntegerType → Prop) :
-    (∀ (x : IntegerType), x.bitwidth = y → P x) ↔
-    ∀ signedness, P (IntegerType.mk y signedness) := by
-  grind [cases IntegerType]
+attribute [ctree_semantics] TypeAttr.forall_of_eq_imp_iff IntegerType.forall_bitwidth_eq_implies_iff
 
 /-- A pure tree is simulated by a choice followed by `after` exactly when one
 choice result makes `after` simulate that pure tree. -/

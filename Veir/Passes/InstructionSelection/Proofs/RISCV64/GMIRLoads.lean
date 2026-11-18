@@ -152,7 +152,7 @@ theorem gmirLoad_target_expanded (memory : MemoryState) (imm : BitVec 12) (reg :
       CTree.bind (CTree.bind x f) g = CTree.bind x (fun x => CTree.bind (f x) g) :=
     _root_.CTree.bind_assoc x f g
   simp [riscvLoadCTree, gmirLoad_target, riscvEffectiveAddr, loadResolvedBits,
-    Bind.bind, hassoc]
+    Data.LLVM.Byte.fillPoison, Bind.bind, hassoc]
   rfl
 
 

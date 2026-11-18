@@ -116,7 +116,7 @@ end
     Sim RR (CTree.bind (f <$> Builtin.byteToIntCTree b) k) u ↔
       ∀ bits, Sim RR (k (f (freezeByteWith b bits))) u := by
   unfold Builtin.byteToIntCTree freezeByteWith
-  split <;> simp [CTree.choose_def, CTree.tau_def, Functor.map]
+  split <;> simp [CTree.choose_def, CTree.tau_def, Functor.map, Data.LLVM.Byte.fillPoison]
 
 /-- A source that casts a byte to an integer simulates a value it can choose bits for. -/
 @[local simp] theorem sim_pure_map_byteToIntCTree_right {X Y : Type} {RR : X → Y → Prop}
@@ -124,7 +124,7 @@ end
     Sim RR (pure x : Tree X) (f <$> Builtin.byteToIntCTree b) ↔
       ∃ bits, RR x (f (freezeByteWith b bits)) := by
   unfold Builtin.byteToIntCTree freezeByteWith
-  split <;> simp [CTree.choose_def, CTree.tau_def, Functor.map]
+  split <;> simp [CTree.choose_def, CTree.tau_def, Functor.map, Data.LLVM.Byte.fillPoison]
 
 /-- A type with an `LLT` is an integer or pointer type, so no byte conforms to it. -/
 @[local simp] theorem byte_conforms_of_LLT {bw : Nat} {v : Data.LLVM.Byte bw} {t : TypeAttr}
@@ -754,7 +754,9 @@ Both sides cast between a pointer and its 64-bit address (`Data.LLVM.Ptr.toInt` 
 
 set_option maxRecDepth 10000 in
 theorem ptrtoint_valid : Puddle.CTree.Pattern.Valid lowerPtrToInt := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  conv => arg 1; cbv
+  simpPuddleValid
+  simpLegalSemantics
 
 set_option maxRecDepth 10000 in
 theorem inttoptr_valid : Puddle.CTree.Pattern.Valid lowerIntToPtr := by

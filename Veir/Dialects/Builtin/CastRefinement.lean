@@ -25,7 +25,7 @@ theorem byteToIntCTree_concrete (value : LLVM.Byte width)
     (hzero : value.poison = 0) (hwidth : 0 < width) (result : LLVM.Int width) :
     PureOrErr.CanInterpretTo (byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) value)
       (.ok result) ↔ result = .val value.val := by
-  simp [byteToIntCTree, hzero, Nat.ne_of_gt hwidth,
+  simp [byteToIntCTree, LLVM.Byte.fillPoison, hzero, Nat.ne_of_gt hwidth,
     PureOrErr.CanInterpretTo.map_iff, PureOrErr.CanInterpretTo.choose_iff]
 
 /-- Integer-to-byte-to-integer casts preserve both concrete integer outcomes and poison. -/
@@ -130,7 +130,7 @@ theorem byteToIntCTree_outcome_monotone (source target : LLVM.Byte width) (href 
     have hout : ∃ bits : BitVec width, result = .val (target.val ||| (target.poison &&& bits)) := by
       simp only [byteToIntCTree, htfull, ↓reduceIte] at hresult
       have hr := (PureOrErr.CanInterpretTo.bind_iff _ _ _).mp hresult
-      simpa [PureOrErr.CanInterpretTo.choose_iff] using hr
+      simpa [PureOrErr.CanInterpretTo.choose_iff, LLVM.Byte.fillPoison] using hr
     obtain ⟨bits, rfl⟩ := hout
     refine ⟨.val (target.val ||| (target.poison &&& bits)), ?_, ?_⟩
     · have hw := byteToIntCTree_canInterpret_partial source hsfull
@@ -173,7 +173,7 @@ theorem byteToIntCTree_monotone (source target : LLVM.Byte width) (href : source
   · have heq : byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) target =
         (do let bits : BitVec width ← _root_.CTree.CTree.choose (SubC := FreezeC) (FreezeCIn.mk width)
             pure (.val (target.val ||| (target.poison &&& bits)))) := by
-      simp only [byteToIntCTree, hfull, ↓reduceIte]
+      simp only [byteToIntCTree, LLVM.Byte.fillPoison, hfull, ↓reduceIte]
     rw [heq]
     simp only [_root_.CTree.CTree.choose_def, _root_.CTree.CTree.tau_def, Bind.bind,
       _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret,

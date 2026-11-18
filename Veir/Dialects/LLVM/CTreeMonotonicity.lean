@@ -8,6 +8,7 @@ public import Veir.Dialects.LLVM.ResultsConform
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.LLVM.Interpreter
 import Veir.Data.Casting
+import Veir.Data.LLVM.Byte.Lemmas
 
 public section
 
@@ -63,7 +64,7 @@ instance llvm_treeMonotone_freeze : InterpretOpTreeMonotone (.llvm .freeze) wher
           exact sim_result (RuntimeValue.isRefinedBy_refl _) hMem
     | byte w b =>
       obtain ⟨b', rfl, hb⟩ := RuntimeValue.byte_of_isRefinedBy hv
-      refine sim_choose_left _ fun bits => sim_choose_right _ (b'.val ||| (b'.poison &&& bits)) ?_
+      refine sim_choose_left _ fun bits => sim_choose_right _ (b'.fillPoison bits) ?_
       rw [Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb]
       exact sim_result (RuntimeValue.isRefinedBy_refl _) hMem
     | addr p =>
@@ -171,7 +172,7 @@ theorem llvm_sim_typed {op : Llvm} {opType : OpCode} (hType : opType = .llvm op)
       obtain ⟨b', rfl, hb⟩ := RuntimeValue.byte_of_isRefinedBy hv
       have hT := fun y => arrayConforms_singleton (v' := .byte w y) (hTyped' _ _ _ rfl)
         fun ty hc => by obtain ⟨a, _⟩ := ty; cases a <;> exact hc
-      refine sim_choose_left _ fun bits => sim_choose_right _ (b'.val ||| (b'.poison &&& bits)) ?_
+      refine sim_choose_left _ fun bits => sim_choose_right _ (b'.fillPoison bits) ?_
       rw [Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb]
       exact sim_result_typed (RuntimeValue.isRefinedBy_refl _) hMem (hT _)
     | addr p =>

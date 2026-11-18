@@ -5,6 +5,7 @@ public import Veir.Interpreter.CTreeRefinement.Monotone
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.Builtin.Interpreter
 import Veir.Data.Casting
+import Veir.Data.LLVM.Byte.Lemmas
 import Veir.Interpreter.Refinement.Lemmas
 
 public section
@@ -54,7 +55,7 @@ theorem sim_byteToIntCTree {w : Nat} {b b' : Data.LLVM.Byte w} (hb : b ⊒ b') {
       fun h => hp (Veir.Data.LLVM.Byte.poison_eq_allOnes_of_isRefinedBy hb h)
     simp only [hp, hp', ↓reduceIte, LawfulMonad.bind_assoc, LawfulMonad.pure_bind]
     refine sim_choose_left _ fun bits =>
-      sim_choose_right _ (b'.val ||| (b'.poison &&& bits)) (hk _ _ ?_)
+      sim_choose_right _ (b'.fillPoison bits) (hk _ _ ?_)
     simp [Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb]
 
 /-- Every builtin opcode is monotone in CTrees. -/
@@ -107,14 +108,6 @@ instance (op : Veir.Builtin) : InterpretOpTreeMonotone (.builtin op) where
           exact sim_fail _ _
     | byte w b =>
       obtain ⟨b', rfl, hb⟩ := RuntimeValue.byte_of_isRefinedBy hv
-      /- The register of a resolved refinement is one the source may choose. -/
-      have hReg : ∀ T : BitVec w, BitVec.setWidth 64 b.val ||| BitVec.setWidth 64 b.poison &&&
-          (BitVec.setWidth 64 b'.val ||| BitVec.setWidth 64 b'.poison &&& BitVec.setWidth 64 T) =
-          BitVec.setWidth 64 b'.val ||| BitVec.setWidth 64 b'.poison &&& BitVec.setWidth 64 T := by
-        intro T
-        have := congrArg (BitVec.setWidth 64) (Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb T)
-        simp only [BitVec.setWidth_or, BitVec.setWidth_and] at this
-        exact this
       rcases hT : resType.val <;> (try simp only) <;> first | (simp; done) | skip
       · rename_i t
         by_cases hw : t.bitwidth = w
@@ -133,14 +126,16 @@ instance (op : Veir.Builtin) : InterpretOpTreeMonotone (.builtin op) where
           · next hp' =>
             simp only [map_pure]
             refine sim_choose_right_map _ b'.val ?_
-            have := hReg 0
-            simp only [hp', BitVec.setWidth_zero, BitVec.zero_and, BitVec.or_zero] at this
+            /- The register of a resolved refinement is one the source may choose. -/
+            have h0 : b'.fillPoison 0 = b'.val := by simp [Data.LLVM.Byte.fillPoison, hp']
+            have := Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb 0
+            rw [h0] at this
             simp only [this]
             exact sim_result (RuntimeValue.isRefinedBy_refl _) hMem
           · simp only [Functor.map_map]
             refine sim_choose_left_map _ fun bits =>
-              sim_choose_right_map _ (b'.val ||| (b'.poison &&& bits)) ?_
-            simp only [BitVec.setWidth_or, BitVec.setWidth_and, hReg]
+              sim_choose_right_map _ (b'.fillPoison bits) ?_
+            simp only [Veir.Data.LLVM.Byte.fillPoison_of_isRefinedBy hb]
             exact sim_result (RuntimeValue.isRefinedBy_refl _) hMem
     | addr p =>
       cases v' <;> simp only [RuntimeValue.isRefinedBy] at hv
