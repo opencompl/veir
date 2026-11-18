@@ -1,9 +1,5 @@
 module
 
-public import Veir.Interpreter.RuntimeValue
-public import Veir.Interpreter.Memory
-public import Veir.Interpreter.CTree
-public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.RISCV.Interpreter
 import all Veir.Dialects.RISCV.Interpreter
 import all Veir.Data.LLVM.Byte.Basic
