@@ -5,21 +5,23 @@ import Veir.Dialects.Monotonicity
 namespace Veir
 
 /--
-Instance resolution proves, rather than assumes, `llvm.load` monotone in CTrees, with the types
-of its results proved as well.
+Instance resolution proves, rather than assumes, every LLVM opcode monotone in CTrees, with the
+types of its results proved as well.
 -/
-theorem llvm_load_interpretCTreeMonotone_not_assumed : InterpretCTreeMonotone (.llvm .load) :=
-  inferInstance
+theorem llvm_interpretCTreeMonotone_not_assumed (op : Llvm) : InterpretCTreeMonotone (.llvm op) := by
+  cases op <;> exact inferInstance
 
 /--
-info: 'Veir.llvm_load_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
+info: 'Veir.llvm_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
  CTree.Sim,
  Classical.choice,
  Quot.sound,
  CTree.Sim.ret,
+ CTree.Sim.tau_l,
+ CTree.Sim.tau_r,
  CTree.Sim.ub]
 -/
 #guard_msgs in
-#print axioms llvm_load_interpretCTreeMonotone_not_assumed
+#print axioms llvm_interpretCTreeMonotone_not_assumed
 
 end Veir
