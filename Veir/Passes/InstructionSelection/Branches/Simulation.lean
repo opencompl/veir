@@ -1079,7 +1079,7 @@ theorem interpret_newBranch {op : OperationPtr} (opIn : op.InBounds ctx.raw)
       simp only [mapping_val] at hTv
       rw [RuntimeValue.int_val_isRefinedBy_iff] at hRef
       subst hRef
-      simp [regValue, hTv, val_toReg]
+      simp [regValue, hTv]
     /- A constant that the `g_icmp` compares with holds its value. -/
     have hConstant : ∀ k, L.constantOf op = some k → b = .int 64 (.val (BitVec.ofInt 64 k)) := by
       intro k hk

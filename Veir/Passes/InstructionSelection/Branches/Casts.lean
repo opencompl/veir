@@ -343,7 +343,7 @@ theorem interpretOp'_brcond_registers
   rw [RuntimeValue.castsTo_int_val] at hReg
   have hRegister' : registers[0]? = some (.reg reg) := by
     rw [← hRegister]; exact Array.getElem?_eq_some_getElem! _ _ (hRegisters.size_eq ▸ hLt)
-  have hRegVal : reg.val = cond.zeroExtend 64 := by simp [hReg, val_toReg]
+  have hRegVal : reg.val = cond.zeroExtend 64 := by simp [hReg]
   have hCondIff : reg.val ≠ 0#64 ↔ cond ≠ 0 := by
     rw [hRegVal]
     constructor

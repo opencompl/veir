@@ -75,7 +75,7 @@ theorem addressof_pattern_valid :
     rcases pointer with ⟨address⟩
     simp [ctree_semantics, Builtin.interpretUnrealizedConversionCastCTree,
       Attribute.of_def, -Attribute.llvmPointerType_eq_of, MemoryState.ptrFromInt,
-      MemoryState.decode, Data.LLVM.Ptr.toInt, LLVM.Int.toReg,
+      MemoryState.decode, Data.LLVM.Ptr.toInt,
       RISCV.Reg.toInt, MemoryState.isRefinedBy_refl]
 
 /- No validity theorem is exported for the call fallbacks: the checked
