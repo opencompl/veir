@@ -142,6 +142,18 @@ instance [ErrorE -< E] [UBE -< E] : MonadLift Interp (CTree E C) where
     | .fail _ => fail
     | .ok v => return v
 
+@[simp]
+theorem Sim.monadLift_ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
+    (location : Option OperationPtr) :
+    (monadLift (Interp.ub location) : CTree E C α) = ub := by
+  rfl
+
+@[simp]
+theorem Sim.monadLift_fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
+    (location : Option OperationPtr) :
+    (monadLift (Interp.fail location) : CTree E C α) = fail := by
+  rfl
+
 theorem Sim.bind_monadLift_left_iff {EIn CIn C'In} {E : EIn → Type}
     {C : CIn → Type} {C' : C'In → Type} [HasUB EIn] [ErrorE -< E] [UBE -< E]
     (relation : α → γ → Prop) (source : CTree E C' γ)
@@ -386,6 +398,16 @@ theorem vis_iff (e : EIn) (k : E e → CTree E C R) (r : Interp R) :
     · exact .fail
     · exact .ub
 
+
+
+/-- Lifting an `Interp` computation preserves its successful outcome. -/
+@[simp, grind =]
+theorem monadLift_interp_ok_iff (outcome : Interp R) (v : R) :
+    CanInterpretTo (monadLift outcome : CTree E C R) (.ok v) ↔ outcome = .ok v := by
+  cases outcome <;>
+    simp [monadLift, MonadLift.monadLift, Veir.fail, Veir.ub, CTree.trigger_def,
+      Bind.bind, CTree.CTree.bind_vis, eq_comm]
+
 /-- Binding continues successful outcomes and propagates failure or UB. -/
 @[grind =]
 theorem bind_iff {X} (t : CTree E C X) (k : X → CTree E C R)
@@ -427,6 +449,16 @@ theorem map_iff {X} (f : X → R) (t : CTree E C X) (r : Interp R) :
       (CanInterpretTo t (.ub none) ∧ r = .ub none) := by
   simpa only [map_eq_pure_bind, Bind.bind, pure_iff] using
     (bind_iff t (fun x => pure (f x)) r)
+
+/-- An interpreter failure has no successful outcome. -/
+@[simp, grind =]
+theorem fail_ok_iff (v : R) : CanInterpretTo (Veir.fail : CTree E C R) (.ok v) ↔ False := by
+  simp [Veir.fail, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
+
+/-- Undefined behavior has no successful outcome. -/
+@[simp, grind =]
+theorem ub_ok_iff (v : R) : CanInterpretTo (Veir.ub : CTree E C R) (.ok v) ↔ False := by
+  simp [Veir.ub, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
 
 end PureOrErr.CanInterpretTo
 

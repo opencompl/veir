@@ -706,6 +706,49 @@ theorem sdiv_neg_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k 
     Int.tdiv_eq_ediv_of_dvd hdvd, ← Int.shiftRight_eq_div_pow,
     BitVec.toInt_neg, toInt_sshiftRight'']
 
+/-! ### Comparisons of `toInt` with integer constants
+
+`bv_decide` does not see `Int` facts such as `-2048 ≤ x.toInt`. When the constant `c` is
+representable in `w` bits (the side conditions, which `veir_bv_normalize` discharges for literals), such a
+comparison is a signed bit-vector comparison with `BitVec.ofInt w c`. -/
+
+section toInt
+
+variable {w : Nat} {x : BitVec w} {c : Int}
+
+/-- `toInt_ofInt_eq_self` with the width condition as an instance, which `simp` synthesizes for a
+literal width. -/
+theorem toInt_ofInt_eq_self' [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    (BitVec.ofInt w c).toInt = c :=
+  BitVec.toInt_ofInt_eq_self (Nat.pos_of_neZero w) h₁ h₂
+
+@[veir_bv_normalize]
+theorem le_toInt_iff_sle [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    c ≤ x.toInt ↔ (BitVec.ofInt w c).sle x := by
+  rw [BitVec.sle_iff_toInt_le, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem lt_toInt_iff_slt [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    c < x.toInt ↔ (BitVec.ofInt w c).slt x := by
+  rw [BitVec.slt_iff_toInt_lt, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem toInt_le_iff_sle [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    x.toInt ≤ c ↔ x.sle (BitVec.ofInt w c) := by
+  rw [BitVec.sle_iff_toInt_le, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem toInt_lt_iff_slt [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    x.toInt < c ↔ x.slt (BitVec.ofInt w c) := by
+  rw [BitVec.slt_iff_toInt_lt, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem toInt_eq_iff_eq_ofInt [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    x.toInt = c ↔ x = BitVec.ofInt w c := by
+  rw [← BitVec.toInt_inj, toInt_ofInt_eq_self' h₁ h₂]
+
+end toInt
+
 end BitVec
 
 /-- The Hacker's-Delight bias/shift identity underlying `sdiv_by_pow2_pattern`: truncating
@@ -1204,6 +1247,29 @@ theorem ushiftRight_shiftLeft_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
     by_cases hs : i < s
     · simp [hs, h i hi hs]
     · simp [hs, hi, Nat.add_sub_cancel' (Nat.not_lt.mp hs)]
+
+@[veir_bv_normalize]
+theorem toByteArrayLE_extract_eq_iff {a b : BitVec 64} :
+    (UInt64.ofBitVec a).toByteArrayLE.extract 0 i = (UInt64.ofBitVec b).toByteArrayLE.extract 0 i ↔
+      a.setWidth (8 * i) = b.setWidth (8 * i) := by
+  rw [show ∀ x y : ByteArray, x = y ↔ x.data = y.data from fun _ _ => ⟨congrArg _, ByteArray.ext⟩]
+  simp only [ByteArray.data_extract, UInt64.toByteArrayLE]
+  by_cases hi : 8 ≤ i
+  · have hw : 2 ^ 64 ≤ 2 ^ (8 * i) := Nat.pow_le_pow_right (by omega) (by omega)
+    have hset : a.setWidth (8 * i) = b.setWidth (8 * i) ↔ a = b := by
+      rw [← BitVec.toNat_inj, BitVec.toNat_setWidth, BitVec.toNat_setWidth,
+        Nat.mod_eq_of_lt (by have := a.isLt; omega), Nat.mod_eq_of_lt (by have := b.isLt; omega),
+        BitVec.toNat_inj]
+    rw [Array.extract_eq_self_of_le (by simpa using hi),
+      Array.extract_eq_self_of_le (by simpa using hi),
+      hset]
+    have := a.isLt
+    have := b.isLt
+    simp [← UInt8.toBitVec_inj, ← BitVec.toNat_inj, Nat.shiftRight_eq_div_pow]
+    omega
+  · obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl :
+        i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
+    all_goals simp [← UInt8.toBitVec_inj, ← BitVec.toNat_inj, Nat.shiftRight_eq_div_pow] <;> omega
 
 end BitVec
 
