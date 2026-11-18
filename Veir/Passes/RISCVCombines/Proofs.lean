@@ -28,7 +28,6 @@ attribute [local riscv_combine]
   rv64_interpretOp'_get_register
 
 
-
 /-- Prove the validity of a combine pattern: unfold it, discharge the structural obligations,
 normalize the semantics to register equalities under the matcher's guards, and bit-blast them.
 The simp call is contextual, so that each guard rewrites the conclusion it guards. -/
