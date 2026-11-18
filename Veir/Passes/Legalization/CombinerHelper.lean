@@ -537,21 +537,6 @@ def mul_by_neg_one_pattern : Pattern OpCode :=
       CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, x] #[type] subProps)
     (fun op => op)
 
-/-- `x * 2` → `x + x`. Both overflow in the same cases, so the flags carry over. -/
-def mulo_by_2_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let x ← MatchProg.value type
-      let two ← matchConstant type (·.bits.toInt = 2)
-      let root ← MatchProg.root (.gmir .g_mul) #[x, two.res[0]!] #[type]
-      return (type, x, root.properties))
-    (fun (type, x, mulProps) => do
-      let addProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_add)))
-          mulProps fun props => some { nsw := props.nsw, nuw := props.nuw }
-      CreateProg.operation (.gmir .g_add) #[x, x] #[type] addProps)
-    (fun op => op)
-
 /-- `a + ((0 - b) << c)` → `a - (b << c)`, and the same with the operands of the addition swapped
     when `shiftFirst` is set. -/
 def add_shift_pattern (shiftFirst : Bool) : Pattern OpCode :=
@@ -1310,7 +1295,7 @@ def combines : Array (CompiledPattern OpCode) :=
       #[GMIR.g_and, .g_or, .g_xor].map (hoist_logic_op_pattern · hand)) ++
   #[sub_add_reg_x_add_y_sub_y_pattern, sub_add_reg_x_add_y_sub_x_pattern,
     sub_add_reg_negate_pattern false, sub_add_reg_negate_pattern true,
-    xor_of_and_with_same_reg_pattern, trunc_of_ext_pattern .g_zext, mulo_by_2_pattern,
+    xor_of_and_with_same_reg_pattern, trunc_of_ext_pattern .g_zext,
     add_shift_pattern false, add_shift_pattern true] ++
   (#[GMIR.g_add, .g_sub, .g_xor].flatMap fun opcode =>
       #[Data.LLVM.IntPred.eq, .ne].map (redundant_binop_in_equality_pattern opcode ·)) ++
