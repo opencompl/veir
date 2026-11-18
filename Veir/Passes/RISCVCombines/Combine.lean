@@ -4,7 +4,7 @@ public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 import Veir.PatternRewriter.Puddle.Builders
-public import Veir.PatternRewriter.Puddle.Execution
+import Veir.PatternRewriter.Puddle.Execution
 meta import Veir.Meta.Tactic.BVDecide
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Lemmas
@@ -12,6 +12,7 @@ import all Veir.Dialects.RISCV.OpInfo
 import all Veir.ForLean
 import Veir.PatternRewriter.Puddle.Validity
 import Veir.IR.Simp
+import Veir.Passes.RISCVCombines.Simp
 
 namespace Veir.RISCV
 
@@ -1192,7 +1193,7 @@ def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
 closures are initialized once and reused for every operation. Each has a CTree validity
 certificate in `Veir.Passes.RISCVCombines.Proofs`; the soundness of the pass is
 `Combine.run_sound` (`Veir.Passes.RISCVCombines.Validity.Pass`). -/
-public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
+def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
     #[ packh_low_bytes
      , packh_low_bytes_commuted
      , packh_high_bytes
@@ -1363,8 +1364,7 @@ public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
 
 /-- The pass as a pure function: the greedy combination of the combines, applied everywhere
 below `op`. `none` reports a failed rewrite. Its soundness is `Combine.run_sound`. -/
-@[expose]
-public def Combine.run (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def Combine.run (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode) :=
   RewritePattern.applyInContext
     (RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run))) ctx op

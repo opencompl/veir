@@ -129,20 +129,6 @@ theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target :
     CTree.Sim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
   simp [monadLift, MonadLift.monadLift]
 
-/-- Prove the validity of a store combine, given a proof `bytes` that the dropped extension
-does not change the stored bytes, usually `by veir_bv_decide`.
-The caller must erase `Veir.Sim.bind_monadLift_left_iff` and `Veir.Sim.monadLift_right_iff`
-from `puddle`, so that both store computations stay lifted for `sim_store`. -/
-macro "proveStoreValid" bytes:term : tactic => `(tactic| (
-  simp only [riscv_pattern]
-  simpPuddleValid
-  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
-  all_goals
-    intros
-    exact sim_store
-      (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
-      _ _ _ _ _ _ _ $bytes))
-
 /-! ## Identities, booleans and immediates -/
 
 /-- `riscv.add x (riscv.li 0) -> x` (`right_identity_zero_add`). The matcher fixes the
@@ -577,6 +563,21 @@ attribute [-puddle] Veir.Sim.bind_monadLift_left_iff Veir.Sim.monadLift_right_if
 A word store (`sw`) writes the first four little-endian bytes of its value register, a halfword
 store (`sh`) two and a byte store (`sb`) one (see the store cases of `Riscv.interpretOp'`). Each
 extension below leaves those bytes unchanged. -/
+
+/-- Prove the validity of a store combine, given a proof `bytes` that the dropped extension
+does not change the stored bytes, usually `by veir_bv_decide`.
+The caller must erase `Veir.Sim.bind_monadLift_left_iff` and `Veir.Sim.monadLift_right_iff`
+from `puddle`, so that both store computations stay lifted for `sim_store`. -/
+macro "proveStoreValid" bytes:term : tactic => `(tactic| (
+  simp only [riscv_pattern]
+  simpPuddleValid
+  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
+  all_goals
+    intros
+    exact sim_store
+      (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
+      _ _ _ _ _ _ _ $bytes))
+
 
 theorem drop_zextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sw) := by
