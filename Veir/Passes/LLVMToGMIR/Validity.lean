@@ -7,6 +7,7 @@ import all Veir.Passes.Legalization.Validity.Common
 import all Veir.Passes.LLVMToGMIR
 import all Veir.Passes.LLVMToGMIR.Remaining
 import all Veir.Passes.Legalization.LegalizerInfo
+import all Veir.Passes.Legalization.LegalizerHelper
 import all Veir.Passes.InstructionSelection.Common
 import Veir.DataLayout.RISCV64
 import all Veir.Interfaces.DataLayoutInterfaces
@@ -32,29 +33,31 @@ import all Init.Data.Array.Basic
 import all Veir.Dialects.RISCV_Stack.OpInfo
 import all Veir.Dialects.Arith.OpInfo
 meta import Veir.Meta.ProofKind
+import Veir.Passes.LLVMToGMIR.Simp
 
 /-!
 # CTree validity of the LLVM to gMIR translation
 
-`llvmToGMIRCertificates` holds a certificate for every Puddle pattern of `llvm-to-gmir`, in the
-order of `llvmToGMIRPatternList`: a proof of `Puddle.CTree.Pattern.Valid`, or the reason why there
-is none. Its type is indexed by the list, so changing the patterns of the pass without updating
-the certificates does not build. The local rewrite of the GEP indices is not a Puddle pattern, and
+Every Puddle pattern of `llvm-to-gmir` has a proof of `Puddle.CTree.Pattern.Valid`, tagged
+`llvm_to_gmir_valid`, by which `llvmToGMIRPatternList_valid` (`Veir.Passes.LLVMToGMIR.Soundness`)
+covers `llvmToGMIRPatternList`: a pattern added to the pass without a proof does not build. The local rewrite of the GEP indices is not a Puddle pattern, and
 the branches are translated by a separate step (`convertLLVMBranches`), whose operation semantics
 are proven to agree below (`br_interpretOp'_eq`, `cond_br_interpretOp'_refines`).
 
-The unproven patterns (see `Unproven`):
-* The byte shifts (`allPoisonByte`): an all-poison byte becomes a poison integer, so the shift can
-  no longer move defined zero bits in. This is a property of the value, which no matcher can check
-  (`byte_shl_frozen` and `byte_lshr_frozen` in `Veir.Passes.LLVMToGMIR.Remaining` prove the other
-  bytes).
+The byte shifts are not valid, so the pass does not run them: an all-poison byte becomes a poison
+integer, so the shift can no longer move defined zero bits in. `shl` of the all-poison `b8` by one
+is `0b???????0`, while its translation is `0b????????`, which does not refine it. Whether a byte is
+entirely poison is a property of the value, which no matcher can check (`byte_shl_frozen` and
+`byte_lshr_frozen` in `Veir.Passes.LLVMToGMIR.Remaining` prove the other bytes).
 
 The static `alloca` reads its count from the matched constant and the stack object from the
 `alloca`'s properties, so its validity ties the object to the allocation (`static_alloca_valid`
 and the variants per kind of constant).
 
-The proofs are those of the gMIR legalization rules (`Veir.Passes.Legalization.Validity`), with the
-LLVM and builtin interpreters added to the semantics. Most translations interpret the same
+The proofs open as those of the combines (`proveToGMIRValid`): the pattern unfolds by
+`simp only [llvm_to_gmir_pattern]`, `simpPuddleValid` discharges the structural obligations and
+`simp [puddle, ctree_semantics, llvm_to_gmir]` unfolds the semantics, with the LLVM and builtin
+interpreters added, which are then normalized as for the gMIR legalization rules. Most translations interpret the same
 `Data.LLVM.Int` operation on both sides and close during normalization; the others close with a
 local lemma relating the two interpreters.
 -/
@@ -96,19 +99,47 @@ attribute [-simp]
   Attribute.pdlAttributeType_eq_of Attribute.pdlOperationType_eq_of Attribute.pdlValueType_eq_of Attribute.pdlTypeType_eq_of
   Attribute.matchOptionalType_eq_of Attribute.seqClockType_eq_of Attribute.seqFirMemType_eq_of Attribute.smtSortType_eq_of
 
-public section
+/- `reconcilePairingCast` is the pattern of `Veir.Passes.CastsReconciliation`, which the int/byte
+round trip reuses, and `createConstant` the builder of `Veir.Passes.Legalization.LegalizerHelper`
+that `lowerZero` uses. -/
+attribute [local llvm_to_gmir_pattern] reconcilePairingCast createConstant createConstantWith
 
-/-- Why a pattern of `llvm-to-gmir` has no CTree validity proof. -/
-inductive Unproven where
-  /-- A byte shift is translated through an integer, which is entirely poison when every bit of
-  the byte is. The byte shift moves defined zero bits into such a byte; the integer shift cannot:
-  `shl` of the all-poison `b8` by one is `0b???????0`, while its translation is `0b????????`,
-  which does not refine it. The pattern is therefore not valid; `byte_shl_frozen` and
-  `byte_lshr_frozen` in `Veir.Passes.LLVMToGMIR.Remaining` prove it on every other byte. -/
-  | allPoisonByte
-  deriving Repr, DecidableEq
+attribute [local llvm_to_gmir]
+  Attribute.of _root_.CTree.CTree.bind_tau Sim.tau_l Sim.bind_monadLift_right_iff
 
-end
+/-- Unfold an `llvm-to-gmir` pattern (`llvm_to_gmir_pattern`), resolving the choices it makes on its
+arguments, and discharge the structural obligations (`simpPuddleValid`). -/
+macro "simpToGMIRPattern" : tactic => `(tactic| (
+  simp +decide only [llvm_to_gmir_pattern, ↓reduceIte]
+  simpPuddleValid))
+
+/-- `simpToGMIRPattern`, then unfold the semantics of the operations of the pattern. -/
+macro "simpToGMIRSemantics" : tactic => `(tactic| (
+  simpToGMIRPattern
+  simp [puddle, ctree_semantics, llvm_to_gmir, -Attribute.integerType_eq_of]))
+
+/-- Open the validity goal of an `llvm-to-gmir` pattern: `simpToGMIRSemantics`, then normalize the
+semantics down to the values of the matched operations at symbolic widths, as for the
+legalization rules. -/
+macro "openToGMIRValid" : tactic => `(tactic| (
+  simpToGMIRSemantics
+  normalizeLegalValid
+  all_goals intros
+  all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext,
+    Data.LLVM.zext_isRefinedBy_zext, Data.LLVM.selectNonzero_zext, Data.LLVM.Int.isRefinedBy_refl])))
+
+/-- Prove the validity of an `llvm-to-gmir` pattern, closing each value goal with the local
+correctness lemma `lemma`. -/
+macro "proveToGMIRValid" "using" lemma:term : tactic => `(tactic| (
+  openToGMIRValid
+  all_goals first
+    | (apply $lemma <;> simp_all)
+    | simp_all [$lemma:term]))
+
+/-- Prove the validity of an `llvm-to-gmir` pattern, closing the value goals with `closer`. -/
+macro "proveToGMIRValid" "with" closer:tacticSeq : tactic => `(tactic| (
+  openToGMIRValid
+  all_goals ($closer)))
 
 /-- A target that casts a byte to an integer simulates the source whatever bits it chooses. -/
 @[local simp] theorem sim_bind_map_byteToIntCTree_left {X Y Z : Type} {RR : Y → Z → Prop}
@@ -248,199 +279,199 @@ theorem conforms_of_val_integerType {v : RuntimeValue} {t : TypeAttr} {i : Integ
   subst h
   cases v <;> simp [RuntimeValue.Conforms]
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem constant_valid : Puddle.CTree.Pattern.Valid lowerIntegerConstant := by
-  proveLegalValid with
+  proveToGMIRValid with
     cases h : (‹propertiesOf (OpCode.llvm Llvm.mlir__constant)›).value <;> simp_all [Data.LLVM.Int.isRefinedBy_refl]
 
 /-- `llvm.mlir.zero` and the `g_constant 0` of its type both give the zero integer, or the null
 pointer, whose address is `0`. -/
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem zero_valid : Puddle.CTree.Pattern.Valid lowerZero := by
-  proveLegalValid with
+  proveToGMIRValid with
     first
       | (simp only [IntegerAttr.ofInt, IntegerAttr.normalizeValue]; split <;> simp [Data.LLVM.Int.isRefinedBy_refl])
       | (simp [Data.LLVM.Ptr.null, Data.Pointer.null])
 
 attribute [local simp] conforms_of_val_integerType in
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem round_trip_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isIntToByteRoundTrip) := by
-  proveLegalValid with
+  proveToGMIRValid with
     exact ⟨0, by rw [freezeByteWith_fromInt ‹0 < _›]; exact Data.LLVM.Int.isRefinedBy_refl _⟩
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem add_valid : Puddle.CTree.Pattern.Valid (lowerBinop .add .g_add) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem sub_valid : Puddle.CTree.Pattern.Valid (lowerBinop .sub .g_sub) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem select_valid : Puddle.CTree.Pattern.Valid (lowerSelect) := by
-  proveLegalValid using select_selectNonzero
+  proveToGMIRValid using select_selectNonzero
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem sext_valid : Puddle.CTree.Pattern.Valid (lowerIntegerCast .sext .g_sext) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem zext_valid : Puddle.CTree.Pattern.Valid (lowerIntegerCast .zext .g_zext) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem trunc_valid : Puddle.CTree.Pattern.Valid (lowerIntegerCast .trunc .g_trunc) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem and_valid : Puddle.CTree.Pattern.Valid (lowerBinop .and .g_and) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem or_valid : Puddle.CTree.Pattern.Valid (lowerBinop .or .g_or) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem xor_valid : Puddle.CTree.Pattern.Valid (lowerBinop .xor .g_xor) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem shl_valid : Puddle.CTree.Pattern.Valid (lowerBinop .shl .g_shl) := by
-  proveLegalValid using shl_shiftAmount
+  proveToGMIRValid using shl_shiftAmount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem lshr_valid : Puddle.CTree.Pattern.Valid (lowerBinop .lshr .g_lshr) := by
-  proveLegalValid using lshr_shiftAmount
+  proveToGMIRValid using lshr_shiftAmount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem ashr_valid : Puddle.CTree.Pattern.Valid (lowerBinop .ashr .g_ashr) := by
-  proveLegalValid using ashr_shiftAmount
+  proveToGMIRValid using ashr_shiftAmount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem mul_valid : Puddle.CTree.Pattern.Valid (lowerBinop .mul .g_mul) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem smulh_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__smulh .g_smulh) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem umulh_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__umulh .g_umulh) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem sdiv_valid : Puddle.CTree.Pattern.Valid (lowerBinop .sdiv .g_sdiv) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem udiv_valid : Puddle.CTree.Pattern.Valid (lowerBinop .udiv .g_udiv) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem srem_valid : Puddle.CTree.Pattern.Valid (lowerBinop .srem .g_srem) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem urem_valid : Puddle.CTree.Pattern.Valid (lowerBinop .urem .g_urem) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem bswap_valid : Puddle.CTree.Pattern.Valid (lowerUnop .intr__bswap .g_bswap id) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem bitreverse_valid : Puddle.CTree.Pattern.Valid (lowerUnop .intr__bitreverse .g_bitreverse id) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem smax_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__smax .g_smax) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem smin_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__smin .g_smin) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem umax_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__umax .g_umax) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem umin_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__umin .g_umin) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem abs_valid : Puddle.CTree.Pattern.Valid (lowerUnop .intr__abs .g_abs (fun _ => ())) := by
-  proveLegalValid using abs_drop_int_min_poison
+  proveToGMIRValid using abs_drop_int_min_poison
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem fshl_valid : Puddle.CTree.Pattern.Valid (lowerFunnelShiftIntrinsic .intr__fshl .g_fshl) := by
-  proveLegalValid using fshl_funnelShiftAmount
+  proveToGMIRValid using fshl_funnelShiftAmount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem fshr_valid : Puddle.CTree.Pattern.Valid (lowerFunnelShiftIntrinsic .intr__fshr .g_fshr) := by
-  proveLegalValid using fshr_funnelShiftAmount
+  proveToGMIRValid using fshr_funnelShiftAmount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem saddsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__sadd__sat .g_saddsat) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem uaddsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__uadd__sat .g_uaddsat) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem ssubsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__ssub__sat .g_ssubsat) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem usubsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__usub__sat .g_usubsat) := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem sshlsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__sshl__sat .g_sshlsat) := by
-  proveLegalValid using sshlSat_shiftAmount
+  proveToGMIRValid using sshlSat_shiftAmount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem ushlsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__ushl__sat .g_ushlsat) := by
-  proveLegalValid using ushlSat_shiftAmount
+  proveToGMIRValid using ushlSat_shiftAmount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem icmp_valid : Puddle.CTree.Pattern.Valid lowerIcmp := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
 /-- A count is refined by itself resized to the width it has. -/
 private theorem isRefinedBy_resizeCount {w : Nat} (c : Data.LLVM.Int w) : c ⊒ resizeCount w c := by
   rw [resizeCount_self]
   exact Data.LLVM.Int.isRefinedBy_refl _
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem ctlz_valid : Puddle.CTree.Pattern.Valid
     (lowerCount .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison)) := by
-  proveLegalValid using isRefinedBy_resizeCount
+  proveToGMIRValid using isRefinedBy_resizeCount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem cttz_valid : Puddle.CTree.Pattern.Valid
     (lowerCount .intr__cttz .g_cttz (fun _ => ()) (!·.is_zero_poison)) := by
-  proveLegalValid using isRefinedBy_resizeCount
+  proveToGMIRValid using isRefinedBy_resizeCount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem ctlz_zero_poison_valid : Puddle.CTree.Pattern.Valid
     (lowerCount .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison)) := by
-  proveLegalValid using isRefinedBy_resizeCount
+  proveToGMIRValid using isRefinedBy_resizeCount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem cttz_zero_poison_valid : Puddle.CTree.Pattern.Valid
     (lowerCount .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison)) := by
-  proveLegalValid using isRefinedBy_resizeCount
+  proveToGMIRValid using isRefinedBy_resizeCount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem ctpop_valid : Puddle.CTree.Pattern.Valid (lowerCount .intr__ctpop .g_ctpop id) := by
-  proveLegalValid using isRefinedBy_resizeCount
+  proveToGMIRValid using isRefinedBy_resizeCount
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem byte_trunc_valid : Puddle.CTree.Pattern.Valid
     (lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩)) := by
-  proveLegalValid with exact byte_trunc_frozen _ _ _
+  proveToGMIRValid with exact byte_trunc_frozen _ _ _
 
 /-- A byte and an integer type of the same nonzero width, in either order. -/
 @[local simp] theorem isByteIntBitcast_iff (a b : TypeAttr) :
@@ -462,9 +493,9 @@ theorem conforms_of_val_byteType {v : RuntimeValue} {t : TypeAttr} {b : LLVM.Byt
   cases v <;> simp [RuntimeValue.Conforms]
 
 attribute [local simp] conforms_of_val_integerType conforms_of_val_byteType in
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem byte_int_bitcast_valid : Puddle.CTree.Pattern.Valid lowerByteIntBitcast := by
-  proveLegalValid with
+  proveToGMIRValid with
     first
     | exact byte_toInt_frozen ‹_› _ _
     | (simp [Llvm.bitcastValue, Data.LLVM.Int.isRefinedBy_refl]; done)
@@ -521,10 +552,9 @@ theorem sim_match_eq {α β γ : Type} {R : γ → α → Prop} (S : Interp α) 
   | ub _ => trivial
   | fail _ => trivial
 
-@[proof_bv]
+@[proof_bv, llvm_to_gmir_valid]
 theorem load_valid : Puddle.CTree.Pattern.Valid lowerLoad_pattern := by
-  conv => arg 1; cbv
-  simpPuddleValid
+  simpToGMIRPattern
   intro addrType type value hconf props _ hsome mem
   simp only [TypeAttr.of_typeAttr] at hsome hconf ⊢
   obtain ⟨mmo, hmmo⟩ := Option.isSome_iff_exists.mp hsome
@@ -670,30 +700,24 @@ macro "staticAllocaTail" cnt:term : tactic => `(tactic| (
   simp only [hn, ↓reduceIte, Interp.bind_ok, hu]
   staticAllocaAlloc (UInt64.ofNat layout.allocSize * UInt64.ofNat (($cnt) % 2 ^ w.bitwidth).toNat)))
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem static_alloca_valid : Puddle.CTree.Pattern.Valid lowerStaticAlloca_pattern := by
-  unfold lowerStaticAlloca_pattern lowerStaticAllocaOf
-  simpPuddleValid
-  simpLegalSemantics
+  simpToGMIRSemantics
   intro a property hcount _ value mem mem' hcst type htype props hinalloca _ values hprops memory
   cases hv : property.value <;> simp [hv] at hcount hcst hprops
   rename_i cst
   obtain ⟨rfl, rfl⟩ := hcst
   staticAllocaTail cst.value
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem static_alloca_gmir_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaGMIR_pattern := by
-  unfold lowerStaticAllocaGMIR_pattern lowerStaticAllocaOf
-  simpPuddleValid
-  simpLegalSemantics
+  simpToGMIRSemantics
   intro a property _ type htype props hinalloca _ values hprops memory
   staticAllocaTail property.value.value
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem static_alloca_arith_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaArith_pattern := by
-  unfold lowerStaticAllocaArith_pattern lowerStaticAllocaOf
-  simpPuddleValid
-  simpLegalSemantics
+  simpToGMIRSemantics
   intro a property hcount _ value mem mem' hcst type htype props hinalloca _ values hprops memory
   cases property <;> simp at hcount hcst hprops
   rename_i attr _
@@ -701,11 +725,9 @@ theorem static_alloca_arith_valid : Puddle.CTree.Pattern.Valid lowerStaticAlloca
   staticAllocaTail attr.value
 
 /-- An `llvm.mlir.zero` count allocates no bytes on either side. -/
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem static_alloca_zero_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaZero_pattern := by
-  unfold lowerStaticAllocaZero_pattern lowerStaticAllocaOf
-  simpPuddleValid
-  simpLegalSemantics
+  simpToGMIRSemantics
   intro a _ _ type htype props hinalloca _ values hprops memory
   obtain ⟨sp, hsp⟩ := Option.isSome_iff_exists.mp hprops
   obtain ⟨w, layout, hw, hquery, hsize, hsp_size⟩ := staticAllocaProperties?_some hsp
@@ -721,27 +743,25 @@ theorem static_alloca_zero_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaZ
 Both sides produce the poison of the result type; a byte poison is the wholly poison byte, which
 the cast of the integer poison back to the byte type also produces. -/
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem poison_valid : Puddle.CTree.Pattern.Valid lowerPoison := by
-  proveLegalValid with
+  proveToGMIRValid with
     first
       | (simp [Data.LLVM.Int.mlir_poison])
       | (exact Data.LLVM.Int.poison_isRefinedBy _)
       | (simp [LLT.ofType?] at *)
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem byte_poison_valid : Puddle.CTree.Pattern.Valid lowerBytePoison := by
-  proveLegalValid using Data.LLVM.Int.isRefinedBy_refl
+  proveToGMIRValid using Data.LLVM.Int.isRefinedBy_refl
 
 /-! ## Freeze
 
 Both sides return a defined integer unchanged and choose the bits of a poison one. -/
 
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem freeze_valid : Puddle.CTree.Pattern.Valid lowerIntegerFreeze := by
-  conv => arg 1; cbv
-  simpPuddleValid
-  simpLegalSemantics
+  simpToGMIRSemantics
   normalizeLegalValid
   all_goals intros
   rename_i value
@@ -757,17 +777,14 @@ Both sides cast between a pointer and its 64-bit address (`Data.LLVM.Ptr.toInt` 
 `MemoryState.ptrFromInt`); the matchers fix the widths the interpreters check. -/
 
 set_option maxRecDepth 10000 in
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem ptrtoint_valid : Puddle.CTree.Pattern.Valid lowerPtrToInt := by
-  conv => arg 1; cbv
-  simpPuddleValid
-  simpLegalSemantics
+  simpToGMIRSemantics
 
 set_option maxRecDepth 10000 in
-@[proof_manual]
+@[proof_manual, llvm_to_gmir_valid]
 theorem inttoptr_valid : Puddle.CTree.Pattern.Valid lowerIntToPtr := by
-  conv => arg 1; cbv
-  simpPuddleValid
+  simpToGMIRPattern
   simp only [ctree_semantics]
   intro x hx a value hc props _ mem
   rcases x with ⟨bw, sg⟩
@@ -779,81 +796,5 @@ theorem inttoptr_valid : Puddle.CTree.Pattern.Valid lowerIntToPtr := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, dite_true]
   simp only [Sim.bind_monadLift_right_iff]
   cases v <;> simp [RuntimeValue.isRefinedBy, MemoryState.ptrFromInt, Data.LLVM.Ptr.isRefinedBy]
-
-set_option maxRecDepth 100000 in
-/-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/
-public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMIRPatternList :=
-  .proven add_valid <|
-  .proven sub_valid <|
-  .proven icmp_valid <|
-  .proven select_valid <|
-  .proven sext_valid <|
-  .proven zext_valid <|
-  .proven trunc_valid <|
-  .proven and_valid <|
-  .proven or_valid <|
-  .proven xor_valid <|
-  .proven shl_valid <|
-  .proven lshr_valid <|
-  .proven ashr_valid <|
-  .proven mul_valid <|
-  .proven smulh_valid <|
-  .proven umulh_valid <|
-  .proven sdiv_valid <|
-  .proven udiv_valid <|
-  .proven srem_valid <|
-  .proven urem_valid <|
-  .proven bswap_valid <|
-  .proven bitreverse_valid <|
-  .proven smax_valid <|
-  .proven smin_valid <|
-  .proven umax_valid <|
-  .proven umin_valid <|
-  .proven abs_valid <|
-  .proven fshl_valid <|
-  .proven fshr_valid <|
-  .proven saddsat_valid <|
-  .proven uaddsat_valid <|
-  .proven ssubsat_valid <|
-  .proven usubsat_valid <|
-  .proven sshlsat_valid <|
-  .proven ushlsat_valid <|
-  .proven ctlz_valid <|
-  .proven cttz_valid <|
-  .proven ctlz_zero_poison_valid <|
-  .proven cttz_zero_poison_valid <|
-  .proven ctpop_valid <|
-  .proven constant_valid <|
-  .proven zero_valid <|
-  .proven poison_valid <|
-  .proven freeze_valid <|
-  .proven byte_poison_valid <|
-  .proven byte_trunc_valid <|
-  -- The byte shifts, unproven (`allPoisonByte`), are commented out of the pass:
-  -- .unproven .allPoisonByte <| -- byte_shl
-  -- .unproven .allPoisonByte <| -- byte_lshr
-  .proven byte_int_bitcast_valid <|
-  .proven static_alloca_valid <|
-  .proven static_alloca_gmir_valid <|
-  .proven static_alloca_arith_valid <|
-  .proven static_alloca_zero_valid <|
-  .proven load_valid <|
-  .proven ptrtoint_valid <|
-  .proven inttoptr_valid <|
-  .proven round_trip_valid <|
-  .nil
-
-/-- Every pattern `llvm-to-gmir` runs is proven valid or recorded as unproven. -/
-theorem llvmToGMIRPatternList_certified (pattern : Pattern OpCode)
-    (h : pattern ∈ llvmToGMIRPatternList) :
-    pattern ∈ llvmToGMIRCertificates.provenPatterns ∨
-      pattern ∈ llvmToGMIRCertificates.unprovenPatterns.map Prod.fst :=
-  llvmToGMIRCertificates.covers pattern h
-
-/-- Every proven pattern of `llvm-to-gmir` satisfies the CTree validity predicate. -/
-theorem llvmToGMIRCertificates_valid (pattern : Pattern OpCode)
-    (h : pattern ∈ llvmToGMIRCertificates.provenPatterns) :
-    Puddle.CTree.Pattern.Valid pattern :=
-  llvmToGMIRCertificates.valid pattern h
 
 end Veir.LLVMToGMIR.CTreeProofs

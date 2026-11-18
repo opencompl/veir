@@ -16,6 +16,7 @@ import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
+import Veir.Passes.LLVMToGMIR.Simp
 
 namespace Veir
 
@@ -50,6 +51,7 @@ namespace Veir
   GMIR lowerings with Puddle for binary operations on values that gMIR can represent, i.e. whose
   types have an `LLT`. (This is intended to guard against matching byte type operands.)
 -/
+@[llvm_to_gmir_pattern]
 def lowerBinop (lOp : Llvm) (gOp : GMIR)
     (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
     Puddle.Pattern OpCode :=
@@ -73,6 +75,7 @@ def lowerBinop (lOp : Llvm) (gOp : GMIR)
   GMIR lowerings with Puddle for unary operations on values that gMIR can represent, whose
   properties satisfy `guard` and are converted with `convert`.
 -/
+@[llvm_to_gmir_pattern]
 def lowerUnop (lOp : Llvm) (gOp : GMIR)
     (convert : propertiesOf (OpCode.llvm lOp) → propertiesOf (OpCode.gmir gOp))
     (guard : propertiesOf (OpCode.llvm lOp) → Bool := fun _ => true) :
@@ -97,6 +100,7 @@ def lowerUnop (lOp : Llvm) (gOp : GMIR)
   LLVM. gMIR computes the count at the width of the result type, so the matcher ties it to the
   operand's type.
 -/
+@[llvm_to_gmir_pattern]
 def lowerCount (lOp : Llvm) (gOp : GMIR)
     (convert : propertiesOf (OpCode.llvm lOp) → propertiesOf (OpCode.gmir gOp))
     (guard : propertiesOf (OpCode.llvm lOp) → Bool := fun _ => true) :
@@ -117,6 +121,7 @@ def lowerCount (lOp : Llvm) (gOp : GMIR)
   `llvm.icmp` -> `g_icmp` on an `i1` result, as LLVM computes it. gMIR computes the comparison at
   the width of the result type.
 -/
+@[llvm_to_gmir_pattern]
 def lowerIcmp : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -139,6 +144,7 @@ def lowerIcmp : Puddle.Pattern OpCode :=
   `llvm.intr.scmp`/`llvm.intr.ucmp` -> `g_scmp`/`g_ucmp`, as LLVM's `IRTranslator`. Only operands
   and results of at most 64 bits are translated; wider ones stay in the LLVM dialect.
 -/
+@[llvm_to_gmir_pattern]
 def lowerThreeWayCmp (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -161,6 +167,7 @@ def g_ucmp := (lowerThreeWayCmp .intr__ucmp .g_ucmp).compile
   selection still matches those widths in the LLVM dialect (as rotates or LLVM's
   `expandFunnelShift`), while the legalizer lowers the other widths to shifts.
 -/
+@[llvm_to_gmir_pattern]
 def lowerFunnelShiftIntrinsic (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -178,6 +185,7 @@ def lowerFunnelShiftIntrinsic (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode 
   `llvm.select` -> `g_select`, as in LLVM's `IRTranslator::translateSelect`. The `i1` condition
   selects as `g_select` does, see `GMIR.selectNonzero_one`. The values are integers or pointers.
 -/
+@[llvm_to_gmir_pattern]
 def lowerSelect : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -195,6 +203,7 @@ def lowerSelect : Puddle.Pattern OpCode :=
 /--
   GMIR lowerings with Puddle for integer casts.
 -/
+@[llvm_to_gmir_pattern]
 def lowerIntegerCast (lOp : Llvm) (gOp : GMIR)
     (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
     Puddle.Pattern OpCode :=
@@ -285,6 +294,7 @@ public def inEntryBlock (ctx : IRContext OpCode) (op : OperationPtr) : Option Un
   additional stack-lifetime support in the backend. This must run before legalization, which can
   hide a narrow constant count behind `g_trunc`.
 -/
+@[llvm_to_gmir_pattern]
 public def lowerStaticAllocaOf (cstOp : OpCode)
     (countOf : propertiesOf cstOp → Option Int) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -316,6 +326,7 @@ public def lowerStaticAllocaOf (cstOp : OpCode)
     (fun castBackOp => castBackOp)
 
 /-- `lowerStaticAllocaOf`, counted by an `llvm.mlir.constant`. -/
+@[llvm_to_gmir_pattern]
 public def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
   lowerStaticAllocaOf (.llvm .mlir__constant) fun props =>
     match props.value with
@@ -323,10 +334,12 @@ public def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
     | _ => none
 
 /-- `lowerStaticAllocaOf`, counted by the `g_constant` that `lowerIntegerConstant` made. -/
+@[llvm_to_gmir_pattern]
 public def lowerStaticAllocaGMIR_pattern : Puddle.Pattern OpCode :=
   lowerStaticAllocaOf (.gmir .g_constant) fun props => some props.value.value
 
 /-- `lowerStaticAllocaOf`, counted by an `arith.constant`. -/
+@[llvm_to_gmir_pattern]
 public def lowerStaticAllocaArith_pattern : Puddle.Pattern OpCode :=
   lowerStaticAllocaOf (.arith .constant) fun props =>
     match props with
@@ -334,6 +347,7 @@ public def lowerStaticAllocaArith_pattern : Puddle.Pattern OpCode :=
     | _ => none
 
 /-- `lowerStaticAllocaOf`, counted by an `llvm.mlir.zero`. -/
+@[llvm_to_gmir_pattern]
 public def lowerStaticAllocaZero_pattern : Puddle.Pattern OpCode :=
   lowerStaticAllocaOf (.llvm .mlir__zero) fun _ => some 0
 
@@ -367,6 +381,7 @@ def storeMemOperand? (type : TypeAttr) (props : StoreProperties) : Option Machin
   memOperand? type props.alignment props.syncscope props.volatile_ props.nontemporal false
 
 /-- `llvm.load` -> `gmir.g_load`, for the loads `loadMemOperand?` accepts. -/
+@[llvm_to_gmir_pattern]
 def lowerLoad_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -385,6 +400,7 @@ def lowerLoad_pattern : Puddle.Pattern OpCode :=
     (fun load => load)
 
 /-- `llvm.store` -> `gmir.g_store`, for the stores `storeMemOperand?` accepts. -/
+@[llvm_to_gmir_pattern]
 def lowerStore_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -407,6 +423,7 @@ def lowerStore_pattern : Puddle.Pattern OpCode :=
 def g_store := lowerStore_pattern.compile
 
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
+@[llvm_to_gmir_pattern]
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -423,6 +440,7 @@ def lowerIntegerConstant : Puddle.Pattern OpCode :=
     (fun newOp => newOp)
 
 /-- `llvm.mlir.zero` (integer up to `i64` or pointer) -> `gmir.g_constant 0`. -/
+@[llvm_to_gmir_pattern]
 def lowerZero : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -442,6 +460,7 @@ def g_zero := lowerZero.compile
   `llvm.mlir.poison` (integer or pointer) -> `gmir.g_poison`, as LLVM's IRTranslator turns poison
   of any type into `G_IMPLICIT_DEF`. Byte poison is translated by `lowerBytePoison`.
 -/
+@[llvm_to_gmir_pattern]
 def lowerPoison : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -452,6 +471,7 @@ def lowerPoison : Puddle.Pattern OpCode :=
     (fun newOp => newOp)
 
 /-- `llvm.freeze` (integer) -> `gmir.g_freeze`. -/
+@[llvm_to_gmir_pattern]
 def lowerIntegerFreeze : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -465,6 +485,7 @@ def lowerIntegerFreeze : Puddle.Pattern OpCode :=
 def g_freeze := lowerIntegerFreeze.compile
 
 /-- `llvm.ptrtoint` (pointer to `i64`) -> `gmir.g_ptrtoint`. Other widths stay in LLVM. -/
+@[llvm_to_gmir_pattern]
 def lowerPtrToInt : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -478,6 +499,7 @@ def lowerPtrToInt : Puddle.Pattern OpCode :=
     (fun newOp => newOp)
 
 /-- `llvm.inttoptr` (`i64` to pointer) -> `gmir.g_inttoptr`. Other widths stay in LLVM. -/
+@[llvm_to_gmir_pattern]
 def lowerIntToPtr : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -503,6 +525,7 @@ def TypeAttr.intOfByte? (type : TypeAttr) : Option TypeAttr := do
   LLVM converts all byte types to integer types of the same width when translating to gMIR
   (see `getLLTForType`); this mirrors that conversion. The properties are converted with `convert`.
 -/
+@[llvm_to_gmir_pattern]
 def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
     (convert : propertiesOf (OpCode.llvm lOp) → propertiesOf (OpCode.gmir gOp)) :
     Puddle.Pattern OpCode :=
@@ -532,6 +555,7 @@ def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
   byte type, as in `lowerUnaryByteOp`. An integer poison casts to a wholly poison byte
   (see `LLVM.Byte.fromInt`).
 -/
+@[llvm_to_gmir_pattern]
 def lowerBytePoison : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -550,6 +574,7 @@ def lowerBytePoison : Puddle.Pattern OpCode :=
   A shift of a byte by an integer amount -> `gOp` on the integer of the same width, between
   `builtin.unrealized_conversion_cast`s, as in `lowerUnaryByteOp`.
 -/
+@[llvm_to_gmir_pattern]
 def lowerByteShift (lOp : Llvm) (gOp : GMIR)
     (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
     Puddle.Pattern OpCode :=
@@ -587,6 +612,7 @@ def isByteIntBitcast (opType resType : TypeAttr) : Bool :=
   `llvm.bitcast` between a byte and an integer of the same width -> `builtin.unrealized_conversion_cast`.
   LLVM reuses the source register for these (see `translateBitCast`).
 -/
+@[llvm_to_gmir_pattern]
 def lowerByteIntBitcast : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -639,7 +665,7 @@ public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
   lowerCount .intr__ctpop .g_ctpop id,
   lowerIntegerConstant, lowerZero, lowerPoison, lowerIntegerFreeze, lowerBytePoison,
   lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩),
-  -- Unproven (`allPoisonByte`), so not run:
+  -- Not valid on an all-poison byte (see `Veir.Passes.LLVMToGMIR.Validity`), so not run:
   -- lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr,
   lowerByteIntBitcast,
   lowerStaticAlloca_pattern, lowerStaticAllocaGMIR_pattern, lowerStaticAllocaArith_pattern,

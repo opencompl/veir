@@ -3,6 +3,7 @@ module
 public import Veir.Passes.LLVMToGMIR.Validity
 public import Veir.Passes.LLVMToGMIR.BranchPass
 public import Veir.Passes.Pipeline.Soundness
+import Veir.Passes.LLVMToGMIR.Simp
 import all Veir.Passes.LLVMToGMIR
 import all Veir.Passes.LLVMToGMIR.Validity
 
@@ -13,17 +14,11 @@ namespace Veir.LLVMToGMIR.CTreeProofs
 
 open Puddle.CTree
 
-/-- The pattern list of the pass is the list of patterns the certificate proves. -/
-theorem llvmToGMIRPatternList_eq_provenPatterns :
-    llvmToGMIRPatternList = llvmToGMIRCertificates.provenPatterns := by
-  rfl
-
+set_option maxRecDepth 10000 in
 /-- Every pattern the pass applies is valid. -/
 theorem llvmToGMIRPatternList_valid :
     ∀ rule ∈ llvmToGMIRPatternList, Pattern.Valid rule := by
-  intro rule member
-  rw [llvmToGMIRPatternList_eq_provenPatterns] at member
-  exact llvmToGMIRCertificates.valid rule member
+  simp [llvmToGMIRPatternList, llvm_to_gmir_valid]
 
 /-- The greedy combination of the patterns is pointwise valid. -/
 theorem llvmToGMIRPatterns_pointwise :

@@ -73,11 +73,6 @@ private theorem shiftAmount_val {w : Nat} (y : BitVec w) :
   simp only [shiftAmount]
   split <;> simp [BitVec.ofNat_toNat, BitVec.setWidth_eq]
 
-private theorem not_ge_of_lt {w : Nat} {y : BitVec w} (h : y.toNat < w) : ¬ y ≥ (w : BitVec w) := by
-  rw [ge_iff_le, BitVec.le_def, BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt Nat.lt_two_pow_self]
-  omega
-
 private theorem ge_of_not_lt {w : Nat} {y : BitVec w} (h : ¬ y.toNat < w) : y ≥ (w : BitVec w) := by
   rw [ge_iff_le, BitVec.le_def, BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat,
     Nat.mod_eq_of_lt Nat.lt_two_pow_self]
