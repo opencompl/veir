@@ -5,6 +5,8 @@ import all Veir.Dialects.RISCV.Properties
 import all Veir.GlobalOpInfo
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.RISCV.Interpreter
+import all Veir.Dialects.RISCV.InterpreterLemmas
+import all Veir.Dialects.RV64.InterpreterLemmas
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
 import Veir.Passes.RISCVCombines.Simp
 
