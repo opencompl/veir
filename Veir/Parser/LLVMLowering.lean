@@ -13,6 +13,22 @@ open LLVMParserProp NameResolutionSketch
 abbrev LoweringError := String
 abbrev LowerM := StateT (WfIRContext OpCode) (Except LoweringError)
 
+/-- The `llvm.func` properties beyond name and type that `mlir-translate` gives a function whose
+source names no calling convention, linkage, `unnamed_addr` or visibility. -/
+def defaultFuncExtra : DictionaryAttr where
+  entries := #[("CConv".toUTF8, .cconvAttr ⟨"ccc"⟩), ("linkage".toUTF8, .linkageAttr ⟨"external"⟩),
+    ("unnamed_addr".toUTF8, .integerAttr { value := 0, type := .signless 64 }),
+    ("visibility_".toUTF8, .integerAttr { value := 0, type := .signless 64 })]
+
+/-- The module attributes `mlir-translate` gives a module with no `target datalayout`,
+`target triple` or `module asm`. The layout is MLIR's default data layout. -/
+def defaultModuleAttrs : DictionaryAttr where
+  entries := #[("dlti.dl_spec".toUTF8, .dlSpecAttr ⟨"!llvm.ptr = dense<64> : vector<4xi64>, \
+i1 = dense<8> : vector<2xi64>, i8 = dense<8> : vector<2xi64>, i16 = dense<16> : vector<2xi64>, \
+i32 = dense<32> : vector<2xi64>, i64 = dense<[32, 64]> : vector<2xi64>, f16 = dense<16> : vector<2xi64>, \
+f64 = dense<64> : vector<2xi64>, f128 = dense<128> : vector<2xi64>, \"dlti.endianness\" = \"little\""⟩),
+    ("llvm.module_asm".toUTF8, .arrayAttr ⟨#[]⟩), ("llvm.target_triple".toUTF8, .stringAttr ⟨"".toUTF8⟩)]
+
 def lowerType : LLType → TypeAttr
   | .int width => TypeAttr.of IntegerType (.signless width)
 
@@ -112,16 +128,21 @@ def lowerFunction (moduleBlock : BlockPtr) (f : ResolvedFunction) : LowerM Opera
   emit .func #[] #[] #[region]
     { sym_name := ⟨f.header.name.toUTF8⟩
       function_type := { inputs := inputs.map Subtype.val, outputs := #[output.val] }
-      extra := .empty } moduleBlock
+      extra := defaultFuncExtra } moduleBlock
 
 def lowerFunctions (block : BlockPtr) (fs : List ResolvedFunction) : LowerM Unit :=
   fs.forM (fun f => do let _ ← lowerFunction block f)
+
+/-- An empty module carrying `defaultModuleAttrs`. -/
+def createModule : Option (WfIRContext OpCode × OperationPtr) :=
+  (WfIRContext.create OpCode).bind fun (ctx, root) =>
+    if h : root.InBounds ctx.raw then some (WfRewriter.setAttributes ctx root defaultModuleAttrs h, root) else none
 
 /-- Prototype lowering of the resolved single-block integer fragment.
 Supports forward references and rejects undefined references; LLVM validity is checked separately. -/
 def lowerModule (m : ResolvedModule) :
     Except LoweringError (WfIRContext OpCode × OperationPtr) := do
-  let some (ctx, root) := WfIRContext.create OpCode
+  let some (ctx, root) := createModule
     | throw "could not create module"
   let some block := (root.getRegion! ctx.raw 0).getFirstBlock! ctx.raw
     | throw "module has no body block"
@@ -140,11 +161,11 @@ variable (ctx : WfIRContext OpCode)
 def MatchesOp (op : OperationPtr)
     {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode Dialect]
     (opcode : Dialect) (types : Array TypeAttr) (operands : Array ValuePtr)
-    (regions : Array RegionPtr) (properties : propertiesOf opcode) : Prop :=
+    (regions : Array RegionPtr) (properties : propertiesOf opcode) (attrs : DictionaryAttr := .empty) : Prop :=
   op.InBounds ctx.raw ∧ op.getProperties! ctx.raw opcode = properties ∧
   (op.getOpType! ctx.raw, op.getResultTypes! ctx.raw, op.getOperands! ctx.raw,
     op.getRegions! ctx.raw, op.getNumSuccessors! ctx.raw, op.getAttributes! ctx.raw) =
-  (ofDialect OpCode opcode, types, operands, regions, 0, DictionaryAttr.empty)
+  (ofDialect OpCode opcode, types, operands, regions, 0, attrs)
 
 def binOpcode : BinOp → Llvm
   | .and => .and
@@ -178,7 +199,7 @@ def LowersFunctionTiles (f : ResolvedFunction) (op : OperationPtr) : Prop :=
     MatchesOp ctx op Llvm.func #[] #[] #[region]
       (LLVMFuncProperties.mk ⟨f.header.name.toUTF8⟩
         { inputs := f.header.params.toArray.map (fun p => (lowerType p.ty).val)
-          outputs := #[(lowerType f.header.retType).val] } .empty) ∧
+          outputs := #[(lowerType f.header.retType).val] } defaultFuncExtra) ∧
     region.BlockChain ctx.raw #[block] ∧
     block.getArgumentTypes! ctx.raw = f.header.params.toArray.map (lowerType ·.ty) ∧
     (∀ i, values (.param i) = (block.getArguments! ctx.raw)[i]?) ∧
@@ -191,7 +212,7 @@ def LowersFunctionTiles (f : ResolvedFunction) (op : OperationPtr) : Prop :=
 /-- Only the module reachable from the root is specified;  We don't require Dominance -/
 def LowersModule (m : ResolvedModule) (root : OperationPtr) : Prop :=
   ∃ (region : RegionPtr) (block : BlockPtr) (funcs : List OperationPtr),
-    MatchesOp ctx root Builtin.module #[] #[] #[region] default ∧
+    MatchesOp ctx root Builtin.module #[] #[] #[region] default defaultModuleAttrs ∧
     region.BlockChain ctx.raw #[block] ∧
     block.OpChain ctx.raw funcs.toArray ∧
     root.getParent! ctx.raw = none ∧
@@ -208,7 +229,7 @@ set_option maxHeartbeats 800000
 
 variable {ctx ctx' ctx'' : WfIRContext OpCode} {block : BlockPtr} {changed changed' : List OperationPtr}
 variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode Dialect]
-variable {opcode : Dialect} {properties : propertiesOf opcode}
+variable {opcode : Dialect} {properties : propertiesOf opcode} {attrs : DictionaryAttr}
 
 attribute [local simp] StateT.run StateT.bind StateT.get StateT.set StateT.pure StateT.lift
   bind pure get getThe MonadState.get MonadStateOf.get set MonadStateOf.set
@@ -231,36 +252,36 @@ theorem createOp_matches
   have := WfRewriter.createOp_new_inBounds op h
   simp only [MatchesOp, Prod.mk.injEq]; simp_getset; grind
 
-theorem MatchesOp.pushOperand (h : MatchesOp ctx op opcode types operands regions properties) :
+theorem MatchesOp.pushOperand (h : MatchesOp ctx op opcode types operands regions properties attrs) :
     MatchesOp (WfRewriter.pushOperand ctx target value ht hv) op opcode types
-      (if op = target then operands.push value else operands) regions properties := by
+      (if op = target then operands.push value else operands) regions properties attrs := by
   simp only [MatchesOp, Prod.mk.injEq, WfRewriter.pushOperand] at *; simp_getset; grind
 
-theorem MatchesOp.insertOp (h : MatchesOp ctx op opcode types operands regions properties)
+theorem MatchesOp.insertOp (h : MatchesOp ctx op opcode types operands regions properties attrs)
     (hc : WfRewriter.insertOp ctx target ip ht hi = some ctx') :
-    MatchesOp ctx' op opcode types operands regions properties := by
+    MatchesOp ctx' op opcode types operands regions properties attrs := by
   have hr : op.getRegions! ctx'.raw = op.getRegions! ctx.raw := by apply Array.ext <;> grind
   simp only [MatchesOp, Prod.mk.injEq] at *; simp_getset; grind
 
-theorem MatchesOp.createOp (h : MatchesOp ctx op opcode types operands regions properties)
+theorem MatchesOp.createOp (h : MatchesOp ctx op opcode types operands regions properties attrs)
     {newCode : Llvm} {newProps : propertiesOf newCode}
     (hc : WfRewriter.createOp ctx newCode ts vs bs rs newProps ip ho hb hr hi = some (ctx', newOp)) :
-    MatchesOp ctx' op opcode types operands regions properties := by
+    MatchesOp ctx' op opcode types operands regions properties attrs := by
   have hn : op ≠ newOp := by have := WfRewriter.createOp_new_not_inBounds newOp hc; grind [MatchesOp]
   have hr : op.getRegions! ctx'.raw = op.getRegions! ctx.raw := by apply Array.ext <;> grind
   simp only [MatchesOp, Prod.mk.injEq] at *; simp_getset; grind
 
-theorem MatchesOp.createRegion (h : MatchesOp ctx op opcode types operands regions properties)
+theorem MatchesOp.createRegion (h : MatchesOp ctx op opcode types operands regions properties attrs)
     (hc : WfRewriter.createRegion ctx = some (ctx', region)) :
-    MatchesOp ctx' op opcode types operands regions properties := by
+    MatchesOp ctx' op opcode types operands regions properties attrs := by
   simp only [WfRewriter.createRegion] at hc
   have hr : op.getRegions! ctx'.raw = op.getRegions! ctx.raw := by apply Array.ext <;> grind
   simp only [MatchesOp, Prod.mk.injEq] at *; try simp_getset
   grind
 
-theorem MatchesOp.createBlock (h : MatchesOp ctx op opcode types operands regions properties)
+theorem MatchesOp.createBlock (h : MatchesOp ctx op opcode types operands regions properties attrs)
     (hc : WfRewriter.createBlock ctx ts ip hi = some (ctx', block)) :
-    MatchesOp ctx' op opcode types operands regions properties := by
+    MatchesOp ctx' op opcode types operands regions properties attrs := by
   simp only [MatchesOp, Prod.mk.injEq] at h
   cases ip <;> unfold WfRewriter.createBlock Rewriter.createBlock at hc <;> simp only [Option.bind_eq_bind, Option.bind, pure] at hc
   all_goals have hr : op.getRegions! ctx'.raw = op.getRegions! ctx.raw := by apply Array.ext <;> grind (gen := 20)
@@ -314,18 +335,18 @@ def definitionMap (ctx : WfIRContext OpCode) (block : BlockPtr) (results : Array
 structure Frame (ctx ctx' : WfIRContext OpCode) (changed : List OperationPtr) (block : BlockPtr) : Prop where
   bounds : ∀ p : GenericPtr, p.InBounds ctx.raw → p.InBounds ctx'.raw
   ops : ∀ op, op ∉ changed → ∀ {D : Type} [HasOpInfo D] [HasDialect OpCode D]
-    (code : D) ts vs rs props, MatchesOp ctx op code ts vs rs props → MatchesOp ctx' op code ts vs rs props
+    (code : D) ts vs rs props {attrs}, MatchesOp ctx op code ts vs rs props attrs → MatchesOp ctx' op code ts vs rs props attrs
   parents : ∀ op, op.InBounds ctx.raw → op ∉ changed → op.getParent! ctx'.raw = op.getParent! ctx.raw
   args : ∀ b : BlockPtr, b.InBounds ctx.raw → b.getArgumentTypes! ctx'.raw = b.getArgumentTypes! ctx.raw ∧ b.getArguments! ctx'.raw = b.getArguments! ctx.raw
   chains : ∀ b : BlockPtr, b ≠ block → ∀ os, b.OpChain ctx.raw os → b.OpChain ctx'.raw os
   regions : ∀ (r : RegionPtr) (b : BlockPtr), r.BlockChain ctx.raw #[b] → r.BlockChain ctx'.raw #[b]
 
 theorem Frame.refl : Frame ctx ctx [] block :=
-  ⟨fun _ h => h, fun _ _ _ _ _ _ _ _ _ _ h => h, fun _ _ _ => rfl, fun _ _ => ⟨rfl, rfl⟩, fun _ _ _ h => h, fun _ _ h => h⟩
+  ⟨fun _ h => h, fun _ _ _ _ _ _ _ _ _ _ _ h => h, fun _ _ _ => rfl, fun _ _ => ⟨rfl, rfl⟩, fun _ _ _ h => h, fun _ _ h => h⟩
 
 theorem Frame.trans (h : Frame ctx ctx' changed block) (h' : Frame ctx' ctx'' changed' block) :
     Frame ctx ctx'' (changed ++ changed') block := by
-  refine ⟨fun p hp => h'.bounds p (h.bounds p hp), fun op hn _ _ _ _ _ _ _ _ hm => h'.ops op (by simp_all) _ _ _ _ _ (h.ops op (by simp_all) _ _ _ _ _ hm),
+  refine ⟨fun p hp => h'.bounds p (h.bounds p hp), fun op hn _ _ _ _ _ _ _ _ _ hm => h'.ops op (by simp_all) _ _ _ _ _ (h.ops op (by simp_all) _ _ _ _ _ hm),
     fun op ho hn => (h'.parents op (h.bounds (.operation op) ho) (by simp_all)).trans (h.parents op ho (by simp_all)),
     fun b hb => ?_, fun b hn os ho => h'.chains b hn os (h.chains b hn os ho), fun r bs hr => h'.regions r bs (h.regions r bs hr)⟩
   exact ⟨(h'.args b (h.bounds (.block b) hb)).1.trans (h.args b hb).1, (h'.args b (h.bounds (.block b) hb)).2.trans (h.args b hb).2⟩
@@ -334,7 +355,7 @@ theorem Frame.trans (h : Frame ctx ctx' changed block) (h' : Frame ctx' ctx'' ch
 theorem Frame.mono (h : Frame ctx ctx' changed block) (hs : ∀ op ∈ changed, op ∈ changed' ∨ ¬op.InBounds ctx.raw)
     (hb : block = other ∨ ¬block.InBounds ctx.raw) : Frame ctx ctx' changed' other := by
   refine { h with ops := ?_, parents := fun op ho hn => h.parents op ho fun hp => (hs op hp).elim hn (· ho), chains := ?_ }
-  · intro op hn _ _ _ c ts vs rs ps hm; exact h.ops op (fun hp => (hs op hp).elim hn (· hm.1)) _ _ _ _ _ hm
+  · intro op hn _ _ _ c ts vs rs ps _ hm; exact h.ops op (fun hp => (hs op hp).elim hn (· hm.1)) _ _ _ _ _ hm
   · rintro b hn os hc; exact h.chains b (by rintro rfl; exact hb.elim hn (· hc.blockInBounds)) os hc
 
 theorem Frame.definitionMap_eq (h : Frame ctx ctx' changed block) (hb : b.InBounds ctx.raw) :
@@ -349,7 +370,7 @@ theorem Frame.createOp {code : Llvm} {props : propertiesOf code} {insert : Bool}
     {hi : (if insert then some (InsertPoint.atEnd block) else none).maybe InsertPoint.InBounds ctx.raw}
     (hc : WfRewriter.createOp ctx code ts vs #[] rs props
       (if insert then some (InsertPoint.atEnd block) else none) ho hs hr hi = some (ctx', op)) : Frame ctx ctx' [] block := by
-  refine ⟨fun p hp => by grind, fun _ _ _ _ _ _ _ _ _ _ hm => hm.createOp hc, fun p hp _ => ?_, fun b hb => ⟨?_, ?_⟩, ?_, ?_⟩
+  refine ⟨fun p hp => by grind, fun _ _ _ _ _ _ _ _ _ _ _ hm => hm.createOp hc, fun p hp _ => ?_, fun b hb => ⟨?_, ?_⟩, ?_, ?_⟩
   · have := WfRewriter.createOp_new_not_inBounds op hc; grind
   · apply Array.ext (by grind); intro i hi hi'; have := ValuePtr.getType!_WfRewriter_createOp (value := .blockArgument (b.getArgument i)) hc; grind
   · simp only [BlockPtr.getArguments!]; congr 1; grind
@@ -358,7 +379,7 @@ theorem Frame.createOp {code : Llvm} {props : propertiesOf code} {insert : Bool}
 
 theorem Frame.pushOperand (ho : op.InBounds ctx.raw) (hv : v.InBounds ctx.raw) :
     Frame ctx (WfRewriter.pushOperand ctx op v ho hv) [op] block := by
-  refine ⟨fun p hp => by grind [WfRewriter.pushOperand], fun p hn _ _ _ _ _ _ _ _ hm => by simpa [show p ≠ op by simpa using hn] using hm.pushOperand (target := op) (ht := ho) (hv := hv),
+  refine ⟨fun p hp => by grind [WfRewriter.pushOperand], fun p hn _ _ _ _ _ _ _ _ _ hm => by simpa [show p ≠ op by simpa using hn] using hm.pushOperand (target := op) (ht := ho) (hv := hv),
     fun p hp hn => by grind [WfRewriter.pushOperand], fun b hb => ⟨?_, ?_⟩, fun _ _ _ h => opChain_pushOperand h,
     fun _ _ h => by apply RegionPtr.blockChain_unchanged h <;> grind [WfRewriter.pushOperand]⟩
   · apply Array.ext <;> grind [WfRewriter.pushOperand]
@@ -367,7 +388,7 @@ theorem Frame.pushOperand (ho : op.InBounds ctx.raw) (hv : v.InBounds ctx.raw) :
 theorem Frame.insertOp {ho : op.InBounds ctx.raw} {hi : (InsertPoint.atEnd block).InBounds ctx.raw}
     (hp : op.getParent! ctx.raw = none)
     (hc : WfRewriter.insertOp ctx op (.atEnd block) ho hi = some ctx') : Frame ctx ctx' [op] block := by
-  refine ⟨fun p hp => by grind, fun _ _ _ _ _ _ _ _ _ _ hm => hm.insertOp hc, fun p hp hn => by grind, fun b hb => ⟨?_, ?_⟩, ?_, ?_⟩
+  refine ⟨fun p hp => by grind, fun _ _ _ _ _ _ _ _ _ _ _ hm => hm.insertOp hc, fun p hp hn => by grind, fun b hb => ⟨?_, ?_⟩, ?_, ?_⟩
   · apply Array.ext <;> grind [WfRewriter.insertOp]
   · simp only [BlockPtr.getArguments!]; congr 1; grind
   · intro b hn os hb; apply BlockPtr.OpChain_unchanged hb <;> grind
@@ -568,7 +589,7 @@ theorem createBody_spec (h : (createBody ts).run ctx = .ok ((region, body), ctx'
   have hrr : Rewriter.createRegion ctx.raw = some (ctx₁.raw, r) := by unfold WfRewriter.createRegion at hr; split at hr <;> grind
   obtain ⟨hn, hblocks, hchain, ht, -⟩ := createBlock_spec hb (by grind) (by grind)
   refine ⟨?_, fun hi => hn (by grind), hblocks, hchain, ht⟩; clear hn hblocks hchain ht; have hbr := createBlock_raw hb
-  refine ⟨fun p hp => by grind, fun _ _ _ _ _ _ _ _ _ _ hm => (hm.createRegion hr).createBlock hb, ?_, ?_, ?_, ?_⟩
+  refine ⟨fun p hp => by grind, fun _ _ _ _ _ _ _ _ _ _ _ hm => (hm.createRegion hr).createBlock hb, ?_, ?_, ?_, ?_⟩
   all_goals (unfold Rewriter.createBlock at hbr; simp only [Option.bind_eq_bind, Option.bind] at hbr; split at hbr <;> try contradiction)
   all_goals (split at hbr <;> try contradiction); all_goals simp only [Option.some.injEq, Prod.mk.injEq] at hbr; all_goals rcases hbr with ⟨rfl, rfl⟩
   · intro op ho hn; grind (gen := 20)
@@ -622,7 +643,7 @@ theorem createBlock_of_raw (h : Rewriter.createBlock ctx.raw ts ip (by grind) hi
     WfRewriter.createBlock ctx ts ip hi = some (ctx', body) := by
   unfold WfRewriter.createBlock; split <;> simp_all
 
-theorem createModule_sound (h : WfIRContext.create OpCode = some (ctx, root)) :
+theorem createRawModule_sound (h : WfIRContext.create OpCode = some (ctx, root)) :
     ∃ region block, MatchesOp ctx root Builtin.module #[] #[] #[region] default ∧
       region.BlockChain ctx.raw #[block] ∧ block.OpChain ctx.raw #[] ∧
       root.getParent! ctx.raw = none ∧ block.getArgumentTypes! ctx.raw = #[] := by
@@ -638,8 +659,32 @@ theorem createModule_sound (h : WfIRContext.create OpCode = some (ctx, root)) :
   obtain ⟨_, hblocks, hchain, htypes, hp⟩ := createBlock_spec hb (by grind (gen := 20)) (by grind (gen := 20))
   exact ⟨region, block, (createOp_matches hro).createBlock hb, hblocks, hchain, (hp root).trans (by simpa using OperationPtr.getParent!_WfRewriter_createOp (operation := root) hro), htypes⟩
 
+theorem setAttributes_inBounds (p : GenericPtr) :
+    p.InBounds (WfRewriter.setAttributes ctx op a ho).raw ↔ p.InBounds ctx.raw :=
+  Rewriter.setAttributes_inBounds (opIn := ho) p
+
+theorem setAttributes_opInBounds (o : OperationPtr) :
+    o.InBounds (WfRewriter.setAttributes ctx op a ho).raw ↔ o.InBounds ctx.raw := setAttributes_inBounds (.operation o)
+
+theorem MatchesOp.setAttributes (h : MatchesOp ctx op opcode types operands regions properties attrs)
+    (ho : op.InBounds ctx.raw) :
+    MatchesOp (WfRewriter.setAttributes ctx op a ho) op opcode types operands regions properties a := by
+  simp only [MatchesOp, Prod.mk.injEq] at *; exact ⟨(setAttributes_opInBounds op).mpr ho, by grind⟩
+
+theorem createModule_sound (h : createModule = some (ctx, root)) :
+    ∃ region block, MatchesOp ctx root Builtin.module #[] #[] #[region] default defaultModuleAttrs ∧
+      region.BlockChain ctx.raw #[block] ∧ block.OpChain ctx.raw #[] ∧
+      root.getParent! ctx.raw = none ∧ block.getArgumentTypes! ctx.raw = #[] := by
+  rcases hc : WfIRContext.create OpCode with _ | ⟨c, r⟩; · simp [createModule, hc] at h
+  simp only [createModule, hc, Option.bind] at h; split at h <;> cases h; rename_i hr
+  obtain ⟨region, block, hm, hb, ho, hp, ha⟩ := createRawModule_sound hc
+  refine ⟨region, block, hm.setAttributes hr, ?_, ?_, ?_, ?_⟩
+  · apply RegionPtr.blockChain_unchanged hb <;> grind [setAttributes_inBounds]
+  · apply BlockPtr.OpChain_unchanged ho <;> grind [setAttributes_inBounds]
+  all_goals grind
+
 theorem lowerModule_sound : lowerModule m = .ok (ctx, root) → LowersModule ctx m root := by
-  intro h; rcases hc : WfIRContext.create OpCode with _ | ⟨ctx₀, root₀⟩ <;> simp [lowerModule, hc] at h
+  intro h; rcases hc : createModule with _ | ⟨ctx₀, root₀⟩ <;> simp [lowerModule, hc] at h
   rcases hb : (root₀.getRegion! ctx₀.raw 0).getFirstBlock! ctx₀.raw with _ | block <;> simp [hb] at h
   rcases hf : lowerFunctions block m.funcs ctx₀ with _ | ⟨_, c⟩ <;> simp [hf] at h; obtain ⟨rfl, rfl⟩ := h
   obtain ⟨region, b, hm, hr, ho, hp, ha⟩ := createModule_sound hc
@@ -654,7 +699,7 @@ end Soundness
 /--
 info: "builtin.module"() ({
   ^2():
-    "llvm.func"() <{"function_type" = !llvm.func<i32 (i32, i32)>, "sym_name" = "demorgan_or"}> ({
+    "llvm.func"() <{"CConv" = #llvm.cconv<ccc>, "function_type" = !llvm.func<i32 (i32, i32)>, "linkage" = #llvm.linkage<external>, "sym_name" = "demorgan_or", "unnamed_addr" = 0 : i64, "visibility_" = 0 : i64}> ({
       ^4(%arg4_0 : i32, %arg4_1 : i32):
         %9 = "llvm.mlir.constant"() <{"value" = -1 : i32}> : () -> i32
         %5 = "llvm.xor"(%arg4_0, %9) : (i32, i32) -> i32
@@ -665,7 +710,7 @@ info: "builtin.module"() ({
         %8 = "llvm.xor"(%7, %11) : (i32, i32) -> i32
         "llvm.return"(%8) : (i32) -> ()
     }) : () -> ()
-    "llvm.func"() <{"function_type" = !llvm.func<i32 (i32, i32)>, "sym_name" = "demorgan_and"}> ({
+    "llvm.func"() <{"CConv" = #llvm.cconv<ccc>, "function_type" = !llvm.func<i32 (i32, i32)>, "linkage" = #llvm.linkage<external>, "sym_name" = "demorgan_and", "unnamed_addr" = 0 : i64, "visibility_" = 0 : i64}> ({
       ^15(%arg15_0 : i32, %arg15_1 : i32):
         %20 = "llvm.mlir.constant"() <{"value" = -1 : i32}> : () -> i32
         %16 = "llvm.xor"(%arg15_0, %20) : (i32, i32) -> i32
@@ -676,7 +721,7 @@ info: "builtin.module"() ({
         %19 = "llvm.xor"(%18, %22) : (i32, i32) -> i32
         "llvm.return"(%19) : (i32) -> ()
     }) : () -> ()
-}) : () -> ()
+}) {"dlti.dl_spec" = #dlti.dl_spec<!llvm.ptr = dense<64> : vector<4xi64>, i1 = dense<8> : vector<2xi64>, i8 = dense<8> : vector<2xi64>, i16 = dense<16> : vector<2xi64>, i32 = dense<32> : vector<2xi64>, i64 = dense<[32, 64]> : vector<2xi64>, f16 = dense<16> : vector<2xi64>, f64 = dense<64> : vector<2xi64>, f128 = dense<128> : vector<2xi64>, "dlti.endianness" = "little">, "llvm.module_asm" = [], "llvm.target_triple" = ""} : () -> ()
 -/
 #guard_msgs in
 #eval show IO Unit from do
@@ -999,7 +1044,7 @@ theorem lowerFunction_total (hs : AllocationSafe ctx.raw) (hb : moduleBlock.OpCh
   obtain ⟨v, c₃, hval, hs₃, hvin, hr₃⟩ := lowerValue_total (ty := f.header.retType) hs₂ hci.blockInBounds hv (by simpa [hsize, hF₂.numArgs hbin, hnum] using hvalid.2)
   have hF₃ := (lowerValue_spec hci hval).1; obtain ⟨ret, c₄, hret, hs₄, hr₄⟩ := emit_total (code := .return) (props := ()) (ts := #[]) (vs := #[v]) (rs := #[]) hs₃ (hF₃.bounds (.block body) hci.blockInBounds) true (by simpa) (by simp) (by simp) (by simp)
   have hF₄ := (emit_spec hret).1; have hF := hF₁.trans (hF₂.trans (hF₃.trans hF₄)); have hdet : region.getParent! c₄.raw = none := (hr₄ region (by simp)).trans ((hr₃ region).trans ((hr₂ region).trans hparent))
-  obtain ⟨op, c₅, hfunc, hs₅, -⟩ := emit_total (code := .func) (ts := #[]) (vs := #[]) (rs := #[region]) (props := { sym_name := ⟨f.header.name.toUTF8⟩, function_type := { inputs := (f.header.params.toArray.map (lowerType ·.ty)).map Subtype.val, outputs := #[(lowerType f.header.retType).val] }, extra := .empty })
+  obtain ⟨op, c₅, hfunc, hs₅, -⟩ := emit_total (code := .func) (ts := #[]) (vs := #[]) (rs := #[region]) (props := { sym_name := ⟨f.header.name.toUTF8⟩, function_type := { inputs := (f.header.params.toArray.map (lowerType ·.ty)).map Subtype.val, outputs := #[(lowerType f.header.retType).val] }, extra := defaultFuncExtra })
     hs₄ (hF.bounds (.block moduleBlock) hb.blockInBounds) true (by simp) (by simpa using (hF₂.trans (hF₃.trans hF₄)).bounds (.region region) hblocks.inBounds) (by simpa using hdet) (by simp)
   refine ⟨op, c₅, ?_, hs₅⟩; simp only [lowerFunction, run_bind]; exact ⟨(region, body), c₁, hcreate, results, c₂, hi, v, c₃, hval, ret, c₄, hret, hfunc⟩
 
@@ -1026,9 +1071,16 @@ theorem LowersModule.valid (h : LowersModule ctx m root) : ∀ f ∈ m.funcs, Va
   obtain ⟨_, _, _, _, _, _, _, _, hfs⟩ := h
   intro f hf; obtain ⟨_, hfun⟩ := resolvesList_mem_left hfs hf; exact hfun.1
 
+theorem createModule_allocationSafe : ∃ ctx root, createModule = some (ctx, root) ∧ AllocationSafe ctx.raw := by
+  obtain ⟨ctx, root, hc, hs⟩ := createModule_total
+  obtain ⟨_, _, hm, -⟩ := createRawModule_sound hc
+  refine ⟨WfRewriter.setAttributes ctx root defaultModuleAttrs hm.1, root, by simp [createModule, hc, hm.1], ?_⟩
+  exact ⟨fun p hp => hs.operations p ((setAttributes_inBounds (.operation p)).mp hp),
+    fun p hp => hs.blocks p ((setAttributes_inBounds (.block p)).mp hp), fun p hp => hs.regions p ((setAttributes_inBounds (.region p)).mp hp)⟩
+
 theorem lowerModule_total (hvalid : ∀ f ∈ m.funcs, ValidResolvedFunction f) :
     ∃ ctx root, lowerModule m = .ok (ctx, root) := by
-  obtain ⟨ctx, root, hcreate, hs⟩ := createModule_total
+  obtain ⟨ctx, root, hcreate, hs⟩ := createModule_allocationSafe
   obtain ⟨region, b, hm, hr, hb, -, -⟩ := createModule_sound hcreate
   have hfirst : (root.getRegion! ctx.raw 0).getFirstBlock! ctx.raw = some b := by
     rw [← OperationPtr.getRegions!.getElem!_eq_getRegion!, show root.getRegions! ctx.raw = #[region] by grind [MatchesOp]]
@@ -1048,8 +1100,8 @@ variable {ctx₁ ctx₂ : WfIRContext OpCode}
 variable {D : Type} [HasOpInfo D] [HasDialect OpCode D]
 variable {code : D} {props : propertiesOf code}
 
-theorem MatchesOp.properties_eq (h₁ : MatchesOp ctx₁ o₁ code ts₁ vs₁ rs₁ props)
-    (h₂ : MatchesOp ctx₂ o₂ code ts₂ vs₂ rs₂ props) :
+theorem MatchesOp.properties_eq (h₁ : MatchesOp ctx₁ o₁ code ts₁ vs₁ rs₁ props as₁)
+    (h₂ : MatchesOp ctx₂ o₂ code ts₂ vs₂ rs₂ props as₂) :
     ∀ c : OpCode, o₂.getProperties! ctx₂.raw c = o₁.getProperties! ctx₁.raw c := by
   simp only [MatchesOp, Prod.mk.injEq] at *
   intro c
@@ -1066,8 +1118,8 @@ def SameFields (ctx₁ ctx₂ : WfIRContext OpCode) (φ : OperationPtr → Opera
   (o₁.getOpType! ctx₁.raw, o₁.getResultTypes! ctx₁.raw, o₁.getNumSuccessors! ctx₁.raw,
     o₁.getAttributes! ctx₁.raw, (o₁.getOperands! ctx₁.raw).map (renameValue φ β), (o₁.getRegions! ctx₁.raw).size)
 
-theorem MatchesOp.fields (h₁ : MatchesOp ctx₁ o₁ code ts vs₁ rs₁ props)
-    (h₂ : MatchesOp ctx₂ o₂ code ts vs₂ rs₂ props)
+theorem MatchesOp.fields (h₁ : MatchesOp ctx₁ o₁ code ts vs₁ rs₁ props attrs)
+    (h₂ : MatchesOp ctx₂ o₂ code ts vs₂ rs₂ props attrs)
     (hv : vs₂ = vs₁.map (renameValue φ β)) (hr : rs₂.size = rs₁.size) :
     SameFields ctx₁ ctx₂ φ β o₁ o₂ := by
   refine ⟨h₁.properties_eq h₂, ?_⟩
@@ -1181,7 +1233,7 @@ theorem LowersInstTile.regions {id : ValueId} (h : LowersInstTile ctx values id 
   · exact hr.regions ho
   · grind [MatchesOp]
 
-theorem MatchesOp.region_parent (h : MatchesOp ctx o code ts vs rs props) (hr : r ∈ rs) :
+theorem MatchesOp.region_parent (h : MatchesOp ctx o code ts vs rs props attrs) (hr : r ∈ rs) :
     r.getParent! ctx.raw = some o := by
   have hm : r ∈ o.getRegions! ctx.raw := by grind [MatchesOp]
   have hi := OperationPtr.getRegions!.mem_iff_exists_index.mp hm
@@ -1200,7 +1252,7 @@ structure FunctionWitness (ctx : WfIRContext OpCode) (f : ResolvedFunction) (op 
   func : MatchesOp ctx op Llvm.func #[] #[] #[region]
     (LLVMFuncProperties.mk ⟨f.header.name.toUTF8⟩
       { inputs := f.header.params.toArray.map (fun p => (lowerType p.ty).val)
-        outputs := #[(lowerType f.header.retType).val] } .empty)
+        outputs := #[(lowerType f.header.retType).val] } defaultFuncExtra)
   blocks : region.BlockChain ctx.raw #[block]
   args : block.getArgumentTypes! ctx.raw = f.header.params.toArray.map (lowerType ·.ty)
   params : ∀ i, values (.param i) = (block.getArguments! ctx.raw)[i]?
@@ -1398,8 +1450,8 @@ structure ModulePair (ctx₁ ctx₂ : WfIRContext OpCode) (root₁ root₂ : Ope
   block₁ : BlockPtr
   block₂ : BlockPtr
   functions : List (FunctionPair ctx₁ ctx₂)
-  module₁ : MatchesOp ctx₁ root₁ Builtin.module #[] #[] #[region₁] default
-  module₂ : MatchesOp ctx₂ root₂ Builtin.module #[] #[] #[region₂] default
+  module₁ : MatchesOp ctx₁ root₁ Builtin.module #[] #[] #[region₁] default defaultModuleAttrs
+  module₂ : MatchesOp ctx₂ root₂ Builtin.module #[] #[] #[region₂] default defaultModuleAttrs
   blocks₁ : region₁.BlockChain ctx₁.raw #[block₁]
   blocks₂ : region₂.BlockChain ctx₂.raw #[block₂]
   chain₁ : block₁.OpChain ctx₁.raw (functions.map (·.left.op)).toArray
@@ -1530,7 +1582,7 @@ theorem nested_mem {ctx : WfIRContext OpCode} {ops : List OperationPtr}
   obtain rfl := BlockPtr.OpChain_unique hos hchain
   simpa using ho
 
-theorem MatchesOp.regions_eq (h : MatchesOp ctx o code ts vs rs props) : o.getRegions! ctx.raw = rs := by grind [MatchesOp]
+theorem MatchesOp.regions_eq (h : MatchesOp ctx o code ts vs rs props attrs) : o.getRegions! ctx.raw = rs := by grind [MatchesOp]
 
 theorem ModulePair.reaches_mem (g : ModulePair ctx₁ ctx₂ root₁ root₂) (h : Reaches ctx₁ root₁ o) :
     o ∈ g.operationPairs.map Prod.fst := by
