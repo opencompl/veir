@@ -146,7 +146,7 @@ info: "ok"
 
 example : RuntimeValue.tensor #[.int 32 .poison, .int 32 .poison] ⊒
     .tensor #[.int 32 (.val (BitVec.ofInt 32 1)), .int 32 (.val (BitVec.ofInt 32 2))] := by
-  simp [RuntimeValue.isRefinedBy, isRefinedBy]
+  simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]
 
 example : ¬ (RuntimeValue.tensor #[.int 32 (.val (BitVec.ofInt 32 1)), .int 32 (.val (BitVec.ofInt 32 2))] ⊒
     .tensor #[.int 32 .poison, .int 32 .poison]) := by
