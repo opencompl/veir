@@ -69,7 +69,7 @@ theorem forall_riscvLoadCTree_canInterpretTo_ok {EIn : Type}
 The statement keeps the source as a lifted `Interp` computation, so that it can be transported
 into a normalized goal through `Veir.Sim.monadLift_right_iff` without rewriting below the
 dependent size proof of `MemoryState.store`. -/
-theorem sim_store {R : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
+theorem Sim.bind_store_pure_store {R : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
       (Array RuntimeValue × MemoryState × Option ControlFlowAction) → Prop}
     (hR : ∀ mem, R (#[], mem, none) (#[], mem, none))
     (mem : MemoryState) (p : Data.Pointer) (source target poison : ByteArray)

@@ -436,7 +436,7 @@ theorem sexth_xor_valid :
 
 section
 
-/- Keep both store computations lifted, as `sim_store` expects them. -/
+/- Keep both store computations lifted, as `Sim.bind_store_pure_store` expects them. -/
 attribute [-puddle] Veir.Sim.bind_monadLift_left_iff Veir.Sim.monadLift_right_iff
 
 /-! ## Extensions of a stored value
@@ -448,14 +448,14 @@ extension below leaves those bytes unchanged. -/
 /-- Prove the validity of a store combine, given a proof `bytes` that the dropped extension
 does not change the stored bytes, usually `by veir_bv_decide`.
 The caller must erase `Veir.Sim.bind_monadLift_left_iff` and `Veir.Sim.monadLift_right_iff`
-from `puddle`, so that both store computations stay lifted for `sim_store`. -/
+from `puddle`, so that both store computations stay lifted for `Sim.bind_store_pure_store`. -/
 macro "proveStoreValid" bytes:term : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
   simp [puddle, riscv_combine]
   all_goals
     intros
-    exact sim_store
+    exact Sim.bind_store_pure_store
       (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
       _ _ _ _ _ _ _ $bytes))
 
