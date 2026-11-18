@@ -65,11 +65,11 @@ def srl_sra_signbitGen_pattern (srlDst : Riscv)
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
-      let xType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
       let x ← Puddle.MatchProg.value xType
-      let sraType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let sraType ← Puddle.MatchProg.type (Attr := RegisterType)
       let sra ← Puddle.MatchProg.operation (.riscv sraDst) #[x] #[sraType]
-      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
       let root ← Puddle.MatchProg.root (.riscv srlDst) #[sra.res[0]!] #[resultType]
         (fun props => (cast hSrl props : RISCVImmediateProperties).value.toInt = (width : Int) - 1)
       return (x, root.properties))
@@ -108,13 +108,13 @@ def drop_slli_srli_boolGen_pattern (boolDst : Riscv) (arity : Nat) : Puddle.Patt
   Puddle.Pattern.Builder
     (do
       let operands ← (Array.range arity).mapM fun _ => do
-        Puddle.MatchProg.value (← Puddle.MatchProg.type (Attr := TypeAttr))
-      let boolType ← Puddle.MatchProg.type (Attr := TypeAttr)
+        Puddle.MatchProg.value (← Puddle.MatchProg.type (Attr := RegisterType))
+      let boolType ← Puddle.MatchProg.type (Attr := RegisterType)
       let boolOp ← Puddle.MatchProg.operation (.riscv boolDst) operands #[boolType]
-      let slliType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let slliType ← Puddle.MatchProg.type (Attr := RegisterType)
       let slli ← Puddle.MatchProg.operation (.riscv .slli) #[boolOp.res[0]!] #[slliType]
         (fun props => props.value = 63#64)
-      let srliType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let srliType ← Puddle.MatchProg.type (Attr := RegisterType)
       let _ ← Puddle.MatchProg.root (.riscv .srli) #[slli.res[0]!] #[srliType]
         (fun props => props.value = 63#64)
       return boolOp.res[0]!)
@@ -186,11 +186,11 @@ def drop_slli_srli_sgtz := drop_slli_srli_boolGen .sgtz 1
 def drop_redundant_ext_pattern (ext : Riscv) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
-      let xType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
       let x ← Puddle.MatchProg.value xType
-      let innerType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let innerType ← Puddle.MatchProg.type (Attr := RegisterType)
       let inner ← Puddle.MatchProg.operation (.riscv ext) #[x] #[innerType]
-      let outerType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let outerType ← Puddle.MatchProg.type (Attr := RegisterType)
       let _ ← Puddle.MatchProg.root (.riscv ext) #[inner.res[0]!] #[outerType]
       return inner.res[0]!)
     pure
@@ -900,9 +900,9 @@ def drop_sextw_zextw := drop_ext_low_word .sextw .zextw 1
 @[riscv_pattern]
 def matchBitwiseOperand (ext : Riscv) (guarded : Bool) :
     Puddle.MatchProg.Builder (Puddle.Handle OpCode .value) := do
-  let type ← Puddle.MatchProg.type (Attr := TypeAttr)
+  let type ← Puddle.MatchProg.type (Attr := RegisterType)
   if !guarded then return ← Puddle.MatchProg.value type
-  let srcType ← Puddle.MatchProg.type (Attr := TypeAttr)
+  let srcType ← Puddle.MatchProg.type (Attr := RegisterType)
   let src ← Puddle.MatchProg.value srcType
   let extOp ← Puddle.MatchProg.operation (.riscv ext) #[src] #[type]
   return extOp.res[0]!
@@ -916,9 +916,9 @@ def drop_ext_of_bitwise_pattern (ext dst : Riscv) (lhsGuarded rhsGuarded : Bool)
     (do
       let lhs ← matchBitwiseOperand ext lhsGuarded
       let rhs ← matchBitwiseOperand ext rhsGuarded
-      let innerType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let innerType ← Puddle.MatchProg.type (Attr := RegisterType)
       let inner ← Puddle.MatchProg.operation (.riscv dst) #[lhs, rhs] #[innerType]
-      let outerType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let outerType ← Puddle.MatchProg.type (Attr := RegisterType)
       let _ ← Puddle.MatchProg.root (.riscv ext) #[inner.res[0]!] #[outerType]
       return inner.res[0]!)
     pure
@@ -1025,11 +1025,11 @@ def sexth_xor := drop_ext_of_bitwise .sexth .xor false
 def drop_ext_store_pattern (ext store : Riscv) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
-      let valType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let valType ← Puddle.MatchProg.type (Attr := RegisterType)
       let val ← Puddle.MatchProg.value valType
-      let extType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let extType ← Puddle.MatchProg.type (Attr := RegisterType)
       let extOp ← Puddle.MatchProg.operation (.riscv ext) #[val] #[extType]
-      let addrType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
       let addr ← Puddle.MatchProg.value addrType
       let root ← Puddle.MatchProg.root (.riscv store) #[extOp.res[0]!, addr] #[]
       return (val, addr, root.properties))
@@ -1082,7 +1082,7 @@ def drop_sextw_sb := drop_ext_store .sextw .sb
 def li_zero_to_x0_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
-      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
       let root ← Puddle.MatchProg.root (.riscv .li) #[] #[resultType]
         (fun props => props.value = 0#64)
       /- Nothing to do for a dead `li 0`; leave it for DCE and avoid creating a dead x0. -/
@@ -1109,7 +1109,7 @@ def ext_x0_pattern (ext : Riscv) : Puddle.Pattern OpCode :=
     (do
       let srcType ← Puddle.MatchProg.type (Attr := RegisterType) (·.index = some 0)
       let src ← Puddle.MatchProg.value srcType
-      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
       let _ ← Puddle.MatchProg.root (.riscv ext) #[src] #[resultType]
       return src)
     pure
@@ -1136,9 +1136,9 @@ def ext_of_li_pattern (ext : Riscv) (redundant : RISCVImmediateProperties → Bo
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
-      let liType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let liType ← Puddle.MatchProg.type (Attr := RegisterType)
       let li ← Puddle.MatchProg.operation (.riscv .li) #[] #[liType] redundant
-      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
       let _ ← Puddle.MatchProg.root (.riscv ext) #[li.res[0]!] #[resultType]
       return li.res[0]!)
     pure

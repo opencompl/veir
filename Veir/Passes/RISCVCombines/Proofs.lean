@@ -24,22 +24,9 @@ attribute [local puddle]
 
 attribute [local riscv_combine]
   RuntimeValue.isRefinedBy
+  forall_riscvLoadCTree_canInterpretTo_ok
+  _root_.Veir.RISCV.liFitsSImm12 RISCVImmediateProperties.immField
 
-/-- Split a matched input value, i.e. a value with a `Conforms` hypothesis, by constructor. -/
-theorem forall_conforms_iff {t : TypeAttr} {P : RuntimeValue → Prop} :
-    (∀ v : RuntimeValue, v.Conforms t → P v) ↔
-      (∀ bw x, (RuntimeValue.int bw x).Conforms t → P (.int bw x)) ∧
-      (∀ bw x, (RuntimeValue.byte bw x).Conforms t → P (.byte bw x)) ∧
-      (∀ ty x, (RuntimeValue.float ty x).Conforms t → P (.float ty x)) ∧
-      (∀ x, (RuntimeValue.addr x).Conforms t → P (.addr x)) ∧
-      (∀ x, (RuntimeValue.reg x).Conforms t → P (.reg x)) ∧
-      (∀ ty x, (RuntimeValue.felt ty x).Conforms t → P (.felt ty x)) := by
-  constructor
-  · intro h
-    exact ⟨fun _ _ => h _, fun _ _ => h _, fun _ _ => h _, fun _ => h _, fun _ => h _,
-      fun _ _ => h _⟩
-  · rintro ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ v
-    cases v <;> simp_all
 
 /-- `rv64.get_register` with a register result type reads `x0` as zero. -/
 @[riscv_combine]
@@ -50,15 +37,13 @@ theorem rv64_interpretOp'_get_register (property : propertiesOf Rv64.get_registe
       if reg.index = some 0 then some (#[.reg ⟨0⟩], none) else none := by
   simp [Rv64.interpretOp', TypeAttr.of, Attribute.of, -Attribute.registerType_eq_of]
 
-attribute [local riscv_combine] _root_.Veir.RISCV.liFitsSImm12 RISCVImmediateProperties.immField
-
 /-- Prove the validity of a combine pattern: unfold it, discharge the structural obligations,
 normalize the semantics to register equalities under the matcher's guards, and bit-blast them.
 The simp call is contextual, so that each guard rewrites the conclusion it guards. -/
 macro "proveCombineValid" : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
-  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
+  simp +contextual [puddle, riscv_combine]
   all_goals veir_bv_decide))
 
 /-! ### Stores
@@ -349,48 +334,6 @@ theorem sexth_li_low16_valid :
 
 section
 
-/-- `x` is a value a RISC-V load of `n` bytes at `p` can produce: the bits stored at `p`, with each
-poison bit frozen to some concrete value. It is kept folded, so that the validity proofs treat the
-loaded value as an arbitrary bitvector. -/
-def LoadsBits (mem : MemoryState) (p : Data.Pointer) (n : Nat) (x : BitVec (8 * n)) : Prop :=
-  ∃ b, mem.loadByte p (8 * n) = .ok b ∧ ∃ bits, x = b.val ||| (b.poison &&& bits)
-
-/-- A RISC-V load CTree that succeeds returns the bits it read, extended to a register, and leaves
-memory unchanged. -/
-theorem riscvLoadCTree_canInterpretTo_ok {EIn : Type} {E : EIn → Type}
-    [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
-    {mem mem' : MemoryState} {n : Nat} {ext : LoadExtension} {v : RuntimeValue} :
-    PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
-        (.ok (#[v], mem', none)) ↔
-      ∃ x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x ∧
-        v = .reg ⟨match ext with
-          | .signExt => x.signExtend 64
-          | .zeroExt => x.setWidth 64⟩ ∧
-        mem' = mem := by
-  simp [riscvLoadCTree, Bind.bind, PureOrErr.CanInterpretTo.bind_iff, LoadsBits]
-  constructor
-  · rintro ⟨b, hb, ⟨bits, rfl⟩, rfl⟩
-    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp [Data.LLVM.Byte.fillPoison], rfl⟩
-  · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
-    exact ⟨b, hb, ⟨bits, by cases ext <;> simp [Data.LLVM.Byte.fillPoison]⟩, rfl⟩
-
-/-- `riscvLoadCTree_canInterpretTo_ok` for the matched result of a load, which the validity goal
-quantifies over together with the input and output memories: the result is substituted by the
-extended loaded bits and the output memory by the input memory. -/
-@[local riscv_combine] theorem forall_riscvLoadCTree_canInterpretTo_ok {EIn : Type}
-    {E : EIn → Type} [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
-    {n : Nat} {ext : LoadExtension} {P : RuntimeValue → MemoryState → MemoryState → Prop} :
-    (∀ v mem mem', PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
-        (.ok (#[v], mem', none)) → P v mem mem') ↔
-      ∀ mem x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x →
-        P (.reg ⟨match ext with
-          | .signExt => x.signExtend 64
-          | .zeroExt => x.setWidth 64⟩) mem mem := by
-  simp only [riscvLoadCTree_canInterpretTo_ok]
-  constructor
-  · exact fun h mem x hx => h _ _ _ ⟨x, hx, rfl, rfl⟩
-  · rintro h v mem mem' ⟨x, hx, rfl, rfl⟩
-    exact h _ x hx
 
 /-! ## Byte-load and byte-packing combines.
 
@@ -571,7 +514,7 @@ from `puddle`, so that both store computations stay lifted for `sim_store`. -/
 macro "proveStoreValid" bytes:term : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
-  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
+  simp +contextual [puddle, riscv_combine]
   all_goals
     intros
     exact sim_store
