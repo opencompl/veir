@@ -37,6 +37,7 @@ theorem RewritePattern.worklistStep_preserves
     split at run
     next dead =>
       cases run
+      simp only [PatternRewriter.eraseOp!, opIn, dead.1.1, dead.1.2.1, ↓reduceDIte]
       exact steps.deadStep { before with worklist := before.worklist.pop.2 } _ opIn dead.1 dead.2 initial
     next notDead =>
       exact steps.patternStep { before with worklist := before.worklist.pop.2 } _ opIn _ initial run
