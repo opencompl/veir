@@ -1054,8 +1054,9 @@ def urem_pow2_to_mask_pattern : Pattern OpCode :=
 
 /-! ### constant_fold_binops -/
 
-/-- `c₁ op c₂` → the constant `fold c₁ c₂`, with both constants read as signed integers. -/
-def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : Pattern OpCode :=
+/-- `c₁ op c₂` → the constant `fold c₁ c₂`, at the width of the constants. -/
+def constant_fold_binop_pattern (opcode : GMIR)
+    (fold : ∀ {w : Nat}, BitVec w → BitVec w → BitVec w) : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType)
@@ -1064,7 +1065,7 @@ def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : P
       let _ ← MatchProg.root (.gmir opcode) #[c₁.res[0]!, c₂.res[0]!] #[type]
       return (type, c₁.properties, c₂.properties))
     (fun (type, c₁, c₂) =>
-      createConstantWith type (c₁, c₂) fun (c₁, c₂) => fold c₁.bits.toInt c₂.bits.toInt)
+      createConstantWith type (c₁, c₂) fun (c₁, c₂) => (fold c₁.bits (c₂.bits.setWidth _)).toInt)
     (fun op => op)
 
 /-! ### select_combines
@@ -1333,8 +1334,11 @@ def combines : Array (CompiledPattern OpCode) :=
     sub_of_mul_const_pattern, canonicalize_icmp_pattern,
     bitreverse_shift_pattern .g_shl .g_lshr, bitreverse_shift_pattern .g_lshr .g_shl,
     udiv_by_pow2_pattern, mul_to_shl_pattern, urem_pow2_to_mask_pattern] ++
-  #[(GMIR.g_add, fun a b => a + b), (.g_sub, (· - ·)), (.g_mul, (· * ·)),
-    (.g_smin, min), (.g_smax, max)].map (fun (opcode, fold) => constant_fold_binop_pattern opcode fold) ++
+  #[constant_fold_binop_pattern .g_add (· + ·), constant_fold_binop_pattern .g_sub (· - ·),
+    constant_fold_binop_pattern .g_mul (· * ·),
+    constant_fold_binop_pattern .g_smin fun a b => if a.sle b then a else b,
+    constant_fold_binop_pattern .g_smax fun a b => if a.sle b then b else a,
+    constant_fold_binop_pattern .g_shl (· <<< ·)] ++
   #[sub_minus_one_pattern] ++
   #[GMIR.g_sub, .g_add, .g_or, .g_xor, .g_shl, .g_ashr, .g_lshr].map right_identity_zero_pattern ++
   #[right_identity_one_int_pattern, binop_same_val_pattern .g_and, binop_same_val_pattern .g_or,
