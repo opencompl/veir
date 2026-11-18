@@ -26,6 +26,24 @@ def OperationPtr.IsVerifiedIntegerBinop
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) =
       .of IntegerType integerType
 
+/-- A successful `verifyNonOperandCounts` pins the number of results. -/
+theorem OperationPtr.verifyNonOperandCounts_eq_ok {op : OperationPtr}
+    {ctx : WfIRContext OpInfo} {opIn : op.InBounds ctx.raw} {results regions successors : Nat}
+    (h : op.verifyNonOperandCounts ctx opIn results regions successors = .ok ()) :
+    op.getNumResults! ctx.raw = results := by
+  rw [OperationPtr.getNumResults!_eq_getNumResults opIn]
+  simp only [OperationPtr.verifyNonOperandCounts] at h
+  split at h
+  · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
+  · rename_i hne; simpa using hne
+
+/-- A successful `verifyTerminatorCounts` leaves the operation without results. -/
+theorem OperationPtr.verifyTerminatorCounts_eq_ok {op : OperationPtr}
+    {ctx : WfIRContext OpInfo} {opIn : op.InBounds ctx.raw} {successors : Nat}
+    (h : op.verifyTerminatorCounts ctx opIn successors = .ok ()) :
+    op.getNumResults! ctx.raw = 0 :=
+  OperationPtr.verifyNonOperandCounts_eq_ok h
+
 /-- Extract structural facts from a successful `verifyIntegerBinop` check. -/
 theorem OperationPtr.verifyIntegerBinop_eq_ok
     {ctx : WfIRContext OpInfo} {op : OperationPtr}

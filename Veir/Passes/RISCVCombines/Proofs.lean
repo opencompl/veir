@@ -6,8 +6,8 @@ import all Veir.Dialects.RV64.OpInfo
 import all Veir.GlobalOpInfo
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.RISCV.Interpreter
-import all Veir.IR.Attribute
-import all Veir.Data.LLVM.Byte.Basic
+import all Veir.Dialects.RISCV.InterpreterLemmas
+import all Veir.Dialects.RV64.InterpreterLemmas
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
 import Veir.Passes.RISCVCombines.Simp
 meta import Veir.Meta.ProofKind
@@ -25,33 +25,10 @@ attribute [local puddle]
 
 attribute [local riscv_combine]
   RuntimeValue.isRefinedBy
+  forall_riscvLoadCTree_canInterpretTo_ok
+  _root_.Veir.RISCV.liFitsSImm12 RISCVImmediateProperties.immField
+  rv64_interpretOp'_get_register
 
-/-- Split a matched input value, i.e. a value with a `Conforms` hypothesis, by constructor. -/
-theorem forall_conforms_iff {t : TypeAttr} {P : RuntimeValue → Prop} :
-    (∀ v : RuntimeValue, v.Conforms t → P v) ↔
-      (∀ bw x, (RuntimeValue.int bw x).Conforms t → P (.int bw x)) ∧
-      (∀ bw x, (RuntimeValue.byte bw x).Conforms t → P (.byte bw x)) ∧
-      (∀ ty x, (RuntimeValue.float ty x).Conforms t → P (.float ty x)) ∧
-      (∀ x, (RuntimeValue.addr x).Conforms t → P (.addr x)) ∧
-      (∀ x, (RuntimeValue.reg x).Conforms t → P (.reg x)) ∧
-      (∀ ty x, (RuntimeValue.felt ty x).Conforms t → P (.felt ty x)) := by
-  constructor
-  · intro h
-    exact ⟨fun _ _ => h _, fun _ _ => h _, fun _ _ => h _, fun _ => h _, fun _ => h _,
-      fun _ _ => h _⟩
-  · rintro ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ v
-    cases v <;> simp_all
-
-/-- `rv64.get_register` with a register result type reads `x0` as zero. -/
-@[riscv_combine]
-theorem rv64_interpretOp'_get_register (property : propertiesOf Rv64.get_register)
-    (reg : RegisterType) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr) :
-    Rv64.interpretOp' .get_register property #[TypeAttr.of RegisterType reg] operands
-        blockOperands =
-      if reg.index = some 0 then some (#[.reg ⟨0⟩], none) else none := by
-  simp [Rv64.interpretOp', TypeAttr.of, Attribute.of, -Attribute.registerType_eq_of]
-
-attribute [local riscv_combine] _root_.Veir.RISCV.liFitsSImm12 RISCVImmediateProperties.immField
 
 /-- Prove the validity of a combine pattern: unfold it, discharge the structural obligations,
 normalize the semantics to register equalities under the matcher's guards, and bit-blast them.
@@ -59,76 +36,8 @@ The simp call is contextual, so that each guard rewrites the conclusion it guard
 macro "proveCombineValid" : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
-  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
+  simp [puddle, riscv_combine]
   all_goals veir_bv_decide))
-
-/-! ### Stores
-
-A store writes a little-endian prefix of its value register, which depends only on the low bits
-of the register: four bytes for `sw`, two for `sh` and one for `sb`. -/
-
-/-- The first `i` little-endian bytes of two registers agree iff their low `8 * i` bits do (for
-`8 ≤ i` both sides say that the registers are equal). Registered in `veir_bv_normalize`, so
-`veir_bv_decide` turns the byte equality of a store into a bitvector equality. -/
-@[veir_bv_normalize]
-theorem toByteArrayLE_extract_eq_iff {a b : BitVec 64} :
-    (UInt64.ofBitVec a).toByteArrayLE.extract 0 i = (UInt64.ofBitVec b).toByteArrayLE.extract 0 i ↔
-      a.setWidth (8 * i) = b.setWidth (8 * i) := by
-  rw [show ∀ x y : ByteArray, x = y ↔ x.data = y.data from fun _ _ => ⟨congrArg _, ByteArray.ext⟩]
-  simp only [ByteArray.data_extract, UInt64.toByteArrayLE]
-  by_cases hi : 8 ≤ i
-  · have hw : 2 ^ 64 ≤ 2 ^ (8 * i) := Nat.pow_le_pow_right (by omega) (by omega)
-    have hset : a.setWidth (8 * i) = b.setWidth (8 * i) ↔ a = b := by
-      rw [← BitVec.toNat_inj, BitVec.toNat_setWidth, BitVec.toNat_setWidth,
-        Nat.mod_eq_of_lt (by have := a.isLt; omega), Nat.mod_eq_of_lt (by have := b.isLt; omega),
-        BitVec.toNat_inj]
-    rw [Array.extract_eq_self_of_le (by simpa using hi),
-      Array.extract_eq_self_of_le (by simpa using hi),
-      hset]
-    simp [← UInt8.toBitVec_inj]
-    bv_decide
-  · obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl :
-        i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
-    all_goals
-      simp [← UInt8.toBitVec_inj]
-      all_goals bv_decide
-
-/-- A root store and a created store that write the same bytes simulate each other.
-The statement keeps the source as a lifted `Interp` computation, so that it can be transported
-into a normalized goal through `Veir.Sim.monadLift_right_iff` without rewriting below the
-dependent size proof of `MemoryState.store`. -/
-theorem sim_store {R : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
-      (Array RuntimeValue × MemoryState × Option ControlFlowAction) → Prop}
-    (hR : ∀ mem, R (#[], mem, none) (#[], mem, none))
-    (mem : MemoryState) (p : Data.Pointer) (source target poison : ByteArray)
-    (hsource : poison.size = source.size) (htarget : poison.size = target.size)
-    (hbytes : source = target) :
-    CTree.Sim R
-      (CTree.bind (monadLift (mem.store p target poison htarget >>= fun mem =>
-          (Interp.ok (#[], mem, none) :
-            Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))) :
-          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-        fun result => pure (#[], result.2.fst, none))
-      (monadLift (mem.store p source poison hsource >>= fun mem =>
-          (Interp.ok (#[], mem, none) :
-            Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))) :
-          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) := by
-  subst hbytes
-  cases mem.store p source poison hsource <;> simp [hR, monadLift, MonadLift.monadLift]
-
-/-- A lifted failing source is simulated by any target. -/
-@[simp]
-theorem sim_monadLift_fail_right {α β : Type} (R : α → β → Prop) (target : Tree α)
-    (location : Option OperationPtr) :
-    CTree.Sim R target (monadLift (Interp.fail location : Interp β) : Tree β) := by
-  simp [monadLift, MonadLift.monadLift]
-
-/-- A lifted source with undefined behavior is simulated by any target. -/
-@[simp]
-theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target : Tree α)
-    (location : Option OperationPtr) :
-    CTree.Sim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
-  simp [monadLift, MonadLift.monadLift]
 
 /-! ## Identities, booleans and immediates -/
 
@@ -216,6 +125,7 @@ theorem drop_sll_amount_zextw_valid :
 theorem drop_srl_amount_zextw_valid :
     Puddle.CTree.Pattern.Valid (drop_zextw_shift_amount_pattern .srl) := by
   proveCombineValid
+
 
 @[proof_bv]
 theorem drop_sra_amount_zextw_valid :
@@ -392,48 +302,6 @@ theorem sexth_li_low16_valid :
 
 section
 
-/-- `x` is a value a RISC-V load of `n` bytes at `p` can produce: the bits stored at `p`, with each
-poison bit frozen to some concrete value. It is kept folded, so that the validity proofs treat the
-loaded value as an arbitrary bitvector. -/
-def LoadsBits (mem : MemoryState) (p : Data.Pointer) (n : Nat) (x : BitVec (8 * n)) : Prop :=
-  ∃ b, mem.loadByte p (8 * n) = .ok b ∧ ∃ bits, x = b.val ||| (b.poison &&& bits)
-
-/-- A RISC-V load CTree that succeeds returns the bits it read, extended to a register, and leaves
-memory unchanged. -/
-theorem riscvLoadCTree_canInterpretTo_ok {EIn : Type} {E : EIn → Type}
-    [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
-    {mem mem' : MemoryState} {n : Nat} {ext : LoadExtension} {v : RuntimeValue} :
-    PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
-        (.ok (#[v], mem', none)) ↔
-      ∃ x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x ∧
-        v = .reg ⟨match ext with
-          | .signExt => x.signExtend 64
-          | .zeroExt => x.setWidth 64⟩ ∧
-        mem' = mem := by
-  simp [riscvLoadCTree, Bind.bind, PureOrErr.CanInterpretTo.bind_iff, LoadsBits]
-  constructor
-  · rintro ⟨b, hb, ⟨bits, rfl⟩, rfl⟩
-    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp [Data.LLVM.Byte.fillPoison], rfl⟩
-  · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
-    exact ⟨b, hb, ⟨bits, by cases ext <;> simp [Data.LLVM.Byte.fillPoison]⟩, rfl⟩
-
-/-- `riscvLoadCTree_canInterpretTo_ok` for the matched result of a load, which the validity goal
-quantifies over together with the input and output memories: the result is substituted by the
-extended loaded bits and the output memory by the input memory. -/
-@[local riscv_combine] theorem forall_riscvLoadCTree_canInterpretTo_ok {EIn : Type}
-    {E : EIn → Type} [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
-    {n : Nat} {ext : LoadExtension} {P : RuntimeValue → MemoryState → MemoryState → Prop} :
-    (∀ v mem mem', PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
-        (.ok (#[v], mem', none)) → P v mem mem') ↔
-      ∀ mem x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x →
-        P (.reg ⟨match ext with
-          | .signExt => x.signExtend 64
-          | .zeroExt => x.setWidth 64⟩) mem mem := by
-  simp only [riscvLoadCTree_canInterpretTo_ok]
-  constructor
-  · exact fun h mem x hx => h _ _ _ ⟨x, hx, rfl, rfl⟩
-  · rintro h v mem mem' ⟨x, hx, rfl, rfl⟩
-    exact h _ x hx
 
 /-! ## Byte-load and byte-packing combines.
 
@@ -631,11 +499,6 @@ theorem sexth_xor_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_of_bitwise_pattern .sexth .xor true true) := by
   proveCombineValid
 
-section
-
-/- Keep both store computations lifted, as `sim_store` expects them. -/
-attribute [-puddle] Veir.Sim.bind_monadLift_left_iff Veir.Sim.monadLift_right_iff
-
 /-! ## Extensions of a stored value
 
 A word store (`sw`) writes the first four little-endian bytes of its value register, a halfword
@@ -643,19 +506,16 @@ store (`sh`) two and a byte store (`sb`) one (see the store cases of `Riscv.inte
 extension below leaves those bytes unchanged. -/
 
 /-- Prove the validity of a store combine, given a proof `bytes` that the dropped extension
-does not change the stored bytes, usually `by veir_bv_decide`.
-The caller must erase `Veir.Sim.bind_monadLift_left_iff` and `Veir.Sim.monadLift_right_iff`
-from `puddle`, so that both store computations stay lifted for `sim_store`. -/
+does not change the stored bytes, usually `by veir_bv_decide`. -/
 macro "proveStoreValid" bytes:term : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
-  simp +contextual [puddle, riscv_combine, forall_conforms_iff]
+  simp [puddle, riscv_combine]
   all_goals
     intros
-    exact sim_store
+    exact store_pure_store _
       (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
       _ _ _ _ _ _ _ $bytes))
-
 
 @[proof_bv]
 theorem drop_zextw_sw_valid :
@@ -696,8 +556,6 @@ theorem drop_zextw_sb_valid :
 theorem drop_sextw_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sb) := by
   proveStoreValid (by veir_bv_decide)
-
-end
 
 /-! ## Extensions of `x0`
 
