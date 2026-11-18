@@ -440,3 +440,53 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
     subst_vars; rfl
 
 end GreatestLowerBound
+
+/-! ## Operands, results and binds under refinement -/
+
+theorem OperationResult.isRefinedBy_def
+    {source target : Array RuntimeValue × MemoryState × Option ControlFlowAction} :
+    OperationResult.isRefinedBy source target ↔
+      source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
+        ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2 := Iff.rfl
+
+/-- A refinement of an array of values conforms to the types the array conforms to. -/
+theorem RuntimeValue.ArrayConforms.of_isRefinedBy
+    {source target : Array RuntimeValue} {types : Array TypeAttr}
+    (hConforms : RuntimeValue.ArrayConforms source types)
+    (hRefined : source ⊒ target) : RuntimeValue.ArrayConforms target types := by
+  refine ⟨by grind [RuntimeValue.arrayIsRefinedBy, RuntimeValue.ArrayConforms], fun i hi => ?_⟩
+  have hi' : i < source.size := by grind [RuntimeValue.arrayIsRefinedBy]
+  exact (hConforms.2 i hi').of_isRefinedBy (hRefined.2 i hi')
+
+/-- A refinement of an array refines each of its slices. -/
+theorem RuntimeValue.arrayIsRefinedBy_extract {a b : Array RuntimeValue} (h : a ⊒ b)
+    (i j : Nat) : a.extract i j ⊒ b.extract i j := by
+  obtain ⟨hs, hi⟩ := h
+  refine ⟨by simp [hs], fun k hk => ?_⟩
+  simp only [Array.size_extract] at hk
+  have := hi (i + k) (by omega)
+  rw [getElem!_pos a (i + k) (by omega), getElem!_pos b (i + k) (by omega)] at this
+  rw [getElem!_pos _ k (by simp; omega), getElem!_pos _ k (by simp; omega)]
+  simpa [Array.getElem_extract] using this
+
+/-- A refinement of an array refines each of its suffixes. -/
+theorem RuntimeValue.arrayIsRefinedBy_extract_size {a b : Array RuntimeValue} (h : a ⊒ b)
+    (i : Nat) : a.extract i a.size ⊒ b.extract i b.size := by
+  rw [← h.1]; exact arrayIsRefinedBy_extract h i a.size
+
+/-- The elements of refined arrays refine. -/
+theorem RuntimeValue.getElem?_of_arrayIsRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {i : Nat} {v : RuntimeValue} (ha : a[i]? = some v) :
+    ∃ v', b[i]? = some v' ∧ v ⊒ v' := by
+  obtain ⟨hs, hi⟩ := h
+  have hlt : i < a.size := by grind
+  refine ⟨b[i]'(hs ▸ hlt), by simp, ?_⟩
+  have := hi i hlt
+  simp only [getElem!_pos, hlt, show i < b.size from hs ▸ hlt] at this
+  grind
+
+/-- A refinement in `Interp` together with what holds of every result of the target. -/
+theorem Interp.isRefinedBy_and {R : α → β → Prop} {P : β → Prop} {s : Interp α}
+    {t : Interp β} (h : Interp.isRefinedBy R s t) (hP : ∀ b, t = .ok b → P b) :
+    Interp.isRefinedBy (fun a b => R a b ∧ P b) s t := by
+  cases s <;> cases t <;> simp_all [Interp.isRefinedBy]

@@ -667,6 +667,20 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
   (op.interpret ctx.raw operands mem).isFail = false
 
 /--
+Monotonicity of `interpretOp'` in its operands and its memory: refined operands and refined
+memory give a refined result. A class, so that a dialect can discharge it for its own opcodes
+without this file knowing about the dialect.
+-/
+class InterpretOp'Monotone (opType : OpCode) : Prop where
+  monotone (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (mem mem' : MemoryState) :
+    operands ⊒ operands' → mem ⊒ mem' →
+    Interp.isRefinedBy OperationResult.isRefinedBy
+      (interpretOp' opType properties resultTypes operands blockOperands mem)
+      (interpretOp' opType properties resultTypes operands' blockOperands mem')
+
+/--
 A successful operation interpretation returns result values that conform to the declared
 `resultTypes` when the operation verifies.
 -/
