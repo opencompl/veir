@@ -82,6 +82,28 @@ theorem forall_riscvLoadCTree_canInterpretTo_ok {EIn : Type}
   · rintro h v mem mem' ⟨x, hx, rfl, rfl⟩
     exact h _ x hx
 
+/-- A root store and a created store that write the same bytes simulate each other.
+The statement keeps the source as a lifted `Interp` computation, so that it can be transported
+into a normalized goal through `Veir.Sim.monadLift_right_iff` without rewriting below the
+dependent size proof of `MemoryState.store`. -/
+theorem sim_store {R : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
+      (Array RuntimeValue × MemoryState × Option ControlFlowAction) → Prop}
+    (hR : ∀ mem, R (#[], mem, none) (#[], mem, none))
+    (mem : MemoryState) (p : Data.Pointer) (source target poison : ByteArray)
+    (hsource : poison.size = source.size) (htarget : poison.size = target.size)
+    (hbytes : source = target) :
+    CTree.Sim R
+      (CTree.bind (monadLift (mem.store p target poison htarget >>= fun mem =>
+          (Interp.ok (#[], mem, none))) :
+          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction))
+        fun result => pure (#[], result.2.fst, none))
+      (monadLift (mem.store p source poison hsource >>= fun mem =>
+          (Interp.ok (#[], mem, none) :
+            Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))) :
+          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) := by
+  subst hbytes
+  cases mem.store p source poison hsource <;> simp [hR, monadLift, MonadLift.monadLift]
+
 /-- Interpret a RISC-V operation using CTrees. -/
 def Riscv.interpretOpCTree {EIn : Type} {E : EIn → Type}
     [ErrorE -< E] [UBE -< E] (opType : Veir.Riscv) (properties : propertiesOf opType)

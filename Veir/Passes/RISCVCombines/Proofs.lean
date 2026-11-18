@@ -46,59 +46,7 @@ macro "proveCombineValid" : tactic => `(tactic| (
   simp [puddle, riscv_combine]
   all_goals veir_bv_decide))
 
-/-! ### Stores
 
-A store writes a little-endian prefix of its value register, which depends only on the low bits
-of the register: four bytes for `sw`, two for `sh` and one for `sb`. -/
-
-/-- The first `i` little-endian bytes of two registers agree iff their low `8 * i` bits do (for
-`8 ≤ i` both sides say that the registers are equal). Registered in `veir_bv_normalize`, so
-`veir_bv_decide` turns the byte equality of a store into a bitvector equality. -/
-@[veir_bv_normalize]
-theorem toByteArrayLE_extract_eq_iff {a b : BitVec 64} :
-    (UInt64.ofBitVec a).toByteArrayLE.extract 0 i = (UInt64.ofBitVec b).toByteArrayLE.extract 0 i ↔
-      a.setWidth (8 * i) = b.setWidth (8 * i) := by
-  rw [show ∀ x y : ByteArray, x = y ↔ x.data = y.data from fun _ _ => ⟨congrArg _, ByteArray.ext⟩]
-  simp only [ByteArray.data_extract, UInt64.toByteArrayLE]
-  by_cases hi : 8 ≤ i
-  · have hw : 2 ^ 64 ≤ 2 ^ (8 * i) := Nat.pow_le_pow_right (by omega) (by omega)
-    have hset : a.setWidth (8 * i) = b.setWidth (8 * i) ↔ a = b := by
-      rw [← BitVec.toNat_inj, BitVec.toNat_setWidth, BitVec.toNat_setWidth,
-        Nat.mod_eq_of_lt (by have := a.isLt; omega), Nat.mod_eq_of_lt (by have := b.isLt; omega),
-        BitVec.toNat_inj]
-    rw [Array.extract_eq_self_of_le (by simpa using hi),
-      Array.extract_eq_self_of_le (by simpa using hi),
-      hset]
-    simp [← UInt8.toBitVec_inj]
-    bv_decide
-  · obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl :
-        i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
-    all_goals
-      simp [← UInt8.toBitVec_inj]
-      all_goals bv_decide
-
-/-- A root store and a created store that write the same bytes simulate each other.
-The statement keeps the source as a lifted `Interp` computation, so that it can be transported
-into a normalized goal through `Veir.Sim.monadLift_right_iff` without rewriting below the
-dependent size proof of `MemoryState.store`. -/
-theorem sim_store {R : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
-      (Array RuntimeValue × MemoryState × Option ControlFlowAction) → Prop}
-    (hR : ∀ mem, R (#[], mem, none) (#[], mem, none))
-    (mem : MemoryState) (p : Data.Pointer) (source target poison : ByteArray)
-    (hsource : poison.size = source.size) (htarget : poison.size = target.size)
-    (hbytes : source = target) :
-    CTree.Sim R
-      (CTree.bind (monadLift (mem.store p target poison htarget >>= fun mem =>
-          (Interp.ok (#[], mem, none) :
-            Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))) :
-          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-        fun result => pure (#[], result.2.fst, none))
-      (monadLift (mem.store p source poison hsource >>= fun mem =>
-          (Interp.ok (#[], mem, none) :
-            Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))) :
-          Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) := by
-  subst hbytes
-  cases mem.store p source poison hsource <;> simp [hR, monadLift, MonadLift.monadLift]
 
 /-- A lifted failing source is simulated by any target. -/
 @[simp]
