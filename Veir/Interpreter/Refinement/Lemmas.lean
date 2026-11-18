@@ -14,6 +14,45 @@ open Veir.Data.LLVM (Ptr)
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
+/-! ## Constructor equations for `isRefinedBy`
+
+After `termination_by`, `isRefinedBy` is `@[irreducible]` and `simp` stops at
+`isRefinedBy._unary ⟨…⟩`. These lemmas expose the constructor cases for automation. -/
+
+@[simp, grind =]
+theorem RuntimeValue.isRefinedBy_int_iff {bw bw' : Nat} {s : Data.LLVM.Int bw}
+    {t : Data.LLVM.Int bw'} :
+    RuntimeValue.int bw s ⊒ .int bw' t ↔ ∃ h : bw = bw', s.cast h ⊒ t := by
+  rw [RuntimeValue.isRefinedBy.eq_def]
+
+@[simp, grind =]
+theorem RuntimeValue.isRefinedBy_byte_iff {bw bw' : Nat} {s : Data.LLVM.Byte bw}
+    {t : Data.LLVM.Byte bw'} :
+    RuntimeValue.byte bw s ⊒ .byte bw' t ↔ ∃ h : bw = bw', s.cast h ⊒ t := by
+  rw [RuntimeValue.isRefinedBy.eq_def]
+
+@[simp, grind =]
+theorem RuntimeValue.isRefinedBy_addr_iff {s t : Data.LLVM.Ptr} :
+    RuntimeValue.addr s ⊒ .addr t ↔ s ⊒ t := by
+  rw [RuntimeValue.isRefinedBy.eq_def]
+
+@[simp, grind =]
+theorem RuntimeValue.isRefinedBy_reg_iff {s t : Data.RISCV.Reg} :
+    RuntimeValue.reg s ⊒ .reg t ↔ s = t := by
+  rw [RuntimeValue.isRefinedBy.eq_def]
+
+@[simp, grind =]
+theorem RuntimeValue.isRefinedBy_felt_iff {ft ft' : FeltType} {s t : Nat} :
+    RuntimeValue.felt ft s ⊒ .felt ft' t ↔ ft = ft' ∧ s = t := by
+  rw [RuntimeValue.isRefinedBy.eq_def]
+
+@[simp, grind =]
+theorem RuntimeValue.isRefinedBy_float_iff {ty ty' : FloatType}
+    {s : Data.Float.FloatValue ty.format} {t : Data.Float.FloatValue ty'.format} :
+    RuntimeValue.float ty s ⊒ .float ty' t ↔
+      if h : ty = ty' then s = h ▸ t else False := by
+  rw [RuntimeValue.isRefinedBy.eq_def]
+
 /-! ## Reflexivity  -/
 
 @[simp, grind .]
