@@ -4,7 +4,7 @@ public import Veir.Pass
 public import Veir.Passes.CheckedDriver
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Canonicalize
-import Veir.Passes.Legalization.CombinerHelper
+import Veir.Passes.GMIRCombines.Combine
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
 import Veir.PatternRewriter.Puddle.Execution
 

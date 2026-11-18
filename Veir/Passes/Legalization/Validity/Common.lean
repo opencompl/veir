@@ -8,7 +8,6 @@ import all Veir.PatternRewriter.Puddle.CTreeProofs
 import all Veir.Passes.Legalization.LegalizerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
-import all Veir.Passes.Legalization.CombinerHelper
 import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR.Interpreter
 import all Veir.Dialects.GMIR.Semantics
@@ -24,7 +23,7 @@ import Veir.PatternRewriter.Puddle.Validity
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
 
 /-! Shared imports and gMIR-specific tactics for the CTree validity proofs of the legalization
-rules and the gMIR combines. Each proof file adds the interpreters to `ctree_semantics` and the gMIR
+rules and the gMIR combines (`Veir.Passes.GMIRCombines.Proofs`). Each proof file adds the interpreters to `ctree_semantics` and the gMIR
 opcode metadata to `simp` with local attributes (see `Validity/Basic.lean`). Each proof normalizes the pattern's semantics down to a goal over
 `Data.LLVM.Int` at symbolic widths, and closes it with the rule's local correctness lemma from
 `Veir.Passes.Legalization.Proofs`. The generic machinery is in
@@ -36,10 +35,6 @@ register_simp_attr legalization_status
 
 /-- The validity proofs of the legalization rules, by which the registries are certified. -/
 register_simp_attr legalization_valid
-
-/-- The `Pattern.Valid` proof of each gMIR combine, looked up by the theorems of
-`Veir.Passes.Legalization.Validity` that every combine of the combiner passes is valid. -/
-register_simp_attr combine_valid
 
 /-! The cast lemmas that `proveLegalValid` applies to every goal. They are stated here, not in
 `Veir.Passes.Legalization.Proofs`, so that the tactic's quotation resolves them. -/

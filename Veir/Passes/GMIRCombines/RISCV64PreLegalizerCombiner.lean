@@ -3,7 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 public import Veir.Passes.CheckedDriver
-import Veir.Passes.Legalization.CombinerHelper
+import Veir.Passes.GMIRCombines.Combine
 import Veir.PatternRewriter.Puddle.Execution
 
 /-!

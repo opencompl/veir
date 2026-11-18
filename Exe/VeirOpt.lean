@@ -22,8 +22,8 @@ import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
-import Veir.Passes.Legalization.RISCV64PreLegalizerCombiner
-import Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
+import Veir.Passes.GMIRCombines.RISCV64PreLegalizerCombiner
+import Veir.Passes.GMIRCombines.RISCV64PostLegalizerCombiner
 import Veir.Passes.CirToStd
 import Veir.Passes.LLVMToGMIR
 

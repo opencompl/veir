@@ -5,6 +5,7 @@ public import Veir.PatternRewriter.Puddle.Execution
 public import Veir.PatternRewriter.Puddle.Builders
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Passes.Legalization.LegalizerHelper
+import Veir.Passes.GMIRCombines.Simp
 
 /-!
 # Combines
@@ -35,6 +36,7 @@ public section
 
 /-- Match a `g_constant` of `type` whose properties satisfy `pred`. The constant's attribute has
 `type`, as the verifier requires, so `pred` reads the constant at the width of its result. -/
+@[gmir_pattern]
 def matchConstant (type : Handle OpCode .type)
     (pred : GMIRConstantProperties → Bool := fun _ => true) :
     MatchProg.Builder (OpHandle (.gmir .g_constant)) := do
@@ -52,6 +54,7 @@ the result drops `nuw`, and drops `nsw` when `C` is the minimum signed value.
 https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/include/llvm/Target/GlobalISel/Combine.td#L397-L403
 https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L2209
 -/
+@[gmir_pattern]
 def sub_to_add_pattern (info : LegalizerInfo) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -86,6 +89,7 @@ bits, which we do not have; the `g_icmp` is the case that legalizing a `g_brcond
 
 https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L3497
 -/
+@[gmir_pattern]
 def redundant_and_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -107,6 +111,7 @@ inductive BoolArm where
   | constant
 
 /-- Matches a value of `type` that is 0 or 1 because it is the `arm` (see `BoolArm`). -/
+@[gmir_pattern]
 def matchBoolArm (type : Handle OpCode .type) : BoolArm → MatchProg.Builder (Handle OpCode .value)
   | .icmp => do
     let operandType ← MatchProg.type (Attr := TypeAttr)
@@ -126,6 +131,7 @@ is the case that legalizing a `g_brcond` on a short-circuit `select i1 a, b, fal
 
 https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L3497
 -/
+@[gmir_pattern]
 def redundant_and_select_pattern (tArm fArm : BoolArm) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -152,6 +158,7 @@ def redundant_and_select : Array (CompiledPattern OpCode) :=
 /-! ### identity_combines -/
 
 /-- `x op 0` → `x`, for `op` ∈ {`g_sub`, `g_add`, `g_or`, `g_xor`, `g_shl`, `g_ashr`, `g_lshr`}. -/
+@[gmir_pattern]
 def right_identity_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -164,6 +171,7 @@ def right_identity_zero_pattern (opcode : GMIR) : Pattern OpCode :=
     pure (fun x => x)
 
 /-- `x * 1` → `x`. -/
+@[gmir_pattern]
 def right_identity_one_int_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -175,6 +183,7 @@ def right_identity_one_int_pattern : Pattern OpCode :=
     pure (fun x => x)
 
 /-- `x op x` → `x`, for `op` ∈ {`g_and`, `g_or`}. -/
+@[gmir_pattern]
 def binop_same_val_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -185,6 +194,7 @@ def binop_same_val_pattern (opcode : GMIR) : Pattern OpCode :=
     pure (fun x => x)
 
 /-- `x op x` → `0`, for `op` ∈ {`g_sub`, `g_xor`}. -/
+@[gmir_pattern]
 def same_val_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -195,6 +205,7 @@ def same_val_zero_pattern (opcode : GMIR) : Pattern OpCode :=
     (createConstant · 0) (fun zero => zero)
 
 /-- `x * 0` → `0`. -/
+@[gmir_pattern]
 def binop_right_to_zero_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -206,6 +217,7 @@ def binop_right_to_zero_pattern : Pattern OpCode :=
     pure (fun zero => zero)
 
 /-- `0 op x` → `0`, for `op` ∈ {`g_shl`, `g_lshr`, `g_ashr`, `g_mul`}. -/
+@[gmir_pattern]
 def binop_left_to_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -218,6 +230,7 @@ def binop_left_to_zero_pattern (opcode : GMIR) : Pattern OpCode :=
     pure (fun zero => zero)
 
 /-- `x + (y - x)` → `y`. -/
+@[gmir_pattern]
 def add_sub_reg_0_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -230,6 +243,7 @@ def add_sub_reg_0_pattern : Pattern OpCode :=
     pure (fun y => y)
 
 /-- `(y - x) + x` → `y`. -/
+@[gmir_pattern]
 def add_sub_reg_1_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -244,6 +258,7 @@ def add_sub_reg_1_pattern : Pattern OpCode :=
 /-! ### sub_add_reg -/
 
 /-- `(x + y) - y` → `x`. -/
+@[gmir_pattern]
 def sub_add_reg_x_add_y_sub_y_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -256,6 +271,7 @@ def sub_add_reg_x_add_y_sub_y_pattern : Pattern OpCode :=
     pure (fun x => x)
 
 /-- `(x + y) - x` → `y`. -/
+@[gmir_pattern]
 def sub_add_reg_x_add_y_sub_x_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -268,6 +284,7 @@ def sub_add_reg_x_add_y_sub_x_pattern : Pattern OpCode :=
     pure (fun y => y)
 
 /-- `x - (y + x)` → `0 - y` when `xFirst` is false, and `x - (x + y)` → `0 - y` when it is set. -/
+@[gmir_pattern]
 def sub_add_reg_negate_pattern (xFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -289,6 +306,7 @@ original ones did not, as in LLVM, which builds them without flags.
 -/
 
 /-- `-1 - x` → `x ^ -1`. -/
+@[gmir_pattern]
 def sub_minus_one_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -301,6 +319,7 @@ def sub_minus_one_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `(a + (b - c)) - b` → `a - c`. -/
+@[gmir_pattern]
 def APlusBMinusCMinusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -316,6 +335,7 @@ def APlusBMinusCMinusB_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `(a - (b - c)) - c` → `a - b`. -/
+@[gmir_pattern]
 def AMinusBMinusCMinusC_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -331,6 +351,7 @@ def AMinusBMinusCMinusC_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `(0 - a) + b` → `b - a`. -/
+@[gmir_pattern]
 def ZeroMinusAPlusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -345,6 +366,7 @@ def ZeroMinusAPlusB_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `a + (0 - b)` → `a - b`. -/
+@[gmir_pattern]
 def APlusZeroMinusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -359,6 +381,7 @@ def APlusZeroMinusB_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `(a - b) + (c - a)` → `c - b`. -/
+@[gmir_pattern]
 def AMinusBPlusCMinusA_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -374,6 +397,7 @@ def AMinusBPlusCMinusA_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `(a - b) + (b - c)` → `a - c`. -/
+@[gmir_pattern]
 def AMinusBPlusBMinusC_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -390,6 +414,7 @@ def AMinusBPlusBMinusC_pattern : Pattern OpCode :=
 
 /-- `a + (b - (a + c))` → `b - c` when `aFirst` is set, and `a + (b - (c + a))` → `b - c`
     otherwise. -/
+@[gmir_pattern]
 def APlusBMinusAPlusC_pattern (aFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -405,6 +430,7 @@ def APlusBMinusAPlusC_pattern (aFirst : Bool) : Pattern OpCode :=
     (fun op => op)
 
 /-- `a - (0 - b)` → `a + b`. -/
+@[gmir_pattern]
 def AMinusZeroMinusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -419,6 +445,7 @@ def AMinusZeroMinusB_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `a - (a - b)` → `b`. -/
+@[gmir_pattern]
 def AMinusBMinusA_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -431,6 +458,7 @@ def AMinusBMinusA_pattern : Pattern OpCode :=
     pure (fun b => b)
 
 /-- `a - (b - c)` → `a + (c - b)`. -/
+@[gmir_pattern]
 def AMinusBMinusC_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -447,6 +475,7 @@ def AMinusBMinusC_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `(x - y) - 1` → `(y ^ -1) + x`. -/
+@[gmir_pattern]
 def sub_one_from_sub_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -469,6 +498,7 @@ A reassociation of two constants `c₁` and `c₂` around `a`: `root (inner a₁
 It becomes `result a (c₁ ∘ c₂)`, where `fold` computes `c₁ ∘ c₂`. When exactly one of `constFirst`
 and `constOuterLeft` is set, `a` ends up subtracted and it becomes `result (c₁ ∘ c₂) a` instead.
 -/
+@[gmir_pattern]
 def constant_reassoc_pattern (root inner result : GMIR) (constFirst constOuterLeft : Bool)
     (fold : Int → Int → Int) : Pattern OpCode :=
   Pattern.Builder
@@ -492,26 +522,32 @@ def constant_reassoc_pattern (root inner result : GMIR) (constFirst constOuterLe
     (fun op => op)
 
 /-- `(a + c₁) - c₂` → `a + (c₁ - c₂)`. -/
+@[gmir_pattern]
 def APlusC1MinusC2_pattern : Pattern OpCode :=
   constant_reassoc_pattern .g_sub .g_add .g_add false false (· - ·)
 
 /-- `c₂ - (a + c₁)` → `(c₂ - c₁) - a`. -/
+@[gmir_pattern]
 def C2MinusAPlusC1_pattern : Pattern OpCode :=
   constant_reassoc_pattern .g_sub .g_add .g_sub false true (fun c₁ c₂ => c₂ - c₁)
 
 /-- `(a - c₁) - c₂` → `a - (c₁ + c₂)`. -/
+@[gmir_pattern]
 def AMinusC1MinusC2_pattern : Pattern OpCode :=
   constant_reassoc_pattern .g_sub .g_sub .g_sub false false (· + ·)
 
 /-- `(c₁ - a) - c₂` → `(c₁ - c₂) - a`. -/
+@[gmir_pattern]
 def C1MinusAMinusC2_pattern : Pattern OpCode :=
   constant_reassoc_pattern .g_sub .g_sub .g_sub true false (· - ·)
 
 /-- `(a - c₁) + c₂` → `a + (c₂ - c₁)`. -/
+@[gmir_pattern]
 def AMinusC1PlusC2_pattern : Pattern OpCode :=
   constant_reassoc_pattern .g_add .g_sub .g_add false false (fun c₁ c₂ => c₂ - c₁)
 
 /-- `a - (x * c)` → `a + (x * -c)`. -/
+@[gmir_pattern]
 def sub_of_mul_const_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -530,6 +566,7 @@ def sub_of_mul_const_pattern : Pattern OpCode :=
 
 /-- `x * -1` → `0 - x`. `x * -1` overflows as a signed integer exactly when `0 - x` does, for
     `x` the minimum signed value, so `nsw` carries over; `nuw` does not. -/
+@[gmir_pattern]
 def mul_by_neg_one_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -546,6 +583,7 @@ def mul_by_neg_one_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `x * 2` → `x + x`. Both overflow in the same cases, so the flags carry over. -/
+@[gmir_pattern]
 def mulo_by_2_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -562,6 +600,7 @@ def mulo_by_2_pattern : Pattern OpCode :=
 
 /-- `a + ((0 - b) << c)` → `a - (b << c)`, and the same with the operands of the addition swapped
     when `shiftFirst` is set. -/
+@[gmir_pattern]
 def add_shift_pattern (shiftFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -583,6 +622,7 @@ def add_shift_pattern (shiftFirst : Bool) : Pattern OpCode :=
 
 /-- `(x + -1) ^ -1` → `0 - x`. The addition and the subtraction overflow in the same cases, so the
     flags carry over. -/
+@[gmir_pattern]
 def NotAPlusNegOne_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -607,6 +647,7 @@ example, `(x << z) | (y << z)` can be disjoint while `x | y` is not.
 -/
 
 /-- `(x hand z) logic (y hand z)` → `(x logic y) hand z`. -/
+@[gmir_pattern]
 def hoist_logic_op_pattern (logic hand : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -627,6 +668,7 @@ def hoist_logic_op_pattern (logic hand : GMIR) : Pattern OpCode :=
 /-! ### Bitwise combines -/
 
 /-- `(x & y) ^ y` → `(x ^ -1) & y`. -/
+@[gmir_pattern]
 def xor_of_and_with_same_reg_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -644,6 +686,7 @@ def xor_of_and_with_same_reg_pattern : Pattern OpCode :=
 
 /-- `(x & (y ^ -1)) | y` → `x | y` for `(outer, inner)` = `(g_or, g_and)`, and
     `(x | (y ^ -1)) & y` → `x & y` for `(g_and, g_or)`. -/
+@[gmir_pattern]
 def or_and_xor_to_or_pattern (outer inner : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -660,6 +703,7 @@ def or_and_xor_to_or_pattern (outer inner : GMIR) : Pattern OpCode :=
 
 /-- `(x & y) | (y ^ -1)` → `x | (y ^ -1)` for `(outer, inner)` = `(g_or, g_and)`, and
     `(x | y) & (y ^ -1)` → `x & (y ^ -1)` for `(g_and, g_or)`. -/
+@[gmir_pattern]
 def or_and_xor_to_xor_or_pattern (outer inner : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -676,6 +720,7 @@ def or_and_xor_to_xor_or_pattern (outer inner : GMIR) : Pattern OpCode :=
 
 /-- `(x & y) | x` → `x`. `andLeft` puts the `g_and` on the left of the `g_or`, and `xFirst` puts `x`
     on the left of the `g_and`. -/
+@[gmir_pattern]
 def combine_or_of_and_pattern (andLeft xFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -692,6 +737,7 @@ def combine_or_of_and_pattern (andLeft xFirst : Bool) : Pattern OpCode :=
 
 /-- `0 - (max a, (0 - a))` → `min a, (0 - a)` for `(max, min)` an opposite pair of `g_smax`,
     `g_smin`, `g_umax` and `g_umin`. -/
+@[gmir_pattern]
 def simplify_neg_minmax_pattern (minmax opposite : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -709,12 +755,14 @@ def simplify_neg_minmax_pattern (minmax opposite : GMIR) : Pattern OpCode :=
 /-! ### cmp_combines -/
 
 /-- The predicate of `icmp pred y x` that is equivalent to `icmp pred x y`. -/
+@[gmir_pattern]
 def swapIntPred : Data.LLVM.IntPred → Data.LLVM.IntPred
   | .slt => .sgt | .sgt => .slt | .sle => .sge | .sge => .sle
   | .ult => .ugt | .ugt => .ult | .ule => .uge | .uge => .ule
   | pred => pred
 
 /-- `icmp pred c, x` → `icmp (swapIntPred pred) x, c` for a constant `c` and a non-constant `x`. -/
+@[gmir_pattern]
 def canonicalize_icmp_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -734,6 +782,7 @@ def canonicalize_icmp_pattern : Pattern OpCode :=
 
 /-- `(icmp pred x, y) ^ true` → `icmp inverse x, y`. A `g_icmp` result wider than `i1` is `0` or `1`,
     so `true` is the constant `1` at any width. -/
+@[gmir_pattern]
 def not_cmp_fold_pattern (pred inverse : Data.LLVM.IntPred) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -752,6 +801,7 @@ def not_cmp_fold_pattern (pred inverse : Data.LLVM.IntPred) : Pattern OpCode :=
 
 /-- `icmp pred (x op y), x` → `icmp pred y, 0` for `op` ∈ {`g_add`, `g_sub`, `g_xor`} and `pred`
     ∈ {`eq`, `ne`}. -/
+@[gmir_pattern]
 def redundant_binop_in_equality_pattern (opcode : GMIR) (pred : Data.LLVM.IntPred) :
     Pattern OpCode :=
   Pattern.Builder
@@ -771,6 +821,7 @@ def redundant_binop_in_equality_pattern (opcode : GMIR) (pred : Data.LLVM.IntPre
 
 /-- `(x == 0) & (y == 0)` → `(x | y) == 0` for `(logic, pred)` = `(g_and, eq)`, and
     `(x != 0) | (y != 0)` → `(x | y) != 0` for `(g_or, ne)`. -/
+@[gmir_pattern]
 def double_icmp_zero_pattern (logic : GMIR) (pred : Data.LLVM.IntPred) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -794,6 +845,7 @@ def double_icmp_zero_pattern (logic : GMIR) (pred : Data.LLVM.IntPred) : Pattern
 /-! ### cast_of_cast_combines -/
 
 /-- `trunc (ext x)` → `x` when the result has the type of `x`, for `ext` ∈ {`g_zext`, `g_sext`}. -/
+@[gmir_pattern]
 def trunc_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -807,6 +859,7 @@ def trunc_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
 
 /-- `ext (ext x)` → `ext x`, for `ext` ∈ {`g_zext`, `g_sext`}. The new extension has no `nneg`: the
     outer extension's `nneg` holds for the already extended operand, not for `x`. -/
+@[gmir_pattern]
 def ext_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -824,6 +877,7 @@ def ext_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
 
 /-- `bitreverse ((bitreverse x) shift y)` → `x opposite y`, for `(shift, opposite)` =
     `(g_shl, g_lshr)` or `(g_lshr, g_shl)`. -/
+@[gmir_pattern]
 def bitreverse_shift_pattern (shift opposite : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -841,6 +895,7 @@ def bitreverse_shift_pattern (shift opposite : GMIR) : Pattern OpCode :=
 /-- Match the funnel shift `fsh x, y, amt` whose amount `amt` is a `g_constant`, returning `x`, `y`,
     the amount's type and properties, and the result type. The result has the type of `x`, as in
     LLVM: the funnel shift takes its amount modulo that width. -/
+@[gmir_pattern]
 def matchFunnelShiftConstAmt (fsh : GMIR) :
     MatchProg.Builder (Handle OpCode .value × Handle OpCode .value ×
       Handle OpCode .type × Handle OpCode (.prop (.gmir .g_constant)) ×
@@ -857,6 +912,7 @@ def matchFunnelShiftConstAmt (fsh : GMIR) :
 /-! ### funnel_shift_{right,left}_zero :  fshr x, y, 0 → y ,  fshl x, y, 0 → x -/
 
 /-- `fsh x, y, 0` -> `y` if `keepRight`, and `x` otherwise. -/
+@[gmir_pattern]
 def funnel_shift_zero_pattern (fsh : GMIR) (keepRight : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -887,6 +943,7 @@ def overshiftAmount? (props : GMIRConstantProperties) (type : TypeAttr) :
   if c < bw then none
   return { value := .ofInt (c % bw : Nat) props.value.type }
 
+@[gmir_pattern]
 def funnel_shift_overshift_pattern (fsh : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -918,6 +975,7 @@ def funnel_shift_overshift_r : CompiledPattern OpCode :=
 
 /-- `or (fsh …) (shift x, y)` (or `or (shift x, y) (fsh …)` unless `fshFirst`) -> `fsh …`, where
     `fsh` is `fshl x, z, y` if `left` and `fshr z, x, y` otherwise. -/
+@[gmir_pattern]
 def funnel_shift_or_shift_pattern (fsh shift : GMIR) (left fshFirst : Bool) :
     Pattern OpCode :=
   Pattern.Builder
@@ -959,6 +1017,7 @@ def funnel_shift_or_shift_to_funnel_shift_right : CompiledPattern OpCode :=
     keeps an `exact` division as an `exact` shift, the `exact` flag is dropped for simplicity, as in
     `sdiv_exact_by_pow2_pattern`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L6171-L6183 -/
+@[gmir_pattern]
 def udiv_by_pow2_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -977,6 +1036,7 @@ def udiv_by_pow2_pattern : Pattern OpCode :=
 LLVM, the `exact` flag is dropped for simplicity, as in `udiv_by_pow2_pattern`.
 https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L5997-L6018
 -/
+@[gmir_pattern]
 def sdiv_exact_by_pow2_pattern (negative : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1005,6 +1065,7 @@ q      := ashr (add x, bias), k
 ```
 https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L6098-L6169
 -/
+@[gmir_pattern]
 def sdiv_by_pow2_pattern (negative : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1031,6 +1092,7 @@ def sdiv_by_pow2_pattern (negative : Bool) : Pattern OpCode :=
     (fun op => op)
 
 /-- `x * 2^k` → `x << k`. Both overflow in the same cases, so the flags carry over. -/
+@[gmir_pattern]
 def mul_to_shl_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1047,6 +1109,7 @@ def mul_to_shl_pattern : Pattern OpCode :=
     (fun op => op)
 
 /-- `urem x, 2^k` → `x & (2^k - 1)`. -/
+@[gmir_pattern]
 def urem_pow2_to_mask_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1063,6 +1126,7 @@ def urem_pow2_to_mask_pattern : Pattern OpCode :=
 /-! ### constant_fold_binops -/
 
 /-- `c₁ op c₂` → the constant `fold c₁ c₂`, with both constants read as signed integers. -/
+@[gmir_pattern]
 def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1085,6 +1149,7 @@ the same way, so its `tryFoldSelectOfConstants` runs before legalization, in
 -/
 
 /-- `c ? x : x` → `x`. -/
+@[gmir_pattern]
 def select_same_val_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1098,6 +1163,7 @@ def select_same_val_pattern : Pattern OpCode :=
 
 /-- `c ? x : y` → `x` for a nonzero constant `c` when `nonzero` is set, and `0 ? x : y` → `y`
     otherwise. -/
+@[gmir_pattern]
 def select_constant_cmp_pattern (nonzero : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1111,6 +1177,7 @@ def select_constant_cmp_pattern (nonzero : Bool) : Pattern OpCode :=
     pure (fun v => v)
 
 /-- `(icmp pred x, y) ? x : y` → `minmax x, y`, if `minmax` is legal for the type. -/
+@[gmir_pattern]
 def select_to_iminmax_pattern (info : LegalizerInfo) (pred : Data.LLVM.IntPred) (minmax : GMIR) :
     Pattern OpCode :=
   Pattern.Builder
@@ -1130,6 +1197,7 @@ def select_to_iminmax_pattern (info : LegalizerInfo) (pred : Data.LLVM.IntPred) 
 /-- `cast (c ? x : y)` → `c ? (cast x) : (cast y)` for `cast` ∈ {`g_zext`, `g_trunc`}, if the new
     `g_select` is legal. As in LLVM, the new casts get no flags. Unlike LLVM, the `g_select` may
     have other uses. -/
+@[gmir_pattern]
 def select_of_cast_pattern (info : LegalizerInfo) (cast : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1175,6 +1243,7 @@ not lower.
 -/
 
 /-- The `g_xor` of the `i1` value `c` with all ones, as LLVM's `MachineIRBuilder::buildNot`. -/
+@[gmir_pattern]
 def createNot (type : Handle OpCode .type) (c : Handle OpCode .value) :
     CreateProg.Builder CreatedOpHandle := do
   let ones ← createConstant type (-1)
@@ -1188,6 +1257,7 @@ abbrev SelectOfConstants :=
 
 /-- `c ? T : F` → `rewrite`, for an `i1` condition `c` and constants `T` and `F` of a type of at
     most 64 bits and wider than `i1`, when `pred T F` holds. -/
+@[gmir_pattern]
 def select_of_constants_pattern
     (pred : GMIRConstantProperties → GMIRConstantProperties → Bool)
     (rewrite : SelectOfConstants → CreateProg.Builder CreatedOpHandle) : Pattern OpCode :=
@@ -1205,21 +1275,25 @@ def select_of_constants_pattern
     (fun op => op)
 
 /-- `k` when the constant is `2^k`, read as an unsigned integer. -/
+@[gmir_pattern]
 def createLog2 (type : Handle OpCode .type) (c : Handle OpCode (.prop (.gmir .g_constant))) :
     CreateProg.Builder CreatedOpHandle :=
   createConstantWith type c fun c => c.ulog2?.get!
 
 /-- `c ? 1 : 0` → `zext c` -/
+@[gmir_pattern]
 def select_one_zero_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun t f => t.isOne && f.isZero)
     fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_zext) #[c] #[type]
 
 /-- `c ? -1 : 0` → `sext c` -/
+@[gmir_pattern]
 def select_allOnes_zero_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun t f => t.isAllOnes && f.isZero)
     fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_sext) #[c] #[type]
 
 /-- `c ? 0 : 1` → `zext (not c)` -/
+@[gmir_pattern]
 def select_zero_one_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun t f => t.isZero && f.isOne)
     fun (type, condType, c, _, _, _) => do
@@ -1227,6 +1301,7 @@ def select_zero_one_pattern : Pattern OpCode :=
       CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type]
 
 /-- `c ? 0 : -1` → `sext (not c)` -/
+@[gmir_pattern]
 def select_zero_allOnes_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun t f => t.isZero && f.isAllOnes)
     fun (type, condType, c, _, _, _) => do
@@ -1234,6 +1309,7 @@ def select_zero_allOnes_pattern : Pattern OpCode :=
       CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
 
 /-- `c ? C : C - 1` → `add (zext c), C - 1` -/
+@[gmir_pattern]
 def select_succ_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun t f => t.isOffsetOf f 1)
     fun (type, _, c, f, _, _) => do
@@ -1241,6 +1317,7 @@ def select_succ_pattern : Pattern OpCode :=
       CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type]
 
 /-- `c ? C : C + 1` → `add (sext c), C + 1` -/
+@[gmir_pattern]
 def select_pred_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun t f => t.isOffsetOf f (-1))
     fun (type, _, c, f, _, _) => do
@@ -1248,6 +1325,7 @@ def select_pred_pattern : Pattern OpCode :=
       CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type]
 
 /-- `c ? 2^k : 0` → `shl (zext c), k` -/
+@[gmir_pattern]
 def select_pow2_zero_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun t f => t.ulog2?.isSome && f.isZero)
     fun (type, _, c, _, t, _) => do
@@ -1256,6 +1334,7 @@ def select_pow2_zero_pattern : Pattern OpCode :=
       CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type]
 
 /-- `c ? 0 : 2^k` → `shl (zext (not c)), k` -/
+@[gmir_pattern]
 def select_zero_pow2_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun t f => t.isZero && f.ulog2?.isSome)
     fun (type, condType, c, _, _, f) => do
@@ -1265,6 +1344,7 @@ def select_zero_pow2_pattern : Pattern OpCode :=
       CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type]
 
 /-- `c ? -1 : C` → `or (sext c), C` -/
+@[gmir_pattern]
 def select_allOnes_const_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun t _ => t.isAllOnes)
     fun (type, _, c, f, _, _) => do
@@ -1272,6 +1352,7 @@ def select_allOnes_const_pattern : Pattern OpCode :=
       CreateProg.operation (.gmir .g_or) #[ext.res[0]!, f] #[type]
 
 /-- `c ? C : -1` → `or (sext (not c)), C` -/
+@[gmir_pattern]
 def select_const_allOnes_pattern : Pattern OpCode :=
   select_of_constants_pattern (fun _ f => f.isAllOnes)
     fun (type, condType, c, _, t, _) => do
@@ -1319,6 +1400,7 @@ also runs when it does not.
 /-- `c ? (op x, K) : x` → `op x, (c ? K : 0)`, and with the arms of the `g_select` exchanged when
     `swapped` is set, `c ? x : (op x, K)` → `op x, (c ? 0 : K)`. The values are not `i0`, where a
     shift by the created `0` is out of range. -/
+@[gmir_pattern]
 def select_into_binop_pattern (opcode : GMIR) (swapped : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do

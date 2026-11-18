@@ -56,6 +56,8 @@ import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.CastsReconciliation.Validity
 import Veir.Passes.Legalization.Proofs
 import Veir.Passes.Legalization.Validity
+import Veir.Passes.GMIRCombines.Proofs
+import Veir.Passes.GMIRCombines.Validity.Pass
 import Veir.Passes.LLVMToGMIR.Validity
 
 -- FIXME: These modules are otherwise orphans and would not be compiled.

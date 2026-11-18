@@ -7,14 +7,15 @@ public import Veir.Passes.InstructionSelection.Branches.Pass
 public import Veir.Passes.RISCVCombines.Validity.Pass
 public import Veir.Passes.LLVMToGMIR.Soundness
 public import Veir.Passes.Legalization.Validity
+public import Veir.Passes.GMIRCombines.Validity.Pass
 public import Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass
 public import Veir.Passes.Pipeline.Bridge
 public import Veir.Passes.InstructionSelection.RISCV64Abi
 import all Veir.Passes.LLVMToGMIR
 import all Veir.Passes.InstructionSelection.RISCV64Abi
-import all Veir.Passes.Legalization.RISCV64PreLegalizerCombiner
+import all Veir.Passes.GMIRCombines.RISCV64PreLegalizerCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
-import all Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
+import all Veir.Passes.GMIRCombines.RISCV64PostLegalizerCombiner
 import all Veir.Passes.InstructionSelection.RISCV64Branches
 import all Veir.Passes.InstructionSelection.RISCV64
 import all Veir.Passes.CastsReconciliation.Reconciliation
@@ -47,9 +48,9 @@ theorem riscvPipelinePure_passes_sound {callLowering : PurePass}
     ∀ pass ∈ riscvPipelinePure callLowering, pass.Sound := by
   simp only [riscvPipelinePure, List.forall_mem_cons]
   exact ⟨LLVMToGMIR.CTreeProofs.LLVMToGMIRPass.run_sound, hCallLowering,
-    Legalization.CTreeProofs.PreLegalizerCombinerRISCV64Pass.run_sound,
+    GMIRCombines.CTreeProofs.PreLegalizerCombinerRISCV64Pass.run_sound,
     Legalization.CTreeProofs.LegalizeRISCV64Pass.run_sound,
-    Legalization.CTreeProofs.PostLegalizerCombinerRISCV64Pass.run_sound,
+    GMIRCombines.CTreeProofs.PostLegalizerCombinerRISCV64Pass.run_sound,
     ISelBrPass.runVerified_strict_sound, RISCV64Proofs.ISelPass.run_sound,
     CastsReconciliation.CTreeProofs.CastReconcilePass.run_sound,
     RISCV.CTreeProofs.Combine.run_sound, DCEPass.run_sound,

@@ -4,7 +4,6 @@ import all Veir.Passes.Legalization.Validity.Common
 import all Veir.Passes.Legalization.LegalizerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
-import all Veir.Passes.Legalization.CombinerHelper
 import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR.Properties
 import all Veir.Dialects.GMIR.Interpreter

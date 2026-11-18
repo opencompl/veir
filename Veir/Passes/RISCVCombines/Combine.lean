@@ -28,7 +28,7 @@ namespace Veir.RISCV
   added to the pattern list in `Combine.impl`.
 
   The generic GlobalISel combines run on gMIR in `postlegalizer-combiner-riscv64` (see
-  `Veir.Passes.Legalization.CombinerHelper`).
+  `Veir.Passes.GMIRCombines.Combine`).
 -/
 
 /-- riscv.add x 0 -> x -/
