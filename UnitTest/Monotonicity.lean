@@ -39,6 +39,23 @@ info: 'Veir.llvm_interpretCTreeMonotone_not_assumed' depends on axioms: [propext
 #guard_msgs in
 #print axioms llvm_interpretCTreeMonotone_not_assumed
 
+/-- Instance resolution proves, rather than assumes, every gMIR opcode monotone in CTrees. -/
+theorem gmir_interpretCTreeMonotone_not_assumed (op : GMIR) : InterpretCTreeMonotone (.gmir op) :=
+  inferInstance
+
+/--
+info: 'Veir.gmir_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
+ CTree.Sim,
+ Classical.choice,
+ Quot.sound,
+ CTree.Sim.ret,
+ CTree.Sim.tau_l,
+ CTree.Sim.tau_r,
+ CTree.Sim.ub]
+-/
+#guard_msgs in
+#print axioms gmir_interpretCTreeMonotone_not_assumed
+
 /--
 info: 'Veir.OpCode.interpretCTree_monotone_of_opCode' depends on axioms: [propext,
  CTree.Sim,
