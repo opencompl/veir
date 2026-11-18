@@ -10,17 +10,7 @@ import all Veir.IR.Attribute
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
 import Veir.Passes.RISCVCombines.Simp
 
-/-!
-# Correctness of the RISC-V combines
-
-The CTree validity proofs (`Puddle.CTree.Pattern.Valid`) of the `riscv-combine` patterns in
-`Combine.lean`. Each proof unfolds its pattern with the `riscv_pattern` simp set, discharges the
-structural obligations with `simpPuddleValid`, normalizes the semantics down to a register
-equality with the `riscv_combine` simp set and bit-blasts that equality under the matcher's guards.
-
-Register operations take their operands as `(rs2, rs1)`, the reverse of the SSA operand order,
-because that is how `Riscv.interpretOp'` applies them.
--/
+/-! # Correctness of the RISC-V combines -/
 
 namespace Veir.RISCV.CTreeProofs
 
@@ -30,16 +20,6 @@ open _root_.CTree
 attribute [local puddle]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Riscv.interpretOpCTree
-
-/-! ### The `riscv_combine` simp set
-
-After `simpPuddleValid` and `puddle`, a combine validity goal quantifies over the matched input
-values and states the refinement between the interpreted root and replacement. The
-`riscv_combine` simp set substitutes the results of matched loads and `rv64.get_register`,
-unfolds the refinement of register values, and restates the matcher's guards on immediates as
-bit-vector facts. Together with `forall_conforms_iff`, which splits each matched input value by
-constructor (RISC-V operations fail on non-register operands, so only the register case
-survives), it reduces the goal to register equalities under the guards. -/
 
 attribute [local riscv_combine]
   RuntimeValue.isRefinedBy
