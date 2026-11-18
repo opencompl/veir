@@ -44,7 +44,7 @@ import Veir.Passes.Legalization.Proofs
 /-!
 # Correctness of the gMIR combines
 
-The `Pattern.Valid` and `Status` theorems of the combines of `RISCV64PostLegalizerCombiner` and
+The `Pattern.Valid` theorems of the combines of `RISCV64PostLegalizerCombiner` and
 `RISCV64PreLegalizerCombiner`, as for the RISC-V combines (`Veir.Passes.RISCVCombines.Proofs`): the
 pattern unfolds by `simp only [gmir_pattern]`, `simpPuddleValid` discharges the structural
 obligations, and `simp [puddle, gmir_combine]` unfolds the operation semantics, which are then
@@ -496,32 +496,6 @@ theorem combine_funnel_shift_fshl_or_shl_valid :
 theorem combine_funnel_shift_shl_or_fshl_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshl .g_shl true false) := by
   proveCombineValid using shl_or_fshl
-
-/-! ## Status of every combine -/
-
-@[legalization_status]
-theorem combine_funnel_shift_fshl_or_shl_status :
-    Status Unproven (funnel_shift_or_shift_pattern .g_fshl .g_shl true true) :=
-  .proven combine_funnel_shift_fshl_or_shl_valid
-
-@[legalization_status]
-theorem combine_funnel_shift_shl_or_fshl_status :
-    Status Unproven (funnel_shift_or_shift_pattern .g_fshl .g_shl true false) :=
-  .proven combine_funnel_shift_shl_or_fshl_valid
-
-@[legalization_status]
-theorem combine_canonicalize_icmp_status :
-    Status Unproven canonicalize_icmp_pattern :=
-  .proven (combine_canonicalize_icmp_valid )
-
-@[legalization_status]
-theorem combine_redundant_and_status : Status Unproven redundant_and_pattern :=
-  .proven combine_redundant_and_valid
-
-@[legalization_status]
-theorem combine_redundant_and_select_icmp_icmp_status :
-    Status Unproven (redundant_and_select_pattern .icmp .icmp) :=
-  .proven combine_redundant_and_select_icmp_icmp_valid
 
 /-! ## Combines that match constants
 
@@ -1293,168 +1267,6 @@ theorem combine_funnel_shift_overshift_r_valid :
   all_goals (rename_i heq; subst heq)
   all_goals (simp only [funnelShiftAmount_overshift']; exact Data.LLVM.Int.isRefinedBy_refl _)
 
-/-! ## Status of every combine that matches a constant -/
-
-@[legalization_status]
-theorem combine_right_identity_one_int_status :
-    Status Unproven (right_identity_one_int_pattern) :=
-  .proven (combine_right_identity_one_int_valid)
-
-@[legalization_status]
-theorem combine_sub_one_from_sub_status :
-    Status Unproven (sub_one_from_sub_pattern) :=
-  .proven (combine_sub_one_from_sub_valid)
-
-@[legalization_status]
-theorem combine_sub_of_mul_const_status :
-    Status Unproven (sub_of_mul_const_pattern) :=
-  .proven (combine_sub_of_mul_const_valid)
-
-@[legalization_status]
-theorem combine_mul_by_neg_one_status :
-    Status Unproven (mul_by_neg_one_pattern) :=
-  .proven (combine_mul_by_neg_one_valid)
-
-@[legalization_status]
-theorem combine_mulo_by_2_status :
-    Status Unproven (mulo_by_2_pattern) :=
-  .proven (combine_mulo_by_2_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_eq_status :
-    Status Unproven (not_cmp_fold_pattern .eq .ne) :=
-  .proven (combine_not_cmp_fold_eq_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_ne_status :
-    Status Unproven (not_cmp_fold_pattern .ne .eq) :=
-  .proven (combine_not_cmp_fold_ne_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_ugt_status :
-    Status Unproven (not_cmp_fold_pattern .ugt .ule) :=
-  .proven (combine_not_cmp_fold_ugt_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_uge_status :
-    Status Unproven (not_cmp_fold_pattern .uge .ult) :=
-  .proven (combine_not_cmp_fold_uge_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_ult_status :
-    Status Unproven (not_cmp_fold_pattern .ult .uge) :=
-  .proven (combine_not_cmp_fold_ult_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_ule_status :
-    Status Unproven (not_cmp_fold_pattern .ule .ugt) :=
-  .proven (combine_not_cmp_fold_ule_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_sgt_status :
-    Status Unproven (not_cmp_fold_pattern .sgt .sle) :=
-  .proven (combine_not_cmp_fold_sgt_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_sge_status :
-    Status Unproven (not_cmp_fold_pattern .sge .slt) :=
-  .proven (combine_not_cmp_fold_sge_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_slt_status :
-    Status Unproven (not_cmp_fold_pattern .slt .sge) :=
-  .proven (combine_not_cmp_fold_slt_valid)
-
-@[legalization_status]
-theorem combine_not_cmp_fold_sle_status :
-    Status Unproven (not_cmp_fold_pattern .sle .sgt) :=
-  .proven (combine_not_cmp_fold_sle_valid)
-
-@[legalization_status]
-theorem combine_udiv_by_pow2_status :
-    Status Unproven (udiv_by_pow2_pattern) :=
-  .proven (combine_udiv_by_pow2_valid)
-
-@[legalization_status]
-theorem combine_sdiv_exact_by_pow2_pos_status :
-    Status Unproven (sdiv_exact_by_pow2_pattern false) :=
-  .proven (combine_sdiv_exact_by_pow2_pos_valid)
-
-@[legalization_status]
-theorem combine_sdiv_exact_by_pow2_neg_status :
-    Status Unproven (sdiv_exact_by_pow2_pattern true) :=
-  .proven (combine_sdiv_exact_by_pow2_neg_valid)
-
-@[legalization_status]
-theorem combine_sdiv_by_pow2_pos_status :
-    Status Unproven (sdiv_by_pow2_pattern false) :=
-  .proven (combine_sdiv_by_pow2_pos_valid)
-
-@[legalization_status]
-theorem combine_sdiv_by_pow2_neg_status :
-    Status Unproven (sdiv_by_pow2_pattern true) :=
-  .proven (combine_sdiv_by_pow2_neg_valid)
-
-@[legalization_status]
-theorem combine_mul_to_shl_status :
-    Status Unproven (mul_to_shl_pattern) :=
-  .proven (combine_mul_to_shl_valid)
-
-@[legalization_status]
-theorem combine_urem_pow2_to_mask_status :
-    Status Unproven (urem_pow2_to_mask_pattern) :=
-  .proven (combine_urem_pow2_to_mask_valid)
-
-@[legalization_status]
-theorem combine_constant_fold_mul_status :
-    Status Unproven (constant_fold_binop_pattern .g_mul ((· * ·))) :=
-  .proven (combine_constant_fold_mul_valid)
-
-@[legalization_status]
-theorem combine_redundant_and_select_icmp_constant_status :
-    Status Unproven (redundant_and_select_pattern .icmp .constant) :=
-  .proven (combine_redundant_and_select_icmp_constant_valid)
-
-@[legalization_status]
-theorem combine_redundant_and_select_constant_icmp_status :
-    Status Unproven (redundant_and_select_pattern .constant .icmp) :=
-  .proven (combine_redundant_and_select_constant_icmp_valid)
-
-@[legalization_status]
-theorem combine_redundant_and_select_constant_constant_status :
-    Status Unproven (redundant_and_select_pattern .constant .constant) :=
-  .proven (combine_redundant_and_select_constant_constant_valid)
-
-@[legalization_status]
-theorem combine_select_pow2_zero_status :
-    Status Unproven (select_pow2_zero_pattern) :=
-  .proven (combine_select_pow2_zero_valid)
-
-@[legalization_status]
-theorem combine_select_zero_pow2_status :
-    Status Unproven (select_zero_pow2_pattern) :=
-  .proven (combine_select_zero_pow2_valid)
-
-@[legalization_status]
-theorem combine_funnel_shift_right_zero_status :
-    Status Unproven (funnel_shift_zero_pattern .g_fshr true) :=
-  .proven (combine_funnel_shift_right_zero_valid)
-
-@[legalization_status]
-theorem combine_funnel_shift_left_zero_status :
-    Status Unproven (funnel_shift_zero_pattern .g_fshl false) :=
-  .proven (combine_funnel_shift_left_zero_valid)
-
-@[legalization_status]
-theorem combine_funnel_shift_overshift_l_status :
-    Status Unproven (funnel_shift_overshift_pattern .g_fshl) :=
-  .proven (combine_funnel_shift_overshift_l_valid)
-
-@[legalization_status]
-theorem combine_funnel_shift_overshift_r_status :
-    Status Unproven (funnel_shift_overshift_pattern .g_fshr) :=
-  .proven (combine_funnel_shift_overshift_r_valid)
-
 /-! ## Combines decided by `pbv_decide`
 
 Each combine is proven by `proveCombineValid` alone: the matchers bound every integer width by 64,
@@ -1465,595 +1277,265 @@ are commented out, with the reason it fails. -/
 theorem combine_hoist_and_shl_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_and .g_shl) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_hoist_and_shl_status :
-    Status Unproven (hoist_logic_op_pattern .g_and .g_shl) :=
-  .proven (combine_hoist_and_shl_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_hoist_and_lshr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_and .g_lshr) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_hoist_and_lshr_status :
-    Status Unproven (hoist_logic_op_pattern .g_and .g_lshr) :=
-  .proven (combine_hoist_and_lshr_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_hoist_and_ashr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_and .g_ashr) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_hoist_and_ashr_status :
-    Status Unproven (hoist_logic_op_pattern .g_and .g_ashr) :=
-  .proven (combine_hoist_and_ashr_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_hoist_and_and_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_and .g_and) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_hoist_and_and_status :
-    Status Unproven (hoist_logic_op_pattern .g_and .g_and) :=
-  .proven (combine_hoist_and_and_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_hoist_or_shl_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_or .g_shl) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_hoist_or_shl_status :
-    Status Unproven (hoist_logic_op_pattern .g_or .g_shl) :=
-  .proven (combine_hoist_or_shl_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_hoist_or_lshr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_or .g_lshr) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_hoist_or_lshr_status :
-    Status Unproven (hoist_logic_op_pattern .g_or .g_lshr) :=
-  .proven (combine_hoist_or_lshr_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_hoist_or_ashr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_or .g_ashr) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_hoist_or_ashr_status :
-    Status Unproven (hoist_logic_op_pattern .g_or .g_ashr) :=
-  .proven (combine_hoist_or_ashr_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_hoist_or_and_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_or .g_and) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_hoist_or_and_status :
-    Status Unproven (hoist_logic_op_pattern .g_or .g_and) :=
-  .proven (combine_hoist_or_and_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_hoist_xor_shl_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_xor .g_shl) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_hoist_xor_shl_status :
-    Status Unproven (hoist_logic_op_pattern .g_xor .g_shl) :=
-  .proven (combine_hoist_xor_shl_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_hoist_xor_lshr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_xor .g_lshr) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_hoist_xor_lshr_status :
-    Status Unproven (hoist_logic_op_pattern .g_xor .g_lshr) :=
-  .proven (combine_hoist_xor_lshr_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_hoist_xor_ashr_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_xor .g_ashr) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_hoist_xor_ashr_status :
-    Status Unproven (hoist_logic_op_pattern .g_xor .g_ashr) :=
-  .proven (combine_hoist_xor_ashr_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_hoist_xor_and_valid : Puddle.CTree.Pattern.Valid (hoist_logic_op_pattern .g_xor .g_and) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_hoist_xor_and_status :
-    Status Unproven (hoist_logic_op_pattern .g_xor .g_and) :=
-  .proven (combine_hoist_xor_and_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_sub_add_reg_x_add_y_sub_y_valid : Puddle.CTree.Pattern.Valid sub_add_reg_x_add_y_sub_y_pattern := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_sub_add_reg_x_add_y_sub_y_status :
-    Status Unproven sub_add_reg_x_add_y_sub_y_pattern :=
-  .proven (combine_sub_add_reg_x_add_y_sub_y_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_sub_add_reg_x_add_y_sub_x_valid : Puddle.CTree.Pattern.Valid sub_add_reg_x_add_y_sub_x_pattern := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_sub_add_reg_x_add_y_sub_x_status :
-    Status Unproven sub_add_reg_x_add_y_sub_x_pattern :=
-  .proven (combine_sub_add_reg_x_add_y_sub_x_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_sub_add_reg_negate_valid : Puddle.CTree.Pattern.Valid (sub_add_reg_negate_pattern false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_sub_add_reg_negate_status :
-    Status Unproven (sub_add_reg_negate_pattern false) :=
-  .proven (combine_sub_add_reg_negate_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_sub_add_reg_negate_x_first_valid : Puddle.CTree.Pattern.Valid (sub_add_reg_negate_pattern true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_sub_add_reg_negate_x_first_status :
-    Status Unproven (sub_add_reg_negate_pattern true) :=
-  .proven (combine_sub_add_reg_negate_x_first_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_xor_of_and_with_same_reg_valid : Puddle.CTree.Pattern.Valid xor_of_and_with_same_reg_pattern := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_xor_of_and_with_same_reg_status :
-    Status Unproven xor_of_and_with_same_reg_pattern :=
-  .proven (combine_xor_of_and_with_same_reg_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_trunc_of_zext_valid : Puddle.CTree.Pattern.Valid (trunc_of_ext_pattern .g_zext) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_trunc_of_zext_status :
-    Status Unproven (trunc_of_ext_pattern .g_zext) :=
-  .proven (combine_trunc_of_zext_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_trunc_of_sext_valid : Puddle.CTree.Pattern.Valid (trunc_of_ext_pattern .g_sext) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_trunc_of_sext_status :
-    Status Unproven (trunc_of_ext_pattern .g_sext) :=
-  .proven (combine_trunc_of_sext_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_redundant_add_eq_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_add .eq) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_redundant_add_eq_status :
-    Status Unproven (redundant_binop_in_equality_pattern .g_add .eq) :=
-  .proven (combine_redundant_add_eq_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_redundant_add_ne_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_add .ne) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_redundant_add_ne_status :
-    Status Unproven (redundant_binop_in_equality_pattern .g_add .ne) :=
-  .proven (combine_redundant_add_ne_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_redundant_sub_eq_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_sub .eq) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_redundant_sub_eq_status :
-    Status Unproven (redundant_binop_in_equality_pattern .g_sub .eq) :=
-  .proven (combine_redundant_sub_eq_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_redundant_sub_ne_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_sub .ne) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_redundant_sub_ne_status :
-    Status Unproven (redundant_binop_in_equality_pattern .g_sub .ne) :=
-  .proven (combine_redundant_sub_ne_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_redundant_xor_eq_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_xor .eq) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_redundant_xor_eq_status :
-    Status Unproven (redundant_binop_in_equality_pattern .g_xor .eq) :=
-  .proven (combine_redundant_xor_eq_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_redundant_xor_ne_valid : Puddle.CTree.Pattern.Valid (redundant_binop_in_equality_pattern .g_xor .ne) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_redundant_xor_ne_status :
-    Status Unproven (redundant_binop_in_equality_pattern .g_xor .ne) :=
-  .proven (combine_redundant_xor_ne_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_combine_or_of_and_tt_valid : Puddle.CTree.Pattern.Valid (combine_or_of_and_pattern true true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_combine_or_of_and_tt_status :
-    Status Unproven (combine_or_of_and_pattern true true) :=
-  .proven (combine_combine_or_of_and_tt_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_combine_or_of_and_tf_valid : Puddle.CTree.Pattern.Valid (combine_or_of_and_pattern true false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_combine_or_of_and_tf_status :
-    Status Unproven (combine_or_of_and_pattern true false) :=
-  .proven (combine_combine_or_of_and_tf_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_combine_or_of_and_ft_valid : Puddle.CTree.Pattern.Valid (combine_or_of_and_pattern false true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_combine_or_of_and_ft_status :
-    Status Unproven (combine_or_of_and_pattern false true) :=
-  .proven (combine_combine_or_of_and_ft_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_combine_or_of_and_ff_valid : Puddle.CTree.Pattern.Valid (combine_or_of_and_pattern false false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_combine_or_of_and_ff_status :
-    Status Unproven (combine_or_of_and_pattern false false) :=
-  .proven (combine_combine_or_of_and_ff_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_AMinusBMinusC_valid : Puddle.CTree.Pattern.Valid AMinusBMinusC_pattern := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_AMinusBMinusC_status :
-    Status Unproven AMinusBMinusC_pattern :=
-  .proven (combine_AMinusBMinusC_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_zext_of_zext_valid : Puddle.CTree.Pattern.Valid (ext_of_ext_pattern .g_zext) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_zext_of_zext_status :
-    Status Unproven (ext_of_ext_pattern .g_zext) :=
-  .proven (combine_zext_of_zext_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_sext_of_sext_valid : Puddle.CTree.Pattern.Valid (ext_of_ext_pattern .g_sext) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_sext_of_sext_status :
-    Status Unproven (ext_of_ext_pattern .g_sext) :=
-  .proven (combine_sext_of_sext_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_bitreverse_shl_valid : Puddle.CTree.Pattern.Valid (bitreverse_shift_pattern .g_shl .g_lshr) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_bitreverse_shl_status :
-    Status Unproven (bitreverse_shift_pattern .g_shl .g_lshr) :=
-  .proven (combine_bitreverse_shl_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_bitreverse_lshr_valid : Puddle.CTree.Pattern.Valid (bitreverse_shift_pattern .g_lshr .g_shl) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_bitreverse_lshr_status :
-    Status Unproven (bitreverse_shift_pattern .g_lshr .g_shl) :=
-  .proven (combine_bitreverse_lshr_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_binop_same_val_and_valid : Puddle.CTree.Pattern.Valid (binop_same_val_pattern .g_and) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_binop_same_val_and_status :
-    Status Unproven (binop_same_val_pattern .g_and) :=
-  .proven (combine_binop_same_val_and_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_binop_same_val_or_valid : Puddle.CTree.Pattern.Valid (binop_same_val_pattern .g_or) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_binop_same_val_or_status :
-    Status Unproven (binop_same_val_pattern .g_or) :=
-  .proven (combine_binop_same_val_or_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_same_val_zero_sub_valid : Puddle.CTree.Pattern.Valid (same_val_zero_pattern .g_sub) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_same_val_zero_sub_status :
-    Status Unproven (same_val_zero_pattern .g_sub) :=
-  .proven (combine_same_val_zero_sub_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_same_val_zero_xor_valid : Puddle.CTree.Pattern.Valid (same_val_zero_pattern .g_xor) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_same_val_zero_xor_status :
-    Status Unproven (same_val_zero_pattern .g_xor) :=
-  .proven (combine_same_val_zero_xor_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_add_sub_reg_0_valid : Puddle.CTree.Pattern.Valid add_sub_reg_0_pattern := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_add_sub_reg_0_status :
-    Status Unproven add_sub_reg_0_pattern :=
-  .proven (combine_add_sub_reg_0_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_add_sub_reg_1_valid : Puddle.CTree.Pattern.Valid add_sub_reg_1_pattern := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_add_sub_reg_1_status :
-    Status Unproven add_sub_reg_1_pattern :=
-  .proven (combine_add_sub_reg_1_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_APlusBMinusCMinusB_valid : Puddle.CTree.Pattern.Valid APlusBMinusCMinusB_pattern := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_APlusBMinusCMinusB_status :
-    Status Unproven APlusBMinusCMinusB_pattern :=
-  .proven (combine_APlusBMinusCMinusB_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_AMinusBMinusCMinusC_valid : Puddle.CTree.Pattern.Valid AMinusBMinusCMinusC_pattern := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_AMinusBMinusCMinusC_status :
-    Status Unproven AMinusBMinusCMinusC_pattern :=
-  .proven (combine_AMinusBMinusCMinusC_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_AMinusBPlusCMinusA_valid : Puddle.CTree.Pattern.Valid AMinusBPlusCMinusA_pattern := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_AMinusBPlusCMinusA_status :
-    Status Unproven AMinusBPlusCMinusA_pattern :=
-  .proven (combine_AMinusBPlusCMinusA_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_AMinusBPlusBMinusC_valid : Puddle.CTree.Pattern.Valid AMinusBPlusBMinusC_pattern := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_AMinusBPlusBMinusC_status :
-    Status Unproven AMinusBPlusBMinusC_pattern :=
-  .proven (combine_AMinusBPlusBMinusC_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_AMinusBMinusA_valid : Puddle.CTree.Pattern.Valid AMinusBMinusA_pattern := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_AMinusBMinusA_status :
-    Status Unproven AMinusBMinusA_pattern :=
-  .proven (combine_AMinusBMinusA_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_APlusBMinusAPlusC_valid : Puddle.CTree.Pattern.Valid (APlusBMinusAPlusC_pattern true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_APlusBMinusAPlusC_status :
-    Status Unproven (APlusBMinusAPlusC_pattern true) :=
-  .proven (combine_APlusBMinusAPlusC_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_APlusBMinusCPlusA_valid : Puddle.CTree.Pattern.Valid (APlusBMinusAPlusC_pattern false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_APlusBMinusCPlusA_status :
-    Status Unproven (APlusBMinusAPlusC_pattern false) :=
-  .proven (combine_APlusBMinusCPlusA_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_select_same_val_valid : Puddle.CTree.Pattern.Valid select_same_val_pattern := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_same_val_status :
-    Status Unproven select_same_val_pattern :=
-  .proven (combine_select_same_val_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_select_ugt_umax_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .ugt .g_umax) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_ugt_umax_status (info : LegalizerInfo) :
-    Status Unproven (select_to_iminmax_pattern info .ugt .g_umax) :=
-  .proven (combine_select_ugt_umax_valid info )
-
 @[combine_valid, proof_pbv]
 theorem combine_select_uge_umax_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .uge .g_umax) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_uge_umax_status (info : LegalizerInfo) :
-    Status Unproven (select_to_iminmax_pattern info .uge .g_umax) :=
-  .proven (combine_select_uge_umax_valid info )
 
 @[combine_valid, proof_pbv]
 theorem combine_select_sgt_smax_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .sgt .g_smax) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_sgt_smax_status (info : LegalizerInfo) :
-    Status Unproven (select_to_iminmax_pattern info .sgt .g_smax) :=
-  .proven (combine_select_sgt_smax_valid info )
-
 @[combine_valid, proof_pbv]
 theorem combine_select_sge_smax_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .sge .g_smax) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_sge_smax_status (info : LegalizerInfo) :
-    Status Unproven (select_to_iminmax_pattern info .sge .g_smax) :=
-  .proven (combine_select_sge_smax_valid info )
 
 @[combine_valid, proof_pbv]
 theorem combine_select_ult_umin_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .ult .g_umin) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_ult_umin_status (info : LegalizerInfo) :
-    Status Unproven (select_to_iminmax_pattern info .ult .g_umin) :=
-  .proven (combine_select_ult_umin_valid info )
-
 @[combine_valid, proof_pbv]
 theorem combine_select_ule_umin_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .ule .g_umin) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_ule_umin_status (info : LegalizerInfo) :
-    Status Unproven (select_to_iminmax_pattern info .ule .g_umin) :=
-  .proven (combine_select_ule_umin_valid info )
 
 @[combine_valid, proof_pbv]
 theorem combine_select_slt_smin_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .slt .g_smin) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_slt_smin_status (info : LegalizerInfo) :
-    Status Unproven (select_to_iminmax_pattern info .slt .g_smin) :=
-  .proven (combine_select_slt_smin_valid info )
-
 @[combine_valid, proof_pbv]
 theorem combine_select_sle_smin_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_to_iminmax_pattern info .sle .g_smin) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_sle_smin_status (info : LegalizerInfo) :
-    Status Unproven (select_to_iminmax_pattern info .sle .g_smin) :=
-  .proven (combine_select_sle_smin_valid info )
 
 @[combine_valid, proof_pbv]
 theorem combine_zext_of_select_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_of_cast_pattern info .g_zext) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_zext_of_select_status (info : LegalizerInfo) :
-    Status Unproven (select_of_cast_pattern info .g_zext) :=
-  .proven (combine_zext_of_select_valid info )
-
 @[combine_valid, proof_pbv]
 theorem combine_trunc_of_select_valid (info : LegalizerInfo) : Puddle.CTree.Pattern.Valid (select_of_cast_pattern info .g_trunc) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_trunc_of_select_status (info : LegalizerInfo) :
-    Status Unproven (select_of_cast_pattern info .g_trunc) :=
-  .proven (combine_trunc_of_select_valid info )
 
 @[combine_valid, proof_pbv]
 theorem combine_select_into_sub_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_sub false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_into_sub_status :
-    Status Unproven (select_into_binop_pattern .g_sub false) :=
-  .proven (combine_select_into_sub_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_select_into_sub_swapped_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_sub true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_into_sub_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_sub true) :=
-  .proven (combine_select_into_sub_swapped_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_select_into_add_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_add false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_into_add_status :
-    Status Unproven (select_into_binop_pattern .g_add false) :=
-  .proven (combine_select_into_add_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_select_into_add_swapped_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_add true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_into_add_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_add true) :=
-  .proven (combine_select_into_add_swapped_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_select_into_or_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_or false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_into_or_status :
-    Status Unproven (select_into_binop_pattern .g_or false) :=
-  .proven (combine_select_into_or_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_select_into_or_swapped_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_or true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_into_or_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_or true) :=
-  .proven (combine_select_into_or_swapped_valid )
 
 @[combine_valid, proof_pbv]
 theorem combine_select_into_xor_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_xor false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_into_xor_status :
-    Status Unproven (select_into_binop_pattern .g_xor false) :=
-  .proven (combine_select_into_xor_valid )
-
 @[combine_valid, proof_pbv]
 theorem combine_select_into_xor_swapped_valid : Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_xor true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_into_xor_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_xor true) :=
-  .proven (combine_select_into_xor_swapped_valid )
 
 -- the `icmp` predicate is abstracted (with `maxHeartbeats 0`; at the default it times out first)
 -- theorem combine_redundant_and_select_icmp_icmp_valid :
@@ -2069,20 +1551,10 @@ theorem combine_funnel_shift_fshr_or_lshr_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshr .g_lshr false true) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_funnel_shift_fshr_or_lshr_status :
-    Status Unproven (funnel_shift_or_shift_pattern .g_fshr .g_lshr false true) :=
-  .proven combine_funnel_shift_fshr_or_lshr_valid
-
 @[combine_valid, proof_pbv]
 theorem combine_funnel_shift_lshr_or_fshr_valid :
     Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshr .g_lshr false false) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_funnel_shift_lshr_or_fshr_status :
-    Status Unproven (funnel_shift_or_shift_pattern .g_fshr .g_lshr false false) :=
-  .proven combine_funnel_shift_lshr_or_fshr_valid
 
 /-! ## Combines that match constants, decided by `pbv_decide`
 
@@ -2093,70 +1565,35 @@ theorem combine_right_identity_zero_sub_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_sub) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_right_identity_zero_sub_status :
-    Status Unproven (right_identity_zero_pattern .g_sub) :=
-  .proven (combine_right_identity_zero_sub_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_add_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_add) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_right_identity_zero_add_status :
-    Status Unproven (right_identity_zero_pattern .g_add) :=
-  .proven (combine_right_identity_zero_add_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_or_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_or) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_right_identity_zero_or_status :
-    Status Unproven (right_identity_zero_pattern .g_or) :=
-  .proven (combine_right_identity_zero_or_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_xor_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_xor) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_right_identity_zero_xor_status :
-    Status Unproven (right_identity_zero_pattern .g_xor) :=
-  .proven (combine_right_identity_zero_xor_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_shl_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_shl) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_right_identity_zero_shl_status :
-    Status Unproven (right_identity_zero_pattern .g_shl) :=
-  .proven (combine_right_identity_zero_shl_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_ashr_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_ashr) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_right_identity_zero_ashr_status :
-    Status Unproven (right_identity_zero_pattern .g_ashr) :=
-  .proven (combine_right_identity_zero_ashr_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_right_identity_zero_lshr_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_pattern .g_lshr) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_right_identity_zero_lshr_status :
-    Status Unproven (right_identity_zero_pattern .g_lshr) :=
-  .proven (combine_right_identity_zero_lshr_valid)
 
 -- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
 -- theorem combine_right_identity_one_int_valid :
@@ -2168,90 +1605,45 @@ theorem combine_binop_right_to_zero_valid :
     Puddle.CTree.Pattern.Valid (binop_right_to_zero_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_binop_right_to_zero_status :
-    Status Unproven (binop_right_to_zero_pattern) :=
-  .proven (combine_binop_right_to_zero_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_binop_left_to_zero_shl_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_shl) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_binop_left_to_zero_shl_status :
-    Status Unproven (binop_left_to_zero_pattern .g_shl) :=
-  .proven (combine_binop_left_to_zero_shl_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_binop_left_to_zero_lshr_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_lshr) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_binop_left_to_zero_lshr_status :
-    Status Unproven (binop_left_to_zero_pattern .g_lshr) :=
-  .proven (combine_binop_left_to_zero_lshr_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_binop_left_to_zero_ashr_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_ashr) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_binop_left_to_zero_ashr_status :
-    Status Unproven (binop_left_to_zero_pattern .g_ashr) :=
-  .proven (combine_binop_left_to_zero_ashr_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_binop_left_to_zero_mul_valid :
     Puddle.CTree.Pattern.Valid (binop_left_to_zero_pattern .g_mul) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_binop_left_to_zero_mul_status :
-    Status Unproven (binop_left_to_zero_pattern .g_mul) :=
-  .proven (combine_binop_left_to_zero_mul_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_sub_minus_one_valid :
     Puddle.CTree.Pattern.Valid (sub_minus_one_pattern) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_sub_minus_one_status :
-    Status Unproven (sub_minus_one_pattern) :=
-  .proven (combine_sub_minus_one_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_ZeroMinusAPlusB_valid :
     Puddle.CTree.Pattern.Valid (ZeroMinusAPlusB_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_ZeroMinusAPlusB_status :
-    Status Unproven (ZeroMinusAPlusB_pattern) :=
-  .proven (combine_ZeroMinusAPlusB_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_APlusZeroMinusB_valid :
     Puddle.CTree.Pattern.Valid (APlusZeroMinusB_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_APlusZeroMinusB_status :
-    Status Unproven (APlusZeroMinusB_pattern) :=
-  .proven (combine_APlusZeroMinusB_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_AMinusZeroMinusB_valid :
     Puddle.CTree.Pattern.Valid (AMinusZeroMinusB_pattern) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_AMinusZeroMinusB_status :
-    Status Unproven (AMinusZeroMinusB_pattern) :=
-  .proven (combine_AMinusZeroMinusB_valid)
 
 -- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
 -- theorem combine_sub_one_from_sub_valid :
@@ -2263,50 +1655,25 @@ theorem combine_APlusC1MinusC2_valid :
     Puddle.CTree.Pattern.Valid (APlusC1MinusC2_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_APlusC1MinusC2_status :
-    Status Unproven (APlusC1MinusC2_pattern) :=
-  .proven (combine_APlusC1MinusC2_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_C2MinusAPlusC1_valid :
     Puddle.CTree.Pattern.Valid (C2MinusAPlusC1_pattern) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_C2MinusAPlusC1_status :
-    Status Unproven (C2MinusAPlusC1_pattern) :=
-  .proven (combine_C2MinusAPlusC1_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_AMinusC1MinusC2_valid :
     Puddle.CTree.Pattern.Valid (AMinusC1MinusC2_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_AMinusC1MinusC2_status :
-    Status Unproven (AMinusC1MinusC2_pattern) :=
-  .proven (combine_AMinusC1MinusC2_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_C1MinusAMinusC2_valid :
     Puddle.CTree.Pattern.Valid (C1MinusAMinusC2_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_C1MinusAMinusC2_status :
-    Status Unproven (C1MinusAMinusC2_pattern) :=
-  .proven (combine_C1MinusAMinusC2_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_AMinusC1PlusC2_valid :
     Puddle.CTree.Pattern.Valid (AMinusC1PlusC2_pattern) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_AMinusC1PlusC2_status :
-    Status Unproven (AMinusC1PlusC2_pattern) :=
-  .proven (combine_AMinusC1PlusC2_valid)
 
 -- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
 -- theorem combine_sub_of_mul_const_valid :
@@ -2328,110 +1695,55 @@ theorem combine_NotAPlusNegOne_valid :
     Puddle.CTree.Pattern.Valid (NotAPlusNegOne_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_NotAPlusNegOne_status :
-    Status Unproven (NotAPlusNegOne_pattern) :=
-  .proven (combine_NotAPlusNegOne_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_add_shift_valid :
     Puddle.CTree.Pattern.Valid (add_shift_pattern false) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_add_shift_status :
-    Status Unproven (add_shift_pattern false) :=
-  .proven (combine_add_shift_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_add_shift_swapped_valid :
     Puddle.CTree.Pattern.Valid (add_shift_pattern true) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_add_shift_swapped_status :
-    Status Unproven (add_shift_pattern true) :=
-  .proven (combine_add_shift_swapped_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_or_and_xor_to_or_or_and_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_or_pattern .g_or .g_and) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_or_and_xor_to_or_or_and_status :
-    Status Unproven (or_and_xor_to_or_pattern .g_or .g_and) :=
-  .proven (combine_or_and_xor_to_or_or_and_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_or_and_xor_to_or_and_or_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_or_pattern .g_and .g_or) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_or_and_xor_to_or_and_or_status :
-    Status Unproven (or_and_xor_to_or_pattern .g_and .g_or) :=
-  .proven (combine_or_and_xor_to_or_and_or_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_or_and_xor_to_xor_or_or_and_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_xor_or_pattern .g_or .g_and) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_or_and_xor_to_xor_or_or_and_status :
-    Status Unproven (or_and_xor_to_xor_or_pattern .g_or .g_and) :=
-  .proven (combine_or_and_xor_to_xor_or_or_and_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_or_and_xor_to_xor_or_and_or_valid :
     Puddle.CTree.Pattern.Valid (or_and_xor_to_xor_or_pattern .g_and .g_or) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_or_and_xor_to_xor_or_and_or_status :
-    Status Unproven (or_and_xor_to_xor_or_pattern .g_and .g_or) :=
-  .proven (combine_or_and_xor_to_xor_or_and_or_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_simplify_neg_smax_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_smax .g_smin) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_simplify_neg_smax_status :
-    Status Unproven (simplify_neg_minmax_pattern .g_smax .g_smin) :=
-  .proven (combine_simplify_neg_smax_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_simplify_neg_umax_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_umax .g_umin) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_simplify_neg_umax_status :
-    Status Unproven (simplify_neg_minmax_pattern .g_umax .g_umin) :=
-  .proven (combine_simplify_neg_umax_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_simplify_neg_smin_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_smin .g_smax) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_simplify_neg_smin_status :
-    Status Unproven (simplify_neg_minmax_pattern .g_smin .g_smax) :=
-  .proven (combine_simplify_neg_smin_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_simplify_neg_umin_valid :
     Puddle.CTree.Pattern.Valid (simplify_neg_minmax_pattern .g_umin .g_umax) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_simplify_neg_umin_status :
-    Status Unproven (simplify_neg_minmax_pattern .g_umin .g_umax) :=
-  .proven (combine_simplify_neg_umin_valid)
 
 -- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
 -- theorem combine_not_cmp_fold_eq_valid :
@@ -2488,20 +1800,10 @@ theorem combine_double_icmp_zero_and_valid :
     Puddle.CTree.Pattern.Valid (double_icmp_zero_pattern .g_and .eq) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_double_icmp_zero_and_status :
-    Status Unproven (double_icmp_zero_pattern .g_and .eq) :=
-  .proven (combine_double_icmp_zero_and_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_double_icmp_zero_or_valid :
     Puddle.CTree.Pattern.Valid (double_icmp_zero_pattern .g_or .ne) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_double_icmp_zero_or_status :
-    Status Unproven (double_icmp_zero_pattern .g_or .ne) :=
-  .proven (combine_double_icmp_zero_or_valid)
 
 -- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
 -- theorem combine_udiv_by_pow2_valid :
@@ -2543,70 +1845,35 @@ theorem combine_constant_fold_add_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_add (fun a b => a + b)) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_constant_fold_add_status :
-    Status Unproven (constant_fold_binop_pattern .g_add (fun a b => a + b)) :=
-  .proven (combine_constant_fold_add_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_constant_fold_sub_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_sub ((· - ·))) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_constant_fold_sub_status :
-    Status Unproven (constant_fold_binop_pattern .g_sub ((· - ·))) :=
-  .proven (combine_constant_fold_sub_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_constant_fold_smin_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smin (min)) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_constant_fold_smin_status :
-    Status Unproven (constant_fold_binop_pattern .g_smin (min)) :=
-  .proven (combine_constant_fold_smin_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_constant_fold_smax_valid :
     Puddle.CTree.Pattern.Valid (constant_fold_binop_pattern .g_smax (max)) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_constant_fold_smax_status :
-    Status Unproven (constant_fold_binop_pattern .g_smax (max)) :=
-  .proven (combine_constant_fold_smax_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_select_constant_cmp_nonzero_valid :
     Puddle.CTree.Pattern.Valid (select_constant_cmp_pattern true) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_constant_cmp_nonzero_status :
-    Status Unproven (select_constant_cmp_pattern true) :=
-  .proven (combine_select_constant_cmp_nonzero_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_select_constant_cmp_zero_valid :
     Puddle.CTree.Pattern.Valid (select_constant_cmp_pattern false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_constant_cmp_zero_status :
-    Status Unproven (select_constant_cmp_pattern false) :=
-  .proven (combine_select_constant_cmp_zero_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_sub_to_add_valid (info : LegalizerInfo) :
     Puddle.CTree.Pattern.Valid (sub_to_add_pattern info) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_sub_to_add_status (info : LegalizerInfo) :
-    Status Unproven (sub_to_add_pattern info) :=
-  .proven (combine_sub_to_add_valid info)
 
 -- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
 -- theorem combine_redundant_and_select_icmp_constant_valid :
@@ -2628,120 +1895,60 @@ theorem combine_select_into_shl_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_shl false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_into_shl_status :
-    Status Unproven (select_into_binop_pattern .g_shl false) :=
-  .proven (combine_select_into_shl_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_select_into_shl_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_shl true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_into_shl_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_shl true) :=
-  .proven (combine_select_into_shl_swapped_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_select_into_lshr_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_lshr false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_into_lshr_status :
-    Status Unproven (select_into_binop_pattern .g_lshr false) :=
-  .proven (combine_select_into_lshr_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_select_into_lshr_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_lshr true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_into_lshr_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_lshr true) :=
-  .proven (combine_select_into_lshr_swapped_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_select_into_ashr_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_ashr false) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_into_ashr_status :
-    Status Unproven (select_into_binop_pattern .g_ashr false) :=
-  .proven (combine_select_into_ashr_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_select_into_ashr_swapped_valid :
     Puddle.CTree.Pattern.Valid (select_into_binop_pattern .g_ashr true) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_into_ashr_swapped_status :
-    Status Unproven (select_into_binop_pattern .g_ashr true) :=
-  .proven (combine_select_into_ashr_swapped_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_select_one_zero_valid :
     Puddle.CTree.Pattern.Valid (select_one_zero_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_one_zero_status :
-    Status Unproven (select_one_zero_pattern) :=
-  .proven (combine_select_one_zero_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_select_allOnes_zero_valid :
     Puddle.CTree.Pattern.Valid (select_allOnes_zero_pattern) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_allOnes_zero_status :
-    Status Unproven (select_allOnes_zero_pattern) :=
-  .proven (combine_select_allOnes_zero_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_select_zero_one_valid :
     Puddle.CTree.Pattern.Valid (select_zero_one_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_zero_one_status :
-    Status Unproven (select_zero_one_pattern) :=
-  .proven (combine_select_zero_one_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_select_zero_allOnes_valid :
     Puddle.CTree.Pattern.Valid (select_zero_allOnes_pattern) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_zero_allOnes_status :
-    Status Unproven (select_zero_allOnes_pattern) :=
-  .proven (combine_select_zero_allOnes_valid)
 
 @[combine_valid, proof_pbv]
 theorem combine_select_succ_valid :
     Puddle.CTree.Pattern.Valid (select_succ_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_succ_status :
-    Status Unproven (select_succ_pattern) :=
-  .proven (combine_select_succ_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_select_pred_valid :
     Puddle.CTree.Pattern.Valid (select_pred_pattern) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_pred_status :
-    Status Unproven (select_pred_pattern) :=
-  .proven (combine_select_pred_valid)
 
 -- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
 -- theorem combine_select_pow2_zero_valid :
@@ -2758,20 +1965,10 @@ theorem combine_select_allOnes_const_valid :
     Puddle.CTree.Pattern.Valid (select_allOnes_const_pattern) := by
   proveCombineValid
 
-@[legalization_status]
-theorem combine_select_allOnes_const_status :
-    Status Unproven (select_allOnes_const_pattern) :=
-  .proven (combine_select_allOnes_const_valid)
-
 @[combine_valid, proof_pbv]
 theorem combine_select_const_allOnes_valid :
     Puddle.CTree.Pattern.Valid (select_const_allOnes_pattern) := by
   proveCombineValid
-
-@[legalization_status]
-theorem combine_select_const_allOnes_status :
-    Status Unproven (select_const_allOnes_pattern) :=
-  .proven (combine_select_const_allOnes_valid)
 
 -- the matched constant's properties (`bits`, `isZero`, ...) stay opaque
 -- theorem combine_funnel_shift_right_zero_valid :

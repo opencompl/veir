@@ -17,8 +17,8 @@ import Veir.Passes.GMIRCombines.Simp
 /-!
 # Soundness of the gMIR combiner passes
 
-Every gMIR combine has a certificate (its `Status`) and is valid, by its proof in
-`Veir.Passes.GMIRCombines.Proofs`, so the pre- and post-legalizer combiner passes are sound.
+Every gMIR combine is valid, by its proof in `Veir.Passes.GMIRCombines.Proofs`, so it has a
+`.proven` certificate (`Status`), and the pre- and post-legalizer combiner passes are sound.
 -/
 
 namespace Veir.GMIRCombines.CTreeProofs
@@ -29,43 +29,13 @@ open Veir.Legalization.CTreeProofs
 
 public section
 
-/-! ## Certificates
+/-! ## Every gMIR combine is valid
 
-The combines of `RISCV64PostLegalizerCombiner` (`combines`, `selectCombines`, `sub_to_add`,
+Every Puddle pattern of `RISCV64PostLegalizerCombiner` (`combines`, `selectCombines`, `sub_to_add`,
 `redundant_and` and `redundant_and_select`) and of `RISCV64PreLegalizerCombiner`
-(`preLegalizerCombines`). `commutativeConstantRHS` is a local rewrite, not a Puddle pattern. -/
-
-set_option maxHeartbeats 4000000 in
-set_option maxRecDepth 10000 in
-/-- Every post-legalizer combine has a certificate. -/
-theorem combinePatterns_status : ∀ pattern ∈ combinePatterns, Status Unproven pattern := by
-  simp [combinePatterns, legalization_status]
-
-/-- Every select combine has a certificate, whatever the legalizer info. -/
-theorem selectPatterns_status (info : LegalizerInfo) :
-    ∀ pattern ∈ selectPatterns info, Status Unproven pattern := by
-  simp [selectPatterns, legalization_status]
-
-/-- Every `redundant_and` combine of a select has a certificate. -/
-theorem redundantAndSelectPatterns_status :
-    ∀ pattern ∈ redundantAndSelectPatterns, Status Unproven pattern := by
-  simp [redundantAndSelectPatterns, legalization_status]
-
-set_option maxRecDepth 10000 in
-/-- Every pre-legalizer combine has a certificate. -/
-theorem preLegalizerPatterns_status : ∀ pattern ∈ preLegalizerPatterns, Status Unproven pattern := by
-  simp [preLegalizerPatterns, selectOfConstantsPatterns, selectIntoBinopPatterns, legalization_status]
-
-/-- `sub_to_add` and `redundant_and` have certificates. -/
-theorem sub_to_add_redundant_and_status (info : LegalizerInfo) :
-    Status Unproven (sub_to_add_pattern info) ∧ Status Unproven redundant_and_pattern := by
-  simp only [legalization_status, and_self]
-
-/-! ### Every gMIR combine is valid
-
-Every Puddle pattern of `RISCV64PostLegalizerCombiner` and `RISCV64PreLegalizerCombiner` has a
-proof of `Puddle.CTree.Pattern.Valid`. The other rewrites of these passes, `dropAssume` and
-`commutativeConstantRHS`, are local rewrites. -/
+(`preLegalizerCombines`) has a proof of `Puddle.CTree.Pattern.Valid`, so its certificate is
+`.proven`. The other rewrites of these passes, `dropAssume` and `commutativeConstantRHS`, are local
+rewrites. -/
 
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 10000 in
@@ -74,15 +44,29 @@ theorem combinePatterns_valid :
     ∀ pattern ∈ combinePatterns, Puddle.CTree.Pattern.Valid pattern := by
   simp [combinePatterns, combine_valid]
 
+/-- Every post-legalizer combine has a certificate. -/
+theorem combinePatterns_status : ∀ pattern ∈ combinePatterns, Status Unproven pattern :=
+  fun pattern member => .proven (combinePatterns_valid pattern member)
+
 /-- Every select combine is valid, whatever the legalizer info. -/
 theorem selectPatterns_valid (info : LegalizerInfo) :
     ∀ pattern ∈ selectPatterns info, Puddle.CTree.Pattern.Valid pattern := by
   simp [selectPatterns, combine_valid]
 
+/-- Every select combine has a certificate, whatever the legalizer info. -/
+theorem selectPatterns_status (info : LegalizerInfo) :
+    ∀ pattern ∈ selectPatterns info, Status Unproven pattern :=
+  fun pattern member => .proven (selectPatterns_valid info pattern member)
+
 /-- Every `redundant_and` combine of a select is valid. -/
 theorem redundantAndSelectPatterns_valid :
     ∀ pattern ∈ redundantAndSelectPatterns, Puddle.CTree.Pattern.Valid pattern := by
   simp [redundantAndSelectPatterns, combine_valid]
+
+/-- Every `redundant_and` combine of a select has a certificate. -/
+theorem redundantAndSelectPatterns_status :
+    ∀ pattern ∈ redundantAndSelectPatterns, Status Unproven pattern :=
+  fun pattern member => .proven (redundantAndSelectPatterns_valid pattern member)
 
 /-- `sub_to_add` and `redundant_and` are valid, whatever the legalizer info. -/
 theorem sub_to_add_redundant_and_valid (info : LegalizerInfo) :
@@ -90,11 +74,20 @@ theorem sub_to_add_redundant_and_valid (info : LegalizerInfo) :
       Puddle.CTree.Pattern.Valid redundant_and_pattern := by
   simp only [combine_valid, and_self]
 
+/-- `sub_to_add` and `redundant_and` have certificates. -/
+theorem sub_to_add_redundant_and_status (info : LegalizerInfo) :
+    Status Unproven (sub_to_add_pattern info) ∧ Status Unproven redundant_and_pattern :=
+  ⟨.proven (sub_to_add_redundant_and_valid info).1, .proven (sub_to_add_redundant_and_valid info).2⟩
+
 set_option maxRecDepth 10000 in
 /-- Every pre-legalizer combine is valid. -/
 theorem preLegalizerPatterns_valid :
     ∀ pattern ∈ preLegalizerPatterns, Puddle.CTree.Pattern.Valid pattern := by
   simp [preLegalizerPatterns, selectOfConstantsPatterns, selectIntoBinopPatterns, combine_valid]
+
+/-- Every pre-legalizer combine has a certificate. -/
+theorem preLegalizerPatterns_status : ∀ pattern ∈ preLegalizerPatterns, Status Unproven pattern :=
+  fun pattern member => .proven (preLegalizerPatterns_valid pattern member)
 
 /-! ### The combiner passes -/
 
