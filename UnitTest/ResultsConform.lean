@@ -4,6 +4,15 @@ import Veir.Dialects.ResultsConform
 
 namespace Veir
 
+theorem builtin_resultsConform_not_assumed (op : Builtin) : ResultsConform (.builtin op) :=
+  inferInstance
+
+/--
+info: 'Veir.builtin_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms builtin_resultsConform_not_assumed
+
 theorem cf_resultsConform_not_assumed (op : Cf) : ResultsConform (.cf op) :=
   inferInstance
 
@@ -49,5 +58,50 @@ info: 'Veir.riscv_resultsConform_not_assumed' depends on axioms: [propext, Class
 -/
 #guard_msgs in
 #print axioms riscv_resultsConform_not_assumed
+
+theorem riscv_cf_resultsConform_not_assumed (op : Riscv_Cf) : ResultsConform (.riscv_cf op) :=
+  inferInstance
+
+/--
+info: 'Veir.riscv_cf_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms riscv_cf_resultsConform_not_assumed
+
+theorem gmir_riscv_resultsConform_not_assumed (op : GMIR_RISCV) : ResultsConform (.gmir_riscv op) :=
+  inferInstance
+
+/--
+info: 'Veir.gmir_riscv_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms gmir_riscv_resultsConform_not_assumed
+
+theorem riscv_stack_resultsConform_not_assumed (op : Riscv_Stack) : ResultsConform (.riscv_stack op) :=
+  inferInstance
+
+/--
+info: 'Veir.riscv_stack_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms riscv_stack_resultsConform_not_assumed
+
+theorem func_resultsConform_not_assumed (op : Func) : ResultsConform (.func op) :=
+  inferInstance
+
+/--
+info: 'Veir.func_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms func_resultsConform_not_assumed
+
+theorem test_resultsConform_not_assumed (op : Test) : ResultsConform (.test op) :=
+  inferInstance
+
+/--
+info: 'Veir.test_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms test_resultsConform_not_assumed
 
 end Veir

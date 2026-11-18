@@ -1,12 +1,18 @@
 module
 
+public import Veir.Dialects.Builtin.ResultsConform
 public import Veir.Dialects.Cf.ResultsConform
+public import Veir.Dialects.Func.ResultsConform
 public import Veir.Dialects.LLVM.CTreeResultsConform
 public import Veir.Dialects.LLVM.ResultsConform
 public import Veir.Dialects.GMIR.CTreeResultsConform
 public import Veir.Dialects.GMIR.ResultsConform
+public import Veir.Dialects.GMIR_RISCV.ResultsConform
 public import Veir.Dialects.RISCV.CTreeResultsConform
 public import Veir.Dialects.RISCV.ResultsConform
+public import Veir.Dialects.RISCV_Cf.ResultsConform
+public import Veir.Dialects.RISCV_Stack.ResultsConform
+public import Veir.Dialects.Test.ResultsConform
 
 public section
 
