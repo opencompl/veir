@@ -355,9 +355,11 @@ private theorem ucmp_lowering {w₁ w₂ : Nat} (h : 1 < w₂) (x y : Data.LLVM.
     simp [Data.LLVM.Int.ucmp, Data.LLVM.Int.icmp, Data.LLVM.Int.zext, Data.LLVM.Int.sub, Id.run,
       pure, Data.LLVM.IntPred.eval, ucmp_bits]
 
+@[proof_manual]
 theorem lower_scmp_valid : Puddle.CTree.Pattern.Valid (lowerThreewayCompare true) := by
   proveLegalValid using scmp_lowering
 
+@[proof_manual]
 theorem lower_ucmp_valid : Puddle.CTree.Pattern.Valid (lowerThreewayCompare false) := by
   proveLegalValid using ucmp_lowering
 
@@ -403,12 +405,14 @@ private theorem umulh_lowering {w w₂ : Nat} (hw : w₂ = w + w) (hpos : 0 < w)
       Nat.mod_eq_of_lt hlt2, BitVec.le_def, BitVec.ushiftRight_eq', hpos,
       show ¬ w + w ≤ w by omega, extractLsb'_eq_setWidth_ushiftRight]
 
+@[proof_manual]
 theorem lower_smulh_valid : Puddle.CTree.Pattern.Valid (lowerMulh true) := by
   proveLegalValid with
     first
       | (simp_all; done)
       | (refine smulh_lowering ?_ ?_ _ _ <;> omega)
 
+@[proof_manual]
 theorem lower_umulh_valid : Puddle.CTree.Pattern.Valid (lowerMulh false) := by
   proveLegalValid with
     first

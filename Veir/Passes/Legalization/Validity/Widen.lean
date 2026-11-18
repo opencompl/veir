@@ -574,6 +574,7 @@ theorem widen_load_0_status (W : Nat) :
 
 /-- `widenTypeGroup .g_store`: the wide store writes the low bytes of the extended value, which are
 the value's. -/
+@[proof_manual]
 theorem widen_store_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_store (.type 0) .g_anyext W) := by
   conv => arg 1; cbv
@@ -582,6 +583,7 @@ theorem widen_store_0_valid (W : Nat) :
 
 /-- `widenTypeGroup .g_freeze`: a frozen value truncates to itself, and the source chooses the low
 bits of what the target chose for poison. -/
+@[proof_manual]
 theorem widen_freeze_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_freeze (.type 0) .g_anyext W) := by
   proveLegalValid with

@@ -60,6 +60,7 @@ theorem gmirPoison_pattern_valid :
 
 -- The simp arguments below are each needed on some of the goals the `cases` produce.
 set_option linter.unusedSimpArgs false in
+@[proof_manual]
 theorem freeze_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirFreeze_pattern := by
   unfold gmirFreeze_pattern

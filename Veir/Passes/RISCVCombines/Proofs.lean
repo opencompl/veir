@@ -11,6 +11,7 @@ import Std.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
+meta import Veir.Meta.ProofKind
 
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Lemmas
@@ -134,7 +135,7 @@ theorem and_li_to_zextw {x : Reg} :
 /-- The other operand order matched by `and_li_to_zextw_commuted`. -/
 theorem and_li_to_zextw_commuted {x : Reg} :
     RISCV.and x (RISCV.li 0xffffffff#64) = RISCV.zextw x := by
-  simpa only [RISCV.and, BitVec.and_comm] using (and_li_to_zextw (x := x))
+  veir_bv_decide
 
 /-! Shift-amount combines (R1). Register semantics take `(amount, data)`,
     the reverse of the SSA operand order. The mask hypotheses use the exact
@@ -1044,6 +1045,7 @@ open Puddle
 
 /-- R2 preserves semantics and satisfies Puddle's structural obligations in
     both operand orders, for arbitrary register types and shared masks. -/
+@[proof_manual]
 theorem and_li_to_zextw_valid (liFirst : Bool) :
     Pattern.Valid (and_li_to_zextw_pattern liFirst) := by
   cases liFirst <;> simp only [and_li_to_zextw_pattern, Bool.false_eq_true, ↓reduceIte]
@@ -1112,51 +1114,63 @@ local macro "proveShiftAmountZextValid" equality:ident : tactic => `(tactic| (
   rw [($equality)]
   exact RuntimeValue.isRefinedBy_refl _))
 
+@[proof_manual]
 theorem drop_sll_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .sll 63) := by
   proveShiftAmountMaskValid Data.RISCV.sll_amount_andi
 
+@[proof_manual]
 theorem drop_srl_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .srl 63) := by
   proveShiftAmountMaskValid Data.RISCV.srl_amount_andi
 
+@[proof_manual]
 theorem drop_sra_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .sra 63) := by
   proveShiftAmountMaskValid Data.RISCV.sra_amount_andi
 
+@[proof_manual]
 theorem drop_sllw_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .sllw 31) := by
   proveShiftAmountMaskValid Data.RISCV.sllw_amount_andi
 
+@[proof_manual]
 theorem drop_srlw_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .srlw 31) := by
   proveShiftAmountMaskValid Data.RISCV.srlw_amount_andi
 
+@[proof_manual]
 theorem drop_sraw_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .sraw 31) := by
   proveShiftAmountMaskValid Data.RISCV.sraw_amount_andi
 
+@[proof_manual]
 theorem drop_sll_amount_zextw_valid :
     Pattern.Valid (drop_zextw_shift_amount_pattern .sll) := by
   proveShiftAmountZextValid Data.RISCV.sll_amount_zextw
 
+@[proof_manual]
 theorem drop_srl_amount_zextw_valid :
     Pattern.Valid (drop_zextw_shift_amount_pattern .srl) := by
   proveShiftAmountZextValid Data.RISCV.srl_amount_zextw
 
+@[proof_manual]
 theorem drop_sra_amount_zextw_valid :
     Pattern.Valid (drop_zextw_shift_amount_pattern .sra) := by
   proveShiftAmountZextValid Data.RISCV.sra_amount_zextw
 
 -- The existing low-word family supplies the word-shift zero-extension cases.
+@[proof_manual]
 theorem drop_sllw_amount_zextw_valid (h : ReadsLowWord .sllw 2) :
     Pattern.Valid (drop_ext_low_word_pattern .zextw .sllw 2 1 h) := by
   proveShiftAmountZextValid Data.RISCV.sllw_amount_zextw
 
+@[proof_manual]
 theorem drop_srlw_amount_zextw_valid (h : ReadsLowWord .srlw 2) :
     Pattern.Valid (drop_ext_low_word_pattern .zextw .srlw 2 1 h) := by
   proveShiftAmountZextValid Data.RISCV.srlw_amount_zextw
 
+@[proof_manual]
 theorem drop_sraw_amount_zextw_valid (h : ReadsLowWord .sraw 2) :
     Pattern.Valid (drop_ext_low_word_pattern .zextw .sraw 2 1 h) := by
   proveShiftAmountZextValid Data.RISCV.sraw_amount_zextw
