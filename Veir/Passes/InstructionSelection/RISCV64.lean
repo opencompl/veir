@@ -2260,9 +2260,9 @@ def gmirSltiPatterns : Array (Pattern OpCode) :=
 The pass runs, through the module-filtered driver, three selection loops whose patterns are all
 proved or assumed to refine the module (`Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass`).
 The main loop also chooses, per `llvm.getelementptr`, the instance of `getelementptr_pattern` that
-lowers it (`getelementptrRules`); its validity is assumed (`getelementptr_valid`: the address
-lemmas are not written), as is that of the memory-intrinsic libcalls (`memIntrinsicCall_valid`:
-the call has no semantics). The inline memory-intrinsic expansion and the split loads and stores
+lowers it (`getelementptrRules`). Its validity is proved in `getelementptr_valid`.
+The memory-intrinsic libcalls rely on `memIntrinsicCall_valid` because the call has no semantics.
+The inline memory-intrinsic expansion and the split loads and stores
 are unproven and no loop runs them: an input that needs one of those keeps the operation
 unselected. -/
 

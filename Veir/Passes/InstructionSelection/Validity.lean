@@ -31,6 +31,7 @@ import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.Casting
 import Veir.Passes.InstructionSelection.Proofs
+import all Veir.Passes.InstructionSelection.Proofs.RISCV64.GetElementPtr
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.ProofKind
@@ -58,9 +59,8 @@ the semantics (`normalizeIselValid`):
 
 The remaining Puddle patterns, which their drivers instantiate at parameters computed from the
 matched operation (the split loads and stores, the inline memory intrinsics, `getelementptr` and
-the argument lowering of `isel-abi-riscv64`), are stated at every parameter; the argument
-lowering is proven (`formal_argument_valid`) and `getelementptr` is assumed
-(`getelementptr_valid`). The
+the argument lowering of `isel-abi-riscv64`), are stated at every parameter. The argument
+and GEP lowerings are proven in `formal_argument_valid` and `getelementptr_valid`. The
 branch lowering of `isel-br-riscv64` is not a Puddle pattern; it is stated as a refinement of
 every function of the module. The lowering of returns and calls of `isel-abi-riscv64` has no
 statement: it needs a refinement up to the ABI (see the last section).
@@ -251,9 +251,7 @@ theorem memset_call_status : Status Unproven (memIntrinsicCallPattern true) :=
 
 The split loads and stores, the inline memory intrinsics, the `getelementptr` lowering and the
 argument lowering of `isel-abi-riscv64` are Puddle patterns, stated at every parameter their
-drivers instantiate them at. The argument lowering is proven; the three memory families need the
-support of memory effects in `Pattern.Supported`, as the loads and stores proven on the wip
-branch do, and `getelementptr` the address lemmas of that branch, so it is assumed. -/
+drivers instantiate them at. The argument lowering and `getelementptr` are proven. -/
 
 -- theorem split_load_valid (bytes : Nat) (hbytes : bytes ∈ [3, 5, 6, 7]) :
 --     Puddle.CTree.Pattern.Valid (splitLoad_pattern bytes) := by
@@ -269,13 +267,11 @@ branch do, and `getelementptr` the address lemmas of that branch, so it is assum
 --     Puddle.CTree.Pattern.Valid (memIntrinsicInline_pattern isMemset accesses fill) := by
 --   sorry
 
-/-- The `getelementptr` lowering is assumed valid at every stride list and offset kind the pass
-instantiates it at (`getelementptrRules`): the address computed on registers (the base, plus each
-index scaled by its stride with `addScaled`, plus the constant offset) is `interpretGEP` of the
-indices, as `gepDecomposition?` decomposes it. The address lemmas relating `addScaled` and the
-offset immediates to `gepOffsets` are not written. -/
-axiom getelementptr_valid (strides : Array Nat) (offset : GEPOffset) :
-    Puddle.CTree.Pattern.Valid (getelementptr_pattern strides offset)
+/-- The selected instructions compute the GEP address for every stride list and offset kind. -/
+@[proof_manual]
+theorem getelementptr_valid (strides : Array Nat) (offset : GEPOffset) :
+    Puddle.CTree.Pattern.Valid (getelementptr_pattern strides offset) :=
+  getelementptr_pattern_valid strides offset
 
 /-- The `g_trunc` of a register's `i64` reads the low bits that the narrow cast of the register
 reads. -/

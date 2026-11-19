@@ -23,9 +23,9 @@ meta import Veir.Meta.ProofKind
 /-!
 # Soundness of the `isel-riscv64` pass
 
-Every pattern of the three selection loops is valid, by the validity theorem of its instance, or
-assumed so (the memory-intrinsic libcalls, `memIntrinsicCall_valid`, and the `getelementptr`
-instances the main loop chooses per operation, `getelementptr_valid`); the pass is then sound.
+The pass uses the validity proof for each selected pattern, including
+`getelementptr_valid` for the GEP instance chosen per operation. The memory-intrinsic libcalls
+rely on `memIntrinsicCall_valid`.
 -/
 
 namespace Veir.RISCV64Proofs
