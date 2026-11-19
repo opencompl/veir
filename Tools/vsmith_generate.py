@@ -33,7 +33,7 @@ INTRINSIC_SAT_BINARY = (
     "llvm.intr.sshl.sat", "llvm.intr.ushl.sat",
 )
 # Three-way comparisons: two operands of one type, and a result of any width
-# that holds -1, 0, and 1, so at least i2. RISC-V does not lower them yet.
+# that holds -1, 0, and 1, so at least i2.
 INTRINSIC_CMP = ("llvm.intr.scmp", "llvm.intr.ucmp")
 BSWAP_WIDTHS = (16, 32, 64)
 
@@ -350,14 +350,14 @@ class Generator:
         return result, target
 
     def emit_intrinsic(self) -> None:
-        """Emit a random integer intrinsic. All operands share the result type.
+        """Emit a random integer intrinsic.
 
-        `bswap` is restricted to widths it is defined on. The three-way
-        comparisons, which are not generated for RISC-V, take operands of any
-        width and give a result of a possibly different width.
+        `bswap` is restricted to widths it is defined on. Three-way comparisons
+        may have a different result width; other intrinsics share one type for
+        their operands and result.
         """
         result_widths = [w for w in self.widths if w >= 2]
-        if not self.riscv and result_widths and self.rng.random() < 0.15:
+        if result_widths and self.rng.random() < 0.15:
             op = self.rng.choice(INTRINSIC_CMP)
             typ = self.rand_type()
             width = bitwidth(typ)

@@ -1049,6 +1049,18 @@ theorem OperationPtr.Verified.llvm_mul {op : OperationPtr} {opInBounds}
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
   simp [← getOpType!_eq_getOpType, opType]
 
+theorem OperationPtr.Verified.llvm_intr__smulh {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__smulh) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__umulh {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__umulh) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
 theorem OperationPtr.Verified.llvm_sdiv {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sdiv) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by

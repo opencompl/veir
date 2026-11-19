@@ -32,7 +32,7 @@ def riscvLoadCTree {EIn : Type} {E : EIn → Type} [ErrorE -< E] [UBE -< E]
   let eaddr := riscvEffectiveAddr addr.val imm12
   let b ← monadLift (mem.loadByte (mem.decode (UInt64.ofBitVec eaddr)) (8 * bytes))
   let bits : FreezeC (.mk (8 * bytes)) ← CTree.choose (FreezeCIn.mk (8 * bytes))
-  let val := b.val ||| (b.poison &&& bits)
+  let val := b.fillPoison bits
   let extended := match ext with
     | .signExt => val.signExtend 64
     | .zeroExt => val.setWidth 64
