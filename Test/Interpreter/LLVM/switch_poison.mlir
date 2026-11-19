@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir > %t && veir-interpret %t | filecheck %s
 // RUN: CTREE
 // RUN: LLUBI
 

@@ -55,6 +55,20 @@ axiom pure_tau (r : R) (i' : C1In ⊕ C'In)
     Sim RR (Pure.pure (f := CTree E C) r) (CTree.tauG i' k') ↔
     ∃ x, Sim RR (Pure.pure (f := CTree E C) r) (k' x)
 
+@[simp]
+theorem pure_bind_choose_iff
+  {SubCIn : Type u} {SubC : SubCIn → Type u} [SubC -< C']
+  (value : R) (choice : SubCIn) (after : SubC choice → CTree E C' R') :
+    CTree.Sim RR (Pure.pure value : CTree E C R)
+        (CTree.bind (CTree.choose choice) after) ↔
+      ∃ chosen, CTree.Sim RR (Pure.pure value : CTree E C R) (after chosen) := by
+  simp only [CTree.choose_def, Subeffect.mapEff, Subeffect.mapCont, CTree.ret_pure, CTree.tau_def,
+    CTree.CTree.bind_tau, SumE.eq_inr, CTree.bind_pure, Sim.pure_tau]
+  constructor
+  · grind
+  · rintro ⟨chosen, h⟩
+    grind [Subeffect.map_surj (ε₁ := SubC) (ε₂ := C') choice chosen]
+
 theorem tau (i : C1In ⊕ CIn) (i' : C1In ⊕ C'In) (k : (C1 ⊕ₑ C) i → CTree E C R) (k' : (C1 ⊕ₑ C') i' → CTree E C' R') :
   (∀ x, ∃ y, Sim RR (k x) (k' y)) →
   Sim RR (CTree.tauG i k) (CTree.tauG i' k') := by
