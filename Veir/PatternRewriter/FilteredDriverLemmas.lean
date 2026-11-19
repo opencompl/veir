@@ -6,7 +6,7 @@ public section
 namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
-/-- Context-level obligations for the two actual mutation branches of the worklist driver. -/
+/-- Context-level obligation for the mutation step of the worklist driver. -/
 structure RewritePattern.ContextStepPreservesIf (pattern : RewritePattern OpInfo)
     (eligible : WfIRContext OpInfo → OperationPtr → Bool)
     (invariant : WfIRContext OpInfo → Prop)
@@ -15,13 +15,8 @@ structure RewritePattern.ContextStepPreservesIf (pattern : RewritePattern OpInfo
     (opIn : op.InBounds before.ctx.raw) (after : PatternRewriter OpInfo),
     invariant before.ctx → eligible before.ctx op = true → pattern before op opIn = some after →
       invariant after.ctx ∧ relation before.ctx after.ctx
-  eraseStep : ∀ (before : PatternRewriter OpInfo) (op : OperationPtr)
-    (_opIn : op.InBounds before.ctx.raw),
-    invariant before.ctx → eligible before.ctx op = true →
-      invariant (before.eraseOp! op).ctx ∧ relation before.ctx (before.eraseOp! op).ctx
 
-/-- Popping only changes the worklist; either successful dispatch branch satisfies
-its corresponding concrete pattern or dead-operation obligation. -/
+/-- Popping only changes the worklist; a successful dispatch satisfies the pattern obligation. -/
 theorem RewritePattern.worklistStepIf_preserves
     (pattern : RewritePattern OpInfo) (eligible : WfIRContext OpInfo → OperationPtr → Bool)
     (invariant : WfIRContext OpInfo → Prop)
@@ -41,9 +36,8 @@ theorem RewritePattern.worklistStepIf_preserves
       dsimp only at run
       split at run
       next bound =>
-        cases run
-        exact steps.eraseStep { before with worklist := before.worklist.pop.2 } _ bound initial
-          accepted
+        exact steps.patternStep { before with worklist := before.worklist.pop.2 } _ bound _ initial
+          accepted run
       next outside => contradiction
     next rejected =>
       cases run
