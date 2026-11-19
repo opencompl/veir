@@ -581,24 +581,6 @@ inductive ModulePort.Direction
 | inout
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  The `ModulePort` type from CIRCT's hw dialect.
-  This represents a port to a module with a direction, type and name.
--/
-structure ModulePort where
-  name : String
-  type : IntegerType
-  dir : ModulePort.Direction
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  The `!hw.modty` type from CIRCT's hw dialect.
-  This represents a list of ports to a module.
--/
-structure ModuleType where
-  ports : Array ModulePort
-deriving Inhabited, Repr, DecidableEq, Hashable
-
 end HW
 
 namespace Seq
@@ -744,6 +726,23 @@ structure Match.OptionalType where
 -/
 structure Seq.ImmutableType where
   innerType : Attribute
+
+/--
+  The `ModulePort` type from CIRCT's hw dialect.
+  This represents a port to a module with a direction, type and name. A port can carry any
+  type, such as a `!seq.clock`, so it lives in the mutual block with `Attribute`.
+-/
+structure HW.ModulePort where
+  name : String
+  type : Attribute
+  dir : HW.ModulePort.Direction
+
+/--
+  The `!hw.modty` type from CIRCT's hw dialect.
+  This represents a list of ports to a module.
+-/
+structure HW.ModuleType where
+  ports : Array HW.ModulePort
 
 /--
   An attribute from an unknown dialect, kept as its source text.
@@ -902,11 +901,11 @@ end
 derive_mutual_repr for
   VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
-  Seq.ImmutableType, UnregisteredAttr, Attribute
+  Seq.ImmutableType, HW.ModulePort, HW.ModuleType, UnregisteredAttr, Attribute
 derive_mutual_hashable for
   VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
-  Seq.ImmutableType, UnregisteredAttr, Attribute
+  Seq.ImmutableType, HW.ModulePort, HW.ModuleType, UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
   default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
@@ -931,6 +930,12 @@ instance : Inhabited Match.OptionalType where
 
 instance : Inhabited Seq.ImmutableType where
   default := { innerType := .integerType (IntegerType.signless 1) }
+
+instance : Inhabited HW.ModulePort where
+  default := { name := "", type := .integerType (IntegerType.signless 1), dir := .input }
+
+instance : Inhabited HW.ModuleType where
+  default := { ports := #[] }
 
 def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
@@ -990,6 +995,14 @@ theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
 theorem Seq.ImmutableType.sizeOf_innerType {t : Seq.ImmutableType} :
     sizeOf t.innerType < sizeOf t := by
   grind [cases Seq.ImmutableType]
+
+theorem HW.ModulePort.sizeOf_type {p : HW.ModulePort} :
+    sizeOf p.type < sizeOf p := by
+  grind [cases HW.ModulePort]
+
+theorem HW.ModuleType.sizeOf_elems_ports {t : HW.ModuleType} (hx : x ∈ t.ports) :
+    sizeOf x < sizeOf t := by
+  grind [Array.sizeOf_lt_of_mem hx, cases HW.ModuleType]
 
 theorem UnregisteredAttr.sizeOf_type {a : UnregisteredAttr} (h : a.type = some t) :
     sizeOf t < sizeOf a := by
@@ -1213,14 +1226,6 @@ instance : ToString HW.ModulePort.Direction where
   | .output => "output"
   | .inout => "inout"
 
-instance : ToString HW.ModulePort where
-  toString attr := s!"{attr.dir} {attr.name} : {attr.type}"
-
-instance : ToString HW.ModuleType where
-  toString attr :=
-    let values := attr.ports.iter.map ToString.toString |>.intercalateString ", "
-    s!"!hw.modty<{values}>"
-
 instance : ToString Seq.ClockType where
   toString _ :=
     s!"!seq.clock"
@@ -1326,6 +1331,13 @@ partial def Match.OptionalType.toString (type : Match.OptionalType) : String :=
 partial def Seq.ImmutableType.toString (type : Seq.ImmutableType) : String :=
   s!"!seq.immutable<{Attribute.toString type.innerType}>"
 
+partial def HW.ModulePort.toString (port : HW.ModulePort) : String :=
+  s!"{port.dir} {port.name} : {Attribute.toString port.type}"
+
+partial def HW.ModuleType.toString (type : HW.ModuleType) : String :=
+  let values := String.intercalate ", " (type.ports.toList.map HW.ModulePort.toString)
+  s!"!hw.modty<{values}>"
+
 partial def UnregisteredAttr.toString (attr : UnregisteredAttr) : String :=
   match _h : attr.type with
   | none => attr.value
@@ -1388,7 +1400,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .llvmFunctionType type => type.toString
   | .cudaTilePointerType type => ToString.toString type
   | .ioAddressType type => ToString.toString type
-  | .hwModuleType type => ToString.toString type
+  | .hwModuleType type => type.toString
   | .pdlRangeType type => ToString.toString type
   | .pdlAttributeType type => ToString.toString type
   | .pdlOperationType type => ToString.toString type
@@ -1437,6 +1449,12 @@ instance : ToString Match.OptionalType where
 
 instance : ToString Seq.ImmutableType where
   toString := Seq.ImmutableType.toString
+
+instance : ToString HW.ModulePort where
+  toString := HW.ModulePort.toString
+
+instance : ToString HW.ModuleType where
+  toString := HW.ModuleType.toString
 
 instance : ToString UnregisteredAttr where
   toString := UnregisteredAttr.toString
@@ -1813,6 +1831,29 @@ decreasing_by
   have := @Seq.ImmutableType.sizeOf_innerType
   grind
 
+def HW.ModulePort.decEq (port1 port2 : HW.ModulePort) : Decidable (port1 = port2) :=
+  if _ : port1.name = port2.name ∧ port1.dir = port2.dir then
+    match Attribute.decEq port1.type port2.type with
+    | isTrue _ => isTrue (by grind [cases HW.ModulePort])
+    | isFalse _ => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf port1
+decreasing_by
+  have := @HW.ModulePort.sizeOf_type
+  grind
+
+def HW.ModuleType.decEq (type1 type2 : HW.ModuleType) : Decidable (type1 = type2) :=
+  let ports1 := type1.ports
+  let ports2 := type2.ports
+  match Array.instDecidabelEq' ports1 ports2 (fun x y _ _ => HW.ModulePort.decEq x y) with
+  | isTrue _ => isTrue (by grind [cases HW.ModuleType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  have := @HW.ModuleType.sizeOf_elems_ports
+  grind
+
 def UnregisteredAttr.decEq (attr1 attr2 : UnregisteredAttr) : Decidable (attr1 = attr2) :=
   let type1 := attr1.type
   let type2 := attr2.type
@@ -1956,7 +1997,7 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
   case ioAddressType x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case hwModuleType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
+    exact IsAttr.decEqAgainst x attr2 (HW.ModuleType.decEq x)
   case pdlRangeType x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case pdlAttributeType x =>
@@ -1991,6 +2032,9 @@ instance : DecidableEq CirFuncType := CirFuncType.decEq
 instance : DecidableEq ArrayAttr := ArrayAttr.decEq
 instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
 instance : DecidableEq UnregisteredAttr := UnregisteredAttr.decEq
+instance : DecidableEq Seq.ImmutableType := Seq.ImmutableType.decEq
+instance : DecidableEq HW.ModulePort := HW.ModulePort.decEq
+instance : DecidableEq HW.ModuleType := HW.ModuleType.decEq
 
 /-!
   ## TypeAttr definition

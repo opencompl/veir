@@ -805,7 +805,13 @@ macro "#assert " e:term : command =>
     {name := "c", type := (IntegerType.signless 10), dir := .output}])
 #assert expectErrorType "!hw.modty<foo>" "module port expected" (some 10)
 #assert expectErrorType "!hw.modty<input : foo>" "identifier expected" (some 16)
-#assert expectErrorType "!hw.modty<input a : foo>" "integer type expected" (some 20)
+#assert expectErrorType "!hw.modty<input a : foo>" "expected the type of a module port" (some 20)
+-- A port can carry any type, not only an integer.
+#assert expectSuccessType "!hw.modty<input clk : !seq.clock, output q : !seq.immutable<i8>>"
+  (HW.ModuleType.mk #[
+    {name := "clk", type := Attribute.seqClockType Seq.ClockType.mk, dir := .input},
+    {name := "q", type := Attribute.seqImmutableType (Seq.ImmutableType.mk (IntegerType.signless 8)),
+      dir := .output}])
 
 /-! ## Seq clock and FIRRTL memory types -/
 #assert expectSuccessType "!seq.clock" Seq.ClockType.mk

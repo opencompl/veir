@@ -1022,36 +1022,6 @@ def parseOptionalHWModulePortDirection : AttrParserM (Option HW.ModulePort.Direc
   return none
 
 /--
-  Parse CIRCT's HW dialect's `ModulePort` type.
-  Its syntax is `(input|output|inout) name : iN`.
--/
-def parseOptionalHWModulePort : AttrParserM (Option HW.ModulePort) := do
-  let .some dir ← parseOptionalHWModulePortDirection | return none
-  let name := String.fromUTF8! (← parseIdentifier)
-  parsePunctuation ":"
-  let type ← parseIntegerType
-  return some { dir, name, type }
-
-def parseHWModulePort (errorMsg : String := "module port expected") : AttrParserM (HW.ModulePort) := do
-  match ← parseOptionalHWModulePort with
-  | some ty => return ty
-  | none => throwAtCurrentPos errorMsg
-
-/--
-  Parse CIRCT's HW dialect's `ModuleType` type.
-  Its syntax is `!hw.modty<ports>` where `ports` is a comma delimited list of `ModulePort`s.
--/
-def parseOptionalHWModuleType : AttrParserM (Option HW.ModuleType) := do
-  let token ← peekToken
-  let .exclamationIdent := token.kind | return none
-  let input := (← getThe ParserState).input
-  let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "hw.modty".toByteArray then return none
-  let _ ← consumeToken
-  let ports ← parseDelimitedList .angle parseHWModulePort
-  return some { ports }
-
-/--
   Parse CIRCT's `seq` dialect's `ClockType` type.
   Its syntax is `!seq.clock` (no parameters).
 -/
@@ -1381,6 +1351,36 @@ partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
   let inner ← parseType "expected the wrapped type of a '!match.optional'"
   parsePunctuation ">"
   return some (Match.OptionalType.mk inner)
+
+/--
+  Parse CIRCT's HW dialect's `ModulePort` type.
+  Its syntax is `(input|output|inout) name : type`.
+-/
+partial def parseOptionalHWModulePort : AttrParserM (Option HW.ModulePort) := do
+  let .some dir ← parseOptionalHWModulePortDirection | return none
+  let name := String.fromUTF8! (← parseIdentifier)
+  parsePunctuation ":"
+  let type ← parseType "expected the type of a module port"
+  return some { dir, name, type := type.val }
+
+partial def parseHWModulePort (errorMsg : String := "module port expected") : AttrParserM (HW.ModulePort) := do
+  match ← parseOptionalHWModulePort with
+  | some ty => return ty
+  | none => throwAtCurrentPos errorMsg
+
+/--
+  Parse CIRCT's HW dialect's `ModuleType` type.
+  Its syntax is `!hw.modty<ports>` where `ports` is a comma delimited list of `ModulePort`s.
+-/
+partial def parseOptionalHWModuleType : AttrParserM (Option HW.ModuleType) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "hw.modty".toByteArray then return none
+  let _ ← consumeToken
+  let ports ← parseDelimitedList .angle parseHWModulePort
+  return some { ports }
 
 /--
   Parse CIRCT's `seq` dialect's immutable type `!seq.immutable<T>`, if present.
