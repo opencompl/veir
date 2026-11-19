@@ -6,6 +6,7 @@ import Veir.Passes.Legalization.LegalizerHelper
 import Veir.Passes.Legalization.LegalizationArtifactCombiner
 import Veir.PatternRewriter.Puddle.Execution
 import Veir.Interfaces.ControlFlowInterfaces
+import Veir.Passes.DCE.dce
 
 /-!
 # GMIR Legalizer
@@ -142,6 +143,9 @@ def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) (root : Operation
     #[.fromLocalRewrite combineArtifactStep, .fromLocalRewrite info.legalizeInstrStep]
   let some ctx := RewritePattern.applyToFunctions pattern ctx root
     | throw "error while applying legalization"
+  -- Combining artifacts can leave dead, illegal operations behind; remove them before checking.
+  let some ctx := RewritePattern.applyToFunctions (.GreedyRewritePattern #[eliminateDeadOp]) ctx root
+    | throw "error while applying DCE after legalization"
   -- The greedy rewriter does not report the operations it could not rewrite, so we check the
   -- legality of every operation afterwards.
   ctx.raw.forOpsDepM fun op _ => do

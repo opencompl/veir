@@ -269,6 +269,7 @@ private def rewriteAndPrint (source : String) (rule : Pattern OpCode) : IO Unit 
 info: "builtin.module"() ({
   ^4():
     %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
     "test.test"(%5) : (i32) -> ()
 }) : () -> ()
 -/
@@ -279,6 +280,7 @@ info: "builtin.module"() ({
 info: "builtin.module"() ({
   ^4():
     %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 2 : i32}> : () -> i32
     %10 = "arith.addi"(%5, %5) : (i32, i32) -> i32
     "test.test"(%10) : (i32) -> ()
 }) : () -> ()
@@ -290,6 +292,7 @@ info: "builtin.module"() ({
 info: "builtin.module"() ({
   ^4():
     %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
     "test.test"(%5) : (i32) -> ()
 }) : () -> ()
 -/
@@ -300,6 +303,7 @@ info: "builtin.module"() ({
 info: "builtin.module"() ({
   ^4():
     %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
     "test.test"(%5) : (i32) -> ()
 }) : () -> ()
 -/
@@ -322,6 +326,7 @@ info: "builtin.module"() ({
 info: "builtin.module"() ({
   ^4():
     %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
     "test.test"(%5) : (i32) -> ()
 }) : () -> ()
 -/
@@ -344,6 +349,7 @@ info: "builtin.module"() ({
 info: "builtin.module"() ({
   ^4():
     %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 2 : i32}> : () -> i32
     %10 = "arith.constant"() <{"value" = 3 : i32}> : () -> i32
     %11 = "arith.addi"(%5, %10) : (i32, i32) -> i32
     "test.test"(%11) : (i32) -> ()

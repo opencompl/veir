@@ -25,3 +25,13 @@ public def DCEPass : Pass OpCode :=
   { name := "dce"
     description := "Eliminate trivially dead operations: no regions, no used results, no memory writes, and not a block terminator."
     run := fun _ => DCEPass.impl }
+
+/-- Run `pass`, then eliminate the trivially dead operations it left behind. -/
+public def Pass.thenDCE (pass : Pass OpCode) : Pass OpCode :=
+  { pass with
+    run := fun options ctx op h => do
+      let ctx ← pass.run options ctx op h
+      if h : op.InBounds ctx.raw then
+        DCEPass.impl ctx op h
+      else
+        throw s!"module is not in bounds after pass '{pass.name}'" }
