@@ -1118,18 +1118,6 @@ def ext_x0_pattern (ext : Riscv) : Puddle.Pattern OpCode :=
 
 def ext_x0 (ext : Riscv) : Puddle.CompiledPattern OpCode := (ext_x0_pattern ext).compile
 
-/-- `riscv.zextw x0 -> x0`. -/
-def zextw_x0 := ext_x0 .zextw
-
-/-- `riscv.sextw x0 -> x0`. -/
-def sextw_x0 := ext_x0 .sextw
-
-/-- Byte- and half-word mirrors: every extension of `x0` (which reads as 0) is a
-    no-op, since 0 is its own zero- and sign-extension at any width. -/
-def zextb_x0 := ext_x0 .zextb
-def zexth_x0 := ext_x0 .zexth
-def sextb_x0 := ext_x0 .sextb
-def sexth_x0 := ext_x0 .sexth
 
 /-- `riscv.<ext> (riscv.li v) -> riscv.li v` when `redundant v` holds. -/
 @[riscv_pattern]
@@ -1256,7 +1244,6 @@ public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , zextw_or
      , zextw_xor
      , drop_zextw_sw
-     , zextw_x0
      , zextw_li_low32
      , sextw_sextw
      , drop_sextw_addw
@@ -1284,7 +1271,6 @@ public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , sextw_or
      , sextw_xor
      , drop_sextw_sw
-     , sextw_x0
      , sextw_li_low32
      , sextw_lw
      , sextw_lh
@@ -1352,9 +1338,6 @@ public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , drop_sextb_sb
      , drop_zextw_sb
      , drop_sextw_sb
-     , zextb_x0
-     , zexth_x0
-     , sexth_x0
      , zextb_li_low8
      , zexth_li_low16
      , sextb_li_low8

@@ -566,16 +566,6 @@ disabled until the invariant is established elsewhere.
 
 We leave these as axioms for now. -/
 
-axiom zextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextw)
-
-axiom sextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextw)
-
-axiom zextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextb)
-
-axiom zexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zexth)
-
-axiom sexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sexth)
-
 /-! ## `sextw` of a sign-extending producer
 
 `riscv.sextw (op …) -> op …` (`sextw_signExtendingOpW`) when `op` already returns a sign-extended

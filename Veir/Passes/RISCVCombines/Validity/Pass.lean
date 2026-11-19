@@ -173,7 +173,6 @@ theorem combinePatterns_pointwise :
   · exact drop_ext_of_bitwise_false_pointwise zextw_or_valid
   · exact drop_ext_of_bitwise_false_pointwise zextw_xor_valid
   · exact PointwiseValid.compile drop_zextw_sw_valid
-  · exact PointwiseValid.compile zextw_x0_valid
   · exact PointwiseValid.compile zextw_li_low32_valid
   · exact PointwiseValid.compile sextw_sextw_valid
   · exact drop_ext_low_word_pointwise (arity := 2) fun i hi => match i with
@@ -255,7 +254,6 @@ theorem combinePatterns_pointwise :
   · exact drop_ext_of_bitwise_false_pointwise sextw_or_valid
   · exact drop_ext_of_bitwise_false_pointwise sextw_xor_valid
   · exact PointwiseValid.compile drop_sextw_sw_valid
-  · exact PointwiseValid.compile sextw_x0_valid
   · exact PointwiseValid.compile sextw_li_low32_valid
   · exact PointwiseValid.compile (sextw_lw_valid _)
   · exact PointwiseValid.compile (sextw_lh_valid _)
@@ -323,9 +321,6 @@ theorem combinePatterns_pointwise :
   · exact PointwiseValid.compile drop_sextb_sb_valid
   · exact PointwiseValid.compile drop_zextw_sb_valid
   · exact PointwiseValid.compile drop_sextw_sb_valid
-  · exact PointwiseValid.compile zextb_x0_valid
-  · exact PointwiseValid.compile zexth_x0_valid
-  · exact PointwiseValid.compile sexth_x0_valid
   · exact PointwiseValid.compile zextb_li_low8_valid
   · exact PointwiseValid.compile zexth_li_low16_valid
   · exact PointwiseValid.compile sextb_li_low8_valid
