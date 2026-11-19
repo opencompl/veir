@@ -17,10 +17,10 @@ def WasmSSABranchIfProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Att
     Except String WasmSSABranchIfProperties := do
   let exitLevel ← match attrDict["exitLevel".toUTF8]? with
     | some (.integerAttr n) => pure n
-    | some attr => throw s!"wasmssa.branch_if: Expected 'exitLevel' to be an integer, but got {attr}"
+    | some attr => throw s!"wasmssa.branch_if: Expected 'exitLevel' to be a 32-bit unsigned integer, but got {attr}"
     | none => throw "wasmssa.branch_if: Missing 'exitLevel' property"
-  if exitLevel.type.signedness ≠ .unsigned || exitLevel.value < 0 then
-    throw s!"wasmssa.branch_if: Expected unsigned 'exitLevel' value"
+  if exitLevel.type ≠ .unsigned 32 || exitLevel.value < 0 then
+    throw s!"wasmssa.branch_if: Expected 32-bit unsigned integer 'exitLevel' value"
   return { exitLevel }
 
 def WasmSSABranchIfProperties.toAttrDict (props : WasmSSABranchIfProperties) : Std.HashMap ByteArray Attribute :=
@@ -74,9 +74,10 @@ def WasmSSAExtendProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   let bitsToTake ← match attrDict["bitsToTake".toUTF8]? with
     | some (.integerAttr n) => pure n
     | some attr => throw s!"wasmssa.extend: Expected 'bitsToTake' to be an integer, but got {attr}"
-    | none => throw "wasmssa.extend: missing 'bitstoTake' property"
-  if bitsToTake.value < 0 then
-    throw "wasmssa.extend: Expected positive value for 'bitsToTake'"
+    | none => throw "wasmssa.extend: Missing 'bitstoTake' property"
+  
+  if !#[8, 16, 32].contains bitsToTake.value then
+    throw s!"wasmssa.extend: extend op can only take 8, 16 or 32 bits. Got {bitsToTake.type.bitwidth}"
   return { bitsToTake }
 
 def WasmSSAExtendProperties.toAttrDict (props : WasmSSAExtendProperties) : Std.HashMap ByteArray Attribute :=

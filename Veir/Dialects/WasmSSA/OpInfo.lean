@@ -150,13 +150,13 @@ def WasmSSA.fromAttrDict
   | .shr_s
   | .shr_u
   | .sub
-  | .xor => .ok ()
+  | .xor => expectNoProperties "wasmssa" attrDict
 
 def WasmSSA.toAttrDict
     (op : WasmSSA) (props : WasmSSA.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
-  | .call | .const | .extend | .func => props.toAttrDict
+  | .branch_if | .call | .const | .extend | .func => props.toAttrDict
   | _ => Std.HashMap.emptyWithCapacity 0
 
 #generate_dialect WasmSSA
@@ -178,11 +178,6 @@ inductive LabelLevelOp : WasmSSA → Type
   | loop : LabelLevelOp .loop
   | if : LabelLevelOp .if
 
--- def LabelLevelOp.getLabelTarget
---   (ctx : IRContext WasmSSA) (index : Nat) : BlockPtr := do
---   match
---   sorry
-
 instance : OpcodeFamily LabelLevelOp where
   classify := fun t => match t with
     | .block => some .block
@@ -190,14 +185,45 @@ instance : OpcodeFamily LabelLevelOp where
     | .loop => some .loop
     | _ => none
 
-/--
-Verify the local invariants of a `wasmssa` operation in any operation-info type
-containing the `wasmssa` dialect.
--/
+abbrev WasmI32 : TypeAttr := IntegerType.signless 32
+abbrev WasmI64 : TypeAttr := IntegerType.signless 64
+
+inductive WasmSSAOperationType where
+  /-- Has a fixed set of possible input and output types -/
+  | fixed (cases : Array (Array TypeAttr × Array TypeAttr))
+  /-- Requires special handling -/
+  | special
+
+def WasmSSA.getExpectedTypes (opType : WasmSSA) : WasmSSAOperationType :=
+  match opType with
+  | .add | .sub | .mul -- <-- TODO: split out and account for float ops when support added
+  | .and | .or | .xor | .div_si | .div_ui | .rem_si | .rem_ui
+  | .shl | .shr_s | .shr_u | .rotl | .rotr =>
+    .fixed #[(#[WasmI32, WasmI32], #[WasmI32]), (#[WasmI64, WasmI64], #[WasmI64])]
+  | .clz | .ctz | .popcnt | .extend =>
+    .fixed #[(#[WasmI32], #[WasmI32]), (#[WasmI64], #[WasmI64])]
+  | .eq | .ne -- <-- TODO: split out and add float checks when support added
+  | .lt_si | .lt_ui | .le_si | .le_ui | .gt_si | .gt_ui | .ge_si | .ge_ui =>
+    .fixed #[(#[WasmI32, WasmI32], #[WasmI32]), (#[WasmI64, WasmI64], #[WasmI32])]
+  | .extend_i32_s | .extend_i32_u =>
+    .fixed #[(#[WasmI32], #[WasmI64])]
+  | .eqz =>
+    .fixed #[(#[WasmI32], #[WasmI32]), (#[WasmI64], #[WasmI32])]
+  | .const =>
+    .fixed #[(#[], #[WasmI32]), (#[], #[WasmI64])]
+  | .select =>
+    .fixed #[(#[WasmI32, WasmI32, WasmI32], #[WasmI32]), (#[WasmI64, WasmI64, WasmI32], #[WasmI64])]
+  | .block | .loop | .if | .block_return | .branch_if | .call | .func | .return =>
+    .special
+
 @[expose]
-def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo WasmSSA] (opType : WasmSSA) (op : OperationPtr)
-    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+def WasmSSA.verifyLocalInvariants
+    {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo WasmSSA]
+    (opType : WasmSSA)
+    (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw)
+    : Except String PUnit := do
   let ty := op.getOpType ctx.raw opIn
   dbg_trace s!"Op `{(String.fromUTF8? opType.name).or ("unknown")}` with {(op.getOperands ctx.raw opIn).size} \
     operands, {(op.getResults ctx.raw opIn).size} results, \
@@ -205,24 +231,30 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     {(op.getAttributes ctx.raw opIn).entries.size} attributes, \
     {(op.getRegions ctx.raw opIn).size} regions, \
     {(op.getSuccessors ctx.raw opIn).size} successors"
-  
+
+  if let .fixed expectedTypes := getExpectedTypes opType then
+    let opTypes := (op.getOperandTypes ctx.raw opIn, op.getResultTypes ctx.raw opIn)
+    if ! expectedTypes.contains opTypes then
+      let expectedTypeString := expectedTypes.map (fun (operands, results) => s!"({operands}) -> ({results})")
+      throw s!"expected to have one of the following types: {expectedTypeString}; \
+        but found type ({opTypes.fst}) -> ({opTypes.snd}) instead"
+
   match opType with
-  | .add | .sub | .mul -- <-- TODO: split out and account for float ops when support added
-  | .and | .or | .xor | .div_si | .div_ui | .rem_si | .rem_ui
-  | .shl | .shr_s | .shr_u | .rotl | .rotr => do
-    op.verifyIntegerBinop ctx opIn
-  | .clz | .ctz | .popcnt | .extend => do
-    let _ ← op.verifyIntegerUnop ctx opIn
-  | .eq | .ne -- <-- TODO: split out and add float checks when support added
-  | .lt_si | .lt_ui | .le_si | .le_ui | .gt_si | .gt_ui | .ge_si | .ge_ui => do
-      op.verifyCmpResultGeneric ctx opIn (IntegerType.signless 32)
+  | .add    | .eq           | .ge_ui | .lt_ui  | .rem_ui | .shr_u
+  | .and    | .eqz          | .gt_si | .mul    | .rotl   | .sub
+  | .clz    | .extend       | .gt_ui | .ne     | .rotr   | .xor
+  | .ctz    | .extend_i32_s | .le_si | .or     | .select
+  | .div_si | .extend_i32_u | .le_ui | .popcnt | .shl
+  | .div_ui | .ge_si        | .lt_si | .rem_si | .shr_s => do
+    op.verifyNonOperandCounts ctx opIn 1 0 0
+
   | .block | .loop | .if => do
-    let opName := opType.name
+    let opName := String.fromUTF8! opType.name
     if opType = .if then
       if op.getNumOperands! ctx.raw ≠ 1 then
         throw "wasmssa.if: Expected 'condition' operand"
       else
-        if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ≠ .integerType (IntegerType.signless 32) then
+        if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ≠ WasmI32 then
           throw "wasmssa.if: Expected 'condition' to be a 32-bit signless integer"
     else
       if op.getNumOperands! ctx.raw ≠ 0 then
@@ -261,6 +293,7 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"wasmssa.block_return: Expected {target.getNumArguments! ctx.raw} operand(s) \
         to match the target's arguments, got {op.getNumOperands ctx.raw opIn} operands instead"
     op.verifyOperandTypesMatchTypeArray ctx 0 ((target.getArgumentTypes! ctx.raw).map (·.val)) "wasmssa.block_return: target"
+
   | .branch_if => do
     op.verifyTerminatorCounts ctx opIn 1
     -- We know from WasmSSABranchIfProperties.fromAttrDict that it is a non-negative integer
@@ -286,9 +319,10 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if op.getNumOperands ctx.raw opIn ≠ target.getNumArguments! ctx.raw + 1 then
       throw s!"wasmssa.branch_if: Expected {target.getNumArguments! ctx.raw + 1} operand(s) \
         to match the target's arguments (including 'conditioin'), got {op.getNumOperands ctx.raw opIn} operands instead"
-    if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ≠ .integerType (IntegerType.signless 32) then
+    if (op.getOperand! ctx.raw 0).getType! ctx.raw ≠ WasmI32 then
       throw "wasmssa.branch_if: expected 'condition' to be a signless 32-bit integer"
     op.verifyOperandTypesMatchTypeArray ctx 1 ((target.getArgumentTypes! ctx.raw).map (·.val)) "wasmssa.branch_if: target"
+
   | .call => do
     -- Upstream wasmssa doesn't seem to bother checking whether calls
     -- match callee signatures, and it's non-obvious how to do that
@@ -297,6 +331,7 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "wasmssa.call: Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn != 0 then
       throw "wasmssa.call: Expected 0 successors"
+
   | .const => do
     op.verifyPlainOpCounts ctx opIn 0 1
     let props : WasmSSAConstProperties := op.getProperties! ctx.raw WasmSSA.const
@@ -309,19 +344,7 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let result_type := (op.getResult 0).getType! ctx.raw
     if result_type.val != .integerType const_type then
       throw s!"wasmssa.const: Expected value and result types to match ({const_type} ≠ {result_type})"
-  | .eqz => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    let operand := op.getOperand! ctx.raw 0
-    let bitness_error_msg := "wasmssa.eqz: Expected i32 or i64 operand type"
-    ((operand.getType! ctx.raw).verifyI32 bitness_error_msg) <|> ((operand.getType! ctx.raw).verifyI64 bitness_error_msg)
-    op.verifyResultTypeMatches ctx (IntegerType.signless 32) "wasmssa.eqz: Expected i32 result type"
-  | .extend_i32_s | .extend_i32_u => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    let name := String.fromUTF8! opType.name
-    let in_type := (op.getOperand! ctx.raw 0).getType! ctx.raw
-    if in_type ≠ IntegerType.signless 32 then
-      throw s!"{name}: Exected 32-bit signless integer operand"
-    op.verifyResultTypeMatches ctx (IntegerType.signless 64) s!"{name}: Expected 64-bit signless integer result type"
+
   | .func => do
     if op.getNumRegions ctx.raw opIn ≠ 1 then
       throw "wasmssa.func: Expected 1 region"
@@ -331,6 +354,7 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "wasmssa.func: Expected 0 results"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "wasmssa.func: Expected 0 successors"
+
   | .return => do
     op.verifyTerminatorCounts ctx opIn 0
     if let some ⟨.func, ancestor, props⟩ := op.getNthMatchingAncestorOpUnbounded? IsFunc ctx.raw 0 then
@@ -339,20 +363,6 @@ def WasmSSA.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         if opOperandCount ≠ funcOutputType.size then
           throw s!"wasmssa.return: Expected wasmssa.return operand count ({opOperandCount}) to match enclosing function ({funcOutputType.size})"
         op.verifyOperandTypesMatchTypeArray ctx 0 funcOutputType "wasmssa.return"
-  | .select => do
-    op.verifyPlainOpCounts ctx opIn 3 1
-    if ((op.getOperand! ctx.raw 2).getType! ctx.raw).val ≠ .integerType (IntegerType.signless 32) then
-      throw "wasmssa.select: Expected 'condition' to be a 32-bit signless integer"
-    let true_value_type := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
-    let false_value_type := ((op.getOperand! ctx.raw 1).getType! ctx.raw).val
-    let result_type := ((op.getResult 0).getType! ctx.raw).val
-    if true_value_type ≠ false_value_type || true_value_type ≠ result_type then
-      throw s!"wasmssa.select: Expected 'true_value', 'false_value' and 'result' \
-        to have matching types, but found `{true_value_type}`, `{false_value_type}` and `{result_type}`"
-    match true_value_type with
-      | .integerType _ => .ok ()
-      | _ => throw s!"wasmssa.select: Expected 'true_value', 'false_value' and 'result' \
-        to have integer types, but found type `{true_value_type}`"
 
 @[get_effects]
 def WasmSSA.getEffects
