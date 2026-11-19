@@ -766,6 +766,11 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#llvm.loop_annotation<peeled = <count = 2 : i32>>"
   (LoopAnnotationAttr.mk "peeled = <count = 2 : i32>")
 
+/-! ## CIRCT hw inner symbols -/
+#assert expectSuccessAttr "#hw<innerSym@reg>" (HW.InnerSymAttr.mk "innerSym@reg")
+#assert expectSuccessAttr "#hw<innerSym[<@x,1,public>, <@y,0,private>]>"
+  (HW.InnerSymAttr.mk "innerSym[<@x,1,public>, <@y,0,private>]")
+
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.signless 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.signless 32))

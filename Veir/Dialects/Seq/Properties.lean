@@ -91,6 +91,36 @@ def SeqFirMemPortProperties.fromAttrDict (opName : String)
     | throw s!"{opName}: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
   return { operandSegmentSizes := sizesAttr }
 
+/--
+  Properties of the `seq.compreg` operation.
+
+  Its operands are `input`, `clk` and the optional `reset`, `resetValue` and `initialValue`,
+  split by an `operandSegmentSizes` dense array with one entry per declared operand.
+-/
+structure SeqCompRegProperties where
+  name : Option StringAttr
+  innerSym : Option HW.InnerSymAttr
+  operandSegmentSizes : DenseArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def SeqCompRegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String SeqCompRegProperties := do
+  let name ← match attrDict["name".toUTF8]? with
+    | none => pure none
+    | some (.stringAttr name) => pure (some name)
+    | some other => throw s!"seq.compreg: expected 'name' to be a string attribute, but got {other}"
+  let innerSym ← match attrDict["inner_sym".toUTF8]? with
+    | none => pure none
+    | some (.hwInnerSymAttr innerSym) => pure (some innerSym)
+    | some other =>
+      throw s!"seq.compreg: expected 'inner_sym' to be an inner symbol, but got {other}"
+  let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "seq.compreg: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr sizesAttr := sizesAttr
+    | throw s!"seq.compreg: expected 'operandSegmentSizes' to be a dense array attribute, \
+        but got {sizesAttr}"
+  return { name, innerSym, operandSegmentSizes := sizesAttr }
+
 end
 
 end Veir

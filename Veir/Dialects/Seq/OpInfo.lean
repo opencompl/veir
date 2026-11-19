@@ -14,29 +14,36 @@ public section
 @[opcodes]
 inductive Seq where
 | to_clock
+| from_clock
 | firreg
 | firmem
 | firmem__read_port
 | firmem__write_port
 | firmem__read_write_port
+| compreg
+| initial
+| «yield»
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, implicit_reducible, properties_of]
 def Seq.propertiesOf (op : Seq) : Type :=
 match op with
-| .to_clock => Unit
+| .to_clock | .from_clock => Unit
 | .firreg => SeqFirRegProperties
 | .firmem => SeqFirMemProperties
 -- A read port has one optional operand, `enable`, and it comes last, so MLIR reads its
 -- presence off the operand count and CIRCT gives the op no `operandSegmentSizes`.
 | .firmem__read_port => Unit
 | .firmem__write_port | .firmem__read_write_port => SeqFirMemPortProperties
+| .initial | .yield => Unit
+| .compreg => SeqCompRegProperties
 
 def Seq.fromAttrDict
     (op : Seq) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (Seq.propertiesOf op) := by
   cases op
   case to_clock => exact .ok ()
+  case from_clock => exact .ok ()
   case firreg => exact SeqFirRegProperties.fromAttrDict attrDict
   case firmem => exact SeqFirMemProperties.fromAttrDict attrDict
   case firmem__read_port => exact .ok ()
@@ -44,12 +51,15 @@ def Seq.fromAttrDict
     exact SeqFirMemPortProperties.fromAttrDict "seq.firmem.write_port" attrDict
   case firmem__read_write_port =>
     exact SeqFirMemPortProperties.fromAttrDict "seq.firmem.read_write_port" attrDict
+  case compreg => exact SeqCompRegProperties.fromAttrDict attrDict
+  case initial => exact .ok ()
+  case «yield» => exact .ok ()
 
 def Seq.toAttrDict
     (op : Seq) (props : Seq.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
-  | .to_clock => Std.HashMap.emptyWithCapacity 0
+  | .to_clock | .from_clock => Std.HashMap.emptyWithCapacity 0
   | .firreg => Id.run do
     let dict : Std.HashMap ByteArray Attribute := Std.HashMap.emptyWithCapacity 3
     let dict := dict.insert "name".toUTF8 (.stringAttr props.name)
@@ -75,21 +85,34 @@ def Seq.toAttrDict
   | .firmem__write_port | .firmem__read_write_port =>
     (Std.HashMap.emptyWithCapacity 1).insert
       "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
+  | .initial | .yield => Std.HashMap.emptyWithCapacity 0
+  | .compreg => Id.run do
+    let dict : Std.HashMap ByteArray Attribute := Std.HashMap.emptyWithCapacity 3
+    let dict := match props.name with
+      | some name => dict.insert "name".toUTF8 (.stringAttr name)
+      | none => dict
+    let dict := match props.innerSym with
+      | some innerSym => dict.insert "inner_sym".toUTF8 (.hwInnerSymAttr innerSym)
+      | none => dict
+    dict.insert "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
 
 def Seq.propagatesPoison (op : Seq) : Bool :=
   match op with
-  | .to_clock | .firreg => true
-  | .firmem | .firmem__read_port | .firmem__write_port | .firmem__read_write_port => false
+  | .to_clock | .from_clock | .firreg | .compreg => true
+  | .firmem | .firmem__read_port | .firmem__write_port | .firmem__read_write_port
+  | .initial | .yield => false
 
 @[is_terminator]
-def Seq.isTerminator (_op : Seq) : Bool :=
-  false
+def Seq.isTerminator (op : Seq) : Bool :=
+  match op with
+  | .yield => true
+  | _ => false
 
 @[get_effects]
 def Seq.getEffects
     (op : Seq) (_props : Seq.propertiesOf op) : MemoryEffects :=
   match op with
-  | .to_clock | .firreg => .none
+  | .to_clock | .from_clock | .firreg | .compreg | .initial | .yield => .none
   | .firmem => .allocate
   | .firmem__read_port => .read
   | .firmem__write_port => .write
@@ -101,8 +124,11 @@ def Seq.isConstantLike (_op : Seq) : Bool :=
 def Seq.hasSSADominance (_op : Seq) (_index : Nat) : Bool :=
   true
 
-def Seq.isIsolatedFromAbove (_op : Seq) : Bool :=
-  false
+/-- A `seq.initial` body only sees its own block arguments, as in CIRCT. -/
+def Seq.isIsolatedFromAbove (op : Seq) : Bool :=
+  match op with
+  | .initial => true
+  | _ => false
 
 #generate_dialect Seq
 
@@ -203,6 +229,85 @@ def Seq.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   match opType with
   | .to_clock => do
     op.verifyPlainOpCounts ctx opIn 1 1
+  | .from_clock => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    let inputType := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+    let .seqClockType _ := inputType
+      | throw s!"seq.from_clock: expected the operand to be a '!seq.clock', but got {inputType}"
+    let resultType := ((op.getResult 0).getType! ctx.raw).val
+    if resultType ≠ .integerType (IntegerType.signless 1) then
+      throw s!"seq.from_clock: expected the result to be an 'i1', but got {resultType}"
+  | .compreg => do
+    let opName := "seq.compreg"
+    op.verifyNonOperandCounts ctx opIn 1 0 0
+    -- Operands: `input`, `clk`, and the optional `reset`, `resetValue` and `initialValue`.
+    let sizes := (op.getProperties! ctx.raw Seq.compreg).operandSegmentSizes.values
+    let indices ← Seq.firMemPortOperands opName #[true, true, false, false, false] sizes
+      (op.getNumOperands ctx.raw opIn)
+    let typeOf (index : Nat) := ((op.getOperand! ctx.raw index).getType! ctx.raw).val
+    let inputType := typeOf 0
+    let resultType := ((op.getResult 0).getType! ctx.raw).val
+    if resultType ≠ inputType then
+      throw s!"{opName}: expected the result to have the input's type {inputType}, \
+        but got {resultType}"
+    let .seqClockType _ := typeOf 1
+      | throw s!"{opName}: expected the clock operand to be a '!seq.clock', but got {typeOf 1}"
+    match indices[2]!, indices[3]! with
+    | some reset, some resetValue =>
+      if typeOf reset ≠ .integerType (IntegerType.signless 1) then
+        throw s!"{opName}: expected the reset to be an 'i1', but got {typeOf reset}"
+      if typeOf resetValue ≠ inputType then
+        throw s!"{opName}: expected the reset value to have the input's type {inputType}, \
+          but got {typeOf resetValue}"
+    | none, none => pure ()
+    | _, _ => throw s!"{opName}: expected both a reset and a reset value, or neither"
+    /- CIRCT does not check the initial value's type, but a register can only be initialized
+       to a value of its own type. -/
+    if let some initialValue := indices[4]! then
+      let .seqImmutableType immutable := typeOf initialValue
+        | throw s!"{opName}: expected the initial value to be a '!seq.immutable', \
+            but got {typeOf initialValue}"
+      if immutable.innerType ≠ inputType then
+        throw s!"{opName}: expected the initial value to be a '!seq.immutable' of the \
+          input's type {inputType}, but got {typeOf initialValue}"
+  | .initial => do
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "seq.initial: Expected 1 region(s)"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "seq.initial: Expected 0 successor(s)"
+    /- Each operand is a `!seq.immutable<T>`, which the body receives as a block argument
+       of type `T`. -/
+    let mut operandInners : Array Attribute := #[]
+    for type in op.getOperandTypes! ctx.raw do
+      let .seqImmutableType immutable := type.val
+        | throw s!"seq.initial: expected every operand to be a '!seq.immutable', but got {type}"
+      operandInners := operandInners.push immutable.innerType
+    let block ← (op.getRegion! ctx.raw 0).getSingleBlock ctx
+      "seq.initial: expected the body to have exactly one block"
+    block.verifyImplicitTerminator ctx Seq.yield
+    let argTypes := (block.getArgumentTypes! ctx.raw).map (·.val)
+    if argTypes ≠ operandInners then
+      throw s!"seq.initial: expected the block arguments to have types {operandInners}, \
+        unwrapped from the operands, but got {argTypes}"
+    /- Each result is a `!seq.immutable<T>` of the matching value the body yields. -/
+    let mut resultInners : Array Attribute := #[]
+    for type in op.getResultTypes! ctx.raw do
+      let .seqImmutableType immutable := type.val
+        | throw s!"seq.initial: expected every result to be a '!seq.immutable', but got {type}"
+      resultInners := resultInners.push immutable.innerType
+    let some yieldOp := block.getLastOp! ctx.raw
+      | throw "seq.initial: expected the body to end with 'seq.yield'"
+    let yieldTypes := (yieldOp.getOperandTypes! ctx.raw).map (·.val)
+    if yieldTypes ≠ resultInners then
+      throw s!"seq.initial: expected the body to yield {resultInners}, \
+        unwrapped from the results, but got {yieldTypes}"
+  | .yield => do
+    op.verifyTerminatorCounts ctx opIn 0
+    let isInInitial := match op.getParentOp! ctx.raw with
+      | some parent => toDialect? Seq (parent.getOpType! ctx.raw) = some Seq.initial
+      | none => false
+    if !isInInitial then
+      throw "seq.yield: expected the parent operation to be a 'seq.initial'"
   | .firreg => do
     let numOps := op.getNumOperands ctx.raw opIn
     if ¬(numOps >= 2 ∧ numOps ≤ 4) then

@@ -278,6 +278,16 @@ structure LoopAnnotationAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  CIRCT's inner symbol attribute, e.g. `#hw<innerSym@reg>`: a name for a value inside a
+  module, by which it can be referred to from outside it.
+
+  The body, starting with `innerSym`, is kept as a string until VeIR acts on inner symbols.
+-/
+structure HW.InnerSymAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   LLVM target features attribute, e.g. `#llvm.target_features<["+cmov", "+sse"]>`.
 -/
 structure TargetFeaturesAttr where
@@ -728,6 +738,14 @@ structure Match.OptionalType where
   innerType : Attribute
 
 /--
+  The `!seq.immutable<T>` type from CIRCT's seq dialect: a value of type `T` fixed at
+  initialization, as produced by `seq.initial`. Like `Match.OptionalType`, it wraps an
+  arbitrary type, so it lives in the mutual block with `Attribute`.
+-/
+structure Seq.ImmutableType where
+  innerType : Attribute
+
+/--
   An attribute from an unknown dialect, kept as its source text.
   It can be either a type attribute or a non-type attribute.
 
@@ -788,6 +806,8 @@ inductive Attribute
 | memoryEffectsAttr (attr : MemoryEffectsAttr)
 /-- LLVM loop annotation attribute -/
 | loopAnnotationAttr (attr : LoopAnnotationAttr)
+/-- CIRCT hw inner symbol attribute -/
+| hwInnerSymAttr (attr : HW.InnerSymAttr)
 /-- LLVM target features attribute -/
 | targetFeaturesAttr (attr : TargetFeaturesAttr)
 /-- DLTI data layout spec attribute -/
@@ -870,6 +890,8 @@ inductive Attribute
 | seqClockType (type : Seq.ClockType)
 /-- CIRCT seq FIRRTL-flavored memory type -/
 | seqFirMemType (type : Seq.FirMemType)
+/-- CIRCT seq immutable type, fixed at initialization -/
+| seqImmutableType (type : Seq.ImmutableType)
 /-- SMT sort type (`!smt.bool` or `!smt.bv<width>`) -/
 | smtSortType (type : SMT.SortType)
 deriving Inhabited
@@ -880,11 +902,11 @@ end
 derive_mutual_repr for
   VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
-  UnregisteredAttr, Attribute
+  Seq.ImmutableType, UnregisteredAttr, Attribute
 derive_mutual_hashable for
   VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
-  UnregisteredAttr, Attribute
+  Seq.ImmutableType, UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
   default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
@@ -906,6 +928,9 @@ instance : Inhabited LLVM.StructType where
 
 instance : Inhabited Match.OptionalType where
   default := { innerType := .pdlValueType .mk }
+
+instance : Inhabited Seq.ImmutableType where
+  default := { innerType := .integerType (IntegerType.signless 1) }
 
 def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
@@ -961,6 +986,10 @@ theorem LLVM.StructType.sizeOf_elems_body {t : StructType} (hx : x ∈ t.body) :
 theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
     sizeOf t.innerType < sizeOf t := by
   grind [cases Match.OptionalType]
+
+theorem Seq.ImmutableType.sizeOf_innerType {t : Seq.ImmutableType} :
+    sizeOf t.innerType < sizeOf t := by
+  grind [cases Seq.ImmutableType]
 
 theorem UnregisteredAttr.sizeOf_type {a : UnregisteredAttr} (h : a.type = some t) :
     sizeOf t < sizeOf a := by
@@ -1036,6 +1065,9 @@ instance : ToString MemoryEffectsAttr where
 
 instance : ToString LoopAnnotationAttr where
   toString attr := s!"#llvm.loop_annotation<{attr.value}>"
+
+instance : ToString HW.InnerSymAttr where
+  toString attr := s!"#hw<{attr.value}>"
 
 instance : ToString TargetFeaturesAttr where
   toString attr := s!"#llvm.target_features<{attr.value}>"
@@ -1291,6 +1323,9 @@ partial def LLVM.StructType.toString (type : LLVM.StructType) : String :=
 partial def Match.OptionalType.toString (type : Match.OptionalType) : String :=
   s!"!match.optional<{Attribute.toString type.innerType}>"
 
+partial def Seq.ImmutableType.toString (type : Seq.ImmutableType) : String :=
+  s!"!seq.immutable<{Attribute.toString type.innerType}>"
+
 partial def UnregisteredAttr.toString (attr : UnregisteredAttr) : String :=
   match _h : attr.type with
   | none => attr.value
@@ -1318,6 +1353,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .constantRangeAttr attr => ToString.toString attr
   | .memoryEffectsAttr attr => ToString.toString attr
   | .loopAnnotationAttr attr => ToString.toString attr
+  | .hwInnerSymAttr attr => ToString.toString attr
   | .targetFeaturesAttr attr => ToString.toString attr
   | .dlSpecAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
@@ -1361,6 +1397,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .matchOptionalType type => type.toString
   | .seqClockType type => ToString.toString type
   | .seqFirMemType type => ToString.toString type
+  | .seqImmutableType type => type.toString
   | .smtSortType type => ToString.toString type
 
 end
@@ -1397,6 +1434,9 @@ instance : ToString LLVM.StructType where
 
 instance : ToString Match.OptionalType where
   toString := Match.OptionalType.toString
+
+instance : ToString Seq.ImmutableType where
+  toString := Seq.ImmutableType.toString
 
 instance : ToString UnregisteredAttr where
   toString := UnregisteredAttr.toString
@@ -1764,6 +1804,15 @@ decreasing_by
   have := @Match.OptionalType.sizeOf_innerType
   grind
 
+def Seq.ImmutableType.decEq (t1 t2 : Seq.ImmutableType) : Decidable (t1 = t2) :=
+  match Attribute.decEq t1.innerType t2.innerType with
+  | isTrue _ => isTrue (by grind [cases Seq.ImmutableType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf t1
+decreasing_by
+  have := @Seq.ImmutableType.sizeOf_innerType
+  grind
+
 def UnregisteredAttr.decEq (attr1 attr2 : UnregisteredAttr) : Decidable (attr1 = attr2) :=
   let type1 := attr1.type
   let type2 := attr2.type
@@ -1839,6 +1888,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
   case memoryEffectsAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case loopAnnotationAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case hwInnerSymAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case targetFeaturesAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
@@ -1922,6 +1973,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case seqFirMemType x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case seqImmutableType x =>
+    exact IsAttr.decEqAgainst x attr2 (Seq.ImmutableType.decEq x)
   case smtSortType x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
 termination_by sizeOf attr1
@@ -1971,6 +2024,7 @@ def isType (attr : Attribute) : Bool :=
   | .constantRangeAttr _ => false
   | .memoryEffectsAttr _ => false
   | .loopAnnotationAttr _ => false
+  | .hwInnerSymAttr _ => false
   | .targetFeaturesAttr _ => false
   | .dlSpecAttr _ => false
   | .integerAttr _ => false
@@ -2014,6 +2068,7 @@ def isType (attr : Attribute) : Bool :=
   | .matchOptionalType _ => true
   | .seqClockType _ => true
   | .seqFirMemType _ => true
+  | .seqImmutableType _ => true
   | .smtSortType _ => true
 
 /--
@@ -2061,6 +2116,8 @@ theorem isType_constantRange attr : (Attribute.of ConstantRangeAttr attr).isType
 theorem isType_memoryEffects attr : (Attribute.of MemoryEffectsAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_loopAnnotation attr : (Attribute.of LoopAnnotationAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_hwInnerSym attr : (Attribute.of HW.InnerSymAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_targetFeatures attr : (Attribute.of TargetFeaturesAttr attr).isType = false := by rfl
 @[simp, grind =]
@@ -2118,6 +2175,9 @@ theorem isType_pdlTypeType type : (Attribute.of PDL.TypeType type).isType = true
 theorem isType_seqClockType type : (Attribute.of Seq.ClockType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_seqFirMemType type : (Attribute.of Seq.FirMemType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_seqImmutableType type :
+    (Attribute.of Seq.ImmutableType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_smtSortType type : (Attribute.of SMT.SortType type).isType = true := by rfl
 
@@ -2354,6 +2414,7 @@ type_attribute_instance Io.AddressType => Attribute.ioAddressType
 type_attribute_instance HW.ModuleType => Attribute.hwModuleType
 type_attribute_instance PDL.RangeType => Attribute.pdlRangeType
 type_attribute_instance Match.OptionalType => Attribute.matchOptionalType
+type_attribute_instance Seq.ImmutableType => Attribute.seqImmutableType
 type_attribute_instance PDL.AttributeType => Attribute.pdlAttributeType
 type_attribute_instance PDL.OperationType => Attribute.pdlOperationType
 type_attribute_instance PDL.ValueType => Attribute.pdlValueType

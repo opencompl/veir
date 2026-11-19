@@ -650,6 +650,21 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
     parsePunctuation ">"
     return some (toAttr body)
 
+  /- CIRCT's `hw` dialect spells its attributes `#hw<mnemonic...>`. Of those, VeIR knows the
+     inner symbol `#hw<innerSym...>`, whose body it keeps verbatim. -/
+  if dialectName = "hw".toByteArray && (← peekToken).kind == .less then
+    parsePunctuation "<"
+    let body ← parseUnregisteredAttrBody
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    if body.startsWith "innerSym" then
+      return some (HW.InnerSymAttr.mk body : Attribute)
+    if !(← getThe AttrParserState).allowUnregisteredDialect then
+      throwAt startPos s!"attribute '#hw<{body}>' is not registered. \
+        Consider using --allow-unregistered-dialect."
+    let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some (UnregisteredAttr.mk (String.fromUTF8! value) false none)
+
   if !(← getThe AttrParserState).allowUnregisteredDialect then
     throwAt startPos s!"attribute '#{String.fromUTF8! dialectName}' is not registered. \
       Consider using --allow-unregistered-dialect."
@@ -1368,6 +1383,18 @@ partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
   return some (Match.OptionalType.mk inner)
 
 /--
+  Parse CIRCT's `seq` dialect's immutable type `!seq.immutable<T>`, if present.
+  It wraps an arbitrary type, so like `!match.optional` it sits in the mutual block with
+  `parseType`.
+-/
+partial def parseOptionalSeqImmutableType : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalTypeName "seq.immutable" false) then return none
+  parsePunctuation "<"
+  let inner ← parseType "expected the wrapped type of a '!seq.immutable'"
+  parsePunctuation ">"
+  return some (Seq.ImmutableType.mk inner)
+
+/--
   Parse a type, if present.
 -/
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
@@ -1434,6 +1461,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some pdlTypeType
   if let some matchOptionalType ← parseOptionalMatchOptionalType then
     return some matchOptionalType
+  if let some seqImmutableType ← parseOptionalSeqImmutableType then
+    return some seqImmutableType
   if let some dialectType ← parseOptionalDialectType then
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then
