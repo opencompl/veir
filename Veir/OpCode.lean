@@ -35,6 +35,7 @@ public import Veir.Dialects.Cir.OpInfo
 public import Veir.Dialects.Seq.OpInfo
 public import Veir.Dialects.Tensor.OpInfo
 public import Veir.Dialects.SMT.OpInfo
+public import Veir.Dialects.Linalg.OpInfo
 
 open Std
 

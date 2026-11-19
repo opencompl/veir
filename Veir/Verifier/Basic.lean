@@ -134,7 +134,7 @@ def OperationPtr.verifyOperandSegmentSizes
     (sizes : DenseArrayAttr) (expectedSegments : Nat) :
     Except String (Array Nat) := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  if sizes.elementType.bitwidth ≠ 32 then
+  if sizes.elementType ≠ .signless 32 then
     throw s!"{instrName}: Expected 'operandSegmentSizes' to be an i32 dense array attribute"
   if sizes.values.size ≠ expectedSegments then
     throw s!"{instrName}: operandSegmentSizes expected {expectedSegments} entries, got {sizes.values.size}"
