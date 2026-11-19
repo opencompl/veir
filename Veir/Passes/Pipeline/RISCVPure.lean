@@ -10,9 +10,7 @@ public import Veir.Passes.Legalization.Validity
 public import Veir.Passes.GMIRCombines.Validity.Pass
 public import Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass
 public import Veir.Passes.Pipeline.Bridge
-public import Veir.Passes.InstructionSelection.RISCV64Abi
 import all Veir.Passes.LLVMToGMIR
-import all Veir.Passes.InstructionSelection.RISCV64Abi
 import all Veir.Passes.GMIRCombines.RISCV64PreLegalizerCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
 import all Veir.Passes.GMIRCombines.RISCV64PostLegalizerCombiner
@@ -23,30 +21,33 @@ import all Veir.Passes.RISCVCombines.Combine
 import all Veir.Passes.DCE.dce
 
 /-!
-# The RISC-V pipeline as pure passes
+# Soundness of the pure LLVM-to-GMIR and GMIR-to-RISC-V pipelines
 
-`riscvPipelinePure` is the `riscv` pass group of `veir-opt`, each pass as the pure function it
-wraps: one that checks its input and only runs rewrites proved to refine the module. Call lowering
-has no proof yet, so it is a parameter, and its soundness is a hypothesis of
-`riscvPipelinePure_sound`. `Veir.Passes.Pipeline.RISCV` carries this to the pass runner.
+These pipelines cover the two segments of the `veir-opt` RISC-V pass group on either side of
+call lowering. Each successful run refines the input module and produces a verified module.
 -/
 
 public section
 namespace Veir
 
-/-- The `riscv` pipeline as pure passes. Call lowering, not yet proved, is a parameter. -/
-def riscvPipelinePure (callLowering : PurePass) : List PurePass :=
-  [LLVMToGMIRPass.run, callLowering, PreLegalizerCombinerRISCV64Pass.run, LegalizeRISCV64Pass.run,
+def llvmToGMIRPipelinePure : List PurePass :=
+  [LLVMToGMIRPass.run]
+
+def gmirToRISCVPipelinePure : List PurePass :=
+  [PreLegalizerCombinerRISCV64Pass.run, LegalizeRISCV64Pass.run,
    PostLegalizerCombinerRISCV64Pass.run, ISelBrPass.runVerified true, ISelPass.run,
    CastReconcilePass.run, RISCV.Combine.run, DCEPass.run]
 
-/-- Every pass of the pipeline is sound, provided call lowering is. -/
-theorem riscvPipelinePure_passes_sound {callLowering : PurePass}
-    (hCallLowering : callLowering.Sound) :
-    ∀ pass ∈ riscvPipelinePure callLowering, pass.Sound := by
-  simp only [riscvPipelinePure, List.forall_mem_cons]
-  exact ⟨LLVMToGMIR.CTreeProofs.LLVMToGMIRPass.run_sound, hCallLowering,
-    GMIRCombines.CTreeProofs.PreLegalizerCombinerRISCV64Pass.run_sound,
+theorem llvmToGMIRPipelinePure_passes_sound :
+    ∀ pass ∈ llvmToGMIRPipelinePure, pass.Sound := by
+  intro pass member
+  obtain rfl : pass = LLVMToGMIRPass.run := List.mem_singleton.mp member
+  exact LLVMToGMIR.CTreeProofs.LLVMToGMIRPass.run_sound
+
+theorem gmirToRISCVPipelinePure_passes_sound :
+    ∀ pass ∈ gmirToRISCVPipelinePure, pass.Sound := by
+  simp only [gmirToRISCVPipelinePure, List.forall_mem_cons]
+  exact ⟨GMIRCombines.CTreeProofs.PreLegalizerCombinerRISCV64Pass.run_sound,
     Legalization.CTreeProofs.LegalizeRISCV64Pass.run_sound,
     GMIRCombines.CTreeProofs.PostLegalizerCombinerRISCV64Pass.run_sound,
     ISelBrPass.runVerified_strict_sound, RISCV64Proofs.ISelPass.run_sound,
@@ -54,13 +55,15 @@ theorem riscvPipelinePure_passes_sound {callLowering : PurePass}
     RISCV.CTreeProofs.Combine.run_sound, DCEPass.run_sound,
     fun _ member => nomatch member⟩
 
-/-- A successful run of the RISC-V pipeline refines the module and leaves it verified, provided
-call lowering is sound. -/
-theorem riscvPipelinePure_sound {callLowering : PurePass} (hCallLowering : callLowering.Sound)
-    {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr}
-    (run : runPure (riscvPipelinePure callLowering) ctx moduleOp = .ok ctx') :
+theorem llvmToGMIRPipelinePure_sound {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr}
+    (run : runPure llvmToGMIRPipelinePure ctx moduleOp = .ok ctx') :
     moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ctx'.Verified moduleOp :=
-  runPure_sound_of_head (riscvPipelinePure_passes_sound hCallLowering) run
+  runPure_sound_of_head llvmToGMIRPipelinePure_passes_sound run
+
+theorem gmirToRISCVPipelinePure_sound {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr}
+    (run : runPure gmirToRISCVPipelinePure ctx moduleOp = .ok ctx') :
+    moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ctx'.Verified moduleOp :=
+  runPure_sound_of_head gmirToRISCVPipelinePure_passes_sound run
 
 end Veir
 end
