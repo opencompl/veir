@@ -205,7 +205,6 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
              printGenericOpForm, splitInputFile, timePasses }
   | .error errMsg => .error errMsg
 
-set_option warn.sorry false in
 /--
   Parse `input` starting at `start`, run the passes on it, and print the result.
 -/
@@ -215,7 +214,7 @@ def processBuffer (args : VeirOptArgs) (sourceName : String) (input : ByteArray)
   let (ctx, op, _) ← liftExcept (parseSourceString input sourceName
     args.allowUnregisteredDialect (verifyAfterParse := !args.disableVerifiers) start)
   if args.timePasses then reportTime "parse" totalStart
-  let ctx ← try args.passes.run ⟨ctx, by sorry⟩ op args.disableVerifiers args.timePasses
+  let ctx ← try args.passes.run ⟨ctx, by exact WfIRContext_raw_wellFormed ctx⟩ op args.disableVerifiers args.timePasses
             catch errMsg => throw s!"Error: {errMsg}"
   let printStart ← IO.monoNanosNow
   Veir.Printer.printModule ctx.raw op { printGenericOpForm := args.printGenericOpForm }
