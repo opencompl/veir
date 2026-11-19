@@ -1,10 +1,10 @@
 module
 
 public import Veir.Passes.Legalization.LegalizerInfo
+public import Veir.Passes.Legalization.LegalizerHelper
 public import Veir.Passes.CheckedDriver
 public import Veir.PatternRewriter.Choice
 import Veir.PatternRewriter.Basic
-import Veir.Passes.Legalization.LegalizerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import Veir.PatternRewriter.Puddle.Execution
 import Veir.Interfaces.ControlFlowInterfaces
@@ -72,32 +72,20 @@ private def phiBlocks (ctx : IRContext OpCode) (root : OperationPtr) : List Bloc
       block? := block.getNextBlock! ctx
   return blocks.reverse
 
-/-- Argument `i` of `block` is an integer narrower than `width` bits. -/
-def narrowerArgument (block : BlockPtr) (ctx : IRContext OpCode) (i width : Nat) : Bool :=
-  match (block.getArguments! ctx)[i]? with
-  | some arg =>
-    match (arg.getType! ctx).val with
-    | .integerType t => decide (t.bitwidth < width)
-    | _ => false
-  | none => false
+private def phiArgumentsToWiden (info : LegalizerInfo) (ctx : IRContext OpCode)
+    (block : BlockPtr) : List (Nat × Nat) :=
+  (block.getArguments! ctx).toList.zipIdx.filterMap fun (arg, i) => do
+    let .widenScalar (.type 0) width ← blockArgumentAction? info (arg.getType! ctx) | none
+    return (i, width)
 
-/-- Widens the arguments of the phi `block` as the block-argument rules ask. What the soundness of
-the widening needs (`widenBlockArguments_sound`) is checked here rather than derived from the rules
-and the traversal: the block is a phi block, each argument is widened once, from a narrower
-integer. -/
+/-- Widen the arguments selected by the block-argument rules. -/
 def widenPhiBlock (info : LegalizerInfo) (ctx : WfIRContext OpCode) (block : BlockPtr) :
     Except String (WfIRContext OpCode) :=
-  let args := (block.getArguments! ctx.raw).toList.zipIdx.filterMap fun (arg, i) => do
-    let .widenScalar (.type 0) width ← blockArgumentAction? info (arg.getType! ctx.raw) | none
-    return (i, width)
+  let args := phiArgumentsToWiden info ctx.raw block
   if args.isEmpty then .ok ctx
   else if block.InBounds ctx.raw ∧ block.hasPredecessor! ctx.raw = true then
     if (args.map Prod.fst).Nodup then
-      if args.all (fun (i, width) => narrowerArgument block ctx.raw i width) = true then
-        match widenBlockArguments block args ctx with
-        | some ctx => .ok ctx
-        | none => .error "unable to widen a block argument: a predecessor is not a branch"
-      else .error "unable to widen a block argument: it is not a narrower integer"
+      widenBlockArgumentsChecked block args ctx
     else .error "unable to widen a block argument: an argument is widened twice"
   else .error "unable to widen a block argument: the block is not a phi block"
 
@@ -157,11 +145,9 @@ private def checkOperations (info : LegalizerInfo) (ctx : IRContext OpCode) :
 
 /-! ## Legalization
 
-The legalizer widens the narrow phis (`legalizeBlockArguments`, assumed to refine the module:
-`legalizeBlockArguments_sound`) and the narrow branch conditions (`widenBrconds`, proved to refine
-the module: `widenBrconds_isModuleRefinedByCTree`), checks that the module still verifies, then runs the rules of the registries, which are all
-proved to refine the module, through the module-filtered driver, and rejects what they cannot
-legalize.
+The legalizer widens the narrow phis (`legalizeBlockArguments`) and the narrow branch conditions
+(`widenBrconds`). It verifies the module after both widening phases, then runs the registry rules through
+the module-filtered driver and rejects any operations or block arguments that are still illegal.
 
 An artifact is not legalized while its source is still illegal. LLVM's legalizer legalizes all
 other instructions before it combines artifacts, and only legalizes the artifacts it cannot combine.

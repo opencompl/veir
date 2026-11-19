@@ -43,19 +43,19 @@ variable {ctx ctx' : WfIRContext OpCode}
 /-! ## Single operations in the target -/
 
 /--
-  A cast with one operand and one result, whose meaning on the value of the
+  An operation with one operand and one result, whose meaning on the value of the
   operand returns only outputs satisfying `Q`, binds its result to such an
   output and changes nothing else.
 -/
-theorem returns_interpretOperationTree_cast {op : OperationPtr} {state : InterpreterState ctx}
+theorem returns_interpretOperationTree_unary {op : OperationPtr} {opcode : OpCode} {state : InterpreterState ctx}
     {type : TypeAttr} {operand : ValuePtr} {input : RuntimeValue} {Q : RuntimeValue → Prop}
     (opIn : op.InBounds ctx.raw)
-    (hType : op.getOpType! ctx.raw = .builtin .unrealized_conversion_cast)
+    (hType : op.getOpType! ctx.raw = opcode)
     (hResultTypes : op.getResultTypes! ctx.raw = #[type])
     (hOperands : op.getOperands! ctx.raw = #[operand])
     (hInput : state.variables.getVar? operand = some input)
-    (hInterp : ∀ properties successors,
-      Returns (CTree.interpretOp' (.builtin .unrealized_conversion_cast) properties #[type] #[input]
+    (hInterp : ∀ successors,
+      Returns (CTree.interpretOp' opcode (op.getProperties! ctx.raw opcode) #[type] #[input]
         successors state.memory)
         (fun r => ∃ output, Q output ∧ output.Conforms type ∧ r = (#[output], state.memory, none))) :
     Returns (interpretOperationTree op state opIn) (fun r => r.2 = none ∧
@@ -63,16 +63,16 @@ theorem returns_interpretOperationTree_cast {op : OperationPtr} {state : Interpr
         if value = op.getResult 0 then some output else state.variables.getVar? value) := by
   have hVals : state.variables.getOperandValues op = some #[input] := by
     simp [VariableState.getOperandValues, hOperands, hInput]
-  have key : ∀ (t : OpCode) (h : t = .builtin .unrealized_conversion_cast) (p : propertiesOf t)
-      successors, Returns (CTree.interpretOp' t p #[type] #[input] successors state.memory)
+  have key : ∀ (t : OpCode) (h : t = opcode)
+      successors, Returns (CTree.interpretOp' t (op.getProperties! ctx.raw t) #[type] #[input] successors state.memory)
         (fun r => ∃ output, Q output ∧ output.Conforms type ∧
           r = (#[output], state.memory, none)) := by
-    intro t h p successors
+    intro t h successors
     subst h
-    exact hInterp p successors
+    exact hInterp successors
   rw [interpretOperationTree_eq]
   simp only [hVals, hResultTypes]
-  refine ((key _ hType _ _).inflate.inflate).bind ?_
+  refine ((key _ hType _).inflate.inflate).bind ?_
   rintro ⟨results, mem, action⟩ ⟨output, hQ, hConforms, hEq⟩
   simp only [Prod.mk.injEq] at hEq
   obtain ⟨rfl, rfl, rfl⟩ := hEq
@@ -91,6 +91,27 @@ theorem returns_interpretOperationTree_cast {op : OperationPtr} {state : Interpr
     · obtain ⟨rfl, rfl⟩ := h; simp
     · simp [h]
   · simp [OperationPtr.getResult_def]
+
+/--
+  A cast with one operand and one result, whose meaning on the value of the
+  operand returns only outputs satisfying `Q`, binds its result to such an
+  output and changes nothing else.
+-/
+theorem returns_interpretOperationTree_cast {op : OperationPtr} {state : InterpreterState ctx}
+    {type : TypeAttr} {operand : ValuePtr} {input : RuntimeValue} {Q : RuntimeValue → Prop}
+    (opIn : op.InBounds ctx.raw)
+    (hType : op.getOpType! ctx.raw = .builtin .unrealized_conversion_cast)
+    (hResultTypes : op.getResultTypes! ctx.raw = #[type])
+    (hOperands : op.getOperands! ctx.raw = #[operand])
+    (hInput : state.variables.getVar? operand = some input)
+    (hInterp : ∀ properties successors,
+      Returns (CTree.interpretOp' (.builtin .unrealized_conversion_cast) properties #[type] #[input]
+        successors state.memory)
+        (fun r => ∃ output, Q output ∧ output.Conforms type ∧ r = (#[output], state.memory, none))) :
+    Returns (interpretOperationTree op state opIn) (fun r => r.2 = none ∧
+      r.1.memory = state.memory ∧ ∃ output, Q output ∧ ∀ value, r.1.variables.getVar? value =
+        if value = op.getResult 0 then some output else state.variables.getVar? value) := by
+  exact returns_interpretOperationTree_unary opIn hType hResultTypes hOperands hInput (hInterp _)
 
 /-- `rv64.get_register` of `x0` binds its result to the register that holds zero. -/
 theorem interpretOperationTree_getRegister {op : OperationPtr} {state : InterpreterState ctx}

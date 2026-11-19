@@ -874,13 +874,19 @@ theorem LegalizerInfo.widenBrconds_widening {info : LegalizerInfo} {ctx ctx' : W
     opList := fun blockIn => hInv.opList _ blockIn
     spec := fun opIn hW => hInv.branch _ opIn hW }⟩
 
-/-- Widening the conditions of the `g_brcond`s of a module that verifies refines it, in CTrees. -/
-theorem LegalizerInfo.widenBrconds_isModuleRefinedByCTree (info : LegalizerInfo)
-    {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (hVerified : ctx.Verified root)
+/-- Widening branch conditions refines every module whose operations are monotone. -/
+theorem LegalizerInfo.widenBrconds_refines_of_treeMonotoneOps (info : LegalizerInfo)
+    {ctx ctx' : WfIRContext OpCode} (mono : TreeMonotoneOps ctx)
     (h : info.widenBrconds ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedByCTree ctx module ctx' := by
   obtain ⟨W⟩ := LegalizerInfo.widenBrconds_widening h
-  exact W.isModuleRefinedByCTree
-    (W.keptOpsSim_of_treeMonotoneOps (treeMonotoneOps_of_verified hVerified)) module
+  exact W.isModuleRefinedByCTree (W.keptOpsSim_of_treeMonotoneOps mono) module
+
+/-- Widening the conditions of the `g_brcond`s of a verified module refines it, in CTrees. -/
+theorem LegalizerInfo.widenBrconds_isModuleRefinedByCTree (info : LegalizerInfo)
+    {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (verified : ctx.Verified root)
+    (run : info.widenBrconds ctx = .ok ctx') (module : OperationPtr) :
+    module.isModuleRefinedByCTree ctx module ctx' :=
+  info.widenBrconds_refines_of_treeMonotoneOps (treeMonotoneOps_of_verified verified) run module
 
 end Veir

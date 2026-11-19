@@ -64,17 +64,17 @@ private theorem mayReturn_pure {α : Type} (r : α) : MayReturn (pure r : Tree �
 /-! ## `g_anyext` and `g_load` -/
 
 /--
-`g_anyext` is monotone in CTrees: the source extends with the high bits of the target, and the
-result is of the types every result the target may return has.
+`g_anyext` is monotone in CTrees: the source extends with the high bits of the target, and every
+returned value satisfies the supplied postcondition.
 -/
-private theorem sim_g_anyext (properties : propertiesOf (OpCode.gmir .g_anyext))
+theorem sim_g_anyext {Q : Array RuntimeValue → Prop} (properties : propertiesOf (OpCode.gmir .g_anyext))
     (resultTypes : Array TypeAttr) {operands operands' : Array RuntimeValue}
     (blockOperands : Array BlockPtr) {mem mem' : MemoryState} (regions : Array RegionPtr)
     (h : operands ⊒ operands') (hMem : mem ⊒ mem')
     (hT : ∀ vals m a, MayReturn
       (interpretOp' (.gmir .g_anyext) properties resultTypes operands' blockOperands mem' regions)
-      (vals, m, a) → RuntimeValue.ArrayConforms vals resultTypes) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
+      (vals, m, a) → Q vals) :
+    Sim (fun t s => OperationResult.isRefinedBy s t ∧ Q t.1)
       (interpretOp' (.gmir .g_anyext) properties resultTypes operands' blockOperands mem' regions)
       (interpretOp' (.gmir .g_anyext) properties resultTypes operands blockOperands mem
         regions) := by

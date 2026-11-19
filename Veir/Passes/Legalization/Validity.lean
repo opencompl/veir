@@ -5,6 +5,7 @@ public import Veir.Passes.Legalization.LegalizerHelper
 public import Veir.Passes.Legalization.RISCV64LegalizerInfo
 public import Veir.Passes.Legalization.LegalizationArtifactCombiner
 public import Veir.Passes.Legalization.Validity.Common
+public import Veir.Passes.Legalization.Validity.PhiSound
 public import Veir.Passes.Pipeline.Soundness
 import all Veir.Passes.Legalization.LegalizerHelper
 import all Veir.Passes.Legalization.Validity.Common
@@ -35,11 +36,11 @@ the pattern is evaluated with `cbv`, `simpPuddleValid` discharges the structural
 operation semantics are unfolded and normalized at symbolic widths, and the remaining goal is
 closed by the rule's local correctness lemma, mostly in `Veir.Passes.Legalization.Proofs`.
 
-## Not covered
+## Scope of the pattern proofs
 
-* `widenBrcondCondition`, `widenBlockArguments` and `commutativeConstantRHS` are local rewrites,
-  not Puddle patterns. The widening of the branch conditions is proved to refine the module on its
-  own (`LegalizerInfo.widenBrconds_isModuleRefinedByCTree`).
+* The CTree proofs for widening phi blocks and branch conditions follow their executable rewrites
+  directly. See `widenBlockArguments_sound` and `LegalizerInfo.widenBrconds_isModuleRefinedByCTree`.
+  The local rewrite `commutativeConstantRHS` also falls outside the pattern registry.
 * Rules with status `.unproven .widthDependent` are wrong at some width that `Pattern.Valid`
   quantifies over (see `Unproven.widthDependent`). The verifier rejects `i0`, and the matchers of
   the rules that are only wrong at `i0` exclude it, so those are proven.
@@ -204,74 +205,45 @@ theorem legalizePattern_pointwise {info : LegalizerInfo}
     RewritePattern.PointwiseValid (LegalizerInfo.legalizePattern info) :=
   RewritePattern.PointwiseValid.ofRules (legalizeRules_valid custom)
 
-/-- Widening the arguments `args` of the phi `block` of a verified module refines it and keeps it
-a verified module: each branch to the block passes a `g_anyext` of its operand, and a `g_trunc` at
-the start of the block restores the argument's type. The widening is one per argument
-(`distinct`), each from a narrower integer (`narrow`). -/
--- theorem widenBlockArguments_sound (block : BlockPtr) (args : List (Nat × Nat))
---     {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr} (root : ModuleRoot ctx moduleOp)
---     (blockIn : block.InBounds ctx.raw) (phi : block.hasPredecessor! ctx.raw = true)
---     (distinct : (args.map Prod.fst).Nodup)
---     (narrow : args.all (fun (i, width) => LegalizerInfo.narrowerArgument block ctx.raw i width) =
---       true)
---     (widened : widenBlockArguments block args ctx = some ctx') :
---     moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ModuleRoot ctx' moduleOp := by
---   sorry
-
-axiom widenBlockArguments_sound (block : BlockPtr) (args : List (Nat × Nat))
-    {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr} (root : ModuleRoot ctx moduleOp)
-    (blockIn : block.InBounds ctx.raw) (phi : block.hasPredecessor! ctx.raw = true)
-    (distinct : (args.map Prod.fst).Nodup)
-    (narrow : args.all (fun (i, width) => LegalizerInfo.narrowerArgument block ctx.raw i width) =
-      true)
-    (widened : widenBlockArguments block args ctx = some ctx') :
-    moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ModuleRoot ctx' moduleOp
-
-
-/-- Widening the arguments of a phi block, with the checks of the pass, refines the module and
-keeps it a verified module. -/
-theorem widenPhiBlock_sound (info : LegalizerInfo) {ctx ctx' : WfIRContext OpCode}
-    {moduleOp : OperationPtr} (root : ModuleRoot ctx moduleOp) (block : BlockPtr)
-    (widened : LegalizerInfo.widenPhiBlock info ctx block = .ok ctx') :
-    moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ModuleRoot ctx' moduleOp := by
+/-- A successful phi-block step preserves the simulation invariant and extends the refinement
+already proved for the preceding blocks. -/
+private theorem widenPhiBlock_sound (info : LegalizerInfo) {original ctx dst : WfIRContext OpCode}
+    {moduleOp : OperationPtr} (inv : PhiInvariant ctx)
+    (prior : moduleOp.isModuleRefinedByCTree original moduleOp ctx) (block : BlockPtr)
+    (widened : info.widenPhiBlock ctx block = .ok dst) :
+    moduleOp.isModuleRefinedByCTree original moduleOp dst ∧ PhiInvariant dst := by
   unfold LegalizerInfo.widenPhiBlock at widened
   simp only at widened
   split at widened
-  · cases widened
-    exact ⟨OperationPtr.isModuleRefinedByCTree_refl root.verified moduleOp, root⟩
-  · split at widened
-    · split at widened
-      · split at widened
-        · split at widened
-          · cases widened
-            rename_i phi distinct narrow _ widenedBlock
-            exact widenBlockArguments_sound _ _ root phi.1 phi.2 distinct narrow widenedBlock
-          · cases widened
-        · cases widened
-      · cases widened
-    · cases widened
+  · cases widened; exact ⟨prior, inv⟩
+  split at widened <;> try contradiction
+  split at widened <;> try contradiction
+  rename_i phi distinct
+  obtain ⟨step, invAfter⟩ := widenBlockArguments_sound (moduleOp := moduleOp) inv phi.1 phi.2 distinct widened
+  exact ⟨OperationPtr.isModuleRefinedByCTree_trans prior step, invAfter⟩
 
-/-- Widening the block arguments of a verified module refines it and keeps it a verified module:
-each phi block by `widenPhiBlock_sound`. -/
+/-- The phi phase refines its verified input and supplies operation monotonicity for the next phase. -/
 theorem legalizeBlockArguments_sound (info : LegalizerInfo)
-    {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr} (root : ModuleRoot ctx moduleOp)
-    (widened : info.legalizeBlockArguments ctx moduleOp = .ok ctx') :
-    moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ModuleRoot ctx' moduleOp := by
-  unfold LegalizerInfo.legalizeBlockArguments at widened
-  generalize LegalizerInfo.phiBlocks ctx.raw moduleOp = blocks at widened
-  induction blocks generalizing ctx with
-  | nil =>
-    cases widened
-    exact ⟨OperationPtr.isModuleRefinedByCTree_refl root.verified moduleOp, root⟩
-  | cons block blocks ih =>
-    rw [List.foldlM_cons] at widened
-    cases step : LegalizerInfo.widenPhiBlock info ctx block with
-    | error message => simp [step, Bind.bind, Except.bind] at widened
-    | ok middle =>
-      simp only [step, Bind.bind, Except.bind] at widened
-      obtain ⟨refines, rootMiddle⟩ := widenPhiBlock_sound info root block step
-      obtain ⟨refines', root'⟩ := ih rootMiddle widened
-      exact ⟨OperationPtr.isModuleRefinedByCTree_trans refines refines', root'⟩
+    {ctx dst : WfIRContext OpCode} {moduleOp : OperationPtr} (root : ModuleRoot ctx moduleOp)
+    (widened : info.legalizeBlockArguments ctx moduleOp = .ok dst) :
+    moduleOp.isModuleRefinedByCTree ctx moduleOp dst ∧ TreeMonotoneOps dst := by
+  have loop (blocks : List BlockPtr) {current : WfIRContext OpCode} (inv : PhiInvariant current)
+      (prior : moduleOp.isModuleRefinedByCTree ctx moduleOp current)
+      (run : blocks.foldlM info.widenPhiBlock current = .ok dst) :
+      moduleOp.isModuleRefinedByCTree ctx moduleOp dst ∧ PhiInvariant dst := by
+    induction blocks generalizing current with
+    | nil => cases run; exact ⟨prior, inv⟩
+    | cons block blocks ih =>
+      rw [List.foldlM_cons] at run
+      cases step : info.widenPhiBlock current block with
+      | error message => simp [step, Bind.bind, Except.bind] at run
+      | ok after =>
+        simp only [step, Bind.bind, Except.bind] at run
+        obtain ⟨refines, inv'⟩ := widenPhiBlock_sound info inv prior block step
+        exact ih inv' refines run
+  obtain ⟨refines, inv⟩ := loop _ (.of_verified root.verified (treeMonotoneOps_of_verified root.verified))
+    (OperationPtr.isModuleRefinedByCTree_refl root.verified moduleOp) widened
+  exact ⟨refines, inv.monotone⟩
 
 /-- The legalizer refines the module and leaves it verified. -/
 theorem legalize_sound {info : LegalizerInfo} (pass : String)
@@ -289,7 +261,7 @@ theorem legalize_sound {info : LegalizerInfo} (pass : String)
     | error message => simp [widened] at run
     | ok wide =>
       simp only [widened] at run
-      obtain ⟨refinesPhis, rootWide⟩ :=
+      obtain ⟨refinesPhis, monoWide⟩ :=
         legalizeBlockArguments_sound info (ModuleRoot.of_checkModuleRoot checked) widened
       cases brconds : info.widenBrconds wide with
       | error message => simp [brconds] at run
@@ -300,7 +272,7 @@ theorem legalize_sound {info : LegalizerInfo} (pass : String)
         | ok _ =>
           simp only [rechecked] at run
           have refinesBrconds :=
-            info.widenBrconds_isModuleRefinedByCTree rootWide.verified brconds moduleOp
+            info.widenBrconds_refines_of_treeMonotoneOps monoWide brconds moduleOp
           have rootConditioned := ModuleRoot.of_checkModuleRoot rechecked
           cases driver : applyToFunctionsChecked pass (LegalizerInfo.legalizePattern info)
               conditioned moduleOp with

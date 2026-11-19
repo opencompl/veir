@@ -828,31 +828,71 @@ private def incomingEdges (ctx : IRContext OpCode) (block : BlockPtr) : List Blo
       use? := use.getNextUse! ctx
     return edges.reverse
 
+/-- The argument exists and can be the narrow type of a gMIR extension and truncation. -/
+def LegalizerInfo.narrowerArgument (block : BlockPtr) (ctx : IRContext OpCode)
+    (i width : Nat) : Bool :=
+  match (block.getArguments! ctx)[i]? with
+  | some arg =>
+    match (arg.getType! ctx).val with
+    | .integerType ⟨bits, .signless⟩ => 0 < bits && bits < width
+    | _ => false
+  | none => false
+
+/-- Change the argument type and redirect its original uses to the truncation inserted at `start`. -/
+def widenBlockArgument (start : InsertPoint) (arg : BlockArgumentPtr) (width : Nat)
+    (ctx : WfIRContext OpCode) : Option (WfIRContext OpCode) := do
+  let type := (ValuePtr.blockArgument arg).getType! ctx.raw
+  let ctx := WfRewriter.setType! ctx arg (IntegerType.signless width)
+  let (ctx, trunc) ← WfRewriter.createOp! ctx GMIR.g_trunc #[type] #[] #[] #[]
+    (({ nsw := false, nuw := false } : NswNuwProperties) : propertiesOf GMIR.g_trunc) start
+  let ctx := WfRewriter.replaceValue! ctx arg (trunc.getResult 0)
+  return WfRewriter.pushOperand! ctx trunc arg
+
+/-- Extend the value that the branch forwards in `operand`. -/
+def widenBranchOperand (ctx : WfIRContext OpCode) (operand : OpOperandPtr) (width : Nat) :
+    Option (WfIRContext OpCode) := do
+  let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_anyext #[IntegerType.signless width]
+    #[operand.op.getOperand! ctx.raw operand.index] #[] #[] () (InsertPoint.before operand.op)
+  return WfRewriter.replaceOperand! ctx operand (ext.getResult 0)
+
 /--
 Widens argument `i` of `block` to `width` bits for each `(i, width)` in `args`, as LLVM does for
 `G_PHI`: each branch to `block` passes a `g_anyext`, and a `g_trunc` restores the original type.
 Returns `none` if a predecessor is not a branch.
 -/
-def widenBlockArguments (block : BlockPtr) (args : List (Nat × Nat))
+private def widenBlockArgumentsImpl (block : BlockPtr) (args : List (Nat × Nat))
     (ctx : WfIRContext OpCode) : Option (WfIRContext OpCode) := do
   let edges ← (incomingEdges ctx.raw block).mapM fun edge =>
     return (edge.op, ← BranchOpInterface.getSuccessorOperands? edge.op edge.index ctx.raw)
   -- The `g_trunc`s go first: a branch from the block back to itself passes a `g_anyext` of one.
   let start := InsertPoint.atStart! block ctx.raw
-  let ctx ← args.foldlM (init := ctx) fun ctx (i, width) => do
-    let arg : BlockArgumentPtr := { block := block, index := i }
-    let type := (ValuePtr.blockArgument arg).getType! ctx.raw
-    let ctx := WfRewriter.setType! ctx arg (IntegerType.signless width)
-    let (ctx, trunc) ← WfRewriter.createOp! ctx GMIR.g_trunc #[type] #[] #[] #[]
-      (({ nsw := false, nuw := false } : NswNuwProperties) : propertiesOf GMIR.g_trunc) start
-    let ctx := WfRewriter.replaceValue! ctx arg (trunc.getResult 0)
-    return WfRewriter.pushOperand! ctx trunc arg
+  let ctx ← args.foldlM (init := ctx) fun ctx (i, width) =>
+    widenBlockArgument start ⟨block, i⟩ width ctx
   edges.foldlM (init := ctx) fun ctx (branch, operands) => args.foldlM (init := ctx)
-    fun ctx (i, width) => do
-      let operand : OpOperandPtr := { op := branch, index := operands.getOperandIndex i }
-      let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_anyext #[IntegerType.signless width]
-        #[branch.getOperand! ctx.raw operand.index] #[] #[] () (InsertPoint.before branch)
-      return WfRewriter.replaceOperand! ctx operand (ext.getResult 0)
+    fun ctx (i, width) => widenBranchOperand ctx ⟨branch, operands.getOperandIndex i⟩ width
+
+/-- Check the source types of all requested casts before changing the block or its predecessors. -/
+def widenBlockArgumentsChecked (block : BlockPtr) (args : List (Nat × Nat))
+    (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) :=
+  if args.all (fun (i, width) => LegalizerInfo.narrowerArgument block ctx.raw i width) then
+    match widenBlockArgumentsImpl block args ctx with
+    | some ctx' => .ok ctx'
+    | none => .error "unable to widen a block argument: a predecessor is not a branch"
+  else
+    .error "unable to widen a block argument: expected a narrower signless integer of positive width"
+
+theorem widenBlockArgumentsChecked_narrow {block : BlockPtr} {args : List (Nat × Nat)}
+    {ctx ctx' : WfIRContext OpCode} (h : widenBlockArgumentsChecked block args ctx = .ok ctx') :
+    args.all (fun (i, width) => LegalizerInfo.narrowerArgument block ctx.raw i width) = true := by
+  unfold widenBlockArgumentsChecked at h
+  split at h
+  · assumption
+  · contradiction
+
+/-- Widen the selected block arguments, returning `none` if the rewrite fails. -/
+def widenBlockArguments (block : BlockPtr) (args : List (Nat × Nat))
+    (ctx : WfIRContext OpCode) : Option (WfIRContext OpCode) :=
+  (widenBlockArgumentsChecked block args ctx).toOption
 
 end
 

@@ -1,7 +1,6 @@
 // RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64 | filecheck %s
 
-// A narrow phi is widened to the legal width by `legalizeBlockArguments`, which the soundness of
-// the pass assumes (`legalizeBlockArguments_sound`).
+// The legalizer widens a narrow phi to the legal width.
 
 // CHECK: ^{{.*}}(%{{.*}} : i64):
 
