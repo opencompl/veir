@@ -33,8 +33,6 @@ or the reason why there is none (see `Unproven`).
   are proven: casting a register to an integer is never poison.
 * The `mod_arith` and `cir` round trips are proven vacuously: the interpreter has no semantics
   for those casts, so the source fails.
-* The `ptr -> reg -> ptr` round trip is not valid, for the reason in `Unproven`; it is assumed
-  (`ptr_reg_valid`).
 
 The proofs are those of the gMIR legalization rules (`Veir.Passes.Legalization.Validity`), with
 the builtin and RISC-V interpreters added to the semantics.
@@ -267,14 +265,6 @@ theorem reg_i64_status : Status Unproven (reconcilePairingCast isRegToI64RoundTr
 theorem reg_ptr_status : Status Unproven (reconcilePairingCast isRiscvRegToPtrCast) :=
   .proven reg_ptr_valid
 
-/-- The `ptr -> reg -> ptr` round trip is assumed valid. It is not provable in the semantics as
-they stand: the cast of a poison pointer to a register chooses its bits, so the source yields a
-defined pointer where the rewrite yields the poison pointer (`Unproven.freezesPoisonPointer`). -/
-axiom ptr_reg_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRiscvPtrToRegCast)
-
-theorem ptr_reg_status : Status Unproven (reconcilePairingCast isRiscvPtrToRegCast) :=
-  .proven ptr_reg_valid
-
 theorem mod_arith_int_status :
     Status Unproven (reconcilePairingCast isPreservingModArithToIntCast) :=
   .proven mod_arith_int_valid
@@ -304,10 +294,9 @@ theorem reconcilePatterns_valid :
   intro rule member
   simp only [reconcilePatterns, List.mem_toArray, List.mem_cons, List.not_mem_nil,
     or_false] at member
-  rcases member with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases member with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exact reg_i64_valid
   · exact reg_ptr_valid
-  · exact ptr_reg_valid
   · exact mod_arith_int_valid
   · exact cir_int_valid
   · exact reg_i8_valid

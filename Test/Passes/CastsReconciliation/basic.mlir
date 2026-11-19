@@ -151,17 +151,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "f11"}> ({
-      ^1(%0 : !llvm.ptr):
-        // ptr -> reg -> ptr (64-bit): folded away under the assumption `ptr_reg_valid`.
-        %1 = "builtin.unrealized_conversion_cast"(%0) : (!llvm.ptr) -> !riscv.reg
-        %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> !llvm.ptr
-        "test.test"(%2) : (!llvm.ptr) -> ()
-        // CHECK:        func.func @f11([[ARG:%.*]]: !llvm.ptr) {
-        // CHECK-NEXT:   "test.test"([[ARG]]) : (!llvm.ptr) -> ()
-        "func.return"() : () -> ()
-    }) : () -> ()
-
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f12"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> ptr -> reg (64-bit)
