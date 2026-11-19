@@ -128,6 +128,12 @@ theorem PointwiseValid.contextStepsIf {pattern : RewritePattern OpCode}
   · intro before op opIn after prior eligible run
     obtain ⟨refines, root, _⟩ := valid opIn prior (Puddle.rootEligible_sound eligible) run
     exact ⟨root, refines⟩
+  · intro before op opIn dead noAllocation prior _eligible
+    obtain ⟨verified, refines⟩ :=
+      verifiedDeadCodeErasure prior.verified prior.code prior.noParent opIn dead noAllocation
+    have header := triviallyDead_erase_module_header prior.verified prior.code prior.noParent opIn dead
+    rw [PatternRewriter.eraseOp_ctx opIn dead]
+    exact ⟨⟨verified, header.1, header.2⟩, refines⟩
 
 /-- Repeated application of a pointwise valid pattern in the module refines the module and keeps
 the module root. -/

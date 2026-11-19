@@ -6,7 +6,7 @@ public section
 namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
-/-- Context-level obligation for the mutation step of the worklist driver. -/
+/-- Context-level obligations for the two actual mutation branches of the worklist driver. -/
 structure RewritePattern.ContextStepPreserves (pattern : RewritePattern OpInfo)
     (invariant : WfIRContext OpInfo → Prop)
     (relation : WfIRContext OpInfo → WfIRContext OpInfo → Prop) : Prop where
@@ -14,8 +14,15 @@ structure RewritePattern.ContextStepPreserves (pattern : RewritePattern OpInfo)
     (opIn : op.InBounds before.ctx.raw) (after : PatternRewriter OpInfo),
     invariant before.ctx → pattern before op opIn = some after →
       invariant after.ctx ∧ relation before.ctx after.ctx
+  deadStep : ∀ (before : PatternRewriter OpInfo) (op : OperationPtr)
+    (opIn : op.InBounds before.ctx.raw) (dead : op.isTriviallyDead before.ctx.raw)
+    (_noAllocation : (op.getEffects before.ctx.raw).allocates = false),
+    invariant before.ctx →
+      invariant (before.eraseOp op dead.1 dead.2.1 opIn).ctx ∧
+      relation before.ctx (before.eraseOp op dead.1 dead.2.1 opIn).ctx
 
-/-- Popping only changes the worklist; a successful dispatch satisfies the pattern obligation. -/
+/-- Popping only changes the worklist; either successful dispatch branch satisfies
+its corresponding concrete pattern or dead-operation obligation. -/
 theorem RewritePattern.worklistStep_preserves
     (pattern : RewritePattern OpInfo) (invariant : WfIRContext OpInfo → Prop)
     (relation : WfIRContext OpInfo → WfIRContext OpInfo → Prop)
@@ -27,7 +34,12 @@ theorem RewritePattern.worklistStep_preserves
   dsimp only at run
   split at run
   next opIn =>
-    exact steps.patternStep { before with worklist := before.worklist.pop.2 } _ opIn _ initial run
+    split at run
+    next dead =>
+      cases run
+      exact steps.deadStep { before with worklist := before.worklist.pop.2 } _ opIn dead.1 dead.2 initial
+    next notDead =>
+      exact steps.patternStep { before with worklist := before.worklist.pop.2 } _ opIn _ initial run
   next outside => cases run
 
 /-- Every successful execution of the unbounded driver has a finite proof by
