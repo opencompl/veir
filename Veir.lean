@@ -17,6 +17,7 @@ import Veir.PatternRewriter.Basic
 import Veir.PatternRewriter.CTreeDeadCode
 import Veir.PatternRewriter.Puddle
 import Veir.Interfaces.FoldInterfaces
+import Veir.Dialects.FoldCorrectness
 import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.ArithToLLVM.Proofs
 import Veir.Passes.Canonicalize.Proofs

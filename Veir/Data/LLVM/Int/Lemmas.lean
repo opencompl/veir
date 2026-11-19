@@ -56,6 +56,20 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
   cases x <;> cases y <;>
   simp [BitVec.mul_comm, BitVec.smulOverflow_comm, BitVec.umulOverflow_comm]
 
+/- # fold-table lemmas -/
+
+@[simp, grind =]
+theorem add_zero {w : Nat} (x : Int w) (nsw nuw : Bool) :
+    add x (.val (0#w)) nsw nuw = x := by
+  cases x <;> simp [add, Id.run, BitVec.saddOverflow_eq, BitVec.uaddOverflow, BitVec.isLt]
+
+/-- Adding zero never overflows, so the carry may be refined to concrete false. -/
+@[simp, grind .]
+theorem uaddOverflowFlag_zero {w : Nat} (x : Int w) :
+    uaddOverflowFlag x (.val (0#w)) ⊒ .val (0#1) := by
+  cases x <;> simp [uaddOverflowFlag, Id.run, BitVec.uaddOverflow_eq, isRefinedBy_eq,
+    BitVec.msb_eq_getLsbD_last]
+
 theorem IntPred.eq_cases (p : IntPred) :
     p = .eq ∨ p = .ne ∨ p = .ugt ∨ p = .uge ∨ p = .ult ∨ p = .ule ∨
       p = .sgt ∨ p = .sge ∨ p = .slt ∨ p = .sle := by
@@ -143,6 +157,5 @@ theorem zext_val {w₁ w₂ : Nat} (v : BitVec w₁) (h : w₁ < w₂) :
 theorem poison_zext {w₁ w₂ : Nat} {nneg : Bool} (h : w₁ < w₂) :
     zext (poison : Int w₁) w₂ nneg h = poison := by
   simp only [zext, Id.run]
-
 
 end Int
