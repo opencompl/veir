@@ -528,6 +528,10 @@ theorem OperationPtr.Ancestor.eq_of_parentRegion_ancestor
 
 /-! ## Executable nesting queries -/
 
+-- Use false as the logical bottom so a positive answer requires a finite parent path.
+noncomputable local instance : Lean.Order.CCPO Bool :=
+  inferInstanceAs (Lean.Order.CCPO (Lean.Order.FlatOrder false))
+
 /--
 Whether `ancestor` is `descendant` or one of its enclosing regions. This is the
 executable counterpart of MLIR's `Region::isAncestor` query.
@@ -538,6 +542,14 @@ def RegionPtr.isAncestorOf
     match (descendant.getParent! ctx.raw).bind (·.getParentRegion! ctx.raw) with
     | none => false
     | some parentRegion => ancestor.isAncestorOf parentRegion ctx
+partial_fixpoint
+
+/-- Follow parent links to decide whether `ancestor` is `descendant` or one of its ancestors. -/
+def IRNode.isAncestorOf (ancestor descendant : IRNode) (ctx : WfIRContext OpInfo) : Bool :=
+  if ancestor = descendant then true else
+    match descendant.parent! ctx with
+    | none => false
+    | some parent => ancestor.isAncestorOf parent ctx
 partial_fixpoint
 
 end Veir
