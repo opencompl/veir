@@ -32,6 +32,9 @@ def riscvPipeline : PassPipeline OpCode :=
      (LegalizeRISCV64Pass, ∅), (PostLegalizerCombinerRISCV64Pass, ∅), (IselBrRISCV64, ∅),
      (IselRISCV64, ∅), (CastReconcilePass, ∅), (RISCV.Combine, ∅), (DCEPass, ∅)]⟩
 
+axiom CallLoweringSoundness : ∃ callLowering : PurePass,
+      CallLoweringRISCV64.PureUnder ∅ callLowering ∧ callLowering.Sound
+
 /-- A successful untimed run of the `riscv` pipeline by the pass runner refines the module and
 leaves it verified, provided the call-lowering pass is a sound pure function. -/
 theorem riscvPipeline_sound
