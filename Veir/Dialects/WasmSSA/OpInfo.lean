@@ -242,7 +242,7 @@ def WasmSSA.verifyLocalInvariants
   match opType with
   | .add    | .eq           | .ge_ui | .lt_ui  | .rem_ui | .shr_u
   | .and    | .eqz          | .gt_si | .mul    | .rotl   | .sub
-  | .clz    | .extend       | .gt_ui | .ne     | .rotr   | .xor
+  | .clz    | .gt_ui        | .ne    | .rotr   | .xor
   | .ctz    | .extend_i32_s | .le_si | .or     | .select
   | .div_si | .extend_i32_u | .le_ui | .popcnt | .shl
   | .div_ui | .ge_si        | .lt_si | .rem_si | .shr_s => do
@@ -251,14 +251,11 @@ def WasmSSA.verifyLocalInvariants
   | .block | .loop | .if => do
     let opName := String.fromUTF8! opType.name
     if opType = .if then
-      if op.getNumOperands! ctx.raw ≠ 1 then
+      if op.getNumOperands! ctx.raw = 0 then
         throw "wasmssa.if: Expected 'condition' operand"
       else
         if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ≠ WasmI32 then
           throw "wasmssa.if: Expected 'condition' to be a 32-bit signless integer"
-    else
-      if op.getNumOperands! ctx.raw ≠ 0 then
-        throw s!"{opName}: Expected 0 operands"
     if op.getNumResults ctx.raw opIn ≠ 0 then
       throw s!"{opName}: Expected 0 results"
     if op.getNumSuccessors ctx.raw opIn ≠ 1 then
@@ -276,7 +273,7 @@ def WasmSSA.verifyLocalInvariants
     op.verifyOperandTypesMatchTypeArray ctx operandOffset ((entry.getArgumentTypes! ctx.raw).map (·.val)) s!"{opName}: region entry block"
 
     if opType = .if then
-      if let some secondEntry := (op.getRegion! ctx.raw 0).getFirstBlock! ctx.raw then
+      if let some secondEntry := (op.getRegion! ctx.raw 1).getFirstBlock! ctx.raw then
         if secondEntry.getNumArguments! ctx.raw + operandOffset ≠ op.getNumOperands ctx.raw opIn then
           throw s!"{opName}: Expected {secondEntry.getNumArguments! ctx.raw + 1} operand(s) \
           to match the nested block's arguments (including 'condition'), got {op.getNumOperands ctx.raw opIn} operands instead"
@@ -287,7 +284,7 @@ def WasmSSA.verifyLocalInvariants
     let some labelLevelParentOp := op.getNthAncestorOpInMatchingChain? LabelLevelOp ctx.raw 0
       | throw "wasmssa.block_return: Expected to be nested in a LabelLevelOp ('wasmssa.block', 'wasmssa.if', 'wasmssa.loop')"
     if labelLevelParentOp.op.getNumSuccessors! ctx.raw ≠ 1 then
-      throw "wasmssa.block_return: Expected the enclosing LavelLevelOp to have 1 successor"
+      throw "wasmssa.block_return: Expected the enclosing LabelLevelOp to have 1 successor"
     let target := labelLevelParentOp.op.getSuccessor! ctx.raw 0
     if op.getNumOperands ctx.raw opIn ≠ target.getNumArguments! ctx.raw then
       throw s!"wasmssa.block_return: Expected {target.getNumArguments! ctx.raw} operand(s) \
@@ -306,19 +303,19 @@ def WasmSSA.verifyLocalInvariants
       | ⟨.block, frameOp, props⟩
       | ⟨.if, frameOp, props⟩ =>
         if frameOp.getNumSuccessors! ctx.raw ≠ 1 then
-          throw "wasmssa.branch_if: Expected the targetted LabelLevelOp to have 1 successor"
+          throw "wasmssa.branch_if: Expected the targeted LabelLevelOp to have 1 successor"
         else
           pure (frameOp.getSuccessor! ctx.raw 0)
       | ⟨.loop, loopOp, props⟩ =>
         if loopOp.getNumRegions! ctx.raw ≠ 1 then
-          throw "wasmssa.branch_if: expected targetted `loop` to have 1 region"
+          throw "wasmssa.branch_if: expected targeted `loop` to have 1 region"
         else
           let some target := (loopOp.getRegion! ctx.raw 0).getFirstBlock! ctx.raw
-            | throw "wasmssa.branch_if: expected targetted `loop` to have a nonempty region"
+            | throw "wasmssa.branch_if: expected targeted `loop` to have a nonempty region"
           pure target
     if op.getNumOperands ctx.raw opIn ≠ target.getNumArguments! ctx.raw + 1 then
       throw s!"wasmssa.branch_if: Expected {target.getNumArguments! ctx.raw + 1} operand(s) \
-        to match the target's arguments (including 'conditioin'), got {op.getNumOperands ctx.raw opIn} operands instead"
+        to match the target's arguments (including 'condition'), got {op.getNumOperands ctx.raw opIn} operands instead"
     if (op.getOperand! ctx.raw 0).getType! ctx.raw ≠ WasmI32 then
       throw "wasmssa.branch_if: expected 'condition' to be a signless 32-bit integer"
     op.verifyOperandTypesMatchTypeArray ctx 1 ((target.getArgumentTypes! ctx.raw).map (·.val)) "wasmssa.branch_if: target"
@@ -344,6 +341,12 @@ def WasmSSA.verifyLocalInvariants
     let result_type := (op.getResult 0).getType! ctx.raw
     if result_type.val != .integerType const_type then
       throw s!"wasmssa.const: Expected value and result types to match ({const_type} ≠ {result_type})"
+
+  | .extend => do
+    let bitsToTake := (op.getProperties! ctx.raw WasmSSA.extend).bitsToTake.value
+    let Attribute.integerAttr opndTy := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val | unreachable!
+    if bitsToTake ≥ opndTy.type.bitwidth then
+      throw s!"wasmssa.extend: Trying to extend the {bitsToTake} low bits form a {opndTy} value is illegal"
 
   | .func => do
     if op.getNumRegions ctx.raw opIn ≠ 1 then

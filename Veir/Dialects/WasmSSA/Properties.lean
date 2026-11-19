@@ -74,10 +74,10 @@ def WasmSSAExtendProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   let bitsToTake ← match attrDict["bitsToTake".toUTF8]? with
     | some (.integerAttr n) => pure n
     | some attr => throw s!"wasmssa.extend: Expected 'bitsToTake' to be an integer, but got {attr}"
-    | none => throw "wasmssa.extend: Missing 'bitstoTake' property"
-  
+    | none => throw "wasmssa.extend: Missing 'bitsToTake' property"
+
   if !#[8, 16, 32].contains bitsToTake.value then
-    throw s!"wasmssa.extend: extend op can only take 8, 16 or 32 bits. Got {bitsToTake.type.bitwidth}"
+    throw s!"wasmssa.extend: extend op can only take 8, 16 or 32 bits. Got {bitsToTake.value}"
   return { bitsToTake }
 
 def WasmSSAExtendProperties.toAttrDict (props : WasmSSAExtendProperties) : Std.HashMap ByteArray Attribute :=
