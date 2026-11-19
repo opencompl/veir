@@ -458,6 +458,21 @@ def lowerPoison : Puddle.Pattern OpCode :=
 
 def g_poison := lowerPoison.compile
 
+/-- `llvm.mlir.addressof` -> `gmir.g_global_value`. -/
+def lowerAddressof : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let root ← Puddle.MatchProg.root (.llvm .mlir__addressof) #[] #[resultType]
+      return (resultType, root))
+    (fun (resultType, root) => do
+      let props ← Puddle.CreateProg.applyNative
+        (Outputs := Puddle.Handle OpCode (.prop (.gmir .g_global_value))) root.properties some
+      Puddle.CreateProg.operation (.gmir .g_global_value) #[] #[resultType] (.inr props))
+    (fun newOp => newOp)
+
+def g_global_value := lowerAddressof.compile
+
 /-- `llvm.freeze` (integer) -> `gmir.g_freeze`. -/
 def lowerIntegerFreeze : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -647,7 +662,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run,
     g_constant.run, g_zero.run, g_poison.run, g_bytePoison.run, g_freeze.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices,
-    lowerStaticAlloca.run, g_load.run, g_store.run,
+    lowerStaticAlloca.run, g_global_value.run, g_load.run, g_store.run,
     g_ptrtoint.run, g_inttoptr.run,
     intToByteRoundTrip.run
   ]
