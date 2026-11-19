@@ -48,6 +48,24 @@ def VerifClockedAssumeAssertProperties.fromAttrDict
 
   return { edge, label }
 
+/--
+  Properties of the `verif.symbolic_value` operation.
+-/
+structure VerifSymbolicValueProperties where
+  name : Option StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def VerifSymbolicValueProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String VerifSymbolicValueProperties := do
+  let name : Option StringAttr ←
+  match attrDict["name".toUTF8]? with
+    | none => pure none
+    | some (.stringAttr n) => pure (some n)
+    | some other =>
+      throw s!"verif.symbolic_value: expected 'name' to be a string attribute, but got {other}"
+
+  return { name }
+
 end
 
 end Veir
