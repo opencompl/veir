@@ -14,6 +14,7 @@ public section
 inductive Verif where
 | assume
 | assert
+| symbolic_value
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, implicit_reducible, properties_of]
@@ -21,6 +22,7 @@ def Verif.propertiesOf (op : Verif) : Type :=
   match op with
   | .assume => VerifAssumeAssertProperties
   | .assert => VerifAssumeAssertProperties
+  | .symbolic_value => VerifSymbolicValueProperties
 
 def Verif.fromAttrDict
     (op : Verif) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -29,6 +31,7 @@ def Verif.fromAttrDict
   case assume => exact VerifAssumeAssertProperties.fromAttrDict attrDict
   case assert => exact VerifAssumeAssertProperties.fromAttrDict attrDict
   all_goals exact .ok ()
+  case symbolic_value => exact VerifSymbolicValueProperties.fromAttrDict attrDict
 
 def Verif.toAttrDict
     (op : Verif) (props : Verif.propertiesOf op) :
@@ -38,11 +41,16 @@ def Verif.toAttrDict
     match props.label with
     | some label => (Std.HashMap.emptyWithCapacity 1).insert "label".toUTF8 (.stringAttr label)
     | none => Std.HashMap.emptyWithCapacity 0
+  | .symbolic_value =>
+    match props.name with
+    | some name => (Std.HashMap.emptyWithCapacity 1).insert "name".toUTF8 (.stringAttr name)
+    | none => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
 def Verif.getEffects
     (_op : Verif) (_props : Verif.propertiesOf _op) : MemoryEffects :=
   .none
+  | .symbolic_value => .allocate
 
 def Verif.isConstantLike (_op : Verif) : Bool :=
   false
@@ -80,6 +88,9 @@ def Verif.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    pure ()
+  | .symbolic_value => do
+    op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
 
 instance : HasOpInfo Verif where
