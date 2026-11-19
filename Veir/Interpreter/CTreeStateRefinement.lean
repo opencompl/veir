@@ -49,6 +49,85 @@ theorem interp_vis_eq {EIn FIn CIn α : Type}
   rw [_root_.CTree.iter.eq_def]
   simp
 
+section
+open _root_.CTree
+
+variable {EIn FIn CIn α β : Type} {E : EIn → Type} {F : FIn → Type} {C : CIn → Type}
+    [HasUB FIn] {RR : α → β → Prop}
+    (handler : (e : EIn) → CTree F C (E e))
+
+/-- Follow the same finite sequence of choices after interpretation, skipping the
+extra silent step the interpreter inserts after each choice. -/
+private theorem sim_interp_tau_star_r {t : CTree F C α} {u v : CTree E C β}
+    (steps : (CTree.Trans .tau)^* u v) (h : Sim RR t (interp handler v)) :
+    Sim RR t (interp handler u) := by
+  induction steps with
+  | base => exact h
+  | iter _ _ _ step _ ih =>
+    cases step with
+    | @tau i k x =>
+      rw [interp_tau_eq]
+      exact Sim.tau_r RR _ _ _ x (Sim.tau_r RR _ _ _ PUnit.unit (ih h))
+
+variable [HasUB EIn]
+
+private theorem sim_interp_of_reachesUB
+    (handlerUB : ∀ e, HasUB.isUB e → (handler e).UB) {t : CTree F C α} {u : CTree E C β}
+    (reaches : ∃ v, (CTree.Trans .tau)^* u v ∧ v.UB) : Sim RR t (interp handler u) := by
+  obtain ⟨v, steps, hv⟩ := reaches
+  apply sim_interp_tau_star_r handler steps
+  cases v using CTree.cases with
+  | ret => simp [CTree.UB] at hv
+  | tau => simp [CTree.UB] at hv
+  | vis e k =>
+    rw [interp_vis_eq]
+    have hUB := handlerUB e ((CTree.ub_vis _ _).mp hv)
+    generalize handler e = handled at hUB ⊢
+    cases handled using CTree.cases with
+    | ret => simp [CTree.UB] at hUB
+    | tau => simp [CTree.UB] at hUB
+    | vis =>
+      simp only [Bind.bind, _root_.CTree.CTree.bind_vis]
+      exact Sim.ub RR _ ((CTree.ub_vis _ _).mp hUB)
+
+/-- Interpreting a simulation preserves it when the left tree consists of
+well-founded choices, returns, and UB events. The right tree may be infinite. -/
+theorem sim_interp_of_pureOrErr [ErrorE -< E] [UBE -< E]
+    (handlerUB : ∀ e, HasUB.isUB e → (handler e).UB)
+    {t : CTree E C α} {u : CTree E C β} (shape : PureOrErr t) (h : Sim RR t u)
+    (errorUB : HasUB.isUB (Subeffect.mapEff ErrorE E ErrorEIn.mk) := by trivial)
+    (ubUB : HasUB.isUB (Subeffect.mapEff UBE E UBEIn.mk) := by trivial) :
+    Sim RR (interp handler t) (interp handler u) := by
+  induction shape with
+  | ret r =>
+    rw [interp_ret_eq]
+    have hs := Tower.gfp_apply_ternary_rel _ _ _ _ h
+    rcases LTS.MuSimF.true_iff.mp hs with hs | reaches
+    · obtain ⟨_, _, ⟨mid, steps, step⟩, label, _⟩ :=
+        hs.1 (.val r) CTree.empty CTree.Trans.ret
+      cases label with
+      | obs _ _ related =>
+        cases related with
+        | val _ s hrs =>
+          cases step
+          apply sim_interp_tau_star_r handler steps
+          rw [interp_ret_eq]
+          exact (Sim.pure RR _ _).mpr hrs
+    · exact sim_interp_of_reachesUB handler handlerUB reaches
+  | tau i k _ ih =>
+    rw [interp_tau_eq]
+    apply (Sim.tau_l RR _ _ _).mpr
+    intro x
+    apply (Sim.tau_l RR _ _ _).mpr
+    intro _
+    exact ih x ((Sim.tau_l RR _ _ _).mp h x)
+  | fail | ub =>
+    apply sim_interp_of_reachesUB handler handlerUB
+    apply Sim.ub_reaches_of_sim RR h
+    exact ⟨_, .base _, (CTree.ub_vis _ _).mpr (by assumption)⟩
+
+end
+
 /-- A handler that leaves error and UB events alone preserves a finite pure/error
 tree up to the silent steps inserted by `interp`. Other events are unreachable. -/
 theorem interp_sim_of_pureOrErr {FIn CIn α : Type}
@@ -631,8 +710,10 @@ theorem sim_interp_mrec_interpretOp {ctx : WfIRContext OpCode}
         (_root_.CTree.interp_mrec handler (interpretOp op state opIn)) := by
   rw [interp_mrec_eq_erase handler (interpretOp_pureOrErr op state opIn)]
   have normalized := sim_interpretOp_embedCore op state opIn
-  have forward := _root_.CTree.Sim.interp eraseRegionHandler eraseRegionHandler_preservesUB _ _ normalized.1
-  have backward := _root_.CTree.Sim.interp eraseRegionHandler eraseRegionHandler_preservesUB _ _ normalized.2
+  have forward := sim_interp_of_pureOrErr eraseRegionHandler eraseRegionHandler_preservesUB
+    (interpretOp_pureOrErr op state opIn) normalized.1
+  have backward := sim_interp_of_pureOrErr eraseRegionHandler eraseRegionHandler_preservesUB
+    (embedRaw_pureOrErr (interpretOpCore_pureOrErr op state opIn)) normalized.2
   have erased := sim_erase_embedRaw (ctx := ctx) (σ := InterpreterState ctx) (interpretOpCore_pureOrErr op state opIn)
   exact ⟨_root_.CTree.Sim.trans forward erased.1 (fun _ _ _ => Eq.trans),
     _root_.CTree.Sim.trans erased.2 backward (fun _ _ _ => Eq.trans)⟩
@@ -859,10 +940,11 @@ theorem sim_interpretOp
       (interpretOp targetOp targetState targetIn)
       (interpretOp sourceOp sourceState sourceIn) := by
   have core := sim_interpretOpCore sourceIn targetIn states frame primitive
-  have lifted := _root_.CTree.Sim.interp
+  have lifted := sim_interp_of_pureOrErr
     (_root_.CTree.CTree.trigger (E := RunRegionE ctx (InterpreterState ctx) ⊕ₑ
       (ErrorE ⊕ₑ _root_.CTree.UBE))) (fun i _ => by
-        cases i <;> simp [_root_.CTree.CTree.trigger_def]) _ _ core
+        cases i <;> simp [_root_.CTree.CTree.trigger_def])
+    (interpretOpCore_pureOrErr targetOp targetState targetIn) core
   have targetNorm := (sim_interpretOp_embedCore targetOp targetState targetIn).1
   have sourceNorm := (sim_interpretOp_embedCore sourceOp sourceState sourceIn).2
   exact _root_.CTree.Sim.trans (_root_.CTree.Sim.trans targetNorm lifted

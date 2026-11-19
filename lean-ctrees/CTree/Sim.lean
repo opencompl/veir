@@ -818,7 +818,7 @@ private theorem tau_star_left {t t' : CTree E C α} {u : CTree E C' β}
   | iter _ _ _ hstep _ ih => exact ih (tau_step_left RR h hstep)
 
 /-- A tree simulating a reachable UB must itself be able to reach UB silently. -/
-private theorem ub_reaches_of_sim
+theorem ub_reaches_of_sim
     {t : CTree E C α} {u : CTree E C' β} (h : Sim RR t u)
     (hu : ∃ tUB, (CTree.Trans .tau)^* t tUB ∧ CTree.UB tUB) :
     ∃ uUB, (CTree.Trans .tau)^* u uUB ∧ CTree.UB uUB := by
@@ -986,15 +986,6 @@ theorem iter {I I'} {RRi : I → I' → Prop} {RRo : α → β → Prop}
         apply MuSimF.ret
         grind
         apply MuSimF.empty'
-
--- UB preservation alone is insufficient for arbitrary handlers. See the checked
--- counterexample in UnitTest/CTreeSimInterp.lean. VeIR still assumes this rule.
-axiom interp {RR}
-  (h : (i : EIn) → CTree F C (E i))
-  (preservesUB : ∀ i, UBE.isUB i → CTree.UB (UB := UBF) (h i))
-  (t : CTree E C α) (u : CTree E C β) :
-  Sim RR t u →
-  Sim RR (CTree.interp h t) (CTree.interp h u)
 
 /--
 Product of two relations

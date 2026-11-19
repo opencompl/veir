@@ -95,7 +95,7 @@ private theorem output_not_sim : ¬ Sim Eq (interp handler ask) (interp handler 
         cases b <;> contradiction
   · exact no_ub _ hu
 
-/-- A UB-preserving handler and a pair of trees refuting the general `CTree.Sim.interp` axiom. -/
+/-- A UB-preserving handler can distinguish two trees related by simulation. -/
 theorem interp_counterexample :
     ∃ (h : (i : Unit) → Output (Bits i)) (t u : Input Bool),
       (∀ i, HasUB.isUB i → (h i).UB) ∧ Sim Eq t u ∧ ¬ Sim Eq (interp h t) (interp h u) :=
@@ -106,3 +106,11 @@ theorem interp_counterexample :
 #print axioms interp_counterexample
 
 end CTreeInterpTest
+
+/-- info: 'Veir.CTree.sim_interp_mrec_interpretOp' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Veir.CTree.sim_interp_mrec_interpretOp
+
+/-- info: 'Veir.CTree.sim_interpretOp' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Veir.CTree.sim_interpretOp
