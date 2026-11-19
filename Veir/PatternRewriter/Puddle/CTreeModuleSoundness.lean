@@ -44,17 +44,17 @@ simulation proved after projecting it away. This is derived from graph simulatio
 and composition, rather than inversion of the abstract simulation relation. -/
 theorem sim_of_projected_target {α β γ : Type} (project : α → β)
     (target : Tree α) (source : Tree γ) (relation : β → γ → Prop)
-    (simulation : _root_.CTree.EqSim relation (target >>= fun value => pure (project value)) source) :
-    _root_.CTree.EqSim (fun target source => relation (project target) source) target source := by
-  have graph := _root_.CTree.EqSim.bind target target Pure.pure (fun value => pure (project value))
-    (_root_.CTree.EqSim.refl Eq (fun _ => rfl) target)
-    (fun a b equal => by subst b; exact (_root_.CTree.EqSim.pure _ _ _).mpr rfl)
-  change _root_.CTree.EqSim (fun a b => project a = b) (target >>= Pure.pure)
+    (simulation : _root_.CTree.Sim relation (target >>= fun value => pure (project value)) source) :
+    _root_.CTree.Sim (fun target source => relation (project target) source) target source := by
+  have graph := _root_.CTree.Sim.bind target target Pure.pure (fun value => pure (project value))
+    (_root_.CTree.Sim.refl Eq (fun _ => rfl) target)
+    (fun a b equal => by subst b; exact (_root_.CTree.Sim.pure _ _ _).mpr rfl)
+  change _root_.CTree.Sim (fun a b => project a = b) (target >>= Pure.pure)
     (target >>= fun value => pure (project value)) at graph
-  have graph' : _root_.CTree.EqSim (fun a b => project a = b)
+  have graph' : _root_.CTree.Sim (fun a b => project a = b)
       target (target >>= fun value => pure (project value)) := by
     simpa only [_root_.bind_pure] using graph
-  exact _root_.CTree.EqSim.trans graph' simulation
+  exact _root_.CTree.Sim.trans graph' simulation
     (fun _ _ _ equal related => equal ▸ related)
 
 /-- Observe an optional projection, reporting interpreter failure if absent. -/
@@ -66,13 +66,13 @@ returns, composition recovers both a successful projection witness and the
 original return relation. This is useful for replacement-pointer lookup. -/
 theorem sim_of_partial_projected_target {α β γ : Type} (project : α → Option β)
     (target : Tree α) (source : Tree γ) (relation : β → γ → Prop)
-    (simulation : _root_.CTree.EqSim relation
+    (simulation : _root_.CTree.Sim relation
       (target >>= projectToTree project) source) :
-    _root_.CTree.EqSim (fun target source => ∃ result,
+    _root_.CTree.Sim (fun target source => ∃ result,
       project target = some result ∧ relation result source) target source := by
-  have graph := _root_.CTree.EqSim.bind (RR' := fun a b => project a = some b) target target Pure.pure
+  have graph := _root_.CTree.Sim.bind (RR' := fun a b => project a = some b) target target Pure.pure
     (projectToTree project)
-    (_root_.CTree.EqSim.refl Eq (fun _ => rfl) target)
+    (_root_.CTree.Sim.refl Eq (fun _ => rfl) target)
     (by
       intro a b equal
       subst b
@@ -83,13 +83,13 @@ theorem sim_of_partial_projected_target {α β γ : Type} (project : α → Opti
         exact sim_fail _ _
       | some result =>
         simp only [Option.elim]
-        exact (_root_.CTree.EqSim.pure (fun a b => project a = some b) _ _).mpr projected)
-  change _root_.CTree.EqSim (fun a b => project a = some b) (target >>= Pure.pure) _ at graph
-  have graph' : _root_.CTree.EqSim (fun a b => project a = some b) target
+        exact (_root_.CTree.Sim.pure (fun a b => project a = some b) _ _).mpr projected)
+  change _root_.CTree.Sim (fun a b => project a = some b) (target >>= Pure.pure) _ at graph
+  have graph' : _root_.CTree.Sim (fun a b => project a = some b) target
       (target >>= projectToTree project) := by
     rw [_root_.bind_pure] at graph
     exact graph
-  exact _root_.CTree.EqSim.trans_rel graph' simulation
+  exact _root_.CTree.Sim.trans_rel graph' simulation
 
 /-- The concrete creation interpreter respects a continuation appended after its
 final result. This permits retaining its final resolver before observing values. -/
@@ -133,20 +133,20 @@ theorem sim_createdOpsFinal_of_replacements
     (resolve : ValueResolver) (memory : MemoryState) (replacements : Array ValuePtr)
     (source : Tree γ)
     (relation : (Array RuntimeValue × MemoryState × Option ControlFlowAction) → γ → Prop)
-    (localSimulation : _root_.CTree.EqSim relation
+    (localSimulation : _root_.CTree.Sim relation
       (interpretCreatedOps ctx ops resolve memory (fun r m =>
         match replacements.toList.mapM r with
         | some values => pure (values.toArray, m, none)
         | none => fail)) source) :
-    _root_.CTree.EqSim (fun target source => ∃ values,
+    _root_.CTree.Sim (fun target source => ∃ values,
       replacements.toList.mapM target.1 = some values ∧ relation (values.toArray, target.2, none) source)
       (interpretCreatedOpsFinal ctx ops resolve memory) source := by
   let project (final : ValueResolver × MemoryState) :
       Option (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
     (replacements.toList.mapM final.1).map (fun values => (values.toArray, final.2, none))
-  have projected : _root_.CTree.EqSim relation
+  have projected : _root_.CTree.Sim relation
       (interpretCreatedOpsFinal ctx ops resolve memory >>= projectToTree project) source := by
-    change _root_.CTree.EqSim relation
+    change _root_.CTree.Sim relation
       (interpretCreatedOpsFinal ctx ops resolve memory >>= fun (r, m) =>
         projectToTree project (r, m)) source
     rw [interpretCreatedOpsFinal_bind ctx ops resolve memory (fun r m =>
@@ -188,7 +188,7 @@ theorem Pattern.Valid.interpret_createdOpsFinal_sim_refiningInputs
     (conforms : RuntimeValue.ArrayConforms sourceValues (root.getOperandTypes! ctx.raw))
     (values : RuntimeValue.arrayIsRefinedBy sourceValues targetValues.toArray)
     (memory : sourceMemory.isRefinedBy targetMemory) :
-    _root_.CTree.EqSim (fun final source => ∃ results,
+    _root_.CTree.Sim (fun final source => ∃ results,
       replacementPointers.toList.mapM final.1 = some results ∧
       OperationResult.isRefinedBy source (results.toArray, final.2, none))
       (interpretCreatedOpsFinal newCtx.raw newOps.toList resolve targetMemory)
@@ -251,12 +251,12 @@ theorem sim_checked_createdOps_of_local
       op.getOperands! targetCtx.raw = op.getOperands! created.raw ∧
       (∀ code : OpCode, op.getProperties! targetCtx.raw code = op.getProperties! created.raw code))
     (sourceValues : Array RuntimeValue) (sourceMemory : MemoryState)
-    (localSimulation : _root_.CTree.EqSim (fun final source => ∃ results,
+    (localSimulation : _root_.CTree.Sim (fun final source => ∃ results,
       replacements.toList.mapM final.1 = some results ∧
       OperationResult.isRefinedBy source (results.toArray, final.2, none))
       (interpretCreatedOpsFinal created.raw newOps.toList resolve memory)
       (Veir.OperationPtr.interpretCTree root sourceIn sourceValues sourceMemory)) :
-    _root_.CTree.EqSim (fun target source => ∃ results,
+    _root_.CTree.Sim (fun target source => ∃ results,
       replacements.toList.mapM target.variables.getVar? = some results ∧
       OperationResult.isRefinedBy source (results.toArray, target.memory, none))
       (interpretCreatedOpsChecked targetCtx newOps.toList targetState)
@@ -264,7 +264,7 @@ theorem sim_checked_createdOps_of_local
   have checked := sim_interpretCreatedOpsChecked newOps.toList bounds nonterm conforms
     targetState resolve memory realizes
   rw [interpretCreatedOpsFinal_fields_congr created.raw targetCtx.raw newOps.toList fields] at checked
-  apply _root_.CTree.EqSim.trans checked localSimulation
+  apply _root_.CTree.Sim.trans checked localSimulation
   rintro target raw source hchecked ⟨results, lookup, refined⟩
   have lookups : replacements.toList.mapM target.variables.getVar? =
       replacements.toList.mapM raw.1 :=
@@ -465,7 +465,7 @@ theorem sim_commitOpResults_scoped
     {sourceResult targetResult : Array RuntimeValue × MemoryState × Option ControlFlowAction}
     (outcomes : OperationResult.isRefinedBy sourceResult targetResult)
     (conforms : RuntimeValue.ArrayConforms targetResult.1 (targetOp.getResultTypes! targetCtx.raw)) :
-    _root_.CTree.EqSim
+    _root_.CTree.Sim
       (fun t s => ScopedStateRefines mapping nextSourcePoint nextTargetPoint nextSourceIn nextTargetIn s.1 t.1 ∧
         ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (Veir.CTree.commitOpResults targetOp targetState targetIn targetResult)
@@ -480,7 +480,7 @@ theorem sim_commitOpResults_scoped
     have variables := scoped_setResultValues_refined (nextSourceIn := nextSourceIn)
       (nextTargetIn := nextTargetIn) sourceIn targetIn related.2 frame.results
       frame.noAlias frame.sourceBack frame.targetBack outcomes.1 sourceSet targetSet
-    simp only [Veir.CTree.commitOpResults, sourceSet, targetSet, _root_.CTree.EqSim.pure]
+    simp only [Veir.CTree.commitOpResults, sourceSet, targetSet, _root_.CTree.Sim.pure]
     exact ⟨⟨outcomes.2.1, variables⟩, outcomes.2.2⟩
 
 /-- A shared-effect opcode simulation lifts through scoped SSA operand lookup and
@@ -504,11 +504,11 @@ theorem sim_runOpWith_scoped
     (primitive : ∀ sourceValues,
       sourceState.variables.getOperandValues sourceOp = some sourceValues →
       RuntimeValue.arrayIsRefinedBy sourceValues targetValues →
-      _root_.CTree.EqSim
+      _root_.CTree.Sim
         (fun t s => OperationResult.isRefinedBy s t ∧
           RuntimeValue.ArrayConforms t.1 (targetOp.getResultTypes! targetCtx.raw))
         (targetRaw targetValues targetState.memory) (sourceRaw sourceValues sourceState.memory)) :
-    _root_.CTree.EqSim
+    _root_.CTree.Sim
       (fun t s => ScopedStateRefines mapping nextSourcePoint nextTargetPoint nextSourceIn nextTargetIn s.1 t.1 ∧
         ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (Veir.CTree.runOpWith targetOp targetState targetIn targetRaw)
@@ -521,7 +521,7 @@ theorem sim_runOpWith_scoped
     have values := scoped_operandValues_refined sourceIn related.2 frame.operands
       frame.sourceOperands frame.targetOperands sourceGet targetGet
     simp only [Veir.CTree.runOpWith, sourceGet, targetGet]
-    apply _root_.CTree.EqSim.bind _ _ _ _ (primitive sourceValues sourceGet values)
+    apply _root_.CTree.Sim.bind _ _ _ _ (primitive sourceValues sourceGet values)
     intro t s outcomes
     exact sim_commitOpResults_scoped sourceIn targetIn frame related outcomes.1 outcomes.2
 
@@ -595,7 +595,7 @@ theorem Pattern.Valid.checked_createdOps_sim_refiningInputs
     (conforms : RuntimeValue.ArrayConforms sourceValues (root.getOperandTypes! rewriter.ctx.raw))
     (values : RuntimeValue.arrayIsRefinedBy sourceValues targetValues.toArray)
     (memory : sourceMemory.isRefinedBy targetState.memory) :
-    _root_.CTree.EqSim (fun target source => ∃ results,
+    _root_.CTree.Sim (fun target source => ∃ results,
       replacements.toList.mapM target.variables.getVar? = some results ∧
       OperationResult.isRefinedBy source (results.toArray, target.memory, none))
       (interpretCreatedOpsChecked result.ctx newOps.toList targetState)
@@ -691,7 +691,7 @@ theorem sim_commitRoot_scoped
     (lookup : replacements.mapM targetState.variables.getVar? = some replacementValues)
     (outcomes : OperationResult.isRefinedBy sourceResult
       (replacementValues, targetState.memory, none)) :
-    _root_.CTree.EqSim
+    _root_.CTree.Sim
       (fun target source => ScopedStateRefines mapping sourcePoint targetPoint
         sourcePointIn targetPointIn source.1 target ∧ source.2 = none)
       (pure targetState : Tree (InterpreterState targetCtx))
@@ -707,7 +707,7 @@ theorem sim_commitRoot_scoped
     have action : sourceResult.2.2 = none := by
       have related := outcomes.2.2
       cases actionEq : sourceResult.2.2 <;> simp_all [ControlFlowAction.optionIsRefinedBy]
-    simp only [Veir.CTree.commitOpResults, sourceSet, _root_.CTree.EqSim.pure]
+    simp only [Veir.CTree.commitOpResults, sourceSet, _root_.CTree.Sim.pure]
     exact ⟨⟨outcomes.2.1, variables⟩, action⟩
 
 theorem interpretOpCore_no_action_of_nonterm {ctx : WfIRContext OpCode}
@@ -761,35 +761,35 @@ theorem sim_checked_createdOps_rootCore
       sourceState.variables.getVar? value = some sourceValue →
       targetState.variables.getVar? (mapping ⟨value, valueIn⟩) = some targetValue →
       RuntimeValue.isRefinedBy sourceValue targetValue)
-    (localSimulation : _root_.CTree.EqSim (fun target source => ∃ results,
+    (localSimulation : _root_.CTree.Sim (fun target source => ∃ results,
       replacements.toList.mapM target.variables.getVar? = some results ∧
       OperationResult.isRefinedBy source (results.toArray, target.memory, none))
       (interpretCreatedOpsChecked targetCtx newOps.toList targetState)
       (Veir.OperationPtr.interpretCTree root rootIn sourceValues sourceState.memory)) :
-    _root_.CTree.EqSim
+    _root_.CTree.Sim
       (fun target source => ScopedStateRefines mapping sourcePoint targetPoint
         sourcePointIn targetPointIn source.1 target ∧ source.2 = none)
       (interpretCreatedOpsChecked targetCtx newOps.toList targetState)
       (Veir.CTree.interpretOpCore root sourceState rootIn) := by
-  have enriched : _root_.CTree.EqSim (fun target source =>
+  have enriched : _root_.CTree.Sim (fun target source =>
       (∀ value, value.InBounds sourceCtx.raw →
         target.variables.getVar? value = targetState.variables.getVar? value) ∧
       ∃ results, replacements.toList.mapM target.variables.getVar? = some results ∧
         OperationResult.isRefinedBy source (results.toArray, target.memory, none))
       (interpretCreatedOpsChecked targetCtx newOps.toList targetState)
       (Veir.OperationPtr.interpretCTree root rootIn sourceValues sourceState.memory) := by
-    apply _root_.CTree.EqSim.trans
+    apply _root_.CTree.Sim.trans
       (Pattern.interpret_checked_sim_preserves_source_lookups rule localRun targetState) localSimulation
     rintro target intermediate source ⟨equal, frame⟩ observed
     subst intermediate
     exact ⟨frame, observed⟩
-  have committed := _root_.CTree.EqSim.bind
+  have committed := _root_.CTree.Sim.bind
     (RR' := fun target source => ScopedStateRefines mapping sourcePoint targetPoint
       sourcePointIn targetPointIn source.1 target ∧ source.2 = none) _ _
     (fun final => (pure final : Tree (InterpreterState targetCtx)))
     (Veir.CTree.commitOpResults root sourceState rootIn) enriched
     (fun target source related => ?_)
-  · change _root_.CTree.EqSim _
+  · change _root_.CTree.Sim _
       (interpretCreatedOpsChecked targetCtx newOps.toList targetState >>= pure) _ at committed
     rw [_root_.bind_pure] at committed
     simpa only [Veir.CTree.interpretOpCore, Veir.CTree.runOpWith, sourceGet, Bind.bind] using committed
@@ -820,7 +820,7 @@ theorem sim_cfgBatch_of_checkedRoot
     (sourceNextEq : root.getNextOp! sourceCtx.raw = some sourceNext)
     (sourceState : InterpreterState sourceCtx) (targetState : InterpreterState targetCtx)
     (related : InterpreterState targetCtx → InterpreterState sourceCtx → Prop)
-    (batch : _root_.CTree.EqSim (fun target source => related target source.1)
+    (batch : _root_.CTree.Sim (fun target source => related target source.1)
       (interpretCreatedOpsChecked targetCtx ops targetState)
       (Veir.CTree.interpretOpCore root sourceState rootIn))
     {reachable : (Veir.CTree.interpretCFG.StateLocation targetCtx ×
@@ -829,7 +829,7 @@ theorem sim_cfgBatch_of_checkedRoot
       InterpreterState sourceCtx) → Prop}
     (successors : ∀ target source, related target source →
       reachable (.inr ⟨targetNext, targetNextIn⟩, target) (.inr ⟨sourceNext, sourceNextIn⟩, source)) :
-    _root_.CTree.EqSim (Sum.LiftRel reachable (fun _ _ => False))
+    _root_.CTree.Sim (Sum.LiftRel reachable (fun _ _ => False))
       (_root_.CTree.iterSteps (fun (location, state) => Veir.CTree.interpretCFGCore.iter location state)
         ops.length (.inr ⟨first, firstIn⟩, targetState))
       (Veir.CTree.interpretCFGCore.iter (.inr ⟨root, rootIn⟩) sourceState) := by
@@ -837,9 +837,9 @@ theorem sim_cfgBatch_of_checkedRoot
     (fun op member => interpretOpCore_no_action_of_nonterm op _ (targetNonterm op member))]
   rw [CFGCore_step_eq_checked root sourceNext rootIn sourceNextIn sourceNextEq
     (interpretOpCore_no_action_of_nonterm root rootIn rootNonterm)]
-  apply _root_.CTree.EqSim.bind _ _ _ _ batch
+  apply _root_.CTree.Sim.bind _ _ _ _ batch
   intro target source h
-  simp only [_root_.CTree.EqSim.pure]
+  simp only [_root_.CTree.Sim.pure]
   exact .inl (successors target source.1 h)
 
 /-- Deleting a root uses a positive source batch of two steps: execute the
@@ -854,13 +854,13 @@ theorem sim_cfgDeletedRoot
     (relation : α → (Veir.CTree.interpretCFG.StateLocation sourceCtx × InterpreterState sourceCtx ⊕
       InterpreterState sourceCtx × Array RuntimeValue) → Prop)
     (related : InterpreterState targetCtx → InterpreterState sourceCtx → Prop)
-    (deleted : _root_.CTree.EqSim (fun target source => related target source.1)
+    (deleted : _root_.CTree.Sim (fun target source => related target source.1)
       (pure targetState : Tree (InterpreterState targetCtx))
       (Veir.CTree.interpretOpCore root sourceState rootIn))
     (successorStep : ∀ target (source : InterpreterState sourceCtx × Option ControlFlowAction), related target source.1 →
-      _root_.CTree.EqSim relation (targetStep target)
+      _root_.CTree.Sim relation (targetStep target)
         (Veir.CTree.interpretCFGCore.iter (.inr ⟨next, nextIn⟩) source.1)) :
-    _root_.CTree.EqSim relation (targetStep targetState)
+    _root_.CTree.Sim relation (targetStep targetState)
       (_root_.CTree.iterSteps (fun (location, state) => Veir.CTree.interpretCFGCore.iter location state)
         2 (.inr ⟨root, rootIn⟩, sourceState)) := by
   have sourceBatch :
@@ -877,7 +877,7 @@ theorem sim_cfgDeletedRoot
     funext outcome
     exact _root_.CTree.iterSteps_one _ _
   rw [sourceBatch]
-  have simulation := _root_.CTree.EqSim.bind _ _ targetStep
+  have simulation := _root_.CTree.Sim.bind _ _ targetStep
     (fun source => Veir.CTree.interpretCFGCore.iter (.inr ⟨next, nextIn⟩) source.1)
     deleted successorStep
   simpa only [Bind.bind, _root_.CTree.bind_pure] using simulation
@@ -918,7 +918,7 @@ theorem sim_interpretOpCore_scoped_of_verified
     (successors : targetOp.getSuccessors! targetCtx.raw = sourceOp.getSuccessors! sourceCtx.raw)
     {targetValues : Array RuntimeValue}
     (targetGet : targetState.variables.getOperandValues targetOp = some targetValues) :
-    _root_.CTree.EqSim
+    _root_.CTree.Sim
       (fun t s => ScopedStateRefines mapping nextSourcePoint nextTargetPoint nextSourceIn nextTargetIn s.1 t.1 ∧
         ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (Veir.CTree.interpretOpCore targetOp targetState targetIn)
@@ -977,7 +977,7 @@ theorem Pattern.Valid.checked_createdOps_rootCore
       sourceState.variables.getVar? value = some sourceValue →
       targetState.variables.getVar? (mapping ⟨value, valueIn⟩) = some targetValue →
       RuntimeValue.isRefinedBy sourceValue targetValue) :
-    _root_.CTree.EqSim
+    _root_.CTree.Sim
       (fun target source => ScopedStateRefines mapping sourcePoint targetPoint
         sourcePointIn targetPointIn source.1 target ∧ source.2 = none)
       (interpretCreatedOpsChecked result.ctx newOps.toList targetState)
@@ -1095,17 +1095,17 @@ theorem ScopedStepFrame.of_straightLine
 both concrete trees, allowing historical SSA invariants to be updated. -/
 theorem sim_with_outcomes {α β : Type} {target : Tree α} {source : Tree β}
     (targetShape : PureOrErr target) (sourceShape : PureOrErr source)
-    (relation : α → β → Prop) (simulation : _root_.CTree.EqSim relation target source) :
-    _root_.CTree.EqSim (fun t s => relation t s ∧
+    (relation : α → β → Prop) (simulation : _root_.CTree.Sim relation target source) :
+    _root_.CTree.Sim (fun t s => relation t s ∧
       PureOrErr.CanInterpretTo target (.ok t) ∧ PureOrErr.CanInterpretTo source (.ok s))
       target source := by
-  have targetWitness : _root_.CTree.EqSim (fun t s => relation t s ∧
+  have targetWitness : _root_.CTree.Sim (fun t s => relation t s ∧
       PureOrErr.CanInterpretTo target (.ok t)) target source := by
-    apply _root_.CTree.EqSim.trans (PureOrErr.sim_with_outcome targetShape) simulation
+    apply _root_.CTree.Sim.trans (PureOrErr.sim_with_outcome targetShape) simulation
     rintro t intermediate s ⟨equal, outcome⟩ related
     subst intermediate
     exact ⟨related, outcome⟩
-  apply _root_.CTree.EqSim.trans targetWitness (PureOrErr.sim_with_outcome sourceShape)
+  apply _root_.CTree.Sim.trans targetWitness (PureOrErr.sim_with_outcome sourceShape)
   rintro t intermediate s ⟨related, targetOutcome⟩ ⟨equal, sourceOutcome⟩
   subst intermediate
   exact ⟨related, targetOutcome, sourceOutcome⟩

@@ -204,7 +204,7 @@ semantics when executed.
 def Pattern.PreservesSemantics (rule : Pattern OpCode) : Prop :=
   MatchProg.Models rule.matcher fun matched => ∀ memory,
     match MatchProg.rootSemantics rule.matcher matched memory with
-    | some source => CTree.EqSim (fun target source => OperationResult.isRefinedBy source target)
+    | some source => CTree.Sim (fun target source => OperationResult.isRefinedBy source target)
         (CreateProg.semantics rule.creation rule.replacement matched memory) source
     | none => False
 

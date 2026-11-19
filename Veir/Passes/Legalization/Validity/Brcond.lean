@@ -399,7 +399,7 @@ def KeptOpsSim : Prop :=
   ∀ {op : OperationPtr} (opIn : op.InBounds ctx.raw) (hW : W.widened op = false)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'},
     W.StateRel state state' →
-    EqSim W.OpRel (interpretOperationTree op state' (W.opSame opIn hW).inBounds)
+    Sim W.OpRel (interpretOperationTree op state' (W.opSame opIn hW).inBounds)
       (interpretOperationTree op state opIn)
 
 /-- The operations of a module that are monotone in CTrees are refined by themselves. -/
@@ -431,11 +431,11 @@ theorem sim_opList (hKept : W.KeptOpsSim) : ∀ {ops : List OperationPtr}
     (opsIn' : ∀ op ∈ ops.flatMap (widenOp W.widened W.ext W.newBranch), op.InBounds ctx'.raw)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'},
     W.StateRel state state' →
-    EqSim W.OpRel (opListTree (ops.flatMap (widenOp W.widened W.ext W.newBranch)) state' opsIn')
+    Sim W.OpRel (opListTree (ops.flatMap (widenOp W.widened W.ext W.newBranch)) state' opsIn')
       (opListTree ops state opsIn)
   | [], _, _, _, _, hState => by
     simp only [List.flatMap_nil, opListTree_nil]
-    exact (EqSim.pure _ _ _).mpr ⟨hState, trivial⟩
+    exact (Sim.pure _ _ _).mpr ⟨hState, trivial⟩
   | op :: ops, opsIn, opsIn', state, state', hState => by
     have opIn := opsIn op (by simp)
     /- What runs after the operations that stand for `op`. -/
@@ -444,13 +444,13 @@ theorem sim_opList (hKept : W.KeptOpsSim) : ∀ {ops : List OperationPtr}
         (restIn : ∀ o ∈ ops, o.InBounds ctx.raw)
         (restIn' : ∀ o ∈ ops.flatMap (widenOp W.widened W.ext W.newBranch), o.InBounds ctx'.raw),
         W.StateRel source target → ControlFlowAction.optionIsRefinedBy action action' →
-        EqSim W.OpRel (action'.elim (opListTree _ target restIn') fun cf => pure (target, some cf))
+        Sim W.OpRel (action'.elim (opListTree _ target restIn') fun cf => pure (target, some cf))
           (action.elim (opListTree ops source restIn) fun cf => pure (source, some cf)) := by
       intro target action' source action restIn restIn' hRel hAction
       rcases action with _ | cf <;> rcases action' with _ | cf' <;>
         simp only [ControlFlowAction.optionIsRefinedBy] at hAction
       · exact sim_opList hKept _ _ hRel
-      · exact (EqSim.pure _ _ _).mpr ⟨hRel, hAction⟩
+      · exact (Sim.pure _ _ _).mpr ⟨hRel, hAction⟩
     cases hW : W.widened op
     · /- An operation that is kept. -/
       have hList : (op :: ops).flatMap (widenOp W.widened W.ext W.newBranch) =
@@ -460,7 +460,7 @@ theorem sim_opList (hKept : W.KeptOpsSim) : ∀ {ops : List OperationPtr}
       apply sim_tau1_left
       apply sim_tau1_right
       rw [tree_bind_eq, tree_bind_eq]
-      refine EqSim.bind _ _ _ _ (hKept opIn hW hState) ?_
+      refine Sim.bind _ _ _ _ (hKept opIn hW hState) ?_
       rintro ⟨target, action'⟩ ⟨source, action⟩ ⟨hRel, hAction⟩
       exact hCont _ _ _ _ _ _ hRel hAction
     · /- A widened branch: its `g_zext` and its new branch. -/

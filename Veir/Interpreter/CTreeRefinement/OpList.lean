@@ -32,18 +32,18 @@ Every behavior of `t` returns a value that satisfies `P`: `t` has no undefined b
 fail, and returns only values that satisfy `P`.
 -/
 abbrev Returns (t : Tree α) (P : α → Prop) : Prop :=
-  EqSim (fun a (_ : Unit) => P a) t (pure () : Tree Unit)
+  Sim (fun a (_ : Unit) => P a) t (pure () : Tree Unit)
 
 
 @[simp]
 theorem returns_pure {a : α} {P : α → Prop} : Returns (pure a : Tree α) P ↔ P a :=
-  EqSim.pure _ _ _
+  Sim.pure _ _ _
 
 /-- A tree followed by a continuation that returns only values satisfying `Q` for what it may
 return. -/
 theorem Returns.bind {t : Tree α} {P : α → Prop} {k : α → Tree β} {Q : β → Prop}
     (h : Returns t P) (hk : ∀ a, P a → Returns (k a) Q) : Returns (t >>= k) Q := by
-  have := EqSim.bind (RR' := fun b (_ : Unit) => Q b) t (pure ()) k (fun _ => pure ()) h
+  have := Sim.bind (RR' := fun b (_ : Unit) => Q b) t (pure ()) k (fun _ => pure ()) h
     (fun a _ ha => hk a ha)
   rw [CTree.bind_pure] at this
   rwa [tree_bind_eq]
@@ -55,59 +55,59 @@ theorem Returns.mono {t : Tree α} {P Q : α → Prop} (h : Returns t P) (hPQ : 
 
 theorem returns_tau1 {t : Tree α} {P : α → Prop} : Returns (CTree.tau1 t) P ↔ Returns t P := by
   rw [CTree.tau1_def]
-  exact (EqSim.tau_l _ _ _ _).trans ⟨fun h => h ⟨⟩, fun h _ => h⟩
+  exact (Sim.tau_l _ _ _ _).trans ⟨fun h => h ⟨⟩, fun h _ => h⟩
 
 /-- A tree that chooses a value and then returns only values satisfying `P`, whatever it chose. -/
 theorem returns_choose_bind {SubCIn : Type} {SubC : SubCIn → Type} [SubC -< FreezeC]
     (i : SubCIn) {k : SubC i → Tree β} {P : β → Prop} (h : ∀ x, Returns (k x) P) :
     Returns (CTree.choose (E := ErrorE ⊕ₑ UBE) i >>= k) P := by
   rw [CTree.choose_def, CTree.tau_def, bind_tau]
-  refine (EqSim.tau_l _ _ _ _).mpr fun x => ?_
+  refine (Sim.tau_l _ _ _ _).mpr fun x => ?_
   rw [CTree.CTree.ret_pure, pure_bind]
   exact h _
 
 theorem Returns.inflate {t : Tree α} {P : α → Prop} (h : Returns t P) : Returns (inflate t) P := by
-  show EqSim _ (Veir.CTree.inflate t) (pure ())
+  show Sim _ (Veir.CTree.inflate t) (pure ())
   rw [← inflate_pure ()]
-  exact EqSim.interp _ t (pure ()) h
+  exact Sim.interp _ t (pure ()) h
 
 /-- A simulation with a stronger relation. -/
-theorem sim_mono {RR RR' : α → β → Prop} {t : Tree α} {s : Tree β} (h : EqSim RR t s)
-    (hRR : ∀ a b, RR a b → RR' a b) : EqSim RR' t s := by
-  have := EqSim.bind (RR' := RR') t s pure pure h (fun a b hab => (EqSim.pure _ _ _).mpr (hRR a b hab))
+theorem sim_mono {RR RR' : α → β → Prop} {t : Tree α} {s : Tree β} (h : Sim RR t s)
+    (hRR : ∀ a b, RR a b → RR' a b) : Sim RR' t s := by
+  have := Sim.bind (RR' := RR') t s pure pure h (fun a b hab => (Sim.pure _ _ _).mpr (hRR a b hab))
   rwa [← tree_bind_eq, ← tree_bind_eq, _root_.bind_pure, _root_.bind_pure] at this
 
 /-- A simulation of a source that returns one value, together with what holds of that value. -/
-theorem sim_pure_and {RR : α → β → Prop} {t : Tree α} {b : β} (h : EqSim RR t (pure b : Tree β))
-    {P : β → Prop} (hb : P b) : EqSim (fun a b => RR a b ∧ P b) t (pure b : Tree β) := by
+theorem sim_pure_and {RR : α → β → Prop} {t : Tree α} {b : β} (h : Sim RR t (pure b : Tree β))
+    {P : β → Prop} (hb : P b) : Sim (fun a b => RR a b ∧ P b) t (pure b : Tree β) := by
   classical
-  have := EqSim.bind (RR' := fun a b => RR a b ∧ P b) t (pure b) pure
+  have := Sim.bind (RR' := fun a b => RR a b ∧ P b) t (pure b) pure
     (fun b' => if P b' then pure b' else ub) h fun a b' hab => by
       by_cases hP : P b'
-      · simp only [hP, ↓reduceIte]; exact (EqSim.pure _ _ _).mpr ⟨hab, hP⟩
+      · simp only [hP, ↓reduceIte]; exact (Sim.pure _ _ _).mpr ⟨hab, hP⟩
       · simp [hP]
   rw [← tree_bind_eq, ← tree_bind_eq, _root_.bind_pure, pure_bind] at this
   simpa only [hb, ↓reduceIte] using this
 
 /-- A source step after a target tree that returns only values satisfying `P`. -/
 theorem sim_bind_of_returns {RR : β → γ → Prop} {t : Tree α} {P : α → Prop} {k : α → Tree β}
-    {s : Tree γ} (h : Returns t P) (hk : ∀ a, P a → EqSim RR (k a) s) : EqSim RR (t >>= k) s := by
-  have := EqSim.bind (RR' := RR) t (pure ()) k (fun _ => s) h (fun a _ ha => hk a ha)
+    {s : Tree γ} (h : Returns t P) (hk : ∀ a, P a → Sim RR (k a) s) : Sim RR (t >>= k) s := by
+  have := Sim.bind (RR' := RR) t (pure ()) k (fun _ => s) h (fun a _ ha => hk a ha)
   rw [CTree.bind_pure] at this
   rwa [tree_bind_eq]
 
 /-- A target tree that returns only values related to the value the source returns. -/
 theorem sim_pure_of_returns {RR : α → γ → Prop} {t : Tree α} {s : γ}
-    (h : Returns t (fun a => RR a s)) : EqSim RR t (pure s : Tree γ) := by
+    (h : Returns t (fun a => RR a s)) : Sim RR t (pure s : Tree γ) := by
   have := sim_bind_of_returns (k := pure) (s := (pure s : Tree γ)) h
-    (fun a ha => (EqSim.pure _ _ _).mpr ha)
+    (fun a ha => (Sim.pure _ _ _).mpr ha)
   rwa [_root_.bind_pure] at this
 
 /-- A source that is the lift of an `Interp` outcome: only its successful outcome needs a
 target. -/
 theorem sim_monadLift_bind {RR : β → γ → Prop} {t : Tree β} {outcome : Interp α}
-    {k : α → Tree γ} (h : ∀ a, outcome = .ok a → EqSim RR t (k a)) :
-    EqSim RR t (monadLift outcome >>= k) := by
+    {k : α → Tree γ} (h : ∀ a, outcome = .ok a → Sim RR t (k a)) :
+    Sim RR t (monadLift outcome >>= k) := by
   cases outcome with
   | ok a => simpa [monadLift, MonadLift.monadLift] using h a rfl
   | ub _ => simp [monadLift, MonadLift.monadLift, tree_bind_eq]
@@ -115,22 +115,22 @@ theorem sim_monadLift_bind {RR : β → γ → Prop} {t : Tree β} {outcome : In
 
 /-- A source that is the lift of an `Interp` outcome, without a continuation. -/
 theorem sim_monadLift {RR : β → α → Prop} {t : Tree β} {outcome : Interp α}
-    (h : ∀ a, outcome = .ok a → EqSim RR t (pure a : Tree α)) :
-    EqSim RR t (monadLift outcome : Tree α) := by
+    (h : ∀ a, outcome = .ok a → Sim RR t (pure a : Tree α)) :
+    Sim RR t (monadLift outcome : Tree α) := by
   have := sim_monadLift_bind (k := pure) h
   rwa [_root_.bind_pure] at this
 
 /-- A silent step of the target. -/
-theorem sim_tau1_left {RR : α → β → Prop} {t : Tree α} {s : Tree β} (h : EqSim RR t s) :
-    EqSim RR (CTree.tau1 t) s := by
+theorem sim_tau1_left {RR : α → β → Prop} {t : Tree α} {s : Tree β} (h : Sim RR t s) :
+    Sim RR (CTree.tau1 t) s := by
   rw [CTree.tau1_def]
-  exact (EqSim.tau_l _ _ _ _).mpr fun _ => h
+  exact (Sim.tau_l _ _ _ _).mpr fun _ => h
 
 /-- A silent step of the source. -/
-theorem sim_tau1_right {RR : α → β → Prop} {t : Tree α} {s : Tree β} (h : EqSim RR t s) :
-    EqSim RR t (CTree.tau1 s) := by
+theorem sim_tau1_right {RR : α → β → Prop} {t : Tree α} {s : Tree β} (h : Sim RR t s) :
+    Sim RR t (CTree.tau1 s) := by
   rw [CTree.tau1_def]
-  exact EqSim.tau_r _ _ _ _ ⟨⟩ h
+  exact Sim.tau_r _ _ _ _ ⟨⟩ h
 
 /-! ## Lists of operations -/
 
@@ -357,7 +357,7 @@ def _root_.Veir.OperationPtr.TreeMonotone (op : OperationPtr) (ctx : WfIRContext
   ∀ (operands operands' : Array RuntimeValue) (mem mem' : MemoryState),
     RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
     operands ⊒ operands' → mem ⊒ mem' →
-    EqSim (fun t s => OperationResult.isRefinedBy s t)
+    Sim (fun t s => OperationResult.isRefinedBy s t)
       (interpretOp' (op.getOpType! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
         (op.getResultTypes! ctx.raw) operands' (op.getSuccessors! ctx.raw) mem')
       (interpretOp' (op.getOpType! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
@@ -385,7 +385,7 @@ theorem interpretOperationTree_sim_of_preservesOperation
     (hMono : op.TreeMonotone ctx)
     (hState : state.isRefinedBy state' mapping)
     (hPreserves : mapping.PreservesOperation op op') :
-    EqSim (fun (t : InterpreterState ctx' × Option ControlFlowAction)
+    Sim (fun (t : InterpreterState ctx' × Option ControlFlowAction)
         (s : InterpreterState ctx × Option ControlFlowAction) =>
         s.1.isRefinedBy t.1 mapping ∧ ControlFlowAction.optionIsRefinedBy s.2 t.2 ∧
         (∃ results, state.variables.setResultValues? op results opIn = some s.1.variables) ∧
@@ -400,18 +400,18 @@ theorem interpretOperationTree_sim_of_preservesOperation
   simp only [hTgtOps]
   rw [interpretOp'_opType_cast hPreserves.opType hPreserves.props, hPreserves.resultTypes,
     hPreserves.successors, tree_bind_eq, tree_bind_eq]
-  apply EqSim.bind (RR := fun t s => OperationResult.isRefinedBy s t ∧
+  apply Sim.bind (RR := fun t s => OperationResult.isRefinedBy s t ∧
     ((op.getOpType! ctx.raw).isLifted = false → s.2.2 = none))
-  · apply EqSim.interp
-    apply EqSim.interp
+  · apply Sim.interp
+    apply Sim.interp
     have := hMono operands operands' state.memory state'.memory
       (VariableState.getOperandValues_conforms hSrcOps) hOpsRef hMem
     cases hLifted : (op.getOpType! ctx.raw).isLifted
     · rw [← interpretOp'_bind_dropAction hLifted _ _ operands,
         ← interpretOp'_bind_dropAction hLifted _ _ operands', tree_bind_eq, tree_bind_eq]
-      refine EqSim.bind _ _ _ _ this fun t s hts => ?_
+      refine Sim.bind _ _ _ _ this fun t s hts => ?_
       obtain ⟨h₁, h₂, -⟩ := hts
-      exact (EqSim.pure _ _ _).mpr ⟨⟨h₁, h₂, by simp [ControlFlowAction.optionIsRefinedBy]⟩,
+      exact (Sim.pure _ _ _).mpr ⟨⟨h₁, h₂, by simp [ControlFlowAction.optionIsRefinedBy]⟩,
         fun _ => rfl⟩
     · exact sim_mono this fun t s hts => ⟨hts, fun h => nomatch h⟩
   · rintro ⟨results', mem', action'⟩ ⟨results, mem, action⟩ ⟨hRel, hNone⟩
@@ -424,7 +424,7 @@ theorem interpretOperationTree_sim_of_preservesOperation
       exact (RuntimeValue.ArrayConforms_of_setResultValues?_eq_some hSet).of_isRefinedBy hResults
     obtain ⟨variables', hSet', hRefined⟩ := VariableState.setResultValues?_isRefinedBy hVars
       hResults hPreserves.results hPreserves.reflect hSet hConforms opIn'
-    simp only [hSet', EqSim.pure]
+    simp only [hSet', Sim.pure]
     exact ⟨⟨hMem', hRefined⟩, hAction, ⟨results, hSet⟩, hNone⟩
 
 end Veir.CTree

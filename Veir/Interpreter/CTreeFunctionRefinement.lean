@@ -105,13 +105,13 @@ theorem sim_interpretCFGCore_iter {ctx : WfIRContext OpCode}
     (operations : ∀ (op : OperationPtr) (hop : op.InBounds ctx.raw)
       (target source : InterpreterState ctx),
       source.isRefinedBy target (ValueMapping.identity ctx) →
-      _root_.CTree.EqSim
+      _root_.CTree.Sim
         (fun t s => s.1.isRefinedBy t.1 (ValueMapping.identity ctx) ∧
           ControlFlowAction.optionIsRefinedBy s.2 t.2)
         (interpretOpCore op target hop) (interpretOpCore op source hop))
     {target source : interpretCFG.StateLocation ctx × InterpreterState ctx}
     (related : CFGStateRefines target source) :
-    _root_.CTree.EqSim (Sum.LiftRel CFGStateRefines CFGResultRefines)
+    _root_.CTree.Sim (Sum.LiftRel CFGStateRefines CFGResultRefines)
       (interpretCFGCore.iter target.1 target.2) (interpretCFGCore.iter source.1 source.2) := by
   rcases target with ⟨targetLocation, targetState⟩
   rcases source with ⟨sourceLocation, sourceState⟩
@@ -141,7 +141,7 @@ theorem sim_interpretCFGCore_iter {ctx : WfIRContext OpCode}
           simp only [targetSet]
           split
           next nextOp nextEq =>
-            apply (_root_.CTree.EqSim.pure _ _ _).mpr
+            apply (_root_.CTree.Sim.pure _ _ _).mpr
             exact .inl ⟨⟨states.1, variableRefinement⟩, rfl⟩
           next missing => exact sim_fail _ _
       · simp only [interpretCFGCore.iter]
@@ -158,7 +158,7 @@ theorem sim_interpretCFGCore_iter {ctx : WfIRContext OpCode}
       subst sourceOp
       rcases targetOp with ⟨op, hop⟩
       simp only [interpretCFGCore.iter]
-      apply _root_.CTree.EqSim.bind _ _ _ _ (operations op hop targetState sourceState states)
+      apply _root_.CTree.Sim.bind _ _ _ _ (operations op hop targetState sourceState states)
       rintro ⟨targetState', targetAction⟩ ⟨sourceState', sourceAction⟩ ⟨states', actions⟩
       cases sourceAction with
       | none =>
@@ -168,7 +168,7 @@ theorem sim_interpretCFGCore_iter {ctx : WfIRContext OpCode}
           simp only
           split
           next nextOp nextEq =>
-            apply (_root_.CTree.EqSim.pure _ _ _).mpr
+            apply (_root_.CTree.Sim.pure _ _ _).mpr
             exact .inl ⟨states', rfl⟩
           next missing => exact sim_fail _ _
       | some sourceAction =>
@@ -177,13 +177,13 @@ theorem sim_interpretCFGCore_iter {ctx : WfIRContext OpCode}
         | some targetAction =>
           cases sourceAction <;> cases targetAction <;>
             simp only [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy] at actions
-          · apply (_root_.CTree.EqSim.pure _ _ _).mpr
+          · apply (_root_.CTree.Sim.pure _ _ _).mpr
             exact .inr ⟨states', actions⟩
           · rcases actions with ⟨rfl, values⟩
             simp only
             split
             next destinationIn =>
-              apply (_root_.CTree.EqSim.pure _ _ _).mpr
+              apply (_root_.CTree.Sim.pure _ _ _).mpr
               exact .inl ⟨states', rfl, values⟩
             next destinationOut => exact sim_fail _ _
 
@@ -192,7 +192,7 @@ theorem sim_interpretCFGCore_of_operations {ctx : WfIRContext OpCode}
     (operations : ∀ (op : OperationPtr) (hop : op.InBounds ctx.raw)
       (target source : InterpreterState ctx),
       source.isRefinedBy target (ValueMapping.identity ctx) →
-      _root_.CTree.EqSim
+      _root_.CTree.Sim
         (fun t s => s.1.isRefinedBy t.1 (ValueMapping.identity ctx) ∧
           ControlFlowAction.optionIsRefinedBy s.2 t.2)
         (interpretOpCore op target hop) (interpretOpCore op source hop))
@@ -201,13 +201,13 @@ theorem sim_interpretCFGCore_of_operations {ctx : WfIRContext OpCode}
     (targetState sourceState : InterpreterState ctx)
     (states : sourceState.isRefinedBy targetState (ValueMapping.identity ctx))
     (values : RuntimeValue.arrayIsRefinedBy sourceValues targetValues) :
-    _root_.CTree.EqSim CFGResultRefines
+    _root_.CTree.Sim CFGResultRefines
       (interpretCFGCore region targetValues targetState regionIn)
       (interpretCFGCore region sourceValues sourceState regionIn) := by
   unfold interpretCFGCore
   split
   next block entry =>
-    apply _root_.CTree.EqSim.iter
+    apply _root_.CTree.Sim.iter
     · exact (show CFGStateRefines _ _ from ⟨states, rfl, values⟩)
     · exact fun _ _ h => sim_interpretCFGCore_iter operations h
   next missing => exact sim_fail _ _
@@ -219,7 +219,7 @@ theorem sim_interpretOpCore_of_verified
     (op : OperationPtr) (opIn : op.InBounds ctx.raw)
     (target source : InterpreterState ctx)
     (states : source.isRefinedBy target (ValueMapping.identity ctx)) :
-    _root_.CTree.EqSim
+    _root_.CTree.Sim
       (fun t s => s.1.isRefinedBy t.1 (ValueMapping.identity ctx) ∧
         ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (interpretOpCore op target opIn) (interpretOpCore op source opIn) := by
@@ -239,7 +239,7 @@ theorem sim_interpretCFGCore_of_verified
     (targetState sourceState : InterpreterState ctx)
     (states : sourceState.isRefinedBy targetState (ValueMapping.identity ctx))
     (values : RuntimeValue.arrayIsRefinedBy sourceValues targetValues) :
-    _root_.CTree.EqSim CFGResultRefines
+    _root_.CTree.Sim CFGResultRefines
       (interpretCFGCore region targetValues targetState regionIn)
       (interpretCFGCore region sourceValues sourceState regionIn) :=
   sim_interpretCFGCore_of_operations (sim_interpretOpCore_of_verified primitive verified)
@@ -254,14 +254,14 @@ theorem sim_interpretRegion_of_verified
     (targetState sourceState : InterpreterState ctx)
     (states : sourceState.isRefinedBy targetState (ValueMapping.identity ctx))
     (values : RuntimeValue.arrayIsRefinedBy sourceValues targetValues) :
-    _root_.CTree.EqSim CFGResultRefines
+    _root_.CTree.Sim CFGResultRefines
       (interpretRegion region targetValues targetState regionIn)
       (interpretRegion region sourceValues sourceState regionIn) := by
   have core := sim_interpretCFGCore_of_verified primitive verified region regionIn
     targetValues sourceValues targetState sourceState states values
   have targetNorm := (sim_interpretRegion_core region targetValues targetState regionIn).1
   have sourceNorm := (sim_interpretRegion_core region sourceValues sourceState regionIn).2
-  exact _root_.CTree.EqSim.trans (_root_.CTree.EqSim.trans targetNorm core
+  exact _root_.CTree.Sim.trans (_root_.CTree.Sim.trans targetNorm core
     (fun _ _ _ equal related => equal ▸ related)) sourceNorm
     (fun _ _ _ related equal => equal ▸ related)
 
@@ -273,7 +273,7 @@ theorem sim_interpretFunction_of_verified
     (targetValues sourceValues : Array RuntimeValue)
     (mem : MemoryState)
     (values : RuntimeValue.arrayIsRefinedBy sourceValues targetValues) :
-    _root_.CTree.EqSim (fun target source => RuntimeValue.arrayIsRefinedBy source target)
+    _root_.CTree.Sim (fun target source => RuntimeValue.arrayIsRefinedBy source target)
       (interpretFunction op targetValues mem opIn) (interpretFunction op sourceValues mem opIn) := by
   apply sim_interpretFunction opIn opIn targetValues sourceValues mem
   intro function functionEq oneRegion

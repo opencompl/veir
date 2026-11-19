@@ -44,16 +44,16 @@ theorem TypeAttr.forall_of_eq_imp_iff {T : Type} [IsTypeAttr T] {P : TypeAttr �
 Copied from `math-fehr/puddle-ctree-wip` (`InstructionSelection/Proofs/Utils.lean`), where it is
 tagged `ctree_semantics`. Here it is passed explicitly by `simpPatternSemantics`, because some
 proofs (e.g. of stores) must keep the source lifted. -/
-theorem EqSim.bind_monadLift_right_iff {EIn : Type} {E : EIn → Type}
+theorem Sim.bind_monadLift_right_iff {EIn : Type} {E : EIn → Type}
     [HasUB EIn] [ErrorE -< E] [UBE -< E]
     {CIn C'In : Type} {C : CIn → Type} {C' : C'In → Type}
     {α β : Type} (relation : α → β → Prop)
     (other : CTree E C α) (func : Interp β) :
-    CTree.EqSim relation other (monadLift func : CTree E C' β) ↔
+    CTree.Sim relation other (monadLift func : CTree E C' β) ↔
       match func with
-      | .ok value => CTree.EqSim relation other (pure value : CTree E C' β)
-      | .ub _ => CTree.EqSim relation other (ub : CTree E C' β)
-      | .fail _ => CTree.EqSim relation other (fail : CTree E C' β) := by
+      | .ok value => CTree.Sim relation other (pure value : CTree E C' β)
+      | .ub _ => CTree.Sim relation other (ub : CTree E C' β)
+      | .fail _ => CTree.Sim relation other (fail : CTree E C' β) := by
   cases func <;> rfl
 
 /-- Lifting an `Interp` computation into a tree distributes over its binds, so that a tree can be
@@ -75,14 +75,14 @@ theorem bind_bind {EIn CIn : Type} {E : EIn → Type} {C : CIn → Type} {α β 
 @[simp]
 theorem sim_monadLift_fail_right {α β : Type} (R : α → β → Prop) (target : Tree α)
     (location : Option OperationPtr) :
-    CTree.EqSim R target (monadLift (Interp.fail location : Interp β) : Tree β) := by
+    CTree.Sim R target (monadLift (Interp.fail location : Interp β) : Tree β) := by
   simp [monadLift, MonadLift.monadLift]
 
 /-- A lifted source with undefined behavior is simulated by any target. -/
 @[simp]
 theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target : Tree α)
     (location : Option OperationPtr) :
-    CTree.EqSim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
+    CTree.Sim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
   simp [monadLift, MonadLift.monadLift]
 
 /-- A failing tree has no successful outcome, so a matched operation whose semantics fail is not
@@ -262,7 +262,7 @@ elab "casesResultTypes" : tactic => do
 /-- Unfold the operation semantics of a goal produced by `simpPuddleValid`. The operation
 interpreters to unfold are added to `ctree_semantics` locally by each proof file. -/
 macro "simpPatternSemantics" : tactic => `(tactic|
-  simp [ctree_semantics, EqSim.bind_monadLift_right_iff])
+  simp [ctree_semantics, Sim.bind_monadLift_right_iff])
 
 /-- Split the matched inputs of a normalized validity goal, then substitute the results of the
 matched operations. Each round resolves one more level of nested matched operations: an

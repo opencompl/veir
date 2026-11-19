@@ -1,6 +1,6 @@
 module
 
-public import CTree.EqSim
+public import CTree.Sim
 import all CTree.Defs
 import all CTree.Iter
 import all CTree.Interp
@@ -179,37 +179,37 @@ existing synchronized iteration simulation rule. -/
 theorem sim_interp_mrec_iter {FIn I X : Type u} {F : FIn → Type u} [HasUB FIn]
     (handler : (event : EIn) → CTree (E ⊕ₑ F) C (E event))
     (body : I → CTree (E ⊕ₑ F) C (I ⊕ X)) (i : I) :
-    EqSim Eq (interp_mrec handler (iter.{u, u} body i))
+    Sim Eq (interp_mrec handler (iter.{u, u} body i))
         (iter.{u, u} (fun j => interp_mrec handler (body j)) i) ∧
-      EqSim Eq (iter.{u, u} (fun j => interp_mrec handler (body j)) i)
+      Sim Eq (iter.{u, u} (fun j => interp_mrec handler (body j)) i)
         (interp_mrec handler (iter.{u, u} body i)) := by
   rw [interp_mrec_iter_eq]
   constructor
-  · apply EqSim.iter _ _ _ _ rfl
+  · apply Sim.iter _ _ _ _ rfl
     intro x y equal
     subst y
     conv => rhs; rw [← _root_.bind_pure (interp_mrec handler (body x))]
-    apply EqSim.bind _ _ _ _ (EqSim.refl Eq (fun _ => rfl) (interp_mrec handler (body x)))
+    apply Sim.bind _ _ _ _ (Sim.refl Eq (fun _ => rfl) (interp_mrec handler (body x)))
     intro t s equal
     subst s
     cases t with
     | inl j =>
-      simp only [CTree.tau1_def, EqSim.tau_l]
+      simp only [CTree.tau1_def, Sim.tau_l]
       intro _
-      exact (EqSim.pure _ _ _).mpr (.inl rfl)
-    | inr r => exact (EqSim.pure _ _ _).mpr (.inr rfl)
-  · apply EqSim.iter _ _ _ _ rfl
+      exact (Sim.pure _ _ _).mpr (.inl rfl)
+    | inr r => exact (Sim.pure _ _ _).mpr (.inr rfl)
+  · apply Sim.iter _ _ _ _ rfl
     intro x y equal
     subst y
     conv => lhs; rw [← _root_.bind_pure (interp_mrec handler (body x))]
-    apply EqSim.bind _ _ _ _ (EqSim.refl Eq (fun _ => rfl) (interp_mrec handler (body x)))
+    apply Sim.bind _ _ _ _ (Sim.refl Eq (fun _ => rfl) (interp_mrec handler (body x)))
     intro t s equal
     subst s
     cases t with
     | inl j =>
-      apply EqSim.tau_r _ (.inl .c1) _ _ .unit
-      exact (EqSim.pure _ _ _).mpr (.inl rfl)
-    | inr r => exact (EqSim.pure _ _ _).mpr (.inr rfl)
+      apply Sim.tau_r _ (.inl .c1) _ _ .unit
+      exact (Sim.pure _ _ _).mpr (.inl rfl)
+    | inr r => exact (Sim.pure _ _ _).mpr (.inr rfl)
 
 /-- Run at most `n` loop-body steps, stopping immediately on a final result.
 A continuation result records the state at the end of the finite batch. -/
@@ -278,97 +278,97 @@ theorem iter_guardedSteps_eq {I X : Type u} (body : I → CTree E C (I ⊕ X))
 directions. This finite result does not require a coinduction axiom. -/
 theorem sim_iterGuardedSteps [HasUB EIn] {I X : Type u}
     (body : I → CTree E C (I ⊕ X)) (n : Nat) (i : I) :
-    EqSim Eq (iterGuardedSteps body n i) (iterSteps body n i) ∧
-      EqSim Eq (iterSteps body n i) (iterGuardedSteps body n i) := by
+    Sim Eq (iterGuardedSteps body n i) (iterSteps body n i) ∧
+      Sim Eq (iterSteps body n i) (iterGuardedSteps body n i) := by
   induction n generalizing i with
-  | zero => exact ⟨EqSim.refl _ (fun _ => rfl) _, EqSim.refl _ (fun _ => rfl) _⟩
+  | zero => exact ⟨Sim.refl _ (fun _ => rfl) _, Sim.refl _ (fun _ => rfl) _⟩
   | succ n ih =>
     cases n with
     | zero =>
       simp only [Nat.zero_add, iterGuardedSteps, iterSteps_one]
-      exact ⟨EqSim.refl _ (fun _ => rfl) _, EqSim.refl _ (fun _ => rfl) _⟩
+      exact ⟨Sim.refl _ (fun _ => rfl) _, Sim.refl _ (fun _ => rfl) _⟩
     | succ n =>
       rw [iterGuardedSteps, iterSteps]
-      have same := EqSim.refl Eq (fun _ => rfl) (body i)
+      have same := Sim.refl Eq (fun _ => rfl) (body i)
       constructor
-      · apply EqSim.bind _ _ _ _ same
+      · apply Sim.bind _ _ _ _ same
         intro t s equal
         subst s
         cases t with
         | inl j =>
-          simp only [CTree.tau1_def, EqSim.tau_l]
+          simp only [CTree.tau1_def, Sim.tau_l]
           intro _
           exact (ih j).1
-        | inr x => exact EqSim.refl _ (fun _ => rfl) _
-      · apply EqSim.bind _ _ _ _ same
+        | inr x => exact Sim.refl _ (fun _ => rfl) _
+      · apply Sim.bind _ _ _ _ same
         intro t s equal
         subst s
         cases t with
         | inl j =>
-          apply EqSim.tau_r _ (.inl .c1) _ _ .unit
+          apply Sim.tau_r _ (.inl .c1) _ _ .unit
           exact (ih j).2
-        | inr x => exact EqSim.refl _ (fun _ => rfl) _
+        | inr x => exact Sim.refl _ (fun _ => rfl) _
 
 /-- Every positive state-dependent finite grouping is equivalent to the original
-loop under simulation. `EqSim.iter` handles the grouped bodies; the guarded grouping
+loop under simulation. `Sim.iter` handles the grouped bodies; the guarded grouping
 is strongly equal to the original loop. -/
 theorem sim_iterSteps_iter [HasUB EIn] {I X : Type u}
     (body : I → CTree E C (I ⊕ X)) (batchSize : I → Nat)
     (positive : ∀ i, 0 < batchSize i) (i : I) :
-    EqSim Eq (iter.{u, u} (fun j => iterSteps body (batchSize j) j) i) (iter.{u, u} body i) ∧
-      EqSim Eq (iter.{u, u} body i) (iter.{u, u} (fun j => iterSteps body (batchSize j) j) i) := by
+    Sim Eq (iter.{u, u} (fun j => iterSteps body (batchSize j) j) i) (iter.{u, u} body i) ∧
+      Sim Eq (iter.{u, u} body i) (iter.{u, u} (fun j => iterSteps body (batchSize j) j) i) := by
   have grouped := iter_guardedSteps_eq body batchSize positive i
   constructor
   · rw [← grouped]
-    apply EqSim.iter _ _ _ _ rfl
+    apply Sim.iter _ _ _ _ rfl
     intro x y equal
     subst y
     exact ((sim_iterGuardedSteps body (batchSize x) x).2).mono
       (fun a b equal => by subst b; cases a <;> first | exact Sum.LiftRel.inl rfl | exact Sum.LiftRel.inr rfl)
   · rw [← grouped]
-    apply EqSim.iter _ _ _ _ rfl
+    apply Sim.iter _ _ _ _ rfl
     intro x y equal
     subst y
     exact ((sim_iterGuardedSteps body (batchSize x) x).1).mono
       (fun a b equal => by subst b; cases a <;> first | exact Sum.LiftRel.inl rfl | exact Sum.LiftRel.inr rfl)
 
 /-- Synchronized local simulations compose over every finite batch. -/
-theorem EqSim.iterSteps [HasUB EIn] {I J X Y : Type u}
+theorem Sim.iterSteps [HasUB EIn] {I J X Y : Type u}
     (reachable : I → J → Prop) (results : X → Y → Prop)
     (target : I → CTree E C (I ⊕ X)) (source : J → CTree E C (J ⊕ Y))
     (step : ∀ i j, reachable i j →
-      EqSim (Sum.LiftRel reachable results) (target i) (source j))
+      Sim (Sum.LiftRel reachable results) (target i) (source j))
     (n : Nat) {i : I} {j : J} (initial : reachable i j) :
-    EqSim (Sum.LiftRel reachable results)
+    Sim (Sum.LiftRel reachable results)
       (iterSteps target n i) (iterSteps source n j) := by
   induction n generalizing i j with
-  | zero => exact (EqSim.pure _ _ _).mpr (.inl initial)
+  | zero => exact (Sim.pure _ _ _).mpr (.inl initial)
   | succ n ih =>
     unfold _root_.CTree.iterSteps
-    apply EqSim.bind _ _ _ _ (step i j initial)
+    apply Sim.bind _ _ _ _ (step i j initial)
     intro t s related
     cases related with
     | inl h => exact ih h
-    | inr h => exact (EqSim.pure _ _ _).mpr (.inr h)
+    | inr h => exact (Sim.pure _ _ _).mpr (.inr h)
 
-/-- Positive finite batching follows from the existing synchronized `EqSim.iter`.
+/-- Positive finite batching follows from the existing synchronized `Sim.iter`.
 Batch schedules depend on each machine's own state, allowing instruction-location
 based regrouping without extending the trusted simulation theory. -/
-theorem EqSim.iter_batched [HasUB EIn] {I J X Y : Type u}
+theorem Sim.iter_batched [HasUB EIn] {I J X Y : Type u}
     (target : I → CTree E C (I ⊕ X)) (source : J → CTree E C (J ⊕ Y))
     (targetBatch : I → Nat) (sourceBatch : J → Nat)
     (targetPositive : ∀ i, 0 < targetBatch i) (sourcePositive : ∀ j, 0 < sourceBatch j)
     (reachable : I → J → Prop) (results : X → Y → Prop)
     (step : ∀ i j, reachable i j →
-      EqSim (Sum.LiftRel reachable results)
+      Sim (Sum.LiftRel reachable results)
         (_root_.CTree.iterSteps target (targetBatch i) i) (_root_.CTree.iterSteps source (sourceBatch j) j))
     {i : I} {j : J} (initial : reachable i j) :
-    EqSim results (_root_.CTree.iter.{u, u} target i) (_root_.CTree.iter.{u, u} source j) := by
-  have batches := EqSim.iter (fun i => _root_.CTree.iterSteps target (targetBatch i) i)
+    Sim results (_root_.CTree.iter.{u, u} target i) (_root_.CTree.iter.{u, u} source j) := by
+  have batches := Sim.iter (fun i => _root_.CTree.iterSteps target (targetBatch i) i)
     (fun j => _root_.CTree.iterSteps source (sourceBatch j) j) i j initial step
   have targetGrouping := (sim_iterSteps_iter target targetBatch targetPositive i).2
   have sourceGrouping := (sim_iterSteps_iter source sourceBatch sourcePositive j).1
-  exact EqSim.trans (EqSim.trans targetGrouping batches
+  exact Sim.trans (Sim.trans targetGrouping batches
     (fun _ _ _ equal related => equal ▸ related)) sourceGrouping
     (fun _ _ _ related equal => equal ▸ related)
 
@@ -382,7 +382,7 @@ structure IterBatchedSimulation [HasUB EIn] {I J X Y : Type u}
   targetPositive : ∀ i j, reachable i j → 0 < targetBatchSize i j
   sourcePositive : ∀ i j, reachable i j → 0 < sourceBatchSize i j
   step : ∀ i j, reachable i j →
-    EqSim (Sum.LiftRel reachable results)
+    Sim (Sum.LiftRel reachable results)
       (iterSteps target (targetBatchSize i j) i)
       (iterSteps source (sourceBatchSize i j) j)
 
@@ -391,7 +391,7 @@ def IterBatchedSimulation.of_step [HasUB EIn] {I J X Y : Type u}
     {target : I → CTree E C (I ⊕ X)} {source : J → CTree E C (J ⊕ Y)}
     {reachable : I → J → Prop} {results : X → Y → Prop}
     (step : ∀ i j, reachable i j →
-      EqSim (Sum.LiftRel reachable results) (target i) (source j)) :
+      Sim (Sum.LiftRel reachable results) (target i) (source j)) :
     IterBatchedSimulation target source reachable results where
   targetBatchSize := fun _ _ => 1
   sourceBatchSize := fun _ _ => 1

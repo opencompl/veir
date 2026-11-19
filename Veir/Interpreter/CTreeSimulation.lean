@@ -19,9 +19,9 @@ theorem sim_cfgLoop
     (target : I → Tree (I ⊕ X)) (source : J → Tree (J ⊕ Y))
     {i : I} {j : J} (initial : reachable i j)
     (step : ∀ i j, reachable i j →
-      _root_.CTree.EqSim (Sum.LiftRel reachable results) (target i) (source j)) :
-    _root_.CTree.EqSim results (_root_.CTree.iter target i) (_root_.CTree.iter source j) :=
-  _root_.CTree.EqSim.iter target source i j initial step
+      _root_.CTree.Sim (Sum.LiftRel reachable results) (target i) (source j)) :
+    _root_.CTree.Sim results (_root_.CTree.iter target i) (_root_.CTree.iter source j) :=
+  _root_.CTree.Sim.iter target source i j initial step
 
 /-- Common-effect specialization of the generic finite iteration helper. -/
 abbrev cfgSteps {I X : Type} (step : I → Tree (I ⊕ X)) :=
@@ -37,11 +37,11 @@ theorem sim_cfgSteps {I J X Y : Type}
     (reachable : I → J → Prop) (results : X → Y → Prop)
     (target : I → Tree (I ⊕ X)) (source : J → Tree (J ⊕ Y))
     (step : ∀ i j, reachable i j →
-      _root_.CTree.EqSim (Sum.LiftRel reachable results) (target i) (source j))
+      _root_.CTree.Sim (Sum.LiftRel reachable results) (target i) (source j))
     (n : Nat) {i : I} {j : J} (initial : reachable i j) :
-    _root_.CTree.EqSim (Sum.LiftRel reachable results)
+    _root_.CTree.Sim (Sum.LiftRel reachable results)
       (cfgSteps target n i) (cfgSteps source n j) :=
-  _root_.CTree.EqSim.iterSteps reachable results target source step n initial
+  _root_.CTree.Sim.iterSteps reachable results target source step n initial
 
 /-- Common-effect specialization of the generic finite-batch invariant. -/
 abbrev BatchedCFGSimulation {I J X Y : Type}
@@ -54,7 +54,7 @@ def BatchedCFGSimulation.of_step {I J X Y : Type}
     {target : I → Tree (I ⊕ X)} {source : J → Tree (J ⊕ Y)}
     {reachable : I → J → Prop} {results : X → Y → Prop}
     (step : ∀ i j, reachable i j →
-      _root_.CTree.EqSim (Sum.LiftRel reachable results) (target i) (source j)) :
+      _root_.CTree.Sim (Sum.LiftRel reachable results) (target i) (source j)) :
     BatchedCFGSimulation target source reachable results :=
   _root_.CTree.IterBatchedSimulation.of_step step
 
@@ -67,13 +67,13 @@ theorem sim_interpretCFG_loop {ctx : WfIRContext OpCode}
       (InterpreterState ctx × Array RuntimeValue) → Prop)
     {i j : interpretCFG.StateLocation ctx × InterpreterState ctx}
     (initial : reachable i j)
-    (step : ∀ i j, reachable i j → _root_.CTree.EqSim
+    (step : ∀ i j, reachable i j → _root_.CTree.Sim
       (Sum.LiftRel reachable results)
       (interpretCFG.iter i.1 i.2) (interpretCFG.iter j.1 j.2)) :
-    _root_.CTree.EqSim results
+    _root_.CTree.Sim results
       (_root_.CTree.iter (fun p => interpretCFG.iter p.1 p.2) i)
       (_root_.CTree.iter (fun p => interpretCFG.iter p.1 p.2) j) :=
-  _root_.CTree.EqSim.iter _ _ i j initial step
+  _root_.CTree.Sim.iter _ _ i j initial step
 
 /-- Start the reachable-step argument at a region's entry block. -/
 theorem sim_interpretCFG {ctx : WfIRContext OpCode}
@@ -88,10 +88,10 @@ theorem sim_interpretCFG {ctx : WfIRContext OpCode}
       region.getFirstBlock ctx.raw = some bb →
       reachable (.inl (⟨bb, bbIn⟩, targetValues), targetState)
         (.inl (⟨bb, bbIn⟩, sourceValues), sourceState))
-    (step : ∀ i j, reachable i j → _root_.CTree.EqSim
+    (step : ∀ i j, reachable i j → _root_.CTree.Sim
       (Sum.LiftRel reachable results)
       (interpretCFG.iter i.1 i.2) (interpretCFG.iter j.1 j.2)) :
-    _root_.CTree.EqSim results
+    _root_.CTree.Sim results
       (interpretCFG region targetValues targetState regionIn)
       (interpretCFG region sourceValues sourceState regionIn) := by
   unfold interpretCFG
@@ -135,13 +135,13 @@ theorem sim_interpretRegion
     (initial : reachable
       (interpretCFG targetRegion targetValues targetState targetIn)
       (interpretCFG sourceRegion sourceValues sourceState sourceIn))
-    (step : ∀ t s, reachable t s → _root_.CTree.EqSim
+    (step : ∀ t s, reachable t s → _root_.CTree.Sim
       (Sum.LiftRel reachable results) (regionRecStep t) (regionRecStep s)) :
-    _root_.CTree.EqSim results
+    _root_.CTree.Sim results
       (interpretRegion targetRegion targetValues targetState targetIn)
       (interpretRegion sourceRegion sourceValues sourceState sourceIn) := by
   unfold interpretRegion _root_.CTree.mrec _root_.CTree.interp_mrec
-  apply _root_.CTree.EqSim.iter _ _ _ _ initial
+  apply _root_.CTree.Sim.iter _ _ _ _ initial
   intro t s h
   have hs := step t s h
   unfold regionRecStep at hs
@@ -161,12 +161,12 @@ theorem sim_interpretFunction
       ∃ (targetFn : FunctionOp targetCtx.raw target),
         FunctionOp.of? target targetCtx.raw = some targetFn ∧
         ∃ (targetOne : target.getNumRegions targetCtx.raw = 1),
-          _root_.CTree.EqSim (fun t s => results t.2 s.2)
+          _root_.CTree.Sim (fun t s => results t.2 s.2)
             (interpretRegion (targetFn.getFunctionBody targetIn (by omega)) targetValues
               ⟨.empty targetCtx, mem⟩)
             (interpretRegion (sourceFn.getFunctionBody sourceIn (by omega)) sourceValues
               ⟨.empty sourceCtx, mem⟩)) :
-    _root_.CTree.EqSim results
+    _root_.CTree.Sim results
       (interpretFunction target targetValues mem targetIn) (interpretFunction source sourceValues mem sourceIn) := by
   cases sourceEq : FunctionOp.of? source sourceCtx.raw with
   | none =>
@@ -177,7 +177,7 @@ theorem sim_interpretFunction
     · obtain ⟨targetFn, targetEq, targetOne, bodySim⟩ := bodies sourceFn sourceEq sourceOne
       simp only [interpretFunction, sourceEq, targetEq, sourceOne, targetOne,
         ne_eq, not_true_eq_false, ↓reduceDIte]
-      exact _root_.CTree.EqSim.bind _ _ _ _ bodySim (fun t s h => by simpa using h)
+      exact _root_.CTree.Sim.bind _ _ _ _ bodySim (fun t s h => by simpa using h)
     · simp only [interpretFunction, sourceEq, ne_eq, sourceOne]
       exact sim_fail _ _
 
@@ -197,7 +197,7 @@ theorem OperationPtr.isRefinedByAsFunctionCTree_of_bodies
     (bodies : ∀ (sourceValues targetValues : Array RuntimeValue) (mem : MemoryState),
       sourceValues ⊒ targetValues →
       ∀ (sourceOne : source.getNumRegions sourceCtx.raw = 1),
-      _root_.CTree.EqSim (fun t s => RuntimeValue.arrayIsRefinedBy s.2 t.2)
+      _root_.CTree.Sim (fun t s => RuntimeValue.arrayIsRefinedBy s.2 t.2)
         (CTree.interpretRegion (targetFn.getFunctionBody targetIn (by have := headers sourceOne; omega))
           targetValues ⟨.empty targetCtx, mem⟩)
         (CTree.interpretRegion (sourceFn.getFunctionBody sourceIn (by omega))

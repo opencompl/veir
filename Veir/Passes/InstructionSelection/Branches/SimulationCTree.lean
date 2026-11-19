@@ -375,7 +375,7 @@ theorem sim_gmirBranch {op : OperationPtr} (opIn : op.InBounds ctx.raw)
     {state' : InterpreterState ctx'} (hState : L.StateRel state state')
     (hConstants : ConstantsHold state)
     (hFact : ∀ c, L.compare op = some c → L.CompareFact op state) :
-    EqSim (fun t s => L.BranchRelC s t ∧ interpretOp op state opIn = .ok s)
+    Sim (fun t s => L.BranchRelC s t ∧ interpretOp op state opIn = .ok s)
       (opListTree (lowerOp ctx.raw L.compare L.regOp L.newBranch op) state'
         (L.lowerOp_inBounds opIn))
       (interpretOperationTree op state opIn) := by
@@ -417,7 +417,7 @@ theorem sim_gmirBranch {op : OperationPtr} (opIn : op.InBounds ctx.raw)
   rw [interpretOperationTree_eq_monadLift target hSpec.1 (L.newBranch_isLifted opIn hBranch),
     hNewOk]
   simp only [monadLift, MonadLift.monadLift, pure_bind, Option.elim_some]
-  exact (EqSim.pure _ _ _).mpr ⟨⟨hTarget, values, values', dest, rfl, rfl,
+  exact (Sim.pure _ _ _).mpr ⟨⟨hTarget, values, values', dest, rfl, rfl,
     L.branchSuccessorConverted opIn hBranch hDest, hValues⟩, hsrc⟩
 
 /-! ## Blocks -/
@@ -443,7 +443,7 @@ def KeptOpsSim : Prop :=
     (_ : ∀ op ∈ ops, op.InBounds ctx.raw) (hBranch : ¬ op.IsGmirBranch ctx.raw)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'},
     L.StateRel state state' → ConstantsHold state → L.ComparesAdjacent (op :: ops) →
-    EqSim (L.KeptRel ops) (interpretOperationTree op state' (L.opSpec opIn hBranch).1)
+    Sim (L.KeptRel ops) (interpretOperationTree op state' (L.opSpec opIn hBranch).1)
       (interpretOperationTree op state opIn)
 
 /-- The `g_icmp` of a compare-and-branch that the lowering keeps is the operation right before it. -/
@@ -481,7 +481,7 @@ theorem sim_keptOp_of_isLifted_eq_false {op : OperationPtr} {ops : List Operatio
     (hMono : op.TreeMonotone ctx) {state : InterpreterState ctx}
     {state' : InterpreterState ctx'} (hState : L.StateRel state state')
     (hConstants : ConstantsHold state) (hAdjacent : L.ComparesAdjacent (op :: ops)) :
-    EqSim (L.KeptRel ops) (interpretOperationTree op state' (L.opSpec opIn hBranch).1)
+    Sim (L.KeptRel ops) (interpretOperationTree op state' (L.opSpec opIn hBranch).1)
       (interpretOperationTree op state opIn) := by
   have hSpec := L.opSpec opIn hBranch
   refine sim_mono (interpretOperationTree_sim_of_preservesOperation opIn hSpec.1 hMono
@@ -509,7 +509,7 @@ theorem sim_keptOp_of_treeMonotone {op : OperationPtr} {ops : List OperationPtr}
     (hMono : op.TreeMonotone ctx) {state : InterpreterState ctx}
     {state' : InterpreterState ctx'} (hState : L.StateRel state state')
     (hConstants : ConstantsHold state) (hAdjacent : L.ComparesAdjacent (op :: ops)) :
-    EqSim (L.KeptRel ops) (interpretOperationTree op state' (L.opSpec opIn hBranch).1)
+    Sim (L.KeptRel ops) (interpretOperationTree op state' (L.opSpec opIn hBranch).1)
       (interpretOperationTree op state opIn) := by
   have hSpec := L.opSpec opIn hBranch
   have hOp := interpretOperationTree_sim_of_preservesOperation opIn hSpec.1 hMono
@@ -540,14 +540,14 @@ theorem sim_opList_lowered (hKept : L.KeptOpsSim)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     (hState : L.StateRel state state') (hConstants : ConstantsHold state)
     (hAdjacent : L.ComparesAdjacent ops) (hHead : L.HeadFact ops state) :
-    EqSim (fun t s => L.ListRelC s t)
+    Sim (fun t s => L.ListRelC s t)
       (opListTree (ops.flatMap (lowerOp ctx.raw L.compare L.regOp L.newBranch)) state'
         (L.flatMap_lowerOp_inBounds opsIn))
       (opListTree ops state opsIn) := by
   induction ops generalizing state state' with
   | nil =>
     simp only [List.flatMap_nil, opListTree_nil]
-    exact (EqSim.pure _ _ _).mpr ⟨hState, trivial, hConstants⟩
+    exact (Sim.pure _ _ _).mpr ⟨hState, trivial, hConstants⟩
   | cons op ops ih =>
     have opIn := opsIn op (by simp)
     have opsIn' : ∀ op ∈ ops, op.InBounds ctx.raw := fun op' h => opsIn op' (by simp [h])
@@ -560,18 +560,18 @@ theorem sim_opList_lowered (hKept : L.KeptOpsSim)
     apply sim_tau1_right
     by_cases hBranch : op.IsGmirBranch ctx.raw
     · rw [tree_bind_eq, tree_bind_eq]
-      refine EqSim.bind _ _ _ _ (L.sim_gmirBranch opIn hBranch hState hConstants
+      refine Sim.bind _ _ _ _ (L.sim_gmirBranch opIn hBranch hState hConstants
         (fun c hc => hHead op ops c rfl hc)) ?_
       rintro ⟨target₁, action'⟩ ⟨source₁, action⟩
         ⟨⟨hRel, values, values', dest, rfl, rfl, hDest, hValues⟩, hsrc⟩
       simp only [opListCont, Option.elim_some]
-      exact (EqSim.pure _ _ _).mpr ⟨hRel, ⟨rfl, hDest, hValues⟩, hConstants.interpretOp hsrc⟩
+      exact (Sim.pure _ _ _).mpr ⟨hRel, ⟨rfl, hDest, hValues⟩, hConstants.interpretOp hsrc⟩
     · have hLower : lowerOp ctx.raw L.compare L.regOp L.newBranch op = [op] := by
         simp [lowerOp, hBranch]
       rw [opListTree_congr hLower, opListTree_cons, tau1_bind]
       apply sim_tau1_left
       rw [CTree.bind_assoc, tree_bind_eq, tree_bind_eq]
-      refine EqSim.bind _ _ _ _ (hKept opIn opsIn' hBranch hState hConstants
+      refine Sim.bind _ _ _ _ (hKept opIn opsIn' hBranch hState hConstants
         hAdjacent) ?_
       rintro ⟨target₁, action'⟩ ⟨source₁, action⟩ ⟨hRel, hAction, hConstants₁, hHead₁, hNoBranch⟩
       rcases action with _ | cf
@@ -584,7 +584,7 @@ theorem sim_opList_lowered (hKept : L.KeptOpsSim)
         simp only [Option.elim_some, pure_bind, opListCont]
         rcases cf with values | ⟨values, dest⟩
         · rcases cf' with values' | _
-          · exact (EqSim.pure _ _ _).mpr ⟨hRel, hCf, hConstants₁⟩
+          · exact (Sim.pure _ _ _).mpr ⟨hRel, hCf, hConstants₁⟩
           · simp [ControlFlowAction.isRefinedBy] at hCf
         · exact (hNoBranch values dest rfl).elim
 
@@ -598,14 +598,14 @@ theorem sim_blockBody (hKept : L.KeptOpsSim)
     {state : InterpreterState ctx} {target : InterpreterState ctx'}
     (hState : L.StateRel state target) (hConstants : ConstantsHold state)
     (hAdjacent : L.ComparesAdjacent ops) (hHead : L.HeadFact ops state) :
-    EqSim (Sum.LiftRel (EntryRel L.CallRelC) (fun t s => ResultRelC s t))
+    Sim (Sum.LiftRel (EntryRel L.CallRelC) (fun t s => ResultRelC s t))
       (opListTree (ops.flatMap (lowerOp ctx.raw L.compare L.regOp L.newBranch)) target
           (L.flatMap_lowerOp_inBounds opsIn) >>=
         fun r => (r.2.elim fail fun cf => pure (r.1, cf)) >>= finishBlock)
       (opListTree ops state opsIn >>=
         fun r => (r.2.elim fail fun cf => pure (r.1, cf)) >>= finishBlock) := by
   rw [tree_bind_eq, tree_bind_eq]
-  refine EqSim.bind _ _ _ _ (L.sim_opList_lowered hKept opsIn hState hConstants hAdjacent
+  refine Sim.bind _ _ _ _ (L.sim_opList_lowered hKept opsIn hState hConstants hAdjacent
     hHead) ?_
   rintro ⟨target₁, action'⟩ ⟨source₁, action⟩ ⟨hRel₁, hAction, hConstants₁⟩
   rcases action with _ | cf
@@ -616,12 +616,12 @@ theorem sim_blockBody (hKept : L.KeptOpsSim)
   rcases cf with res | ⟨res, dest⟩ <;> rcases cf' with res' | ⟨res', dest'⟩ <;>
     simp only [ActionRel] at hAction
   · simp only [finishBlock_return]
-    exact (EqSim.pure _ _ _).mpr (Sum.LiftRel.inr ⟨hRel₁.1, hAction⟩)
+    exact (Sim.pure _ _ _).mpr (Sum.LiftRel.inr ⟨hRel₁.1, hAction⟩)
   · obtain ⟨rfl, hDest, hRegisters⟩ := hAction
     simp only [finishBlock_branch]
     by_cases destIn : dest.InBounds ctx.raw
     · simp only [destIn, L.blockIn destIn, ↓reduceDIte]
-      exact (EqSim.pure _ _ _).mpr (Sum.LiftRel.inl ⟨dest, destIn, res, source₁, dest, L.blockIn destIn, res',
+      exact (Sim.pure _ _ _).mpr (Sum.LiftRel.inl ⟨dest, destIn, res, source₁, dest, L.blockIn destIn, res',
         target₁, rfl, rfl, rfl, hRel₁, hConstants₁, by simp [hDest, hRegisters]⟩)
     · simp only [destIn, ↓reduceDIte]
       exact sim_fail _ _
@@ -632,7 +632,7 @@ theorem sim_blockStep_lowered (hKept : L.KeptOpsSim)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     (blockIn : block.InBounds ctx.raw) (blockIn' : block'.InBounds ctx'.raw)
     (hRel : L.CallRelC block values state block' values' state') :
-    EqSim (Sum.LiftRel (EntryRel L.CallRelC) (fun t s => ResultRelC s t))
+    Sim (Sum.LiftRel (EntryRel L.CallRelC) (fun t s => ResultRelC s t))
       (blockStep (CFGState.entry blockIn' values' state'))
       (blockStep (CFGState.entry blockIn values state)) := by
   obtain ⟨rfl, hState, hConstants, hValues⟩ := hRel
@@ -703,7 +703,7 @@ theorem sim_cfg_lowered (hKept : L.KeptOpsSim)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     (blockIn : block.InBounds ctx.raw)
     (hRel : L.CallRelC block values state block values' state') :
-    EqSim (fun t s => ResultRelC s t)
+    Sim (fun t s => ResultRelC s t)
       (_root_.CTree.iter cfgStep (CFGState.entry (L.blockIn blockIn) values' state'))
       (_root_.CTree.iter cfgStep (CFGState.entry blockIn values state)) :=
   iter_cfgStep_sim
@@ -743,10 +743,10 @@ theorem isRefinedByAsFunctionCTree (hKept : L.KeptOpsSim)
     simp only [FunctionOp.getFunctionBody]
     grind
   rw [tree_bind_eq, tree_bind_eq]
-  refine EqSim.bind (RR := fun t s => ResultRelC s t) _ _ _ _ ?_
-    (fun ⟨_, results'⟩ ⟨_, results⟩ h => (EqSim.pure _ _ _).mpr h.2)
+  refine Sim.bind (RR := fun t s => ResultRelC s t) _ _ _ _ ?_
+    (fun ⟨_, results'⟩ ⟨_, results⟩ h => (Sim.pure _ _ _).mpr h.2)
   rw [interpretRegion_eq_inflateCFGTree, interpretRegion_eq_inflateCFGTree]
-  apply EqSim.interp
+  apply Sim.interp
   simp only [interpretCFGTree]
   have hFirst := L.firstBlock regionIn
   split

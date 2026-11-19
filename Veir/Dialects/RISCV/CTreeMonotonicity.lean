@@ -52,7 +52,7 @@ private theorem sim_riscvLoadCTree (imm12 : BitVec 12) {operands operands' : Arr
     (hMem : mem ⊒ mem') {types : Array TypeAttr}
     (hT : ∀ vals m a, MayReturn (riscvLoadCTree imm12 operands' mem' bytes ext : Tree _)
       (vals, m, a) → RuntimeValue.ArrayConforms vals types) :
-    EqSim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 types)
+    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 types)
       (riscvLoadCTree imm12 operands' mem' bytes ext : Tree _)
       (riscvLoadCTree imm12 operands mem bytes ext : Tree _) := by
   unfold riscvLoadCTree at hT ⊢
@@ -81,7 +81,7 @@ private theorem sim_riscvLoadCTree (imm12 : BitVec 12) {operands operands' : Arr
       simp only [monadLift, MonadLift.monadLift, pure_bind] at hT ⊢
       refine sim_choose_left _ fun bits => sim_choose_right _ (b'.fillPoison bits) ?_
       rw [Data.LLVM.Byte.fillPoison_of_isRefinedBy hb]
-      exact (EqSim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr
+      exact (Sim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr
         ⟨RuntimeValue.arrayIsRefinedBy_refl _, hMem, ControlFlowAction.optionIsRefinedBy_refl _⟩,
         hT _ _ _ (mayReturn_choose_bind bits (mayReturn_pure _))⟩
   | _ => simp

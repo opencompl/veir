@@ -162,7 +162,7 @@ attribute [local gmir_pattern]
   matchLegalInt createConstantWith createConstant widthConstant createSextInReg
 
 attribute [local gmir_combine]
-  Attribute.of _root_.CTree.CTree.bind_tau EqSim.tau_l EqSim.bind_monadLift_right_iff
+  Attribute.of _root_.CTree.CTree.bind_tau Sim.tau_l Sim.bind_monadLift_right_iff
 
 attribute [local implicit_reducible] TypeAttr
 

@@ -117,7 +117,7 @@ theorem sim_interpretOpCore_pointer
     (frame : PointerOperationFrame (sourceCtx := sourceCtx) (targetCtx := targetCtx) op)
     (source : InterpreterState sourceCtx) (target : InterpreterState targetCtx)
     (related : PointerStateRefines source target) :
-    _root_.CTree.EqSim (fun t s => PointerStateRefines s.1 t.1 ∧ ControlFlowAction.optionIsRefinedBy s.2 t.2)
+    _root_.CTree.Sim (fun t s => PointerStateRefines s.1 t.1 ∧ ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (interpretOpCore op target targetIn) (interpretOpCore op source sourceIn) := by
   cases sourceGet : source.variables.getOperandValues op with
   | none =>
@@ -130,7 +130,7 @@ theorem sim_interpretOpCore_pointer
       verified sourceValues targetValues source.memory target.memory
       (VariableState.getOperandValues_conforms sourceGet) values related.1
     rw [← primitive_eq op sourceIn targetIn frame targetValues target.memory] at raw
-    apply _root_.CTree.EqSim.bind _ _ _ _ raw
+    apply _root_.CTree.Sim.bind _ _ _ _ raw
     intro targetResult sourceResult resultRelation
     cases sourceSet : source.variables.setResultValues? op sourceResult.1 sourceIn with
     | none =>
@@ -145,7 +145,7 @@ theorem sim_interpretOpCore_pointer
         have counts := congrArg Array.size frame.resultTypes
         grind [OperationPtr.getResults!]
       have variables := pointer_results_refine sourceIn targetIn pointers related.2 resultRelation.1.1 sourceSet targetSet
-      simp only [commitOpResults, sourceSet, targetSet, _root_.CTree.EqSim.pure]
+      simp only [commitOpResults, sourceSet, targetSet, _root_.CTree.Sim.pure]
       exact ⟨⟨resultRelation.1.2.1, variables⟩, resultRelation.1.2.2⟩
 
 /-- Only source-reachable instructions and blocks must be retained. In particular,
@@ -291,7 +291,7 @@ theorem sim_interpretCFGCore_reachable_step
     {target : interpretCFG.StateLocation targetCtx × InterpreterState targetCtx}
     {source : interpretCFG.StateLocation sourceCtx × InterpreterState sourceCtx}
     (related : ReachableCFGStateRefines moduleOp region target source) :
-    _root_.CTree.EqSim (Sum.LiftRel (ReachableCFGStateRefines moduleOp region) PointerCFGResultRefines)
+    _root_.CTree.Sim (Sum.LiftRel (ReachableCFGStateRefines moduleOp region) PointerCFGResultRefines)
       (interpretCFGCore.iter target.1 target.2) (interpretCFGCore.iter source.1 source.2) := by
   rcases target with ⟨targetLocation, targetState⟩
   rcases source with ⟨sourceLocation, sourceState⟩
@@ -327,7 +327,7 @@ theorem sim_interpretCFGCore_reachable_step
             subst targetFirst
             have firstBang : block.getFirstOp! sourceCtx.raw = some sourceFirst := by grind
             obtain ⟨firstParent, firstRooted, firstReachable⟩ := reachable_first sourceIn parent rooted reachable firstBang
-            apply (_root_.CTree.EqSim.pure _ _ _).mpr
+            apply (_root_.CTree.Sim.pure _ _ _).mpr
             exact .inl ⟨⟨states.1, variableRefinement⟩, rfl, firstParent, firstRooted, firstReachable⟩
           · exact sim_fail _ _
           · grind
@@ -355,7 +355,7 @@ theorem sim_interpretCFGCore_reachable_step
         (interpretOpCore_pureOrErr op targetState targetIn)
         (interpretOpCore_pureOrErr op sourceState sourceIn) _ operation
       simp only [interpretCFGCore.iter]
-      apply _root_.CTree.EqSim.bind _ _ _ _ operation
+      apply _root_.CTree.Sim.bind _ _ _ _ operation
       rintro ⟨targetFinal, targetAction⟩ ⟨sourceFinal, sourceAction⟩ ⟨⟨states', actions⟩, _, sourceOutcome⟩
       cases sourceAction with
       | none =>
@@ -370,7 +370,7 @@ theorem sim_interpretCFGCore_reachable_step
             subst targetNext
             have nextBang : op.getNextOp! sourceCtx.raw = some sourceNext := by grind
             obtain ⟨nextParent, nextRooted, nextReachable⟩ := reachable_next sourceIn parent rooted reachable nextBang
-            apply (_root_.CTree.EqSim.pure _ _ _).mpr
+            apply (_root_.CTree.Sim.pure _ _ _).mpr
             exact .inl ⟨states', rfl, nextParent, nextRooted, nextReachable⟩
           · exact sim_fail _ _
           · grind
@@ -381,14 +381,14 @@ theorem sim_interpretCFGCore_reachable_step
         | some targetAction =>
           cases sourceAction <;> cases targetAction <;>
             simp only [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy] at actions
-          · apply (_root_.CTree.EqSim.pure _ _ _).mpr
+          · apply (_root_.CTree.Sim.pure _ _ _).mpr
             exact .inr ⟨states', actions⟩
           · rcases actions with ⟨rfl, values⟩
             have edge := Veir.Puddle.CTree.interpretOpCore_branch_mem sourceIn sourceOutcome
             obtain ⟨destIn, destParent, destRooted, destReachable⟩ := reachable_branch verified sourceIn parent rooted reachable edge
             have targetDestIn := (frame.block _ destIn destRooted destReachable).1
             simp only [dite_eq_left destIn, dite_eq_left targetDestIn]
-            apply (_root_.CTree.EqSim.pure _ _ _).mpr
+            apply (_root_.CTree.Sim.pure _ _ _).mpr
             exact .inl ⟨states', rfl, values, destParent, destRooted, destReachable⟩
 
 /-- Reachable-context framing extends to the actual possibly infinite CFG loop. -/
@@ -400,10 +400,10 @@ theorem sim_interpretCFGCore_reachable_frame
     {target : interpretCFG.StateLocation targetCtx × InterpreterState targetCtx}
     {source : interpretCFG.StateLocation sourceCtx × InterpreterState sourceCtx}
     (related : ReachableCFGStateRefines moduleOp region target source) :
-    _root_.CTree.EqSim PointerCFGResultRefines
+    _root_.CTree.Sim PointerCFGResultRefines
       (_root_.CTree.iter (fun next => interpretCFGCore.iter next.1 next.2) target)
       (_root_.CTree.iter (fun next => interpretCFGCore.iter next.1 next.2) source) := by
-  exact _root_.CTree.EqSim.iter _ _ target source related
+  exact _root_.CTree.Sim.iter _ _ target source related
     (fun _ _ h => sim_interpretCFGCore_reachable_step primitive verified frame region h)
 
 end Veir.CTree

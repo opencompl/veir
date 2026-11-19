@@ -56,8 +56,8 @@ theorem forall_riscvLoadCTree_canInterpretTo_ok {EIn : Type}
     exact h _ x hx
 
 /-- A root store and a created store that write the same bytes simulate each other.
-The statement is the normal form that `Veir.EqSim.bind_monadLift_left_iff` and
-`Veir.EqSim.monadLift_right_iff` give for the simulation of the two lifted stores: a match on the
+The statement is the normal form that `Veir.Sim.bind_monadLift_left_iff` and
+`Veir.Sim.monadLift_right_iff` give for the simulation of the two lifted stores: a match on the
 root store, whose success case matches on the created store. It is polymorphic in the result type
 `β`, so that its matchers have the same shape as the matchers of those lemmas and unify with them. -/
 theorem store_pure_store {β : Type} {P : β → β → Prop} {Qub Qfail : β → Prop}

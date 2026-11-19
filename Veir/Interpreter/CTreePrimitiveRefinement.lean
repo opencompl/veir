@@ -22,7 +22,7 @@ def OpCode.interpretCTree_monotone (opType : OpCode) : Prop :=
       RuntimeValue.ArrayConforms sourceValues (op.getOperandTypes! ctx.raw) →
       RuntimeValue.arrayIsRefinedBy sourceValues targetValues →
       sourceMemory.isRefinedBy targetMemory →
-      _root_.CTree.EqSim
+      _root_.CTree.Sim
         (fun target source => OperationResult.isRefinedBy source target ∧
           RuntimeValue.ArrayConforms target.1 (op.getResultTypes! ctx.raw))
         (op.interpretCTree opIn targetValues targetMemory)

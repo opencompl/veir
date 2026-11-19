@@ -467,11 +467,11 @@ theorem widen_load_0_valid (W : Nat) :
   -- Distribute the lifted interpreter over its alignment check and load, and simulate them.
   all_goals simp only [monadLift_interp_bind, CTree.monadLift_interp_ok]
   all_goals simp only [Bind.bind, bind_bind, _root_.CTree.bind_pure]
-  all_goals (refine EqSim.bind (RR := Eq) _ _ _ _ (EqSim.refl _ (fun _ => rfl) _) ?_; rintro _ _ rfl)
-  all_goals (refine EqSim.bind (RR := Eq) _ _ _ _ (EqSim.refl _ (fun _ => rfl) _) ?_; rintro _ _ rfl)
+  all_goals (refine Sim.bind (RR := Eq) _ _ _ _ (Sim.refl _ (fun _ => rfl) _) ?_; rintro _ _ rfl)
+  all_goals (refine Sim.bind (RR := Eq) _ _ _ _ (Sim.refl _ (fun _ => rfl) _) ?_; rintro _ _ rfl)
   -- The source fails when its result is narrower than the load, and chooses its high bits else.
   all_goals simp_all [ctree_semantics, monadLift, MonadLift.monadLift, _root_.CTree.CTree.bind_tau,
-    _root_.CTree.CTree.tau_def, EqSim.tau_l, EqSim.bind_monadLift_right_iff, Attribute.of,
+    _root_.CTree.CTree.tau_def, Sim.tau_l, Sim.bind_monadLift_right_iff, Attribute.of,
     -Attribute.integerType_eq_of, le_eq_false_of_lt, lt_eq_false_of_le, RuntimeValue.isRefinedBy,
     Data.LLVM.trunc_zext, Data.LLVM.trunc_ext, Data.LLVM.trunc_ext_of_lt]
   all_goals (intro msb; exact ⟨_, by first | exact Data.LLVM.Int.isRefinedBy_refl _ | rfl⟩)
@@ -601,8 +601,8 @@ theorem widen_freeze_0_valid (W : Nat) :
           lt_eq_false_of_le, RuntimeValue.isRefinedBy, Data.LLVM.Int.trunc, Id.run]
     | poison =>
       simp_all [ctree_semantics, monadLift, MonadLift.monadLift, Id.run, Functor.map,
-        CTree.choose_def, _root_.CTree.CTree.tau_def, _root_.CTree.CTree.bind_tau, EqSim.tau_l,
-        EqSim.tau_r, le_eq_false_of_lt, lt_eq_false_of_le, RuntimeValue.isRefinedBy,
+        CTree.choose_def, _root_.CTree.CTree.tau_def, _root_.CTree.CTree.bind_tau, Sim.tau_l,
+        Sim.tau_r, le_eq_false_of_lt, lt_eq_false_of_le, RuntimeValue.isRefinedBy,
         Data.LLVM.Int.trunc]
       intro msb
       exact ⟨_, by first | exact Data.LLVM.Int.isRefinedBy_refl _ | rfl⟩

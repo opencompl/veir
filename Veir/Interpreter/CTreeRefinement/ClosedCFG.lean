@@ -9,7 +9,7 @@ public section
 
 `interpretRegion` runs a region's CFG in `RegionTree`, whose effects include region calls, and
 closes them with `CTree.mrec`. The event type of a `RegionTree` depends on its context, so two
-trees from different contexts cannot be compared with `CTree.EqSim` before `mrec` removes the
+trees from different contexts cannot be compared with `CTree.Sim` before `mrec` removes the
 region calls.
 
 No operation calls a region, so the CFG loop can be run as a closed `Tree` instead. This file

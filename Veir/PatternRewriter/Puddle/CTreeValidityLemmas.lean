@@ -145,7 +145,7 @@ theorem Pattern.Valid.refines_of_realizes {rule : Veir.Puddle.Pattern OpCode}
     (realizes : MatchProg.Realizes rule.matcher assignment) (memory : MemoryState)
     {source : Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)}
     (hsource : MatchProg.rootSemantics rule.matcher assignment memory = some source) :
-    _root_.CTree.EqSim (fun target source => OperationResult.isRefinedBy source target)
+    _root_.CTree.Sim (fun target source => OperationResult.isRefinedBy source target)
       (CreateProg.semantics rule.creation rule.replacement assignment memory) source := by
   have h := MatchProg.Models.of_realizes valid.refines realizes memory
   simpa only [hsource] using h

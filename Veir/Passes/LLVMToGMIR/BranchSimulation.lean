@@ -164,7 +164,7 @@ def KeptOpsSim : Prop :=
   ∀ {op : OperationPtr} (opIn : op.InBounds ctx.raw) (hBranch : ¬ op.IsLLVMBranch ctx.raw)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'},
     T.StateRel state state' →
-    EqSim T.OpRel (interpretOperationTree op state' (T.opSame opIn hBranch).inBounds)
+    Sim T.OpRel (interpretOperationTree op state' (T.opSame opIn hBranch).inBounds)
       (interpretOperationTree op state opIn)
 
 /-- The operations of a module that are monotone in CTrees are refined by themselves. -/
@@ -224,7 +224,7 @@ theorem interpretOp_newBranch {op : OperationPtr} (opIn : op.InBounds ctx.raw)
 theorem sim_newBranch {op : OperationPtr} (opIn : op.InBounds ctx.raw)
     (hBranch : op.IsLLVMBranch ctx.raw) {state : InterpreterState ctx}
     {state' : InterpreterState ctx'} (hState : T.StateRel state state') :
-    EqSim T.OpRel (interpretOperationTree (T.newBranch op) state' (T.newBranchSpec opIn hBranch).1)
+    Sim T.OpRel (interpretOperationTree (T.newBranch op) state' (T.newBranchSpec opIn hBranch).1)
       (interpretOperationTree op state opIn) := by
   have hLifted' : ((T.newBranch op).getOpType! ctx'.raw).isLifted := by
     rcases hBranch with hType | hType
@@ -236,7 +236,7 @@ theorem sim_newBranch {op : OperationPtr} (opIn : op.InBounds ctx.raw)
   obtain ⟨target, action', hTarget, hRel, hAction⟩ :=
     T.interpretOp_newBranch opIn hBranch hState hsrc
   rw [hTarget]
-  exact (EqSim.pure _ _ _).mpr ⟨hRel, hAction⟩
+  exact (Sim.pure _ _ _).mpr ⟨hRel, hAction⟩
 
 theorem translateOp_inBounds {op : OperationPtr} (opIn : op.InBounds ctx.raw) :
     (translateOp ctx.raw T.newBranch op).InBounds ctx'.raw := by
@@ -249,7 +249,7 @@ theorem sim_translateOp (hKept : T.KeptOpsSim) {op : OperationPtr} (opIn : op.In
     {opIn' : (translateOp ctx.raw T.newBranch op).InBounds ctx'.raw}
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     (hState : T.StateRel state state') :
-    EqSim T.OpRel (interpretOperationTree (translateOp ctx.raw T.newBranch op) state' opIn')
+    Sim T.OpRel (interpretOperationTree (translateOp ctx.raw T.newBranch op) state' opIn')
       (interpretOperationTree op state opIn) := by
   by_cases hBranch : op.IsLLVMBranch ctx.raw
   · rw [interpretOperationTree_congr (op' := T.newBranch op) (by simp [translateOp, hBranch])
@@ -267,22 +267,22 @@ theorem sim_opList (hKept : T.KeptOpsSim) : ∀ {ops : List OperationPtr}
     (opsIn' : ∀ op ∈ ops.map (translateOp ctx.raw T.newBranch), op.InBounds ctx'.raw)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'},
     T.StateRel state state' →
-    EqSim T.OpRel (opListTree (ops.map (translateOp ctx.raw T.newBranch)) state' opsIn')
+    Sim T.OpRel (opListTree (ops.map (translateOp ctx.raw T.newBranch)) state' opsIn')
       (opListTree ops state opsIn)
   | [], _, _, _, _, hState => by
     simp only [List.map_nil, opListTree_nil]
-    exact (EqSim.pure _ _ _).mpr ⟨hState, trivial⟩
+    exact (Sim.pure _ _ _).mpr ⟨hState, trivial⟩
   | op :: ops, opsIn, opsIn', state, state', hState => by
     rw [opListTree_congr (List.map_cons ..), opListTree_cons, opListTree_cons]
     apply sim_tau1_left
     apply sim_tau1_right
     rw [tree_bind_eq, tree_bind_eq]
-    refine EqSim.bind _ _ _ _ (T.sim_translateOp hKept (opsIn op (by simp)) hState) ?_
+    refine Sim.bind _ _ _ _ (T.sim_translateOp hKept (opsIn op (by simp)) hState) ?_
     rintro ⟨target, action'⟩ ⟨source, action⟩ ⟨hRel, hAction⟩
     rcases action with _ | cf <;> rcases action' with _ | cf' <;>
       simp only [ControlFlowAction.optionIsRefinedBy] at hAction
     · exact sim_opList hKept _ _ hRel
-    · exact (EqSim.pure _ _ _).mpr ⟨hRel, hAction⟩
+    · exact (Sim.pure _ _ _).mpr ⟨hRel, hAction⟩
 
 /-- The blocks of the translation simulate those of the source. -/
 theorem blockListsSim (hKept : T.KeptOpsSim) : T.keptValues.BlockListsSim := by

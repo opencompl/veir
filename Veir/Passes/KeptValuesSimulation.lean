@@ -85,7 +85,7 @@ def BlockListsSim : Prop :=
   ∀ {block : BlockPtr} (blockIn : block.InBounds ctx.raw) (blockIn' : block.InBounds ctx'.raw)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'},
     K.StateRel state state' →
-    EqSim K.OpRel
+    Sim K.OpRel
       (opListTree (block.operationList ctx'.raw ctx'.wellFormed blockIn').toList state'
         (by grind [BlockPtr.operationListWF, BlockPtr.OpChain]))
       (opListTree (block.operationList ctx.raw ctx.wellFormed blockIn).toList state
@@ -155,7 +155,7 @@ theorem sim_blockStep (hLists : K.BlockListsSim) {block : BlockPtr} (blockIn : b
     {blockIn' : block.InBounds ctx'.raw} {values values' : Array RuntimeValue}
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     (hValues : values ⊒ values') (hState : K.StateRel state state') :
-    EqSim (Sum.LiftRel (EntryRel K.CallRel) (fun t s => ResultRel s t))
+    Sim (Sum.LiftRel (EntryRel K.CallRel) (fun t s => ResultRel s t))
       (blockStep (CFGState.entry blockIn' values' state'))
       (blockStep (CFGState.entry blockIn values state)) := by
   have hNum := K.ctxSame.numArguments blockIn
@@ -175,25 +175,25 @@ theorem sim_blockStep (hLists : K.BlockListsSim) {block : BlockPtr} (blockIn : b
   simp only [hSet']
   rw [terminatedOpListTree_eq, terminatedOpListTree_eq, tree_bind_eq, tree_bind_eq, tree_bind_eq,
     tree_bind_eq]
-  refine EqSim.bind (RR := fun (t : InterpreterState ctx' × ControlFlowAction)
+  refine Sim.bind (RR := fun (t : InterpreterState ctx' × ControlFlowAction)
       (s : InterpreterState ctx × ControlFlowAction) => K.StateRel s.1 t.1 ∧ s.2 ⊒ t.2) _ _ _ _
-    (EqSim.bind _ _ _ _ (hLists blockIn blockIn' (state := ⟨variables, state.memory⟩)
+    (Sim.bind _ _ _ _ (hLists blockIn blockIn' (state := ⟨variables, state.memory⟩)
       (state' := ⟨variables', state'.memory⟩) hRel) ?_) ?_
   · rintro ⟨target, action'⟩ ⟨source, action⟩ ⟨hRel, hAction⟩
     rcases action with _ | cf <;> rcases action' with _ | cf' <;>
       simp only [ControlFlowAction.optionIsRefinedBy] at hAction
     · exact sim_fail _ _
-    · exact (EqSim.pure _ _ _).mpr ⟨hRel, hAction⟩
+    · exact (Sim.pure _ _ _).mpr ⟨hRel, hAction⟩
   · rintro ⟨target, cf'⟩ ⟨source, cf⟩ ⟨hRel, hCf⟩
     rcases cf with results | ⟨args, dest⟩ <;> rcases cf' with results' | ⟨args', dest'⟩ <;>
       simp only [ControlFlowAction.isRefinedBy] at hCf
     · simp only [finishBlock_return]
-      exact (EqSim.pure _ _ _).mpr (Sum.LiftRel.inr ⟨hRel.1, hCf⟩)
+      exact (Sim.pure _ _ _).mpr (Sum.LiftRel.inr ⟨hRel.1, hCf⟩)
     · obtain ⟨rfl, hArgs⟩ := hCf
       simp only [finishBlock_branch]
       by_cases destIn : dest.InBounds ctx.raw
       · simp only [destIn, K.ctxSame.blockIn destIn, ↓reduceDIte]
-        exact (EqSim.pure _ _ _).mpr (Sum.LiftRel.inl ⟨dest, destIn, args, source, dest,
+        exact (Sim.pure _ _ _).mpr (Sum.LiftRel.inl ⟨dest, destIn, args, source, dest,
           K.ctxSame.blockIn destIn, args', target, rfl, rfl, rfl, hArgs, hRel⟩)
       · simp only [destIn, ↓reduceDIte]
         exact sim_fail _ _
@@ -203,7 +203,7 @@ theorem sim_cfg (hLists : K.BlockListsSim) {block : BlockPtr} (blockIn : block.I
     {blockIn' : block.InBounds ctx'.raw} {values values' : Array RuntimeValue}
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     (hValues : values ⊒ values') (hState : K.StateRel state state') :
-    EqSim (fun t s => ResultRel s t)
+    Sim (fun t s => ResultRel s t)
       (_root_.CTree.iter cfgStep (CFGState.entry blockIn' values' state'))
       (_root_.CTree.iter cfgStep (CFGState.entry blockIn values state)) :=
   iter_cfgStep_sim (Rel := K.CallRel)
@@ -245,10 +245,10 @@ theorem isRefinedByAsFunctionCTree (hLists : K.BlockListsSim) {func : OperationP
     simp only [FunctionOp.getFunctionBody]
     grind
   rw [tree_bind_eq, tree_bind_eq]
-  refine EqSim.bind (RR := fun t s => ResultRel s t) _ _ _ _ ?_
-    (fun ⟨_, results'⟩ ⟨_, results⟩ h => (EqSim.pure _ _ _).mpr h.2)
+  refine Sim.bind (RR := fun t s => ResultRel s t) _ _ _ _ ?_
+    (fun ⟨_, results'⟩ ⟨_, results⟩ h => (Sim.pure _ _ _).mpr h.2)
   rw [interpretRegion_eq_inflateCFGTree, interpretRegion_eq_inflateCFGTree]
-  apply EqSim.interp
+  apply Sim.interp
   simp only [interpretCFGTree]
   have hFirst := K.ctxSame.firstBlock regionIn
   split
