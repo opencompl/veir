@@ -49,6 +49,23 @@ def OperationPtr.interpretCTree {ctx : WfIRContext OpCode} (op : OperationPtr)
   CTree.interpretOp' code (op.getProperties ctx.raw code) (op.getResultTypes ctx.raw)
     operands (op.getSuccessors ctx.raw) memory (op.getRegions ctx.raw)
 
+/--
+Unfold `OperationPtr.interpretCTree` into the `CTree.interpretOp'` of the operation's
+`!`-accessors.
+-/
+theorem OperationPtr.interpretCTree_def! {ctx : WfIRContext OpCode}
+    {op : OperationPtr} (opIn : op.InBounds ctx.raw) (operands : Array RuntimeValue)
+    (mem : MemoryState) :
+    op.interpretCTree opIn operands mem =
+      CTree.interpretOp' (op.getOpType! ctx.raw)
+        (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) (op.getResultTypes! ctx.raw)
+        operands (op.getSuccessors! ctx.raw) mem (op.getRegions! ctx.raw) := by
+  rw [OperationPtr.interpretCTree, OperationPtr.getOpType!_eq_getOpType opIn,
+    OperationPtr.getProperties!_eq_getProperties opIn (by grind),
+    OperationPtr.getResultTypes!_eq_getResultTypes opIn,
+    OperationPtr.getSuccessors!_eq_getSuccessors opIn,
+    OperationPtr.getRegions!_eq_getRegions opIn]
+
 namespace CTree
 
 /-- Interpret an operation given an operation pointer and an interpreter state. -/

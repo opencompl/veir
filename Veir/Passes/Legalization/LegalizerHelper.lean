@@ -27,14 +27,32 @@ def createConstantWith {Inputs : Type} [IsMetadataTuple OpCode Inputs]
     (value : MetadataValues OpCode Inputs → Int) : CreateProg.Builder CreatedOpHandle := do
   let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant)))
       (type, inputs) fun (type, inputs) => do
-        let .integerType type := type.val | none
-        return { value := .ofInt (value inputs) type }
+        let valueType ← match type.val with
+          | .integerType type => some type
+          | .llvmPointerType _ => some (IntegerType.signless 64)
+          | _ => none
+        return { value := .ofInt (value inputs) valueType }
   CreateProg.operation (.gmir .g_constant) #[] #[type] props
 
 /-- Create a `g_constant` of `type` with the value `value`. -/
 def createConstant (type : Handle OpCode .type) (value : Int) :
     CreateProg.Builder CreatedOpHandle :=
   createConstantWith type () fun () => value
+
+/-- Creates the `g_constant` `value srcWidth` of type `type`, where `srcWidth` is the width of the
+integer type `srcType`. -/
+def widthConstant (srcType type : Handle OpCode .type) (value : Nat → Int) :
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type srcType fun srcType => value (srcType.cast? IntegerType).get!.bitwidth
+
+/-- Creates the `g_sext_inreg` of `x` of type `type` with the width of the integer type `srcType`. -/
+def createSextInReg (x : Handle OpCode .value) (srcType type : Handle OpCode .type) :
+    CreateProg.Builder CreatedOpHandle := do
+  let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_sext_inreg)))
+      srcType fun srcType => do
+        let .integerType srcType := srcType.val | none
+        return { sz := BitVec.ofNat 64 srcType.bitwidth }
+  CreateProg.operation (.gmir .g_sext_inreg) #[x] #[type] props
 
 end
 
@@ -107,12 +125,6 @@ private def matchUnary (opcode : GMIR) (srcWidth resWidth : Nat → Bool := fun 
   let _ ← MatchProg.root (.gmir opcode) #[src] #[resType]
   return (srcType, resType, src)
 
-/-- Creates the `g_constant` `value srcWidth` of type `type`, where `srcWidth` is the width of the
-integer type `srcType`. -/
-private def widthConstant (srcType type : Handle OpCode .type) (value : Nat → Int) :
-    CreateProg.Builder CreatedOpHandle :=
-  createConstantWith type srcType fun srcType => value (srcType.cast? IntegerType).get!.bitwidth
-
 /--
 Widens the operand of `g_ctlz` to `width` bits. The operand is zero-extended, so the count is too
 large by the number of added bits, which are subtracted from it, as in LLVM's
@@ -183,11 +195,7 @@ def lowerSext : Pattern OpCode :=
     (fun (srcType, resType, src) => do
       let extProps ← CreateProg.property (.gmir .g_anyext) default
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType] extProps
-      let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_sext_inreg)))
-          srcType fun type => match type.val with
-            | .integerType type => some (SextInRegProperties.mk (BitVec.ofNat 64 type.bitwidth))
-            | _ => none
-      CreateProg.operation (.gmir .g_sext_inreg) #[ext.res[0]!] #[resType] props)
+      createSextInReg ext.res[0]! srcType resType)
     (fun op => op)
 
 /-- Lowers `g_zext` to a `g_anyext` followed by a `g_and` with the mask of the source width, which
@@ -600,6 +608,39 @@ def lowerThreewayCompare (signed : Bool) : Pattern OpCode :=
       CreateProg.operation (.gmir .g_sub) #[isGT.res[0]!, isLT.res[0]!] #[resultType])
     (fun op => op)
 
+/--
+  Lower a multiply-high into a multiply of twice the width, as LLVM's
+  `LegalizerHelper::lowerSMULH_UMULH`: extend both operands to `2 * w` bits, where the product is
+  exact, shift its high half down by `w`, and truncate. `signed` picks sign extension and an
+  arithmetic shift, matching `g_smulh`; `g_umulh` zero-extends and shifts logically.
+-/
+def lowerMulh (signed : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir (if signed then .g_smulh else .g_umulh)) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let wideType ← CreateProg.applyNative (Outputs := Handle OpCode .type) type fun narrow => do
+        let .integerType narrow := narrow.val | none
+        return ((IntegerType.signless (2 * narrow.bitwidth) : IntegerType) : TypeAttr)
+      let extOp : GMIR := if signed then .g_sext else .g_zext
+      let lhsExt ← CreateProg.operation (.gmir extOp) #[lhs] #[wideType]
+      let rhsExt ← CreateProg.operation (.gmir extOp) #[rhs] #[wideType]
+      let product ← CreateProg.operation (.gmir .g_mul)
+        #[lhsExt.res[0]!, rhsExt.res[0]!] #[wideType]
+      -- The fallback width is unreachable: the root was matched at an `IntegerType`.
+      let amount ← createConstantWith wideType type fun narrow =>
+        match narrow.val with
+        | .integerType narrow => (narrow.bitwidth : Int)
+        | _ => 0
+      let shifted ← CreateProg.operation (.gmir (if signed then .g_ashr else .g_lshr))
+        #[product.res[0]!, amount.res[0]!] #[wideType]
+      CreateProg.operation (.gmir .g_trunc) #[shifted.res[0]!] #[type])
+    (fun trunc => trunc)
+
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
@@ -620,6 +661,8 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_ssubo => lowerSAddSubO false
   | .g_uadde => lowerAddSubE true
   | .g_usube => lowerAddSubE false
+  | .g_smulh => lowerMulh true
+  | .g_umulh => lowerMulh false
   | .g_scmp => lowerThreewayCompare true
   | .g_ucmp => lowerThreewayCompare false
   | _ => none
@@ -667,8 +710,12 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_constant, .type 0, width => widenConstant width
   -- A wide poison truncates to poison.
   | .g_poison, .type 0, width => widenTypeGroup .g_poison (.type 0) .g_anyext width
+  -- The frozen low bits are the frozen value, whatever the high bits are.
+  | .g_freeze, .type 0, width => widenTypeGroup .g_freeze (.type 0) .g_anyext width
   -- The memory size is kept, so the wide load is any-extended.
   | .g_load, .type 0, width => widenTypeGroup .g_load (.type 0) .g_anyext width
+  -- The store keeps its size, so it only writes the low bits of the wide value.
+  | .g_store, .type 0, width => widenTypeGroup .g_store (.type 0) .g_anyext width
   -- `g_sext_inreg` only reads the low `sz` bits, so any extension is fine.
   | .g_sext_inreg, .type 0, width => widenTypeGroup .g_sext_inreg (.type 0) .g_anyext width
   -- The count fits in the wide result, so the result is just truncated back.
