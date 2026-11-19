@@ -94,6 +94,21 @@ inductive MuSimF (UB : S'.state → Prop)
 | ub s t tUB : (S'.trans .tau)^* t tUB ∧ UB tUB → MuSimF UB Rs true s t
 | div s t : DivPresF (Rs false) s t → MuSimF UB Rs false s t
 
+theorem MuSimF.true_iff {S S' : LTS}
+    {Ro : S.observable → S'.observable → Prop} {UB : S'.state → Prop}
+    {Rs : Bool → S.state → S'.state → Prop} {s : S.state} {t : S'.state} :
+    MuSimF Ro UB Rs true s t ↔
+      SimF Ro (Rs false) (Rs true) s t ∨
+        ∃ tUB, (S'.trans .tau)^* t tUB ∧ UB tUB := by
+  constructor
+  · intro h
+    cases h with
+    | sim _ _ hs => exact Or.inl hs
+    | ub _ _ tUB hu => exact Or.inr ⟨tUB, hu⟩
+  · rintro (h | ⟨tUB, h⟩)
+    · exact .sim _ _ h
+    · exact .ub _ _ tUB h
+
 attribute [simp] MuSimF.div
 
 theorem MuSimF.mon : monotone (MuSimF UB Rs) := by

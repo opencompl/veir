@@ -2107,7 +2107,7 @@ end Veir
 
 Pinned so that a change to the axioms the proofs rest on shows up here: those of the refinement
 proofs of a `BranchLowering`, and those of the theorems about the pass and about it as
-registered. The CTree theorems rest on the axioms of `CTree.Sim`, and all on the three facts that
+registered. The CTree theorems use `CTree.Sim.interp`, and all rely on the three facts that
 `bv_decide` checks natively for `compareBranch_holds`. The CTree theorems that do not ask for the
 opcodes of the module to be proved monotone assume that the others are
 (`OpCode.interpretCTree_monotone_assumed`); none assumes anything else about the interpreter,
@@ -2116,16 +2116,9 @@ and none composes simulations (`CTree.Sim.trans_rel`).
 
 /--
 info: 'Veir.BranchLowering.isModuleRefinedByCTree' depends on axioms: [propext,
- CTree.Sim,
  Classical.choice,
  Quot.sound,
- CTree.Sim.bind,
  CTree.Sim.interp,
- CTree.Sim.iter,
- CTree.Sim.ret,
- CTree.Sim.tau_l,
- CTree.Sim.tau_r,
- CTree.Sim.ub,
  Veir.compareBranch_holds._native.bv_decide.ax_1_14,
  Veir.compareBranch_holds._native.bv_decide.ax_1_19,
  Veir.compareBranch_holds._native.bv_decide.ax_1_24]
@@ -2135,16 +2128,9 @@ info: 'Veir.BranchLowering.isModuleRefinedByCTree' depends on axioms: [propext,
 
 /--
 info: 'Veir.convertModule_isModuleRefinedByCTree' depends on axioms: [propext,
- CTree.Sim,
  Classical.choice,
  Quot.sound,
- CTree.Sim.bind,
  CTree.Sim.interp,
- CTree.Sim.iter,
- CTree.Sim.ret,
- CTree.Sim.tau_l,
- CTree.Sim.tau_r,
- CTree.Sim.ub,
  Veir.OpCode.interpretCTree_monotone_assumed,
  Veir.compareBranch_holds._native.bv_decide.ax_1_14,
  Veir.compareBranch_holds._native.bv_decide.ax_1_19,
@@ -2155,16 +2141,9 @@ info: 'Veir.convertModule_isModuleRefinedByCTree' depends on axioms: [propext,
 
 /--
 info: 'Veir.convertModule_isModuleRefinedByCTree_of_treeMonotoneProved' depends on axioms: [propext,
- CTree.Sim,
  Classical.choice,
  Quot.sound,
- CTree.Sim.bind,
  CTree.Sim.interp,
- CTree.Sim.iter,
- CTree.Sim.ret,
- CTree.Sim.tau_l,
- CTree.Sim.tau_r,
- CTree.Sim.ub,
  Veir.compareBranch_holds._native.bv_decide.ax_1_14,
  Veir.compareBranch_holds._native.bv_decide.ax_1_19,
  Veir.compareBranch_holds._native.bv_decide.ax_1_24]
@@ -2174,16 +2153,9 @@ info: 'Veir.convertModule_isModuleRefinedByCTree_of_treeMonotoneProved' depends 
 
 /--
 info: 'Veir.ISelBrPass.run_isModuleRefinedByCTree' depends on axioms: [propext,
- CTree.Sim,
  Classical.choice,
  Quot.sound,
- CTree.Sim.bind,
  CTree.Sim.interp,
- CTree.Sim.iter,
- CTree.Sim.ret,
- CTree.Sim.tau_l,
- CTree.Sim.tau_r,
- CTree.Sim.ub,
  Veir.OpCode.interpretCTree_monotone_assumed,
  Veir.compareBranch_holds._native.bv_decide.ax_1_14,
  Veir.compareBranch_holds._native.bv_decide.ax_1_19,
@@ -2194,16 +2166,9 @@ info: 'Veir.ISelBrPass.run_isModuleRefinedByCTree' depends on axioms: [propext,
 
 /--
 info: 'Veir.ISelBrPass.run_strict_isModuleRefinedByCTree' depends on axioms: [propext,
- CTree.Sim,
  Classical.choice,
  Quot.sound,
- CTree.Sim.bind,
  CTree.Sim.interp,
- CTree.Sim.iter,
- CTree.Sim.ret,
- CTree.Sim.tau_l,
- CTree.Sim.tau_r,
- CTree.Sim.ub,
  Veir.compareBranch_holds._native.bv_decide.ax_1_14,
  Veir.compareBranch_holds._native.bv_decide.ax_1_19,
  Veir.compareBranch_holds._native.bv_decide.ax_1_24]

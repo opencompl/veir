@@ -248,7 +248,7 @@ theorem isRefinedByAsFunctionCTree (hLists : K.BlockListsSim) {func : OperationP
   refine Sim.bind (RR := fun t s => ResultRel s t) _ _ _ _ ?_
     (fun ⟨_, results'⟩ ⟨_, results⟩ h => (Sim.pure _ _ _).mpr h.2)
   rw [interpretRegion_eq_inflateCFGTree, interpretRegion_eq_inflateCFGTree]
-  apply Sim.interp
+  apply sim_inflate
   simp only [interpretCFGTree]
   have hFirst := K.ctxSame.firstBlock regionIn
   split

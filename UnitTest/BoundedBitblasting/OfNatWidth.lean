@@ -41,13 +41,7 @@ example {w : Nat} (hw : w ≤ 8) :
     BitVec.ofInt w ((w : Int) - 1) = BitVec.ofNat w w - 1#w := by
   pbv_decide 8
 
--- `ofInt` of a negated width is the negation
-/--
-`pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.ofInt 8 (-↑w)
--/
-#guard_msgs(error, substring := true) in
+/-- Converting a negated width to a bit-vector agrees with negating its conversion. -/
 example {w : Nat} (hw : w ≤ 8) :
     BitVec.ofInt w (-(w : Int)) = -BitVec.ofNat w w := by
   pbv_decide 8

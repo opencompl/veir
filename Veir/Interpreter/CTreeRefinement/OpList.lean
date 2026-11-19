@@ -69,7 +69,7 @@ theorem returns_choose_bind {SubCIn : Type} {SubC : SubCIn → Type} [SubC -< Fr
 theorem Returns.inflate {t : Tree α} {P : α → Prop} (h : Returns t P) : Returns (inflate t) P := by
   show Sim _ (Veir.CTree.inflate t) (pure ())
   rw [← inflate_pure ()]
-  exact Sim.interp _ t (pure ()) h
+  exact sim_inflate h
 
 /-- A simulation with a stronger relation. -/
 theorem sim_mono {RR RR' : α → β → Prop} {t : Tree α} {s : Tree β} (h : Sim RR t s)
@@ -402,8 +402,8 @@ theorem interpretOperationTree_sim_of_preservesOperation
     hPreserves.successors, tree_bind_eq, tree_bind_eq]
   apply Sim.bind (RR := fun t s => OperationResult.isRefinedBy s t ∧
     ((op.getOpType! ctx.raw).isLifted = false → s.2.2 = none))
-  · apply Sim.interp
-    apply Sim.interp
+  · apply sim_inflate
+    apply sim_inflate
     have := hMono operands operands' state.memory state'.memory
       (VariableState.getOperandValues_conforms hSrcOps) hOpsRef hMem
     cases hLifted : (op.getOpType! ctx.raw).isLifted

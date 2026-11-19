@@ -62,6 +62,11 @@ def CTree.UB [UB : HasUB EIn] (t : CTree E C α) : Prop :=
   | .vis e _ => UB.isUB e
   | _ => False
 
+@[simp]
+theorem CTree.ub_vis [UB : HasUB EIn] (e : EIn) (k : E e → CTree E C α) :
+    (CTree.vis e k).UB ↔ UB.isUB e := by
+  simp [CTree.UB]
+
 @[grind .]
 theorem trans_empty : CTree.Trans l CTree.empty t' → False := by
   intros h

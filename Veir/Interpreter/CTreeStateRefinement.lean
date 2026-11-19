@@ -173,6 +173,14 @@ def eraseRegionHandler {ctx : WfIRContext OpCode} {σ : Type} :
   | .inr event => _root_.CTree.CTree.trigger
       (SubE := ErrorE ⊕ₑ _root_.CTree.UBE) event
 
+private theorem eraseRegionHandler_preservesUB {ctx : WfIRContext OpCode} {σ : Type}
+    (event : RunRegionEIn ctx σ ⊕ (ErrorEIn ⊕ _root_.CTree.UBEIn))
+    (h : _root_.CTree.HasUB.isUB event) :
+    (eraseRegionHandler event).UB := by
+  cases event with
+  | inl => exact False.elim h
+  | inr e => cases e <;> simp [eraseRegionHandler, _root_.CTree.CTree.trigger_def]
+
 /-- Recursive region handling and simple effect erasure coincide on a finite
 pure/error tree, because it contains no recursive region request. -/
 theorem interp_mrec_eq_erase {ctx : WfIRContext OpCode} {σ α : Type}
@@ -623,8 +631,8 @@ theorem sim_interp_mrec_interpretOp {ctx : WfIRContext OpCode}
         (_root_.CTree.interp_mrec handler (interpretOp op state opIn)) := by
   rw [interp_mrec_eq_erase handler (interpretOp_pureOrErr op state opIn)]
   have normalized := sim_interpretOp_embedCore op state opIn
-  have forward := _root_.CTree.Sim.interp eraseRegionHandler _ _ normalized.1
-  have backward := _root_.CTree.Sim.interp eraseRegionHandler _ _ normalized.2
+  have forward := _root_.CTree.Sim.interp eraseRegionHandler eraseRegionHandler_preservesUB _ _ normalized.1
+  have backward := _root_.CTree.Sim.interp eraseRegionHandler eraseRegionHandler_preservesUB _ _ normalized.2
   have erased := sim_erase_embedRaw (ctx := ctx) (σ := InterpreterState ctx) (interpretOpCore_pureOrErr op state opIn)
   exact ⟨_root_.CTree.Sim.trans forward erased.1 (fun _ _ _ => Eq.trans),
     _root_.CTree.Sim.trans erased.2 backward (fun _ _ _ => Eq.trans)⟩
@@ -853,7 +861,8 @@ theorem sim_interpretOp
   have core := sim_interpretOpCore sourceIn targetIn states frame primitive
   have lifted := _root_.CTree.Sim.interp
     (_root_.CTree.CTree.trigger (E := RunRegionE ctx (InterpreterState ctx) ⊕ₑ
-      (ErrorE ⊕ₑ _root_.CTree.UBE))) _ _ core
+      (ErrorE ⊕ₑ _root_.CTree.UBE))) (fun i _ => by
+        cases i <;> simp [_root_.CTree.CTree.trigger_def]) _ _ core
   have targetNorm := (sim_interpretOp_embedCore targetOp targetState targetIn).1
   have sourceNorm := (sim_interpretOp_embedCore sourceOp sourceState sourceIn).2
   exact _root_.CTree.Sim.trans (_root_.CTree.Sim.trans targetNorm lifted

@@ -27,6 +27,13 @@ silent steps it inserts. -/
 def inflate (tree : Tree α) : Tree α :=
   CTree.interp (fun event => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) event) tree
 
+/-- Re-emitting the same events preserves simulation, including undefined behavior. -/
+theorem sim_inflate {RR : α → β → Prop} {t : Tree α} {u : Tree β} (h : Sim RR t u) :
+    Sim RR (inflate t) (inflate u) := by
+  apply Sim.interp _ _ _ _ h
+  intro i _
+  cases i <;> simp [CTree.trigger_def]
+
 /-- Interpret an operation as a closed tree, with the two event-handler layers of `interpretOp`. -/
 @[expose]
 def interpretOperationTree (op : OperationPtr) {ctx : WfIRContext OpCode}
