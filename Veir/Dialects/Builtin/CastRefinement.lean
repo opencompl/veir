@@ -142,24 +142,24 @@ private theorem sim_pure_of_outcome {α β : Type} (relation : α → β → Pro
     {source : Tree β} {sourceValue : β} (targetValue : α)
     (h : PureOrErr.CanInterpretTo source (.ok sourceValue))
     (hrel : relation targetValue sourceValue) :
-    _root_.CTree.Sim relation (pure targetValue : Tree α) source := by
+    _root_.CTree.EqSim relation (pure targetValue : Tree α) source := by
   generalize heq : Interp.ok sourceValue = outcome at h
   induction h with
-  | ret value => cases heq; exact (_root_.CTree.Sim.pure _ _ _).mpr hrel
+  | ret value => cases heq; exact (_root_.CTree.EqSim.pure _ _ _).mpr hrel
   | tau choice next selected result h ih =>
-    exact _root_.CTree.Sim.tau_r relation choice _ next selected (ih heq)
+    exact _root_.CTree.EqSim.tau_r relation choice _ next selected (ih heq)
   | fail => cases heq
   | ub => cases heq
 
 /-- The byte-to-integer CTree cast is monotone in the byte refinement ordering. -/
 theorem byteToIntCTree_monotone (source target : LLVM.Byte width) (href : source ⊒ target) :
-    _root_.CTree.Sim (fun (target source : LLVM.Int width) => source ⊒ target)
+    _root_.CTree.EqSim (fun (target source : LLVM.Int width) => source ⊒ target)
       (byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) target)
       (byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) source) := by
   have hsim (result : LLVM.Int width)
       (hresult : PureOrErr.CanInterpretTo
         (byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) target) (.ok result)) :
-      _root_.CTree.Sim (fun (target source : LLVM.Int width) => source ⊒ target)
+      _root_.CTree.EqSim (fun (target source : LLVM.Int width) => source ⊒ target)
         (pure result : Tree (LLVM.Int width)) (byteToIntCTree source) := by
     obtain ⟨value, hvalue, hrefine⟩ := byteToIntCTree_outcome_monotone source target href result hresult
     exact sim_pure_of_outcome _ result hvalue hrefine
@@ -177,7 +177,7 @@ theorem byteToIntCTree_monotone (source target : LLVM.Byte width) (href : source
     rw [heq]
     simp only [_root_.CTree.CTree.choose_def, _root_.CTree.CTree.tau_def, Bind.bind,
       _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret,
-      _root_.CTree.Sim.tau_l]
+      _root_.CTree.EqSim.tau_l]
     intro bits
     exact hsim _ (byteToIntCTree_canInterpret_partial target hfull bits)
 

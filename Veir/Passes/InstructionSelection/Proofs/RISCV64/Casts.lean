@@ -249,7 +249,7 @@ theorem gmirAnyext_pattern_valid :
   by_cases hle : dstType.bitwidth ≤ srcType.bitwidth
   · simp [hle]
   · simp [hle,
-      ctree_semantics, CTree.tau_def, Sim.pure_tau]
+      ctree_semantics, CTree.tau_def, EqSim.pure_tau]
     simp [RuntimeValue.isRefinedBy]
     exact
       anyext_reg_refinement hw
@@ -369,7 +369,7 @@ theorem gmirAnyextOfReg_pattern_valid :
   split
   · simp [ctree_semantics]
   · simp [ctree_semantics, RISCV.Reg.toInt, Data.LLVM.Int.ext, Id.run]
-    simp only [CTree.tau_def, Sim.pure_tau]
+    simp only [CTree.tau_def, EqSim.pure_tau]
     rename_i srcTy dstTy hlt
     refine ⟨reg.val.extractLsb' srcTy.bitwidth (dstTy.bitwidth - srcTy.bitwidth), ?_⟩
     simp [ctree_semantics, RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]

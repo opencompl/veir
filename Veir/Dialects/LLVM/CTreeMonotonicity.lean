@@ -48,7 +48,7 @@ private theorem llvm_freeze_sim (properties : propertiesOf (OpCode.llvm .freeze)
     (hT : ∀ vals m a, MayReturn
       (interpretOp' (.llvm .freeze) properties resultTypes operands' blockOperands mem' regions)
       (vals, m, a) → RuntimeValue.ArrayConforms vals resultTypes) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
+    EqSim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
       (interpretOp' (.llvm .freeze) properties resultTypes operands' blockOperands mem' regions)
       (interpretOp' (.llvm .freeze) properties resultTypes operands blockOperands mem regions) := by
   rw [interpretOp'_regions, interpretOp'_regions] at hT ⊢

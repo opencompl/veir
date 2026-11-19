@@ -21,7 +21,7 @@ theorem OperationPtr.isRefinedByAsFunctionCTree_trans
     cases h₂ : FunctionOp.of? op₂ ctx₂.raw <;>
     cases h₃ : FunctionOp.of? op₃ ctx₃.raw <;> simp_all only
   intro source target mem hargs
-  exact _root_.CTree.Sim.trans
+  exact _root_.CTree.EqSim.trans
     (h₂₃ source target mem hargs) (h₁₂ source source mem (RuntimeValue.arrayIsRefinedBy_refl _))
     (fun _ _ _ h₃₂ h₂₁ => RuntimeValue.arrayIsRefinedBy_trans h₂₁ h₃₂)
 

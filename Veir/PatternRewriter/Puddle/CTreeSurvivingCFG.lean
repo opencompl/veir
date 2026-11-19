@@ -22,7 +22,7 @@ theorem surviving_CFG_step
     (sourceIn : op.InBounds sourceCtx.raw) (targetIn : op.InBounds targetCtx.raw)
     (sourceState : InterpreterState sourceCtx) (targetState : InterpreterState targetCtx)
     (post : InterpreterState sourceCtx → InterpreterState targetCtx → Prop)
-    (core : _root_.CTree.Sim
+    (core : _root_.CTree.EqSim
       (fun t s => post s.1 t.1 ∧ ControlFlowAction.optionIsRefinedBy s.2 t.2 ∧
         PureOrErr.CanInterpretTo (Veir.CTree.interpretOpCore op targetState targetIn) (.ok t) ∧
         PureOrErr.CanInterpretTo (Veir.CTree.interpretOpCore op sourceState sourceIn) (.ok s))
@@ -44,13 +44,13 @@ theorem surviving_CFG_step
         RewriteCFGInvariant mapping root newOps body body
           (.inl (⟨dest, targetDestIn⟩, targetArgs), targetFinal)
           (.inl (⟨dest, sourceDestIn⟩, sourceArgs), sourceFinal)) :
-    _root_.CTree.Sim
+    _root_.CTree.EqSim
       (Sum.LiftRel (RewriteCFGInvariant mapping root newOps body body)
         (fun t s => RuntimeValue.arrayIsRefinedBy s.2 t.2))
       (Veir.CTree.interpretCFGCore.iter (.inr ⟨op, targetIn⟩) targetState)
       (Veir.CTree.interpretCFGCore.iter (.inr ⟨op, sourceIn⟩) sourceState) := by
   simp only [Veir.CTree.interpretCFGCore.iter]
-  apply _root_.CTree.Sim.bind _ _ _ _ core
+  apply _root_.CTree.EqSim.bind _ _ _ _ core
   rintro ⟨targetFinal, targetAction⟩ ⟨sourceFinal, sourceAction⟩ ⟨after, actions, targetOutcome, sourceOutcome⟩
   dsimp only
   cases sourceAction with
@@ -85,13 +85,13 @@ theorem surviving_CFG_step
       cases sourceAction <;> cases targetAction
       all_goals simp only [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy] at actions
       all_goals try contradiction
-      · exact (_root_.CTree.Sim.pure _ _ _).mpr (Sum.LiftRel.inr actions)
+      · exact (_root_.CTree.EqSim.pure _ _ _).mpr (Sum.LiftRel.inr actions)
       · rcases actions with ⟨sameDestination, args⟩
         subst sameDestination
         obtain ⟨sourceDestIn, targetDestIn, nextInvariant⟩ :=
           branch _ _ _ _ _ after args sourceOutcome targetOutcome
         simp only [dite_eq_left sourceDestIn, dite_eq_left targetDestIn]
-        exact (_root_.CTree.Sim.pure _ _ _).mpr (Sum.LiftRel.inl nextInvariant)
+        exact (_root_.CTree.EqSim.pure _ _ _).mpr (Sum.LiftRel.inl nextInvariant)
 
 /-- Every surviving instruction of the actual compiled program preserves the global CFG relation. -/
 theorem Pattern.Valid.surviving_CFG
@@ -129,7 +129,7 @@ theorem Pattern.Valid.surviving_CFG
     {sourceState : InterpreterState rewriter.ctx} {targetState : InterpreterState result.ctx}
     (invariant : RewriteOpInvariant mapping root newOps body body
       ⟨op, sourceIn⟩ ⟨op, targetIn⟩ sourceState targetState) :
-    _root_.CTree.Sim
+    _root_.CTree.EqSim
       (Sum.LiftRel (RewriteCFGInvariant mapping root newOps body body)
         (fun t s => RuntimeValue.arrayIsRefinedBy s.2 t.2))
       (Veir.CTree.interpretCFGCore.iter (.inr ⟨op, targetIn⟩) targetState)
@@ -156,7 +156,7 @@ theorem Pattern.Valid.surviving_CFG
     (.after op rewriter.ctx.raw sourceBlock sourceParent sourceIn)
     (.after op result.ctx.raw targetBlock targetParent targetIn) (by grind) (by grind)
   apply surviving_CFG_step sourceIn targetIn sourceState targetState post
-  · apply _root_.CTree.Sim.mono core
+  · apply _root_.CTree.EqSim.mono core
     intro target source related
     refine ⟨?_, related.1.2, related.2.1, related.2.2⟩
     exact valid.surviving_after sourceDom rootRooted rootRegion rootSSA rootReachable localRun run attached regions

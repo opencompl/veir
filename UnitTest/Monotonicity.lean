@@ -1,8 +1,7 @@
 import Veir.Dialects.Monotonicity
 
 /-!
-Test that an opcode proved monotone in CTrees depends on the `Sim` axioms only, and one proved
-monotone in `Interp` on the standard axioms only.
+Test that the CTree and `Interp` monotonicity proofs use only the standard Lean axioms.
 -/
 
 namespace Veir
@@ -16,14 +15,7 @@ theorem builtin_interpretCTreeMonotone_not_assumed (op : Builtin) :
   inferInstance
 
 /--
-info: 'Veir.builtin_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.tau_l,
- CTree.Sim.tau_r,
- CTree.Sim.ub]
+info: 'Veir.builtin_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms builtin_interpretCTreeMonotone_not_assumed
@@ -36,14 +28,7 @@ theorem llvm_interpretCTreeMonotone_not_assumed (op : Llvm) : InterpretCTreeMono
   cases op <;> exact inferInstance
 
 /--
-info: 'Veir.llvm_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.tau_l,
- CTree.Sim.tau_r,
- CTree.Sim.ub]
+info: 'Veir.llvm_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms llvm_interpretCTreeMonotone_not_assumed
@@ -56,14 +41,7 @@ theorem gmir_interpretCTreeMonotone_not_assumed (op : GMIR) : InterpretCTreeMono
   cases op <;> exact inferInstance
 
 /--
-info: 'Veir.gmir_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.tau_l,
- CTree.Sim.tau_r,
- CTree.Sim.ub]
+info: 'Veir.gmir_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms gmir_interpretCTreeMonotone_not_assumed
@@ -77,14 +55,7 @@ theorem riscv_interpretCTreeMonotone_not_assumed (op : Riscv) :
   cases op <;> exact inferInstance
 
 /--
-info: 'Veir.riscv_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.tau_l,
- CTree.Sim.tau_r,
- CTree.Sim.ub]
+info: 'Veir.riscv_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms riscv_interpretCTreeMonotone_not_assumed
@@ -98,12 +69,7 @@ theorem cf_interpretCTreeMonotone_not_assumed (op : Cf) :
   inferInstance
 
 /--
-info: 'Veir.cf_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.ub]
+info: 'Veir.cf_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms cf_interpretCTreeMonotone_not_assumed
@@ -117,12 +83,7 @@ theorem riscv_cf_interpretCTreeMonotone_not_assumed (op : Riscv_Cf) :
   inferInstance
 
 /--
-info: 'Veir.riscv_cf_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.ub]
+info: 'Veir.riscv_cf_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms riscv_cf_interpretCTreeMonotone_not_assumed
@@ -136,12 +97,7 @@ theorem gmirRiscv_interpretCTreeMonotone_not_assumed (op : GMIR_RISCV) :
   inferInstance
 
 /--
-info: 'Veir.gmirRiscv_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.ub]
+info: 'Veir.gmirRiscv_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms gmirRiscv_interpretCTreeMonotone_not_assumed
@@ -155,12 +111,7 @@ theorem riscvStack_interpretCTreeMonotone_not_assumed (op : Riscv_Stack) :
   inferInstance
 
 /--
-info: 'Veir.riscvStack_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.ub]
+info: 'Veir.riscvStack_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms riscvStack_interpretCTreeMonotone_not_assumed
@@ -174,12 +125,7 @@ theorem func_interpretCTreeMonotone_not_assumed (op : Func) :
   inferInstance
 
 /--
-info: 'Veir.func_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.ub]
+info: 'Veir.func_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms func_interpretCTreeMonotone_not_assumed
@@ -193,12 +139,7 @@ theorem test_interpretCTreeMonotone_not_assumed (op : Test) :
   inferInstance
 
 /--
-info: 'Veir.test_interpretCTreeMonotone_not_assumed' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- CTree.Sim.ret,
- CTree.Sim.ub]
+info: 'Veir.test_interpretCTreeMonotone_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms test_interpretCTreeMonotone_not_assumed

@@ -48,7 +48,7 @@ theorem rewriteCFGInvariant_block_step
           ⟨sourceVariables, sourceState.memory⟩ ⟨targetVariables, targetState.memory⟩)
     (returnRelation : (InterpreterState targetCtx × Array RuntimeValue) →
       (InterpreterState sourceCtx × Array RuntimeValue) → Prop) :
-    _root_.CTree.Sim
+    _root_.CTree.EqSim
       (Sum.LiftRel (RewriteCFGInvariant mapping root newOps sourceRegion targetRegion) returnRelation)
       (Veir.CTree.interpretCFGCore.iter (.inl (targetBlock, targetArgs)) targetState)
       (Veir.CTree.interpretCFGCore.iter (.inl (sourceBlock, sourceArgs)) sourceState) := by
@@ -76,7 +76,7 @@ theorem rewriteCFGInvariant_block_step
         pending sourceVariables sourceSet sourceFirst sourceFirstIn firstGet
       rw [core_block_eq_of_set sourceBlock sourceArgs sourceState sourceSet sourceFirstIn firstGet,
         core_block_eq_of_set targetBlock targetArgs targetState targetSet targetFirstIn targetFirstGet]
-      apply (_root_.CTree.Sim.pure _ _ _).mpr
+      apply (_root_.CTree.EqSim.pure _ _ _).mpr
       exact Sum.LiftRel.inl (RewriteCFGInvariant.operation invariant)
 
 end Veir.Puddle.CTree

@@ -59,7 +59,7 @@ theorem gmirLoad_integer_sim (memory : MemoryState) (p : Data.Pointer)
     (sign : IntegerType.Signedness) (props : MachineMemOperand) (bytes : Nat)
     (hbytes : bytes = 1 ∨ bytes = 2 ∨ bytes = 4 ∨ bytes = 8)
     (hsize : props.size.toNat = 8 * bytes) (ext : LoadExtension) :
-    Sim (fun (target source : Array RuntimeValue × MemoryState × Option ControlFlowAction) => source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
+    EqSim (fun (target source : Array RuntimeValue × MemoryState × Option ControlFlowAction) => source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
       ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2)
       (gmirLoad_target memory p.address.toBitVec (TypeAttr.of IntegerType ⟨64,sign⟩) bytes ext)
       (GMIR.interpretOpCTree .g_load props #[TypeAttr.of IntegerType ⟨64,sign⟩]
@@ -101,7 +101,7 @@ theorem gmirLoad_integer_sim (memory : MemoryState) (p : Data.Pointer)
 
 theorem gmirLoad_pointer_sim (memory : MemoryState) (p : Data.Pointer)
     (ptr : LLVM.PointerType) (props : MachineMemOperand) (ext : LoadExtension) :
-    Sim (fun (target source : Array RuntimeValue × MemoryState × Option ControlFlowAction) =>
+    EqSim (fun (target source : Array RuntimeValue × MemoryState × Option ControlFlowAction) =>
       source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
       ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2)
       (gmirLoad_target memory p.address.toBitVec (TypeAttr.of LLVM.PointerType ptr) 8 ext)
@@ -127,7 +127,7 @@ theorem gmirLoad_sim (memory : MemoryState) (p : Data.Pointer)
     (hbytes : bytes = 1 ∨ bytes = 2 ∨ bytes = 4 ∨ bytes = 8)
     (hlegal : riscv64LegalizerInfo.isLegal .g_load #[resultType,addrType] props = true)
     (hsize : props.size.toNat = 8 * bytes) (ext : LoadExtension) :
-    Sim (fun (target source : Array RuntimeValue × MemoryState × Option ControlFlowAction) =>
+    EqSim (fun (target source : Array RuntimeValue × MemoryState × Option ControlFlowAction) =>
       source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
       ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2)
       (gmirLoad_target memory p.address.toBitVec resultType bytes ext)

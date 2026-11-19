@@ -145,8 +145,8 @@ elab "clearVerified" : tactic => do
 matches of `Attribute.of`, and the high bits chosen by each created `g_anyext`, which become a
 universally quantified bit-vector. -/
 macro "simpLegalSemantics" : tactic => `(tactic|
-  simp [ctree_semantics, Sim.bind_monadLift_right_iff, Attribute.of, _root_.CTree.CTree.bind_tau,
-    Sim.tau_l, -Attribute.integerType_eq_of])
+  simp [ctree_semantics, EqSim.bind_monadLift_right_iff, Attribute.of, _root_.CTree.CTree.bind_tau,
+    EqSim.tau_l, -Attribute.integerType_eq_of])
 
 /-- Normalize a gMIR validity goal after `simpLegalSemantics`: split the matched values and integer
 types, substitute the widths the matcher fixes, then repeatedly resolve the width guards of extensions, split the remaining width and result-type
@@ -169,14 +169,14 @@ macro "normalizeLegalValid" : tactic => `(tactic| (
     all_goals (try simp_all [RuntimeValue.isRefinedBy, le_eq_false_of_lt, lt_eq_false_of_le, Attribute.of,
       IntegerType.signless, Data.LLVM.trunc_ext, Data.LLVM.trunc_sext, ofInt_ofInt_value,
       PureOrErr.CanInterpretTo.tau_iff, PureOrErr.CanInterpretTo.tauG_iff,
-      _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.tau_def, Sim.tau_l, Sim.bind_monadLift_right_iff,
+      _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.tau_def, EqSim.tau_l, EqSim.bind_monadLift_right_iff,
       -Attribute.integerType_eq_of])
     all_goals (try (exfalso; omega))
     all_goals (try splitGuards)
     all_goals (try casesResultTypes)
     all_goals (try subst_vars))
   all_goals (try simp_all [RuntimeValue.isRefinedBy, le_eq_false_of_lt, lt_eq_false_of_le, Attribute.of,
-    _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.tau_def, Sim.tau_l, Sim.bind_monadLift_right_iff,
+    _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.tau_def, EqSim.tau_l, EqSim.bind_monadLift_right_iff,
     -Attribute.integerType_eq_of])
   all_goals (try (exfalso; omega))))
 

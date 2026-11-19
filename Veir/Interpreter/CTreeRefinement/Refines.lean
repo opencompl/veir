@@ -11,13 +11,13 @@ public section
 
 `Tree.Refines relation source target` says that every behavior of the target tree is simulated by
 a behavior of the source tree, with returned values related by `relation`, source first. It is
-`CTree.Sim` on the trees themselves, with its arguments reversed to Veir's source-to-target order.
+`CTree.EqSim` on the trees themselves, with its arguments reversed to Veir's source-to-target order.
 
 This is the refinement the DCE proof archived in `Archive/dce-proof` is written against, except
 that the archived version first reified terminal events as `Interp` outcomes and then had to assume
 three facts as axioms: that undefined behavior admits every target, that refining loop bodies give
 refining loops, and that opcodes are monotone. On the trees themselves the first two are theorems,
-from the simulation rules `CTree.Sim.ub` and `CTree.Sim.iter`, and the third is the CTree
+from the simulation rules `CTree.EqSim.ub` and `CTree.EqSim.iter`, and the third is the CTree
 monotonicity obligation of each opcode (`OpCode.interpretCTree_monotone`), proved per dialect.
 -/
 
@@ -26,7 +26,7 @@ namespace Veir.Tree
 /-- Every target behavior is simulated by a source behavior, with results related by `relation`. -/
 @[expose]
 def Refines (relation : α → β → Prop) (source : Tree α) (target : Tree β) : Prop :=
-  _root_.CTree.Sim (fun target source => relation source target) target source
+  _root_.CTree.EqSim (fun target source => relation source target) target source
 
 /-- Returned values refine exactly when they are related. -/
 theorem refines_pure (relation : α → β → Prop) (source : α) (target : β) :
@@ -37,7 +37,7 @@ theorem refines_pure (relation : α → β → Prop) (source : α) (target : β)
 theorem refines_mono {relation relation' : α → β → Prop} {source : Tree α} {target : Tree β}
     (h : Refines relation source target) (weaker : ∀ a b, relation a b → relation' a b) :
     Refines relation' source target :=
-  _root_.CTree.Sim.mono h fun b a hab => weaker a b hab
+  _root_.CTree.EqSim.mono h fun b a hab => weaker a b hab
 
 /-- Undefined source behavior admits every target behavior. The archived proof assumed this as
 `refines_ub`; on the trees themselves it is the simulation rule for undefined behavior. -/
@@ -56,7 +56,7 @@ theorem refines_bind {relation : α → β → Prop} {relation' : γ → δ → 
     (h : Refines relation source target)
     (hnext : ∀ a b, relation a b → Refines relation' (next a) (next' b)) :
     Refines relation' (source >>= next) (target >>= next') :=
-  _root_.CTree.Sim.bind target source next' next h fun b a hab => hnext a b hab
+  _root_.CTree.EqSim.bind target source next' next h fun b a hab => hnext a b hab
 
 /-- Refining loop bodies give refining loops from related loop states. The archived proof assumed
 this as `refines_iter : IterationCompatible`; it is the simulation rule for iteration. -/
@@ -67,7 +67,7 @@ theorem refines_iter {ι κ α β : Type} (stateRelation : ι → κ → Prop) (
     (source : ι) (target : κ) (hstate : stateRelation source target) :
     Refines relation (CTree.iter bodySource source) (CTree.iter bodyTarget target) := by
   unfold Refines at *
-  refine _root_.CTree.Sim.iter (RRi := fun target source => stateRelation source target)
+  refine _root_.CTree.EqSim.iter (RRi := fun target source => stateRelation source target)
     bodyTarget bodySource target source hstate ?_
   intro target source hstate
   refine (hbody source target hstate).mono ?_

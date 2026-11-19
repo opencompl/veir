@@ -105,7 +105,7 @@ that `lowerZero` uses. -/
 attribute [local llvm_to_gmir_pattern] reconcilePairingCast createConstant createConstantWith
 
 attribute [local llvm_to_gmir]
-  Attribute.of _root_.CTree.CTree.bind_tau Sim.tau_l Sim.bind_monadLift_right_iff
+  Attribute.of _root_.CTree.CTree.bind_tau EqSim.tau_l EqSim.bind_monadLift_right_iff
 
 /-- Unfold an `llvm-to-gmir` pattern (`llvm_to_gmir_pattern`), resolving the choices it makes on its
 arguments, and discharge the structural obligations (`simpPuddleValid`). -/
@@ -144,15 +144,15 @@ macro "proveToGMIRValid" "with" closer:tacticSeq : tactic => `(tactic| (
 /-- A target that casts a byte to an integer simulates the source whatever bits it chooses. -/
 @[local simp] theorem sim_bind_map_byteToIntCTree_left {X Y Z : Type} {RR : Y → Z → Prop}
     {w : Nat} (b : Data.LLVM.Byte w) (f : Data.LLVM.Int w → X) (k : X → Tree Y) (u : Tree Z) :
-    Sim RR (CTree.bind (f <$> Builtin.byteToIntCTree b) k) u ↔
-      ∀ bits, Sim RR (k (f (freezeByteWith b bits))) u := by
+    EqSim RR (CTree.bind (f <$> Builtin.byteToIntCTree b) k) u ↔
+      ∀ bits, EqSim RR (k (f (freezeByteWith b bits))) u := by
   unfold Builtin.byteToIntCTree freezeByteWith
   split <;> simp [CTree.choose_def, CTree.tau_def, Functor.map, Data.LLVM.Byte.fillPoison]
 
 /-- A source that casts a byte to an integer simulates a value it can choose bits for. -/
 @[local simp] theorem sim_pure_map_byteToIntCTree_right {X Y : Type} {RR : X → Y → Prop}
     {w : Nat} (b : Data.LLVM.Byte w) (f : Data.LLVM.Int w → Y) (x : X) :
-    Sim RR (pure x : Tree X) (f <$> Builtin.byteToIntCTree b) ↔
+    EqSim RR (pure x : Tree X) (f <$> Builtin.byteToIntCTree b) ↔
       ∃ bits, RR x (f (freezeByteWith b bits)) := by
   unfold Builtin.byteToIntCTree freezeByteWith
   split <;> simp [CTree.choose_def, CTree.tau_def, Functor.map, Data.LLVM.Byte.fillPoison]
@@ -542,9 +542,9 @@ theorem loadMemOperand?_some {type : TypeAttr} {props : LoadProperties} {mmo : M
 /-- A target that lifts the source's own interpretation `S`, then continues with `m` and `k`,
 simulates the source when the continuation simulates each successful outcome. -/
 theorem sim_match_eq {α β γ : Type} {R : γ → α → Prop} (S : Interp α) (m : α → Tree β)
-    (k : β → Tree γ) (hk : ∀ v, S = .ok v → Sim R (CTree.bind (m v) k) (pure v : Tree α)) :
+    (k : β → Tree γ) (hk : ∀ v, S = .ok v → EqSim R (CTree.bind (m v) k) (pure v : Tree α)) :
     (match (generalizing := false) S with
-      | .ok v => Sim R (CTree.bind (CTree.bind (monadLift S : Tree α) m) k) (pure v : Tree α)
+      | .ok v => EqSim R (CTree.bind (CTree.bind (monadLift S : Tree α) m) k) (pure v : Tree α)
       | .ub _ => True
       | .fail _ => True) := by
   cases S with
@@ -767,7 +767,7 @@ theorem freeze_valid : Puddle.CTree.Pattern.Valid lowerIntegerFreeze := by
   rename_i value
   cases value
   · simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy_refl]
-  · simp [CTree.choose_def, CTree.tau_def, Functor.map, Sim.tau_l, _root_.CTree.CTree.bind_tau,
+  · simp [CTree.choose_def, CTree.tau_def, Functor.map, EqSim.tau_l, _root_.CTree.CTree.bind_tau,
       RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy_refl]
     exact fun bits => ⟨bits, Data.LLVM.Int.isRefinedBy_refl _⟩
 
@@ -794,7 +794,7 @@ theorem inttoptr_valid : Puddle.CTree.Pattern.Valid lowerIntToPtr := by
   obtain ⟨v, rfl⟩ := hc
   dsimp only
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, dite_true]
-  simp only [Sim.bind_monadLift_right_iff]
+  simp only [EqSim.bind_monadLift_right_iff]
   cases v <;> simp [RuntimeValue.isRefinedBy, MemoryState.ptrFromInt, Data.LLVM.Ptr.isRefinedBy]
 
 end Veir.LLVMToGMIR.CTreeProofs

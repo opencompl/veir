@@ -74,7 +74,7 @@ private theorem sim_g_anyext (properties : propertiesOf (OpCode.gmir .g_anyext))
     (hT : ∀ vals m a, MayReturn
       (interpretOp' (.gmir .g_anyext) properties resultTypes operands' blockOperands mem' regions)
       (vals, m, a) → RuntimeValue.ArrayConforms vals resultTypes) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
+    EqSim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
       (interpretOp' (.gmir .g_anyext) properties resultTypes operands' blockOperands mem' regions)
       (interpretOp' (.gmir .g_anyext) properties resultTypes operands blockOperands mem
         regions) := by
@@ -98,8 +98,8 @@ private theorem sim_g_anyext (properties : propertiesOf (OpCode.gmir .g_anyext))
     by_cases hw : resBw.bitwidth ≤ w
     · simp [hw]
     simp only [hw, ↓reduceDIte, CTree.tau_def] at hT ⊢
-    refine (Sim.tau_l _ _ _ _).mpr fun msb => Sim.tau_r _ _ _ _ msb ?_
-    refine (Sim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr ⟨?_, hMem,
+    refine (EqSim.tau_l _ _ _ _).mpr fun msb => EqSim.tau_r _ _ _ _ msb ?_
+    refine (EqSim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr ⟨?_, hMem,
       ControlFlowAction.optionIsRefinedBy_refl _⟩,
       hT _ _ _ ((MayReturn.tauG_iff _ _ _).mpr ⟨msb, mayReturn_pure _⟩)⟩
     simp only [RuntimeValue.singleton_isRefinedBy_iff, Array.mk.injEq, List.cons.injEq, and_true,
@@ -120,7 +120,7 @@ private theorem sim_g_load (properties : propertiesOf (OpCode.gmir .g_load))
     (hT : ∀ vals m a, MayReturn
       (interpretOp' (.gmir .g_load) properties resultTypes operands' blockOperands mem' regions)
       (vals, m, a) → RuntimeValue.ArrayConforms vals resultTypes) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
+    EqSim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
       (interpretOp' (.gmir .g_load) properties resultTypes operands' blockOperands mem' regions)
       (interpretOp' (.gmir .g_load) properties resultTypes operands blockOperands mem regions) := by
   rw [interpretOp'_regions, interpretOp'_regions] at hT ⊢
@@ -154,15 +154,15 @@ private theorem sim_g_load (properties : propertiesOf (OpCode.gmir .g_load))
       dsimp only
       by_cases hw : properties.size.toNat < w
       · simp only [hw, ↓reduceDIte, CTree.tau_def] at hT ⊢
-        refine (Sim.tau_l _ _ _ _).mpr fun msb => Sim.tau_r _ _ _ _ msb ?_
-        refine (Sim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr ⟨?_, hm, ha⟩,
+        refine (EqSim.tau_l _ _ _ _).mpr fun msb => EqSim.tau_r _ _ _ _ msb ?_
+        refine (EqSim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr ⟨?_, hm, ha⟩,
           hT _ _ _ ((MayReturn.tauG_iff _ _ _).mpr ⟨msb, mayReturn_pure _⟩)⟩
         simp only [RuntimeValue.singleton_isRefinedBy_iff, Array.mk.injEq, List.cons.injEq,
           and_true, exists_eq_left']
         exact RuntimeValue.int_isRefinedBy_of (Data.LLVM.Int.isRefinedBy_map
           (f := fun z => (z.trunc _ false false hw).ext w msb hw) rfl hval)
       · simp only [hw, ↓reduceDIte] at hT ⊢
-        exact (Sim.pure _ _ _).mpr ⟨hr, hT _ _ _ (mayReturn_pure _)⟩
+        exact (EqSim.pure _ _ _).mpr ⟨hr, hT _ _ _ (mayReturn_pure _)⟩
     · next hS' =>
       split
       · next w val hS =>
@@ -171,7 +171,7 @@ private theorem sim_g_load (properties : propertiesOf (OpCode.gmir .g_load))
       · split at hT
         · next w val' hS =>
           exact absurd hS (hS' _ _)
-        · exact (Sim.pure _ _ _).mpr ⟨hr, hT _ _ _ (mayReturn_pure _)⟩
+        · exact (EqSim.pure _ _ _).mpr ⟨hr, hT _ _ _ (mayReturn_pure _)⟩
 
 /-! ## `g_freeze` -/
 
@@ -189,7 +189,7 @@ private theorem sim_g_freeze (properties : propertiesOf (OpCode.gmir .g_freeze))
     (hT : ∀ vals m a, MayReturn
       (interpretOp' (.gmir .g_freeze) properties resultTypes operands' blockOperands mem' regions)
       (vals, m, a) → RuntimeValue.ArrayConforms vals resultTypes) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
+    EqSim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
       (interpretOp' (.gmir .g_freeze) properties resultTypes operands' blockOperands mem' regions)
       (interpretOp' (.gmir .g_freeze) properties resultTypes operands blockOperands mem
         regions) := by

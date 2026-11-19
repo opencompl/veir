@@ -20,17 +20,17 @@ open _root_.CTree
 
 /-- Finite primitive computations simulate themselves while retaining their successful outcome witness. -/
 theorem PureOrErr.sim_with_outcome {tree : Tree α} (shape : PureOrErr tree) :
-    Sim (fun x y => x = y ∧ PureOrErr.CanInterpretTo tree (.ok x)) tree tree := by
+    EqSim (fun x y => x = y ∧ PureOrErr.CanInterpretTo tree (.ok x)) tree tree := by
   induction shape with
   | ret value => simp [CTree.ret_pure]
   | tau choice branches shapes ih =>
-      apply Sim.tau_id
+      apply EqSim.tau_id
       intro x
       exact (ih x).mono (by
         rintro t s ⟨heq, hw⟩
         exact ⟨heq, .tau choice branches x _ hw⟩)
-  | fail => apply Sim.ub; trivial
-  | ub => apply Sim.ub; trivial
+  | fail => apply EqSim.ub; trivial
+  | ub => apply EqSim.ub; trivial
 
 namespace Puddle.CTree
 
@@ -128,7 +128,7 @@ theorem sim_interpretCreatedOpsChecked {ctx : WfIRContext OpCode} (ops : List Op
     (conforms : CreatedResultsConform ctx ops)
     (state : InterpreterState ctx) (resolve : ValueResolver) (memory : MemoryState)
     (realizes : ResolverRealizes ctx state (resolve, memory)) :
-    Sim (ResolverRealizes ctx) (interpretCreatedOpsChecked ctx ops state)
+    EqSim (ResolverRealizes ctx) (interpretCreatedOpsChecked ctx ops state)
       (interpretCreatedOpsEnriched ctx.raw ops resolve memory) := by
   induction ops generalizing state resolve memory with
   | nil =>
@@ -145,7 +145,7 @@ theorem sim_interpretCreatedOpsChecked {ctx : WfIRContext OpCode} (ops : List Op
           simp only [lookup, Option.map_none] at getEq
           simp only [getEq]
           simp [Veir.fail, _root_.CTree.CTree.trigger_def, Bind.bind, _root_.CTree.CTree.bind_vis]
-          apply Sim.ub; trivial
+          apply EqSim.ub; trivial
       | some operands =>
           simp only [lookup, Option.map_some] at getEq
           simp only [getEq]
@@ -167,7 +167,7 @@ theorem sim_interpretCreatedOpsChecked {ctx : WfIRContext OpCode} (ops : List Op
 
           rw [primitiveEq]
           rw [_root_.CTree.bind_assoc]
-          apply Sim.bind _ _ _ _ (PureOrErr.sim_with_outcome
+          apply EqSim.bind _ _ _ _ (PureOrErr.sim_with_outcome
             (Veir.CTree.interpretOp'_pureOrErr _ _ _ _ _ _))
           rintro target source ⟨equal, outcome⟩
           subst source

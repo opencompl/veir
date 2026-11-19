@@ -562,7 +562,7 @@ theorem pure_bind_choose_iff
         (CTree.bind (CTree.choose choice) after) ↔
       ∃ chosen, CTree.Sim RE RR (Pure.pure value : CTree E C α) (after chosen) := by
   simp only [CTree.choose_def, Subeffect.mapEff, Subeffect.mapCont, CTree.ret_pure, CTree.tau_def,
-    CTree.CTree.bind_tau, SumE.eq_inr, CTree.bind_pure, Sim.pure_tau]
+    CTree.CTree.bind_tau, SumE.eq_inr, CTree.bind_pure, Sim.pure_tau_proof]
   constructor
   · grind
   · rintro ⟨chosen, h⟩
@@ -572,7 +572,7 @@ theorem tau (i : C1In ⊕ CIn) (i' : C1In ⊕ C'In) (k : (C1 ⊕ₑ C) i → CTr
   (∀ x, ∃ y, Sim RE RR (k x) (k' y)) →
   Sim RE RR (CTree.tauG i k) (CTree.tauG i' k') := by
   intro h
-  apply (tau_l RE RR i k _).2
+  apply (tau_l_proof RE RR i k _).2
   intro x
   obtain ⟨y, hxy⟩ := h x
   exact tau_r RE RR i' (k x) k' y hxy
@@ -1068,11 +1068,11 @@ private theorem trans_div_chain
   · exact LTS.MuSimF.div_of_not_acc _ _ R _ _ hv
 
 /-- A simulation remains valid when its relation on return values is weakened. -/
-theorem mono {RR RS : R → R' → Prop} {t : CTree E C R} {u : CTree E C' R'}
-    (h : Sim RR t u) (hrel : ∀ x y, RR x y → RS x y) : Sim RS t u := by
-  have hbind := bind t u CTree.ret CTree.ret h
-    (fun x y hxy => (ret RS x y).mpr (hrel x y hxy))
-  change Sim RS (t >>= Pure.pure) (u >>= Pure.pure) at hbind
+theorem mono {RR RS : α → β → Prop} {t : CTree E C α} {u : CTree E C' β}
+    (h : Sim RE RR t u) (hrel : ∀ x y, RR x y → RS x y) : Sim RE RS t u := by
+  have hbind := bind_proof RE t u CTree.ret CTree.ret h
+    (fun x y hxy => (ret RE RS x y).mpr (hrel x y hxy))
+  change Sim RE RS (t >>= Pure.pure) (u >>= Pure.pure) at hbind
   simpa only [_root_.bind_pure] using hbind
 
 /-- Simulations compose by relating their return values through an intermediate outcome. -/
@@ -1082,21 +1082,6 @@ axiom trans_rel (hRE : ∀ i i' x y, RE i i' x y → UBE.isUB i → UBE.isUB i')
     {t : CTree E C R₁} {u : CTree E C' R₂} {v : CTree E D R₃} :
     Sim RE RS t u → Sim RF RT u v →
     Sim (fun i i'' x z => ∃ (i' : EIn) (y : E i'), RE i i' x y ∧ RF i' i'' y z) (fun x z => ∃ y, RS x y ∧ RT y z) t v
-
-/-- Compose simulations when the two return relations imply the desired relation. -/
-theorem trans {R₁ R₂ R₃ : Type u} {RS : R₁ → R₂ → Prop} {RT : R₂ → R₃ → Prop}
-    {RU : R₁ → R₃ → Prop} {t : CTree E C R₁} {u : CTree E C' R₂} {v : CTree E D R₃}
-    (htu : Sim RS t u) (huv : Sim RT u v)
-    (hrel : ∀ x y z, RS x y → RT y z → RU x z) : Sim RU t v := by
-  apply (trans_rel htu huv).mono
-  rintro x z ⟨y, hxy, hyz⟩
-  exact hrel x y z hxy hyz
-
-axiom iter {I I'} {RRi : I → I' → Prop} {RRo : X → Y → Prop}
-    (body : I → CTree E C (I ⊕ X)) (body' : I' → CTree E C (I' ⊕ Y)) i i' :
-  RRi i i' →
-  (∀ x y, RRi x y → Sim (Sum.LiftRel RRi RRo) (body x) (body' y)) →
-  Sim (R' := Y) RRo (CTree.iter body i) (CTree.iter (X := Y) body' i')
 
 /-- Independent proof of `trans_rel`, leaving its axiom unchanged. -/
 theorem trans_rel_proof (_hRE : ∀ i i' x y, RE i i' x y → UBE.isUB i → UBE.isUB i')
@@ -1168,7 +1153,7 @@ theorem iter {I I'} {RRi : I → I' → Prop} {RRo : α → β → Prop}
   · intros R ch i i' hi hsim
     unfold CTree.iter
     simp only [Bind.bind]
-    apply MuSimF.bind' (RR' := Sum.LiftRel RRi RRo)
+    apply MuSimF.bind_proof (RS := Sum.LiftRel RRi RRo) (R := Chain.next (MuSimF RE RRo) R)
     apply hsim
     apply hi
     intros x y hRR

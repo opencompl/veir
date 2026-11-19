@@ -4,7 +4,7 @@ public import CTree.Defs
 public import CTree.UB
 public import CTree.Iter
 public import CTree.Interp
-public import CTree.Sim
+public import CTree.EqSim
 
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.RuntimeValue
@@ -44,9 +44,9 @@ theorem sim_ub {EIn CIn C'In} {E : EIn → Type} {C : CIn → Type}
     {C' : C'In → Type} [HasUB EIn] [UBE -< E]
     (relation : α → β → Prop) (target : CTree E C α)
     (isUB : HasUB.isUB (Subeffect.mapEff UBE E UBEIn.mk) := by trivial) :
-    Sim relation target (ub : CTree E C' β) := by
+    EqSim relation target (ub : CTree E C' β) := by
   simp only [ub, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
-  apply Sim.ub
+  apply EqSim.ub
   exact isUB
 
 /-! ## Error Effect -/
@@ -88,9 +88,9 @@ theorem sim_fail {EIn CIn C'In} {E : EIn → Type} {C : CIn → Type}
     {C' : C'In → Type} [HasUB EIn] [ErrorE -< E]
     (relation : α → β → Prop) (target : CTree E C α)
     (isUB : HasUB.isUB (Subeffect.mapEff ErrorE E ErrorEIn.mk) := by trivial) :
-    Sim relation target (fail : CTree E C' β) := by
+    EqSim relation target (fail : CTree E C' β) := by
   simp only [fail, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
-  apply Sim.ub
+  apply EqSim.ub
   exact isUB
 
 /-! ## Freeze Effect -/
@@ -149,38 +149,38 @@ theorem CTree.monadLift_interp_ok {EIn CIn R} {E : EIn → Type} {C : CIn → Ty
   rfl
 
 @[simp]
-theorem Sim.monadLift_ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
+theorem EqSim.monadLift_ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
     (location : Option OperationPtr) :
     (monadLift (Interp.ub location) : CTree E C α) = ub := by
   rfl
 
 @[simp]
-theorem Sim.monadLift_fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
+theorem EqSim.monadLift_fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
     (location : Option OperationPtr) :
     (monadLift (Interp.fail location) : CTree E C α) = fail := by
   rfl
 
-theorem Sim.bind_monadLift_left_iff {EIn CIn C'In} {E : EIn → Type}
+theorem EqSim.bind_monadLift_left_iff {EIn CIn C'In} {E : EIn → Type}
     {C : CIn → Type} {C' : C'In → Type} [HasUB EIn] [ErrorE -< E] [UBE -< E]
     (relation : α → γ → Prop) (source : CTree E C' γ)
     (outcome : Interp β) (next : β → CTree E C α) :
-    Sim relation (CTree.bind (monadLift outcome) next) source ↔
+    EqSim relation (CTree.bind (monadLift outcome) next) source ↔
     match outcome with
-    | .ok value => Sim relation (next value) source
-    | .ub _ => Sim relation (ub : CTree E C α) source
-    | .fail _ => Sim relation (fail : CTree E C α) source := by
+    | .ok value => EqSim relation (next value) source
+    | .ub _ => EqSim relation (ub : CTree E C α) source
+    | .fail _ => EqSim relation (fail : CTree E C α) source := by
   cases outcome <;> simp [monadLift, MonadLift.monadLift]
 
-theorem Sim.monadLift_right_iff {EIn : Type} {E : EIn → Type}
+theorem EqSim.monadLift_right_iff {EIn : Type} {E : EIn → Type}
   [HasUB EIn] [ErrorE -< E] [UBE -< E]
   {CIn C'In : Type} {C : CIn → Type} {C' : C'In → Type}
   {α β : Type} (relation : α → β → Prop)
   (target : CTree E C α) (func : Interp β) :
-  CTree.Sim relation target (monadLift func : CTree E C' β) ↔
+  CTree.EqSim relation target (monadLift func : CTree E C' β) ↔
     match func with
-    | .ok value => CTree.Sim relation target (pure value : CTree E C' β)
-    | .ub _ => CTree.Sim relation target (ub : CTree E C' β)
-    | .fail _ => CTree.Sim relation target (fail : CTree E C' β) := by
+    | .ok value => CTree.EqSim relation target (pure value : CTree E C' β)
+    | .ub _ => CTree.EqSim relation target (ub : CTree E C' β)
+    | .fail _ => CTree.EqSim relation target (fail : CTree E C' β) := by
   cases func <;> rfl
 
 /-! ## The values a CTree can return -/

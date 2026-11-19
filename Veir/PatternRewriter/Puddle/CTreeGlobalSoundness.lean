@@ -123,12 +123,12 @@ theorem Pattern.Valid.compile_moduleRefinement_of_verified_output_of_reachable
             targetIn (by simpa only [OperationPtr.getNumRegions!_eq_getNumRegions targetIn, headers sourceOne] using (by decide : 0 < 1))
           rw [bodySame] at targetBodyIn
           simp only [← FunctionOp.getFunctionBody!_eq_getFunctionBody, bodySame]
-          suffices core : _root_.CTree.Sim (fun t s => RuntimeValue.arrayIsRefinedBy s.2 t.2)
+          suffices core : _root_.CTree.EqSim (fun t s => RuntimeValue.arrayIsRefinedBy s.2 t.2)
               (Veir.CTree.interpretCFGCore sourceFn.getFunctionBody! targetValues ⟨.empty result.ctx, mem⟩ targetBodyIn)
               (Veir.CTree.interpretCFGCore sourceFn.getFunctionBody! sourceValues ⟨.empty rewriter.ctx, mem⟩ sourceBodyIn) by
-            apply _root_.CTree.Sim.trans
+            apply _root_.CTree.EqSim.trans
               (Veir.CTree.sim_interpretRegion_core _ targetValues ⟨.empty result.ctx, mem⟩ targetBodyIn).1
-              (_root_.CTree.Sim.trans core
+              (_root_.CTree.EqSim.trans core
                 (Veir.CTree.sim_interpretRegion_core _ sourceValues ⟨.empty rewriter.ctx, mem⟩ sourceBodyIn).2
                 (fun t intermediate s related equal => by subst intermediate; exact related))
             intro t intermediate s equal related
@@ -178,7 +178,7 @@ theorem Pattern.Valid.compile_moduleRefinement_of_verified_output_of_reachable
             have bodySSA := (sourceFn.body_scope functionIn sourceHasBody).2
             rw [interpretCFGCore_eq_of_firstBlock _ sourceBodyIn entry sourceEntryIn sourceGet,
               interpretCFGCore_eq_of_firstBlock _ targetBodyIn entry targetEntryIn targetGet]
-            refine _root_.CTree.Sim.iter_batched
+            refine _root_.CTree.EqSim.iter_batched
               (fun (location, state) => Veir.CTree.interpretCFGCore.iter location state)
               (fun (location, state) => Veir.CTree.interpretCFGCore.iter location state)
               (rewriteTargetBatch newOps) (rewriteSourceBatch root newOps)
@@ -249,7 +249,7 @@ theorem Pattern.Valid.compile_moduleRefinement_of_verified_output_of_reachable
                       simp only [emptyArray, rewriteSourceBatch]
                       rfl
                     rw [targetBatch, sourceBatch, _root_.CTree.iterSteps_one]
-                    have deleted : _root_.CTree.Sim (fun target source =>
+                    have deleted : _root_.CTree.EqSim (fun target source =>
                         RewriteOpInvariant mapping root newOps sourceFn.getFunctionBody! sourceFn.getFunctionBody!
                           ⟨next, nextIn⟩ ⟨next, targetNextIn⟩ source.1 target)
                         (pure targetState : Tree (InterpreterState result.ctx))

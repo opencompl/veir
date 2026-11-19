@@ -105,7 +105,7 @@ theorem artifact_unmerge_merge_valid : Puddle.CTree.Pattern.Valid combineUnmerge
   have key := int_unmerge_merge hk (by omega) lo (hi.cast rfl)
   simp only [List.toList_toArray,
     dite_eq_left_of_eq_true (show (w + w = (w + w) / 2 + (w + w) / 2) = True by simp; omega),
-    Sim.bind_monadLift_right_iff, CTree.Sim.pure]
+    EqSim.bind_monadLift_right_iff, CTree.EqSim.pure]
   simp only [Data.LLVM.Int.cast_self] at key ⊢
   refine ⟨⟨rfl, fun i hi' => ?_⟩, by simp, by simp [ControlFlowAction.optionIsRefinedBy]⟩
   match i, hi' with

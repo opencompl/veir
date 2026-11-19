@@ -65,37 +65,37 @@ theorem interp_sim_of_pureOrErr {FIn CIn α : Type}
     (ubUB : _root_.CTree.HasUB.isUB
       (_root_.CTree.Subeffect.mapEff _root_.CTree.UBE F _root_.CTree.UBEIn.mk))
     {tree : _root_.CTree.CTree F C α} (shape : PureOrErr tree) :
-    _root_.CTree.Sim Eq (_root_.CTree.interp handler tree) tree ∧
-      _root_.CTree.Sim Eq tree (_root_.CTree.interp handler tree) := by
+    _root_.CTree.EqSim Eq (_root_.CTree.interp handler tree) tree ∧
+      _root_.CTree.EqSim Eq tree (_root_.CTree.interp handler tree) := by
   induction shape with
   | ret value =>
     rw [interp_ret_eq]
-    exact ⟨_root_.CTree.Sim.refl _ (fun _ => rfl) _,
-      _root_.CTree.Sim.refl _ (fun _ => rfl) _⟩
+    exact ⟨_root_.CTree.EqSim.refl _ (fun _ => rfl) _,
+      _root_.CTree.EqSim.refl _ (fun _ => rfl) _⟩
   | tau choice next _ ih =>
     rw [interp_tau_eq]
     constructor
-    · apply _root_.CTree.Sim.tau_id
+    · apply _root_.CTree.EqSim.tau_id
       intro x
-      simp only [_root_.CTree.CTree.tau1_def, _root_.CTree.Sim.tau_l]
+      simp only [_root_.CTree.CTree.tau1_def, _root_.CTree.EqSim.tau_l]
       intro _
       exact (ih x).1
-    · apply _root_.CTree.Sim.tau_id
+    · apply _root_.CTree.EqSim.tau_id
       intro x
-      apply _root_.CTree.Sim.tau_r _ (.inl .c1) _ _ .unit
+      apply _root_.CTree.EqSim.tau_r _ (.inl .c1) _ _ .unit
       exact (ih x).2
   | fail =>
     constructor
-    · exact _root_.CTree.Sim.ub _ _ errorUB
+    · exact _root_.CTree.EqSim.ub _ _ errorUB
     · rw [interp_vis_eq, errorSame]
       simp only [_root_.CTree.CTree.trigger_def, Bind.bind, _root_.CTree.CTree.bind_vis]
-      exact _root_.CTree.Sim.ub _ _ errorUB
+      exact _root_.CTree.EqSim.ub _ _ errorUB
   | ub =>
     constructor
-    · exact _root_.CTree.Sim.ub _ _ ubUB
+    · exact _root_.CTree.EqSim.ub _ _ ubUB
     · rw [interp_vis_eq, ubSame]
       simp only [_root_.CTree.CTree.trigger_def, Bind.bind, _root_.CTree.CTree.bind_vis]
-      exact _root_.CTree.Sim.ub _ _ ubUB
+      exact _root_.CTree.EqSim.ub _ _ ubUB
 
 /-- Embed a raw tree into the unresolved region-effect family. -/
 def embedRaw {ctx : WfIRContext OpCode} {σ α : Type} (tree : Tree α) :
@@ -132,38 +132,38 @@ theorem embedRaw_pureOrErr {ctx : WfIRContext OpCode} {σ α : Type} {tree : Tre
 silent steps introduced by the interpreter. The continuation may be infinite. -/
 theorem sim_embedRaw_bind {ctx : WfIRContext OpCode} {σ α β : Type}
     {tree : Tree α} (shape : PureOrErr tree) (next : α → Tree β) :
-    _root_.CTree.Sim Eq (embedRaw (ctx := ctx) (σ := σ) (tree >>= next))
+    _root_.CTree.EqSim Eq (embedRaw (ctx := ctx) (σ := σ) (tree >>= next))
         (embedRaw tree >>= fun x => embedRaw (next x)) ∧
-      _root_.CTree.Sim Eq (embedRaw tree >>= fun x => embedRaw (next x))
+      _root_.CTree.EqSim Eq (embedRaw tree >>= fun x => embedRaw (next x))
         (embedRaw (ctx := ctx) (σ := σ) (tree >>= next)) := by
   induction shape with
   | ret value =>
     simp only [Bind.bind, _root_.CTree.CTree.bind_ret, embedRaw, interp_ret_eq]
     simp only [Pure.pure, _root_.CTree.CTree.bind_ret]
-    exact ⟨_root_.CTree.Sim.refl _ (fun _ => rfl) _,
-      _root_.CTree.Sim.refl _ (fun _ => rfl) _⟩
+    exact ⟨_root_.CTree.EqSim.refl _ (fun _ => rfl) _,
+      _root_.CTree.EqSim.refl _ (fun _ => rfl) _⟩
   | tau choice continuation _ ih =>
     simp only [Bind.bind, _root_.CTree.CTree.bind_tau, embedRaw, interp_tau_eq,
       _root_.CTree.CTree.tau1_def]
     constructor
-    · apply _root_.CTree.Sim.tau_id
+    · apply _root_.CTree.EqSim.tau_id
       intro x
-      apply _root_.CTree.Sim.tau_id
+      apply _root_.CTree.EqSim.tau_id
       intro _
       exact (ih x).1
-    · apply _root_.CTree.Sim.tau_id
+    · apply _root_.CTree.EqSim.tau_id
       intro x
-      apply _root_.CTree.Sim.tau_id
+      apply _root_.CTree.EqSim.tau_id
       intro _
       exact (ih x).2
   | fail =>
     simp [Bind.bind, _root_.CTree.CTree.bind_vis, embedRaw, interp_vis_eq,
       _root_.CTree.CTree.trigger_def]
-    constructor <;> apply _root_.CTree.Sim.ub <;> trivial
+    constructor <;> apply _root_.CTree.EqSim.ub <;> trivial
   | ub =>
     simp [Bind.bind, _root_.CTree.CTree.bind_vis, embedRaw, interp_vis_eq,
       _root_.CTree.CTree.trigger_def]
-    constructor <;> apply _root_.CTree.Sim.ub <;> trivial
+    constructor <;> apply _root_.CTree.EqSim.ub <;> trivial
 
 /-- Forget unreachable region callbacks while retaining external error/UB events. -/
 def eraseRegionHandler {ctx : WfIRContext OpCode} {σ : Type} :
@@ -204,37 +204,37 @@ theorem interp_mrec_eq_erase {ctx : WfIRContext OpCode} {σ α : Type}
 /-- Erasing an embedding preserves a finite raw computation up to silent steps. -/
 theorem sim_erase_embedRaw {ctx : WfIRContext OpCode} {σ α : Type}
     {tree : Tree α} (shape : PureOrErr tree) :
-    _root_.CTree.Sim Eq
+    _root_.CTree.EqSim Eq
         (_root_.CTree.interp (eraseRegionHandler (ctx := ctx) (σ := σ)) (embedRaw tree)) tree ∧
-      _root_.CTree.Sim Eq tree
+      _root_.CTree.EqSim Eq tree
         (_root_.CTree.interp (eraseRegionHandler (ctx := ctx) (σ := σ)) (embedRaw tree)) := by
   induction shape with
   | ret value =>
     simp only [embedRaw, Pure.pure, interp_ret_eq]
-    exact ⟨_root_.CTree.Sim.refl _ (fun _ => rfl) _,
-      _root_.CTree.Sim.refl _ (fun _ => rfl) _⟩
+    exact ⟨_root_.CTree.EqSim.refl _ (fun _ => rfl) _,
+      _root_.CTree.EqSim.refl _ (fun _ => rfl) _⟩
   | tau choice next _ ih =>
     simp only [embedRaw, interp_tau_eq, _root_.CTree.CTree.tau1_def]
     constructor
-    · apply _root_.CTree.Sim.tau_id
+    · apply _root_.CTree.EqSim.tau_id
       intro x
-      simp only [_root_.CTree.Sim.tau_l]
+      simp only [_root_.CTree.EqSim.tau_l]
       intro _ _ _
       exact (ih x).1
-    · apply _root_.CTree.Sim.tau_id
+    · apply _root_.CTree.EqSim.tau_id
       intro x
-      apply _root_.CTree.Sim.tau_r _ (.inl .c1) _ _ .unit
-      apply _root_.CTree.Sim.tau_r _ (.inl .c1) _ _ .unit
-      apply _root_.CTree.Sim.tau_r _ (.inl .c1) _ _ .unit
+      apply _root_.CTree.EqSim.tau_r _ (.inl .c1) _ _ .unit
+      apply _root_.CTree.EqSim.tau_r _ (.inl .c1) _ _ .unit
+      apply _root_.CTree.EqSim.tau_r _ (.inl .c1) _ _ .unit
       exact (ih x).2
   | fail =>
     simp [embedRaw, interp_vis_eq, eraseRegionHandler, _root_.CTree.CTree.trigger_def,
       Bind.bind, _root_.CTree.CTree.bind_vis]
-    constructor <;> apply _root_.CTree.Sim.ub <;> trivial
+    constructor <;> apply _root_.CTree.EqSim.ub <;> trivial
   | ub =>
     simp [embedRaw, interp_vis_eq, eraseRegionHandler, _root_.CTree.CTree.trigger_def,
       Bind.bind, _root_.CTree.CTree.bind_vis]
-    constructor <;> apply _root_.CTree.Sim.ub <;> trivial
+    constructor <;> apply _root_.CTree.EqSim.ub <;> trivial
 
 /-- The region handler used by actual operation interpretation. -/
 def operationRegionHandler {ctx : WfIRContext OpCode} (state : InterpreterState ctx) :
@@ -271,44 +271,44 @@ theorem operationRegionHandler_pureOrErr {ctx : WfIRContext OpCode} {α : Type}
 
 theorem sim_operationRegionHandler_embedRaw {ctx : WfIRContext OpCode} {α : Type}
     (state : InterpreterState ctx) {tree : Tree α} (shape : PureOrErr tree) :
-    _root_.CTree.Sim Eq
+    _root_.CTree.EqSim Eq
         (_root_.CTree.interp (operationRegionHandler state)
           (embedRaw (σ := MemoryState) tree))
         (embedRaw (ctx := ctx) (σ := InterpreterState ctx) tree) ∧
-      _root_.CTree.Sim Eq
+      _root_.CTree.EqSim Eq
         (embedRaw (ctx := ctx) (σ := InterpreterState ctx) tree)
         (_root_.CTree.interp (operationRegionHandler state)
           (embedRaw (σ := MemoryState) tree)) := by
   induction shape with
   | ret value =>
     simp only [embedRaw, Pure.pure, interp_ret_eq]
-    exact ⟨_root_.CTree.Sim.refl _ (fun _ => rfl) _,
-      _root_.CTree.Sim.refl _ (fun _ => rfl) _⟩
+    exact ⟨_root_.CTree.EqSim.refl _ (fun _ => rfl) _,
+      _root_.CTree.EqSim.refl _ (fun _ => rfl) _⟩
   | tau choice next _ ih =>
     simp only [embedRaw, interp_tau_eq, _root_.CTree.CTree.tau1_def]
     constructor
-    · apply _root_.CTree.Sim.tau_id
+    · apply _root_.CTree.EqSim.tau_id
       intro x
-      simp only [_root_.CTree.Sim.tau_l]
+      simp only [_root_.CTree.EqSim.tau_l]
       intro _ _ _
-      apply _root_.CTree.Sim.tau_r _ (.inl .c1) _ _ .unit
+      apply _root_.CTree.EqSim.tau_r _ (.inl .c1) _ _ .unit
       exact (ih x).1
-    · apply _root_.CTree.Sim.tau_id
+    · apply _root_.CTree.EqSim.tau_id
       intro x
-      simp only [_root_.CTree.Sim.tau_l]
+      simp only [_root_.CTree.EqSim.tau_l]
       intro _
-      apply _root_.CTree.Sim.tau_r _ (.inl .c1) _ _ .unit
-      apply _root_.CTree.Sim.tau_r _ (.inl .c1) _ _ .unit
-      apply _root_.CTree.Sim.tau_r _ (.inl .c1) _ _ .unit
+      apply _root_.CTree.EqSim.tau_r _ (.inl .c1) _ _ .unit
+      apply _root_.CTree.EqSim.tau_r _ (.inl .c1) _ _ .unit
+      apply _root_.CTree.EqSim.tau_r _ (.inl .c1) _ _ .unit
       exact (ih x).2
   | fail =>
     simp [embedRaw, interp_vis_eq, operationRegionHandler, _root_.CTree.CTree.trigger_def,
       Bind.bind, _root_.CTree.CTree.bind_vis]
-    constructor <;> apply _root_.CTree.Sim.ub <;> trivial
+    constructor <;> apply _root_.CTree.EqSim.ub <;> trivial
   | ub =>
     simp [embedRaw, interp_vis_eq, operationRegionHandler, _root_.CTree.CTree.trigger_def,
       Bind.bind, _root_.CTree.CTree.bind_vis]
-    constructor <;> apply _root_.CTree.Sim.ub <;> trivial
+    constructor <;> apply _root_.CTree.EqSim.ub <;> trivial
 
 /-- Bind checked runtime results into the current SSA state. This is the final
 shared-effect computation of operation interpretation, after raw effects resolve. -/
@@ -334,7 +334,7 @@ theorem sim_commitOpResults
     {sourceResult targetResult : Array RuntimeValue × MemoryState × Option ControlFlowAction}
     (related : OperationResult.isRefinedBy sourceResult targetResult)
     (conforms : RuntimeValue.ArrayConforms targetResult.1 (targetOp.getResultTypes! targetCtx.raw)) :
-    _root_.CTree.Sim
+    _root_.CTree.EqSim
       (fun t s => s.1.isRefinedBy t.1 mapping ∧
         ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (commitOpResults targetOp targetState targetIn targetResult)
@@ -348,7 +348,7 @@ theorem sim_commitOpResults
     obtain ⟨newTarget, targetSet, newVariables⟩ :=
       VariableState.setResultValues?_isRefinedBy variables values resultPointers reflects
         sourceSet conforms targetIn
-    simp only [commitOpResults, sourceSet, targetSet, _root_.CTree.Sim.pure]
+    simp only [commitOpResults, sourceSet, targetSet, _root_.CTree.EqSim.pure]
     exact ⟨⟨memory, newVariables⟩, action⟩
 
 /-- Lift an explicit raw opcode simulation through checked result installation.
@@ -364,16 +364,16 @@ theorem sim_bind_commitOpResults
       mapping.applyToArray (sourceOp.getResults! sourceCtx.raw))
     (reflects : mapping.ReflectsResults sourceOp targetOp)
     (targetRaw sourceRaw : Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-    (primitive : _root_.CTree.Sim
+    (primitive : _root_.CTree.EqSim
       (fun t s => OperationResult.isRefinedBy s t ∧
         RuntimeValue.ArrayConforms t.1 (targetOp.getResultTypes! targetCtx.raw))
       targetRaw sourceRaw) :
-    _root_.CTree.Sim
+    _root_.CTree.EqSim
       (fun t s => s.1.isRefinedBy t.1 mapping ∧
         ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (targetRaw >>= commitOpResults targetOp targetState targetIn)
       (sourceRaw >>= commitOpResults sourceOp sourceState sourceIn) := by
-  apply _root_.CTree.Sim.bind _ _ _ _ primitive
+  apply _root_.CTree.EqSim.bind _ _ _ _ primitive
   intro targetResult sourceResult related
   exact sim_commitOpResults sourceIn targetIn variables resultPointers reflects related.1 related.2
 
@@ -409,11 +409,11 @@ theorem sim_runOpWith
       sourceState.variables.getOperandValues sourceOp = some sourceValues →
       targetState.variables.getOperandValues targetOp = some targetValues →
       RuntimeValue.arrayIsRefinedBy sourceValues targetValues →
-      _root_.CTree.Sim
+      _root_.CTree.EqSim
         (fun t s => OperationResult.isRefinedBy s t ∧
           RuntimeValue.ArrayConforms t.1 (targetOp.getResultTypes! targetCtx.raw))
         (targetRaw targetValues targetState.memory) (sourceRaw sourceValues sourceState.memory)) :
-    _root_.CTree.Sim
+    _root_.CTree.EqSim
       (fun t s => s.1.isRefinedBy t.1 mapping ∧
         ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (runOpWith targetOp targetState targetIn targetRaw)
@@ -451,12 +451,12 @@ theorem sim_interpretOpCore
       sourceState.variables.getOperandValues sourceOp = some sourceValues →
       targetState.variables.getOperandValues targetOp = some targetValues →
       RuntimeValue.arrayIsRefinedBy sourceValues targetValues →
-      _root_.CTree.Sim
+      _root_.CTree.EqSim
         (fun t s => OperationResult.isRefinedBy s t ∧
           RuntimeValue.ArrayConforms t.1 (targetOp.getResultTypes! targetCtx.raw))
         (OperationPtr.interpretCTree targetOp targetIn targetValues targetState.memory)
         (OperationPtr.interpretCTree sourceOp sourceIn sourceValues sourceState.memory)) :
-    _root_.CTree.Sim
+    _root_.CTree.EqSim
       (fun t s => s.1.isRefinedBy t.1 mapping ∧
         ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (interpretOpCore targetOp targetState targetIn)
@@ -476,18 +476,18 @@ def commitOpResultsRegion {ctx : WfIRContext OpCode} (op : OperationPtr)
 theorem sim_commitOpResults_embed {ctx : WfIRContext OpCode} (op : OperationPtr)
     (state : InterpreterState ctx) (opIn : op.InBounds ctx.raw)
     (outcome : Array RuntimeValue × MemoryState × Option ControlFlowAction) :
-    _root_.CTree.Sim Eq (commitOpResultsRegion op state opIn outcome)
+    _root_.CTree.EqSim Eq (commitOpResultsRegion op state opIn outcome)
         (embedRaw (commitOpResults op state opIn outcome)) ∧
-      _root_.CTree.Sim Eq (embedRaw (commitOpResults op state opIn outcome))
+      _root_.CTree.EqSim Eq (embedRaw (commitOpResults op state opIn outcome))
         (commitOpResultsRegion op state opIn outcome) := by
   cases setter : state.variables.setResultValues? op outcome.1 opIn with
   | none =>
     simp [commitOpResultsRegion, commitOpResults, setter, embedRaw, fail,
       _root_.CTree.CTree.trigger_def, Bind.bind, interp_vis_eq]
-    constructor <;> apply _root_.CTree.Sim.ub <;> trivial
+    constructor <;> apply _root_.CTree.EqSim.ub <;> trivial
   | some variables =>
     simp only [commitOpResultsRegion, commitOpResults, setter, embedRaw, Pure.pure,
-      interp_ret_eq, _root_.CTree.Sim.ret]
+      interp_ret_eq, _root_.CTree.EqSim.ret]
     trivial
 
 /-- Operation interpretation with the unused region-callback handler removed. -/
@@ -502,13 +502,13 @@ def interpretOpEmbeddedCore {ctx : WfIRContext OpCode} (op : OperationPtr)
 simulate each other. The proof uses finite opcode shape, without a new axiom. -/
 theorem sim_interpretOp_embeddedCore {ctx : WfIRContext OpCode} (op : OperationPtr)
     (state : InterpreterState ctx) (opIn : op.InBounds ctx.raw) :
-    _root_.CTree.Sim Eq (interpretOp op state opIn) (interpretOpEmbeddedCore op state opIn) ∧
-      _root_.CTree.Sim Eq (interpretOpEmbeddedCore op state opIn) (interpretOp op state opIn) := by
+    _root_.CTree.EqSim Eq (interpretOp op state opIn) (interpretOpEmbeddedCore op state opIn) ∧
+      _root_.CTree.EqSim Eq (interpretOpEmbeddedCore op state opIn) (interpretOp op state opIn) := by
   cases get : state.variables.getOperandValues op with
   | none =>
     simp only [interpretOp, interpretOpEmbeddedCore, get]
-    exact ⟨_root_.CTree.Sim.refl _ (fun _ => rfl) _,
-      _root_.CTree.Sim.refl _ (fun _ => rfl) _⟩
+    exact ⟨_root_.CTree.EqSim.refl _ (fun _ => rfl) _,
+      _root_.CTree.EqSim.refl _ (fun _ => rfl) _⟩
   | some operands =>
     have shapes : PureOrErr (OperationPtr.interpretCTree op opIn operands state.memory) := by
       unfold OperationPtr.interpretCTree
@@ -516,14 +516,14 @@ theorem sim_interpretOp_embeddedCore {ctx : WfIRContext OpCode} (op : OperationP
     have norm := sim_operationRegionHandler_embedRaw state shapes
     simp only [interpretOp, interpretOpEmbeddedCore, get]
     constructor
-    · apply _root_.CTree.Sim.bind _ _ _ _ norm.1
+    · apply _root_.CTree.EqSim.bind _ _ _ _ norm.1
       intro target source equal
       subst source
-      exact _root_.CTree.Sim.refl _ (fun _ => rfl) _
-    · apply _root_.CTree.Sim.bind _ _ _ _ norm.2
+      exact _root_.CTree.EqSim.refl _ (fun _ => rfl) _
+    · apply _root_.CTree.EqSim.bind _ _ _ _ norm.2
       intro target source equal
       subst source
-      exact _root_.CTree.Sim.refl _ (fun _ => rfl) _
+      exact _root_.CTree.EqSim.refl _ (fun _ => rfl) _
 
 
 /-- The actual operation interpreter is an embedding of the shared-effect core,
@@ -531,41 +531,41 @@ up to finite silent steps. This links the core state-refinement theorem to the
 runtime interpreter without assuming a normalization axiom. -/
 theorem sim_interpretOp_embedCore {ctx : WfIRContext OpCode} (op : OperationPtr)
     (state : InterpreterState ctx) (opIn : op.InBounds ctx.raw) :
-    _root_.CTree.Sim Eq (interpretOp op state opIn) (embedRaw (interpretOpCore op state opIn)) ∧
-      _root_.CTree.Sim Eq (embedRaw (interpretOpCore op state opIn)) (interpretOp op state opIn) := by
+    _root_.CTree.EqSim Eq (interpretOp op state opIn) (embedRaw (interpretOpCore op state opIn)) ∧
+      _root_.CTree.EqSim Eq (embedRaw (interpretOpCore op state opIn)) (interpretOp op state opIn) := by
   have actual := sim_interpretOp_embeddedCore op state opIn
   have core :
-      _root_.CTree.Sim Eq (interpretOpEmbeddedCore op state opIn)
+      _root_.CTree.EqSim Eq (interpretOpEmbeddedCore op state opIn)
           (embedRaw (interpretOpCore op state opIn)) ∧
-        _root_.CTree.Sim Eq (embedRaw (interpretOpCore op state opIn))
+        _root_.CTree.EqSim Eq (embedRaw (interpretOpCore op state opIn))
           (interpretOpEmbeddedCore op state opIn) := by
     cases get : state.variables.getOperandValues op with
     | none =>
       simp [interpretOpEmbeddedCore, interpretOpCore, runOpWith, get, embedRaw, fail,
         _root_.CTree.CTree.trigger_def, Bind.bind, interp_vis_eq]
-      constructor <;> apply _root_.CTree.Sim.ub <;> trivial
+      constructor <;> apply _root_.CTree.EqSim.ub <;> trivial
     | some operands =>
       have shape : PureOrErr (OperationPtr.interpretCTree op opIn operands state.memory) := by
         unfold OperationPtr.interpretCTree
         exact interpretOp'_pureOrErr _ _ _ _ _ _ (op.getRegions ctx.raw)
       have distribute := sim_embedRaw_bind (ctx := ctx) (σ := InterpreterState ctx) shape
         (commitOpResults op state opIn)
-      have rawRefl := _root_.CTree.Sim.refl Eq (fun _ => rfl)
+      have rawRefl := _root_.CTree.EqSim.refl Eq (fun _ => rfl)
         (embedRaw (ctx := ctx) (σ := InterpreterState ctx)
           (OperationPtr.interpretCTree op opIn operands state.memory))
-      have forward := _root_.CTree.Sim.bind _ _
+      have forward := _root_.CTree.EqSim.bind _ _
         (commitOpResultsRegion op state opIn)
         (fun x => embedRaw (commitOpResults op state opIn x)) rawRefl
         (by intro t s h; subst s; exact (sim_commitOpResults_embed op state opIn t).1)
-      have backward := _root_.CTree.Sim.bind _ _
+      have backward := _root_.CTree.EqSim.bind _ _
         (fun x => embedRaw (commitOpResults op state opIn x))
         (commitOpResultsRegion op state opIn) rawRefl
         (by intro t s h; subst s; exact (sim_commitOpResults_embed op state opIn t).2)
       simp only [interpretOpEmbeddedCore, interpretOpCore, runOpWith, get]
-      exact ⟨_root_.CTree.Sim.trans forward distribute.2 (fun _ _ _ => Eq.trans),
-        _root_.CTree.Sim.trans distribute.1 backward (fun _ _ _ => Eq.trans)⟩
-  exact ⟨_root_.CTree.Sim.trans actual.1 core.1 (fun _ _ _ => Eq.trans),
-    _root_.CTree.Sim.trans core.2 actual.2 (fun _ _ _ => Eq.trans)⟩
+      exact ⟨_root_.CTree.EqSim.trans forward distribute.2 (fun _ _ _ => Eq.trans),
+        _root_.CTree.EqSim.trans distribute.1 backward (fun _ _ _ => Eq.trans)⟩
+  exact ⟨_root_.CTree.EqSim.trans actual.1 core.1 (fun _ _ _ => Eq.trans),
+    _root_.CTree.EqSim.trans core.2 actual.2 (fun _ _ _ => Eq.trans)⟩
 
 
 theorem commitOpResults_pureOrErr {ctx : WfIRContext OpCode} (op : OperationPtr)
@@ -617,17 +617,17 @@ theorem sim_interp_mrec_interpretOp {ctx : WfIRContext OpCode}
     (handler : (event : RunRegionEIn ctx (InterpreterState ctx)) →
       RegionTree ctx (InterpreterState ctx) (RunRegionE ctx (InterpreterState ctx) event))
     (op : OperationPtr) (state : InterpreterState ctx) (opIn : op.InBounds ctx.raw) :
-    _root_.CTree.Sim Eq (_root_.CTree.interp_mrec handler (interpretOp op state opIn))
+    _root_.CTree.EqSim Eq (_root_.CTree.interp_mrec handler (interpretOp op state opIn))
         (interpretOpCore op state opIn) ∧
-      _root_.CTree.Sim Eq (interpretOpCore op state opIn)
+      _root_.CTree.EqSim Eq (interpretOpCore op state opIn)
         (_root_.CTree.interp_mrec handler (interpretOp op state opIn)) := by
   rw [interp_mrec_eq_erase handler (interpretOp_pureOrErr op state opIn)]
   have normalized := sim_interpretOp_embedCore op state opIn
-  have forward := _root_.CTree.Sim.interp eraseRegionHandler _ _ normalized.1
-  have backward := _root_.CTree.Sim.interp eraseRegionHandler _ _ normalized.2
+  have forward := _root_.CTree.EqSim.interp eraseRegionHandler _ _ normalized.1
+  have backward := _root_.CTree.EqSim.interp eraseRegionHandler _ _ normalized.2
   have erased := sim_erase_embedRaw (ctx := ctx) (σ := InterpreterState ctx) (interpretOpCore_pureOrErr op state opIn)
-  exact ⟨_root_.CTree.Sim.trans forward erased.1 (fun _ _ _ => Eq.trans),
-    _root_.CTree.Sim.trans erased.2 backward (fun _ _ _ => Eq.trans)⟩
+  exact ⟨_root_.CTree.EqSim.trans forward erased.1 (fun _ _ _ => Eq.trans),
+    _root_.CTree.EqSim.trans erased.2 backward (fun _ _ _ => Eq.trans)⟩
 
 theorem interp_mrec_fail_eq {ctx : WfIRContext OpCode} {σ α : Type}
     (handler : (event : RunRegionEIn ctx σ) → RegionTree ctx σ (RunRegionE ctx σ event)) :
@@ -672,13 +672,13 @@ theorem sim_interp_mrec_CFG_iter {ctx : WfIRContext OpCode}
     (handler : (event : RunRegionEIn ctx (InterpreterState ctx)) →
       RegionTree ctx (InterpreterState ctx) (RunRegionE ctx (InterpreterState ctx) event))
     (location : interpretCFG.StateLocation ctx) (state : InterpreterState ctx) :
-    _root_.CTree.Sim Eq (_root_.CTree.interp_mrec handler (interpretCFG.iter location state))
+    _root_.CTree.EqSim Eq (_root_.CTree.interp_mrec handler (interpretCFG.iter location state))
         (interpretCFGCore.iter location state) ∧
-      _root_.CTree.Sim Eq (interpretCFGCore.iter location state)
+      _root_.CTree.EqSim Eq (interpretCFGCore.iter location state)
         (_root_.CTree.interp_mrec handler (interpretCFG.iter location state)) := by
   have self : ∀ tree : Tree ((interpretCFG.StateLocation ctx × InterpreterState ctx) ⊕
-      (InterpreterState ctx × Array RuntimeValue)), _root_.CTree.Sim Eq tree tree :=
-    fun tree => _root_.CTree.Sim.refl _ (fun _ => rfl) tree
+      (InterpreterState ctx × Array RuntimeValue)), _root_.CTree.EqSim Eq tree tree :=
+    fun tree => _root_.CTree.EqSim.refl _ (fun _ => rfl) tree
   cases location with
   | inl entry =>
     rcases entry with ⟨⟨block, blockIn⟩, values⟩
@@ -688,28 +688,28 @@ theorem sim_interp_mrec_CFG_iter {ctx : WfIRContext OpCode}
     · simp only [interp_mrec_fail_eq]
       try simp_all only
       first
-      | exact ⟨_root_.CTree.Sim.refl _ (fun _ => rfl) _,
-          _root_.CTree.Sim.refl _ (fun _ => rfl) _⟩
+      | exact ⟨_root_.CTree.EqSim.refl _ (fun _ => rfl) _,
+          _root_.CTree.EqSim.refl _ (fun _ => rfl) _⟩
       | grind
     · split
       · split
         · simp only [Pure.pure, _root_.CTree.interp_mrec_ret_step]
           try simp_all only
           first
-          | exact ⟨_root_.CTree.Sim.refl _ (fun _ => rfl) _,
-              _root_.CTree.Sim.refl _ (fun _ => rfl) _⟩
+          | exact ⟨_root_.CTree.EqSim.refl _ (fun _ => rfl) _,
+              _root_.CTree.EqSim.refl _ (fun _ => rfl) _⟩
           | grind
         · rw [interp_mrec_fail_eq]
           try simp_all only
           first
-          | exact ⟨_root_.CTree.Sim.refl _ (fun _ => rfl) _,
-              _root_.CTree.Sim.refl _ (fun _ => rfl) _⟩
+          | exact ⟨_root_.CTree.EqSim.refl _ (fun _ => rfl) _,
+              _root_.CTree.EqSim.refl _ (fun _ => rfl) _⟩
           | grind
       · rw [interp_mrec_fail_eq]
         try simp_all only
         first
-        | exact ⟨_root_.CTree.Sim.refl _ (fun _ => rfl) _,
-            _root_.CTree.Sim.refl _ (fun _ => rfl) _⟩
+        | exact ⟨_root_.CTree.EqSim.refl _ (fun _ => rfl) _,
+            _root_.CTree.EqSim.refl _ (fun _ => rfl) _⟩
         | grind
   | inr op =>
     rcases op with ⟨op, opIn⟩
@@ -718,7 +718,7 @@ theorem sim_interp_mrec_CFG_iter {ctx : WfIRContext OpCode}
     rw [_root_.CTree.interp_mrec_bind]
     have primitive := sim_interp_mrec_interpretOp handler op state opIn
     constructor
-    · apply _root_.CTree.Sim.bind _ _ _ _ primitive.1
+    · apply _root_.CTree.EqSim.bind _ _ _ _ primitive.1
       intro t s equal
       subst s
       rcases t with ⟨newState, action⟩
@@ -728,21 +728,21 @@ theorem sim_interp_mrec_CFG_iter {ctx : WfIRContext OpCode}
         split <;> simp only [Pure.pure]
         all_goals try simp_all only
         all_goals first
-          | exact _root_.CTree.Sim.refl _ (fun _ => rfl) _
+          | exact _root_.CTree.EqSim.refl _ (fun _ => rfl) _
           | grind [interp_mrec_fail_eq, _root_.CTree.interp_mrec_ret_step]
       | some action =>
         cases action with
         | «return» values =>
           simp only [Pure.pure, _root_.CTree.interp_mrec_ret_step]
           try simp_all only
-          try exact _root_.CTree.Sim.refl _ (fun _ => rfl) _
+          try exact _root_.CTree.EqSim.refl _ (fun _ => rfl) _
         | branch args dest =>
           split <;> simp only [Pure.pure]
           all_goals try simp_all only
           all_goals first
-          | exact _root_.CTree.Sim.refl _ (fun _ => rfl) _
+          | exact _root_.CTree.EqSim.refl _ (fun _ => rfl) _
           | grind [interp_mrec_fail_eq, _root_.CTree.interp_mrec_ret_step]
-    · apply _root_.CTree.Sim.bind _ _ _ _ primitive.2
+    · apply _root_.CTree.EqSim.bind _ _ _ _ primitive.2
       intro t s equal
       subst s
       rcases t with ⟨newState, action⟩
@@ -752,19 +752,19 @@ theorem sim_interp_mrec_CFG_iter {ctx : WfIRContext OpCode}
         split <;> simp only [Pure.pure]
         all_goals try simp_all only
         all_goals first
-          | exact _root_.CTree.Sim.refl _ (fun _ => rfl) _
+          | exact _root_.CTree.EqSim.refl _ (fun _ => rfl) _
           | grind [interp_mrec_fail_eq, _root_.CTree.interp_mrec_ret_step]
       | some action =>
         cases action with
         | «return» values =>
           simp only [Pure.pure, _root_.CTree.interp_mrec_ret_step]
           try simp_all only
-          try exact _root_.CTree.Sim.refl _ (fun _ => rfl) _
+          try exact _root_.CTree.EqSim.refl _ (fun _ => rfl) _
         | branch args dest =>
           split <;> simp only [Pure.pure]
           all_goals try simp_all only
           all_goals first
-          | exact _root_.CTree.Sim.refl _ (fun _ => rfl) _
+          | exact _root_.CTree.EqSim.refl _ (fun _ => rfl) _
           | grind [interp_mrec_fail_eq, _root_.CTree.interp_mrec_ret_step]
 
 /-- Recursive region interpretation of a CFG normalizes to a core CFG loop. -/
@@ -773,9 +773,9 @@ theorem sim_interp_mrec_CFG {ctx : WfIRContext OpCode}
       RegionTree ctx (InterpreterState ctx) (RunRegionE ctx (InterpreterState ctx) event))
     (region : RegionPtr) (values : Array RuntimeValue) (state : InterpreterState ctx)
     (regionIn : region.InBounds ctx.raw) :
-    _root_.CTree.Sim Eq (_root_.CTree.interp_mrec handler (interpretCFG region values state regionIn))
+    _root_.CTree.EqSim Eq (_root_.CTree.interp_mrec handler (interpretCFG region values state regionIn))
         (interpretCFGCore region values state regionIn) ∧
-      _root_.CTree.Sim Eq (interpretCFGCore region values state regionIn)
+      _root_.CTree.EqSim Eq (interpretCFGCore region values state regionIn)
         (_root_.CTree.interp_mrec handler (interpretCFG region values state regionIn)) := by
   unfold interpretCFG interpretCFGCore
   split
@@ -785,34 +785,34 @@ theorem sim_interp_mrec_CFG {ctx : WfIRContext OpCode}
     have fusion := _root_.CTree.sim_interp_mrec_iter handler
       (fun p : interpretCFG.StateLocation ctx × InterpreterState ctx => interpretCFG.iter p.1 p.2)
       initial
-    have forward : _root_.CTree.Sim Eq
+    have forward : _root_.CTree.EqSim Eq
         (_root_.CTree.iter (fun p : interpretCFG.StateLocation ctx × InterpreterState ctx =>
           _root_.CTree.interp_mrec handler (interpretCFG.iter p.1 p.2)) initial)
         (_root_.CTree.iter (fun p : interpretCFG.StateLocation ctx × InterpreterState ctx =>
           interpretCFGCore.iter p.1 p.2) initial) := by
-      apply _root_.CTree.Sim.iter _ _ _ _ rfl
+      apply _root_.CTree.EqSim.iter _ _ _ _ rfl
       intro x y equal
       subst y
       exact ((sim_interp_mrec_CFG_iter handler x.1 x.2).1).mono
         (fun a b equal => by subst b; cases a <;> first | exact Sum.LiftRel.inl rfl | exact Sum.LiftRel.inr rfl)
-    have backward : _root_.CTree.Sim Eq
+    have backward : _root_.CTree.EqSim Eq
         (_root_.CTree.iter (fun p : interpretCFG.StateLocation ctx × InterpreterState ctx =>
           interpretCFGCore.iter p.1 p.2) initial)
         (_root_.CTree.iter (fun p : interpretCFG.StateLocation ctx × InterpreterState ctx =>
           _root_.CTree.interp_mrec handler (interpretCFG.iter p.1 p.2)) initial) := by
-      apply _root_.CTree.Sim.iter _ _ _ _ rfl
+      apply _root_.CTree.EqSim.iter _ _ _ _ rfl
       intro x y equal
       subst y
       exact ((sim_interp_mrec_CFG_iter handler x.1 x.2).2).mono
         (fun a b equal => by subst b; cases a <;> first | exact Sum.LiftRel.inl rfl | exact Sum.LiftRel.inr rfl)
     have result := And.intro
-      (_root_.CTree.Sim.trans fusion.1 forward (fun _ _ _ => Eq.trans))
-      (_root_.CTree.Sim.trans backward fusion.2 (fun _ _ _ => Eq.trans))
+      (_root_.CTree.EqSim.trans fusion.1 forward (fun _ _ _ => Eq.trans))
+      (_root_.CTree.EqSim.trans backward fusion.2 (fun _ _ _ => Eq.trans))
     dsimp only [initial] at result
     grind
   next missing =>
     rw [interp_mrec_fail_eq]
-    have same := _root_.CTree.Sim.refl Eq (fun _ => rfl)
+    have same := _root_.CTree.EqSim.refl Eq (fun _ => rfl)
       (fail : Tree (InterpreterState ctx × Array RuntimeValue))
     grind
 
@@ -821,9 +821,9 @@ mutually simulate each other, including possibly nonterminating CFG execution. -
 theorem sim_interpretRegion_core {ctx : WfIRContext OpCode}
     (region : RegionPtr) (values : Array RuntimeValue) (state : InterpreterState ctx)
     (regionIn : region.InBounds ctx.raw) :
-    _root_.CTree.Sim Eq (interpretRegion region values state regionIn)
+    _root_.CTree.EqSim Eq (interpretRegion region values state regionIn)
         (interpretCFGCore region values state regionIn) ∧
-      _root_.CTree.Sim Eq (interpretCFGCore region values state regionIn)
+      _root_.CTree.EqSim Eq (interpretCFGCore region values state regionIn)
         (interpretRegion region values state regionIn) := by
   unfold interpretRegion _root_.CTree.mrec
   exact sim_interp_mrec_CFG _ region values state regionIn
@@ -840,23 +840,23 @@ theorem sim_interpretOp
       sourceState.variables.getOperandValues sourceOp = some sourceValues →
       targetState.variables.getOperandValues targetOp = some targetValues →
       RuntimeValue.arrayIsRefinedBy sourceValues targetValues →
-      _root_.CTree.Sim
+      _root_.CTree.EqSim
         (fun t s => OperationResult.isRefinedBy s t ∧
           RuntimeValue.ArrayConforms t.1 (targetOp.getResultTypes! ctx.raw))
         (OperationPtr.interpretCTree targetOp targetIn targetValues targetState.memory)
         (OperationPtr.interpretCTree sourceOp sourceIn sourceValues sourceState.memory)) :
-    _root_.CTree.Sim
+    _root_.CTree.EqSim
       (fun t s => s.1.isRefinedBy t.1 mapping ∧
         ControlFlowAction.optionIsRefinedBy s.2 t.2)
       (interpretOp targetOp targetState targetIn)
       (interpretOp sourceOp sourceState sourceIn) := by
   have core := sim_interpretOpCore sourceIn targetIn states frame primitive
-  have lifted := _root_.CTree.Sim.interp
+  have lifted := _root_.CTree.EqSim.interp
     (_root_.CTree.CTree.trigger (E := RunRegionE ctx (InterpreterState ctx) ⊕ₑ
       (ErrorE ⊕ₑ _root_.CTree.UBE))) _ _ core
   have targetNorm := (sim_interpretOp_embedCore targetOp targetState targetIn).1
   have sourceNorm := (sim_interpretOp_embedCore sourceOp sourceState sourceIn).2
-  exact _root_.CTree.Sim.trans (_root_.CTree.Sim.trans targetNorm lifted
+  exact _root_.CTree.EqSim.trans (_root_.CTree.EqSim.trans targetNorm lifted
     (fun _ _ _ equal related => equal ▸ related)) sourceNorm
     (fun _ _ _ related equal => equal ▸ related)
 

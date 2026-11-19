@@ -145,8 +145,8 @@ macro "normalizeIselValid" : tactic => `(tactic| (
   all_goals (try simp [RuntimeValue.isRefinedBy, -Attribute.integerType_eq_of])
   all_goals (try splitGuards)
   all_goals (try simp [RuntimeValue.isRefinedBy, le_eq_false_of_lt, lt_eq_false_of_le, -Attribute.integerType_eq_of, *])
-  all_goals (try simp [CTree.choose_def, CTree.tau_def, Functor.map, Sim.tau_l, _root_.CTree.CTree.bind_tau,
-      Sim.bind_monadLift_right_iff, RuntimeValue.isRefinedBy, TypeAttr.of_def, Attribute.of_def,
+  all_goals (try simp [CTree.choose_def, CTree.tau_def, Functor.map, EqSim.tau_l, _root_.CTree.CTree.bind_tau,
+      EqSim.bind_monadLift_right_iff, RuntimeValue.isRefinedBy, TypeAttr.of_def, Attribute.of_def,
       -Attribute.integerType_eq_of, Id.run])))
 
 /-- Truncating poison is poison, so the register a cast of poison chooses refines it. -/

@@ -454,7 +454,7 @@ theorem widen_ssubo_0_status (W : Nat) :
   .proven (widen_ssubo_0_valid W)
 
 -- Not a bit-vector goal: the loads read memory and choose the high bits of their results, so the
--- source's choice must be picked from the target's, in a `Sim` proof.
+-- source's choice must be picked from the target's, in a `EqSim` proof.
 -- theorem widen_load_0_valid (W : Nat) (hW : W ≤ 64) :
 --     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_load (.type 0) .g_anyext W) := by
 --   proveLegalValid with (veir_pbv_decide 64 (blastWidth := 64) (bv_decide := false); all_goals bv_decide (config := { timeout := 300 }))

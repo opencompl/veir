@@ -31,7 +31,6 @@ end Veir
 
 /--
 info: 'Veir.OpCode.interpretCTree_monotone_of_opCode' depends on axioms: [propext,
- CTree.Sim,
  Classical.choice,
  Quot.sound,
  Veir.OpCode.interpretCTree_monotone_assumed]

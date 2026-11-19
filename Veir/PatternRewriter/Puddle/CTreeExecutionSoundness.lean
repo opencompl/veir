@@ -152,7 +152,7 @@ theorem Pattern.Valid.createdOps_sim_rootSemantics {rule : Veir.Puddle.Pattern O
     {source : Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)}
     (rootTree : MatchProg.rootSemantics rule.matcher
       (matched.denote resolve (fun p => p.getType! ctx.raw)) memory = some source) :
-    _root_.CTree.Sim (fun target source => OperationResult.isRefinedBy source target)
+    _root_.CTree.EqSim (fun target source => OperationResult.isRefinedBy source target)
       (interpretCreatedOps newCtx.raw newOps.toList resolve memory (fun r m =>
         match final.getValues rule.replacement.values >>= fun pointers => pointers.toList.mapM r with
         | some values => pure (values.toArray, m, none)
@@ -187,7 +187,7 @@ theorem Pattern.Valid.createdOps_sim_originalRoot {rule : Veir.Puddle.Pattern Op
       MatchDecl.RuntimeEquations ctx.raw rule.matcher.rootHandle resolve matched decl)
     {operandValues : List RuntimeValue}
     (resolved : (root.getOperands! ctx.raw).toList.mapM resolve = some operandValues) :
-    _root_.CTree.Sim (fun target source => OperationResult.isRefinedBy source target)
+    _root_.CTree.EqSim (fun target source => OperationResult.isRefinedBy source target)
       (interpretCreatedOps newCtx.raw newOps.toList resolve memory (fun r m =>
         match final.getValues rule.replacement.values >>= fun pointers => pointers.toList.mapM r with
         | some values => pure (values.toArray, m, none)
@@ -211,7 +211,7 @@ theorem Pattern.Valid.interpret_createdOps_sim_originalRoot {rule : Veir.Puddle.
         MatchDecl.RuntimeEquations ctx.raw rule.matcher.rootHandle resolve matched decl)
     {operandValues : List RuntimeValue}
     (resolved : (root.getOperands! ctx.raw).toList.mapM resolve = some operandValues) :
-    _root_.CTree.Sim (fun target source => OperationResult.isRefinedBy source target)
+    _root_.CTree.EqSim (fun target source => OperationResult.isRefinedBy source target)
       (interpretCreatedOps newCtx.raw newOps.toList resolve memory (fun r m =>
         match replacementPointers.toList.mapM r with
         | some values => pure (values.toArray, m, none)
@@ -267,7 +267,7 @@ theorem Pattern.Valid.interpret_createdOps_sim_refiningInputs
     (conforms : RuntimeValue.ArrayConforms sourceValues (root.getOperandTypes! ctx.raw))
     (values : RuntimeValue.arrayIsRefinedBy sourceValues targetValues.toArray)
     (memory : sourceMemory.isRefinedBy targetMemory) :
-    _root_.CTree.Sim (fun target source => OperationResult.isRefinedBy source target)
+    _root_.CTree.EqSim (fun target source => OperationResult.isRefinedBy source target)
       (interpretCreatedOps newCtx.raw newOps.toList resolve targetMemory (fun r m =>
         match replacementPointers.toList.mapM r with
         | some results => pure (results.toArray, m, none)
@@ -294,7 +294,7 @@ theorem Pattern.Valid.interpret_createdOps_sim_refiningInputs
       (valid.root_nonterminator_of_interpret localRun)]
     rfl
   rw [← rootTree] at localSimulation
-  exact _root_.CTree.Sim.trans localSimulation primitive (fun target intermediate source localRef primitiveRef =>
+  exact _root_.CTree.EqSim.trans localSimulation primitive (fun target intermediate source localRef primitiveRef =>
     OperationResult.isRefinedBy_trans primitiveRef.1
       localRef)
 

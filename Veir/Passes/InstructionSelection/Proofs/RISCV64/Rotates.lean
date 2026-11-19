@@ -39,7 +39,7 @@ theorem lowerFsh_width_counterexample (bw : Nat) (memory : MemoryState) :
 /-- Every result of the emitted final cast has the wrong width for this source. -/
 theorem lowerFsh_width_simulation_counterexample (bw : Nat) (hbw : bw = 32 ∨ bw = 64)
     (target : Data.LLVM.Int bw) (memory : MemoryState) :
-    ¬ CTree.Sim
+    ¬ CTree.EqSim
       (fun (target source : Array RuntimeValue × MemoryState × Option ControlFlowAction) =>
         OperationResult.isRefinedBy source target)
       (pure (#[.int bw target], memory, none) : Tree _)

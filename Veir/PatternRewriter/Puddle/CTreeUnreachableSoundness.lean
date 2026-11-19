@@ -80,12 +80,12 @@ theorem Pattern.compile_moduleRefinement_of_unreachable
             targetIn (by simpa only [OperationPtr.getNumRegions!_eq_getNumRegions targetIn, headers sourceOne] using (by decide : 0 < 1))
           rw [bodySame] at targetBodyIn
           simp only [← FunctionOp.getFunctionBody!_eq_getFunctionBody, bodySame]
-          suffices core : _root_.CTree.Sim (fun t s => RuntimeValue.arrayIsRefinedBy s.2 t.2)
+          suffices core : _root_.CTree.EqSim (fun t s => RuntimeValue.arrayIsRefinedBy s.2 t.2)
               (Veir.CTree.interpretCFGCore sourceFn.getFunctionBody! targetValues ⟨.empty result.ctx, mem⟩ targetBodyIn)
               (Veir.CTree.interpretCFGCore sourceFn.getFunctionBody! sourceValues ⟨.empty rewriter.ctx, mem⟩ sourceBodyIn) by
-            apply _root_.CTree.Sim.trans
+            apply _root_.CTree.EqSim.trans
               (Veir.CTree.sim_interpretRegion_core _ targetValues ⟨.empty result.ctx, mem⟩ targetBodyIn).1
-              (_root_.CTree.Sim.trans core
+              (_root_.CTree.EqSim.trans core
                 (Veir.CTree.sim_interpretRegion_core _ sourceValues ⟨.empty rewriter.ctx, mem⟩ sourceBodyIn).2
                 (fun t intermediate s related equal => by subst intermediate; exact related))
             intro t intermediate s equal related
@@ -121,7 +121,7 @@ theorem Pattern.compile_moduleRefinement_of_unreachable
                 simp only [IRNode.parent!_region, sourceBodyParent, Option.map_some])
             rw [interpretCFGCore_eq_of_firstBlock _ sourceBodyIn entry sourceEntryIn sourceGet,
               interpretCFGCore_eq_of_firstBlock _ targetBodyIn entry targetEntryIn targetGet]
-            refine _root_.CTree.Sim.mono
+            refine _root_.CTree.EqSim.mono
               (RR := fun (t : InterpreterState result.ctx × Array RuntimeValue)
                 (s : InterpreterState rewriter.ctx × Array RuntimeValue) =>
                 Veir.CTree.PointerStateRefines s.1 t.1 ∧ RuntimeValue.arrayIsRefinedBy s.2 t.2)

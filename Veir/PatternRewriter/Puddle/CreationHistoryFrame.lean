@@ -108,7 +108,7 @@ theorem Pattern.interpret_checked_sim_preserves_source_lookups (rule : Veir.Pudd
     {newOps : Array OperationPtr} {replacements : Array ValuePtr}
     (run : rule.interpret source root = some (created, some (newOps, replacements)))
     (before : InterpreterState target) :
-    _root_.CTree.Sim (fun after other => after = other ∧
+    _root_.CTree.EqSim (fun after other => after = other ∧
       ∀ value, value.InBounds source.raw →
         after.variables.getVar? value = before.variables.getVar? value)
       (interpretCreatedOpsChecked target newOps.toList before)
@@ -125,9 +125,9 @@ theorem Pattern.interpret_checked_sim_with_source_lookups (rule : Veir.Puddle.Pa
     (run : rule.interpret source root = some (created, some (newOps, replacements)))
     (before : InterpreterState target) {γ : Type} {original : Tree γ}
     {relation : InterpreterState target → γ → Prop}
-    (simulation : _root_.CTree.Sim relation
+    (simulation : _root_.CTree.EqSim relation
       (interpretCreatedOpsChecked target newOps.toList before) original) :
-    _root_.CTree.Sim (fun after original => relation after original ∧
+    _root_.CTree.EqSim (fun after original => relation after original ∧
       ∀ value, value.InBounds source.raw →
         after.variables.getVar? value = before.variables.getVar? value)
       (interpretCreatedOpsChecked target newOps.toList before) original := by

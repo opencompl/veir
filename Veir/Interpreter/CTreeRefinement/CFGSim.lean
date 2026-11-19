@@ -11,11 +11,11 @@ public section
 
 The closed CFG loop `interpretCFGTree` takes one step per block entry and one per operation. Two
 CFGs related by a transformation that inserts or fuses operations do not take their steps in
-lockstep, which `CTree.Sim.iter` needs. Grouping every operation step with the step before it
+lockstep, which `CTree.EqSim.iter` needs. Grouping every operation step with the step before it
 (`CTree.spliceWhile`) leaves one step per block, which runs the whole block. A relation between
 block calls that each grouped step re-establishes then gives a simulation of the whole loops.
 
-`Sim` takes the target tree first: `Sim RR target source` says that every behavior of the target
+`EqSim` takes the target tree first: `EqSim RR target source` says that every behavior of the target
 is one of the source, with results related by `RR target source`.
 -/
 
@@ -79,17 +79,17 @@ theorem iter_cfgStep_sim {Rel : BlockCallRel ctx ctx'} {R : CFGResult ctx → CF
     (hStep : ∀ (block : BlockPtr) (blockIn : block.InBounds ctx.raw) values state
       (block' : BlockPtr) (blockIn' : block'.InBounds ctx'.raw) values' state',
       Rel block values state block' values' state' →
-      Sim (Sum.LiftRel (EntryRel Rel) (fun t s => R s t))
+      EqSim (Sum.LiftRel (EntryRel Rel) (fun t s => R s t))
         (blockStep (CFGState.entry blockIn' values' state'))
         (blockStep (CFGState.entry blockIn values state)))
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) {values state}
     {block' : BlockPtr} (blockIn' : block'.InBounds ctx'.raw) {values' state'}
     (hRel : Rel block values state block' values' state') :
-    Sim (fun t s => R s t)
+    EqSim (fun t s => R s t)
       (_root_.CTree.iter cfgStep (CFGState.entry blockIn' values' state'))
       (_root_.CTree.iter cfgStep (CFGState.entry blockIn values state)) := by
   rw [iter_cfgStep_eq_iter_blockStep, iter_cfgStep_eq_iter_blockStep]
-  refine Sim.iter (RRi := EntryRel Rel) _ _ _ _
+  refine EqSim.iter (RRi := EntryRel Rel) _ _ _ _
     ⟨block, blockIn, values, state, block', blockIn', values', state', rfl, rfl, hRel⟩ ?_
   rintro _ _ ⟨block, blockIn, values, state, block', blockIn', values', state', rfl, rfl, hRel⟩
   exact hStep block blockIn values state block' blockIn' values' state' hRel

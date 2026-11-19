@@ -35,14 +35,14 @@ private theorem mayReturn_bind {t : Tree α} {k : α → Tree β} {x : α} (hx :
   exact (MayReturn.bind_iff _ _ _).mpr ⟨x, hx, h⟩
 
 theorem sim_choose_left_map {RR : α → β → Prop} (i : FreezeCIn) {f : FreezeC i → α}
-    {s : Tree β} (h : ∀ x, Sim RR (pure (f x) : Tree α) s) :
-    Sim RR (f <$> (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i : Tree (FreezeC i))) s := by
+    {s : Tree β} (h : ∀ x, EqSim RR (pure (f x) : Tree α) s) :
+    EqSim RR (f <$> (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i : Tree (FreezeC i))) s := by
   rw [map_eq_pure_bind]
   exact sim_choose_left i h
 
 theorem sim_choose_right_map {RR : α → β → Prop} (i : FreezeCIn) {f : FreezeC i → β}
-    {t : Tree α} (x : FreezeC i) (h : Sim RR t (pure (f x) : Tree β)) :
-    Sim RR t (f <$> (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i : Tree (FreezeC i))) := by
+    {t : Tree α} (x : FreezeC i) (h : EqSim RR t (pure (f x) : Tree β)) :
+    EqSim RR t (f <$> (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i : Tree (FreezeC i))) := by
   rw [map_eq_pure_bind]
   exact sim_choose_right i x h
 
@@ -76,8 +76,8 @@ theorem sim_byteToIntCTree {w : Nat} {b b' : Data.LLVM.Byte w} (hb : b ⊒ b') {
     {k : Data.LLVM.Int w → Tree β} {k' : Data.LLVM.Int w → Tree α}
     (hk : ∀ x x', Data.LLVM.Int.isRefinedBy x x' →
       MayReturn (Builtin.byteToIntCTree b' : Tree (Data.LLVM.Int w)) x' →
-      Sim RR (k' x') (k x)) :
-    Sim RR (Builtin.byteToIntCTree b' >>= k') (Builtin.byteToIntCTree b >>= k) := by
+      EqSim RR (k' x') (k x)) :
+    EqSim RR (Builtin.byteToIntCTree b' >>= k') (Builtin.byteToIntCTree b >>= k) := by
   by_cases hp : b.poison = BitVec.allOnes w
   · by_cases hp' : b'.poison = BitVec.allOnes w
     · have h := hk .poison .poison (by simp) (mayReturn_byteToIntCTree_poison hp')
@@ -105,7 +105,7 @@ private theorem builtin_sim (op : Veir.Builtin) (properties : propertiesOf (OpCo
     (hTy : ∀ vals m a, MayReturn
       (interpretOp' (.builtin op) properties resultTypes operands' blockOperands mem' regions)
       (vals, m, a) → RuntimeValue.ArrayConforms vals resultTypes) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
+    EqSim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
       (interpretOp' (.builtin op) properties resultTypes operands' blockOperands mem' regions)
       (interpretOp' (.builtin op) properties resultTypes operands blockOperands mem regions) := by
   rw [interpretOp'_regions, interpretOp'_regions] at hTy ⊢

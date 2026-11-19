@@ -38,7 +38,7 @@ theorem store_fullWidth (memory : MemoryState) (p : Data.Pointer) (u : UInt64) :
 /-- A successful source store is simulated by a raw store with refined memory. -/
 theorem rawStore_sim (memory source : MemoryState) (p : Data.Pointer) (data : ByteArray)
     (href : Interp.isRefinedBy MemoryState.isRefinedBy (.ok source) (memory.store p data)) :
-    CTree.Sim (fun target source => OperationResult.isRefinedBy source target)
+    CTree.EqSim (fun target source => OperationResult.isRefinedBy source target)
       (CTree.bind
         (monadLift (do
           let mem ← memory.store p data

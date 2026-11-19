@@ -45,17 +45,17 @@ theorem CTree.choose_freeze (i : FreezeCIn) :
 
 /-- The target chooses: every choice must be simulated. -/
 theorem CTree.sim_choose_left {RR : α → β → Prop} (i : FreezeCIn) {k : FreezeC i → Tree α}
-    {s : Tree β} (h : ∀ x, Sim RR (k x) s) :
-    Sim RR (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i >>= k) s := by
+    {s : Tree β} (h : ∀ x, EqSim RR (k x) s) :
+    EqSim RR (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i >>= k) s := by
   rw [CTree.choose_freeze, bind_tau]
-  exact (Sim.tau_l _ _ _ _).mpr fun x => by simpa using h x
+  exact (EqSim.tau_l _ _ _ _).mpr fun x => by simpa using h x
 
 /-- The source chooses: one choice suffices. -/
 theorem CTree.sim_choose_right {RR : α → β → Prop} (i : FreezeCIn) {k : FreezeC i → Tree β}
-    {t : Tree α} (x : FreezeC i) (h : Sim RR t (k x)) :
-    Sim RR t (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i >>= k) := by
+    {t : Tree α} (x : FreezeC i) (h : EqSim RR t (k x)) :
+    EqSim RR t (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i >>= k) := by
   rw [CTree.choose_freeze, bind_tau]
-  exact Sim.tau_r _ _ _ _ x (by simpa using h)
+  exact EqSim.tau_r _ _ _ _ x (by simpa using h)
 
 /-- A tree that chooses `x` and goes on may return what it then returns. -/
 theorem CTree.mayReturn_choose_bind {i : FreezeCIn} {k : FreezeC i → Tree α} (x : FreezeC i)
@@ -78,12 +78,12 @@ theorem CTree.toList_eq_singleton_of_isRefinedBy {operands operands' : Array Run
 /-- A single refined result of the given types, with refined memory, simulates. -/
 theorem CTree.sim_result {v v' : RuntimeValue} (h : v ⊒ v') {mem mem' : MemoryState}
     (hMem : mem ⊒ mem') {types : Array TypeAttr} (hT : RuntimeValue.ArrayConforms #[v'] types) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 types)
+    EqSim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 types)
       (pure (#[v'], mem', none) :
         Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction))
       (pure (#[v], mem, none) :
         Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :=
-  (Sim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr
+  (EqSim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr
     ⟨by simp [h], hMem, ControlFlowAction.optionIsRefinedBy_refl _⟩, hT⟩
 
 /-! ## Monotonicity -/
@@ -91,7 +91,7 @@ theorem CTree.sim_result {v v' : RuntimeValue} (h : v ⊒ v') {mem mem' : Memory
 /-- The lift of a refinement in `Interp` is a simulation. -/
 theorem CTree.sim_monadLift_of_isRefinedBy {R : α → β → Prop} {source : Interp α}
     {target : Interp β} (h : Interp.isRefinedBy R source target) :
-    Sim (fun t s => R s t) (monadLift target : Tree β) (monadLift source : Tree α) := by
+    EqSim (fun t s => R s t) (monadLift target : Tree β) (monadLift source : Tree α) := by
   cases source with
   | ub _ => exact sim_ub _ _
   | fail _ => exact sim_fail _ _
@@ -114,7 +114,7 @@ theorem OpCode.interpretCTree_monotone.of_sim {opType : OpCode} [Veir.ResultsCon
       (∀ vals m a, CTree.MayReturn
         (CTree.interpretOp' opType properties resultTypes operands' blockOperands mem' regions)
         (vals, m, a) → RuntimeValue.ArrayConforms vals resultTypes) →
-      Sim (fun t s =>
+      EqSim (fun t s =>
           OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
         (CTree.interpretOp' opType properties resultTypes operands' blockOperands mem' regions)
         (CTree.interpretOp' opType properties resultTypes operands blockOperands mem regions)) :
@@ -145,7 +145,7 @@ theorem CTree.sim_of_lift {opType : OpCode} [inst : InterpretOp'Monotone opType]
     (hT : ∀ vals m a, CTree.MayReturn
       (CTree.interpretOp' opType properties resultTypes operands' blockOperands mem' regions)
       (vals, m, a) → RuntimeValue.ArrayConforms vals resultTypes) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
+    EqSim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
       (CTree.interpretOp' opType properties resultTypes operands' blockOperands mem' regions)
       (CTree.interpretOp' opType properties resultTypes operands blockOperands mem regions) := by
   rw [hLift] at hT

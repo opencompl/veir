@@ -160,7 +160,7 @@ theorem RewriteOpInvariant.surviving_core
       (.at (.before op)) (.at (.before op))
       (.at (.after op sourceCtx.raw sourceBlock sourceParent sourceIn))
       (.at (.after op targetCtx.raw targetBlock targetParent targetIn))) :
-    _root_.CTree.Sim
+    _root_.CTree.EqSim
       (fun t s =>
         (ScopedStateRefines mapping
           (.at (.after op sourceCtx.raw sourceBlock sourceParent sourceIn))

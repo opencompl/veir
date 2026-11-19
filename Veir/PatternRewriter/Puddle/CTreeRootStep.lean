@@ -46,7 +46,7 @@ theorem Pattern.Valid.root_checked_invariant
     (sourceState : InterpreterState rewriter.ctx) (targetState : InterpreterState result.ctx)
     (invariant : RewriteOpInvariant mapping root newOps region region
       ⟨root, rootIn⟩ ⟨first, firstIn⟩ sourceState targetState) :
-    _root_.CTree.Sim (fun target source =>
+    _root_.CTree.EqSim (fun target source =>
       RewriteOpInvariant mapping root newOps region region
         ⟨next, sourceNextIn⟩ ⟨next, targetNextIn⟩ source.1 target ∧ source.2 = none)
       (interpretCreatedOpsChecked result.ctx newOps.toList targetState)

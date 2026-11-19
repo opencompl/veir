@@ -3,7 +3,7 @@ module
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.CTreeInterpreter
 public import Veir.Dominance
-public import CTree.Sim
+public import CTree.EqSim
 
 
 public section
@@ -183,7 +183,7 @@ The function-like operation `op₁` (in `ctx₁`) is *refined by* `op₂` (in `c
 interpreter. This does not hold if either operation is not function-like.
 
 For refining arguments and any initial memory, every target behavior must be simulated by a
-source behavior, with returned values refining pointwise. `CTree.Sim` takes the target tree first
+source behavior, with returned values refining pointwise. `CTree.EqSim` takes the target tree first
 and the source tree second, so its return relation also reverses the arguments. The CTree function
 interpreter returns only the function's values.
 -/
@@ -196,7 +196,7 @@ def OperationPtr.isRefinedByAsFunctionCTree (op₁ : OperationPtr) (ctx₁ : WfI
   | some _, some _ =>
     ∀ (valuesSource valuesTarget : Array RuntimeValue) (mem : MemoryState),
       valuesSource ⊒ valuesTarget →
-      CTree.Sim (fun target source => RuntimeValue.arrayIsRefinedBy source target)
+      CTree.EqSim (fun target source => RuntimeValue.arrayIsRefinedBy source target)
         (CTree.interpretFunction op₂ valuesTarget mem op₂In)
         (CTree.interpretFunction op₁ valuesSource mem op₁In)
   | _, _ => False
