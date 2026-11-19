@@ -38,7 +38,7 @@ inductive Felt where
 | shr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Felt.propertiesOf (op : Felt) : Type :=
 match op with
 | .const => FeltConstProperties

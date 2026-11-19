@@ -1,8 +1,8 @@
 // RUN: veir-opt %s -p=llvm-to-gmir | filecheck %s
 
 "builtin.module"() ({
-  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
-    ^bb0():
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void (!llvm.byte<16>)>}> ({
+    ^bb0(%byte: !llvm.byte<16>):
       %a = "llvm.mlir.constant"() <{value = 100 : i16}> : () -> i16
       %b = "llvm.mlir.constant"() <{value = 42 : i16}> : () -> i16
       %add = "llvm.add"(%a, %b) <{overflowFlags = 3 : i32}> : (i16, i16) -> i16
@@ -22,7 +22,6 @@
       %shl = "llvm.shl"(%a, %b) <{overflowFlags = 1 : i32}> : (i16, i16) -> i16
       %lshr = "llvm.lshr"(%a, %b) <{isExact}> : (i16, i16) -> i16
       %ashr = "llvm.ashr"(%a, %b) : (i16, i16) -> i16
-      %byte = "llvm.mlir.poison"() : () -> !llvm.byte<16>
       %truncByte = "llvm.trunc"(%byte) <{overflowFlags = 1 : i32}> : (!llvm.byte<16>) -> !llvm.byte<8>
       %shlByte = "llvm.shl"(%byte, %b) : (!llvm.byte<16>, i16) -> !llvm.byte<16>
       %toByte = "llvm.bitcast"(%a) : (i16) -> !llvm.byte<16>

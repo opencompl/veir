@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Puddle.Builders
+import Veir.DataLayout.RISCV64
 
 public section
 
@@ -125,6 +126,18 @@ def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp :
           #[riscvResOp.res[0]!] #[opType]
       return castBackOp)
     (fun castBackOp => castBackOp)
+
+/-- The width in bytes of a load or store of a value of `type`, for the integers
+  and pointers whose data-layout size fits one `l*`/`s*` instruction. An integer
+  must fill its bytes exactly, since `getTypeSize` rounds an odd width up. -/
+def memAccessWidth? (type : TypeAttr) : Option Nat := do
+  match type.val with
+  | .integerType t => guard (t.bitwidth % 8 = 0)
+  | .llvmPointerType _ => pure ()
+  | _ => none
+  let width ← DataLayout.riscv64.getTypeSize type.val
+  guard (width ∈ [1, 2, 4, 8])
+  return width
 
 end
 

@@ -17,7 +17,7 @@ inductive Func where
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Func.propertiesOf (op : Func) : Type :=
 match op with
 | .func => FuncFuncProperties

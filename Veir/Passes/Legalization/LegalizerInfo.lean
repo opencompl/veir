@@ -236,6 +236,26 @@ def clampScalar (typeIdx : TypeGroup) (minWidth maxWidth : Nat) : LegalizeRule P
 
 end LegalizeRule
 
+/--
+A legal memory access, as LLVM's `TypePairAndMemDesc`. The sizes are in bits.
+-/
+structure TypePairAndMemDesc where
+  /-- The type of the loaded or stored value (type group 0). -/
+  valueType : LLT
+  /-- The type of the address (type group 1). -/
+  pointerType : LLT
+  memSize : Nat
+  minAlign : Nat
+
+/-- The memory access is legal if it matches one of `descs`, as LLVM's `legalForTypesWithMemDesc`. -/
+def LegalizeRule.legalForTypesWithMemDesc (descs : List TypePairAndMemDesc) :
+    LegalizeRule MachineMemOperand :=
+  legalIf fun query => descs.any fun desc =>
+    query.getLLT! (.type 0) == desc.valueType && query.getLLT! (.type 1) == desc.pointerType &&
+      query.properties.size.toNat == desc.memSize &&
+      -- The memory operand's alignment is in bytes.
+      desc.minAlign ≤ 8 * query.properties.alignment.toNat
+
 /-- The legalization rules of a target. -/
 structure LegalizerInfo where
   /-- The rules of each opcode, in the order they are tried. -/

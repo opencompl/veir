@@ -16,7 +16,7 @@ inductive Datapath where
 | pos_partial_product
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Datapath.propertiesOf (_op : Datapath) : Type :=
   Unit
 

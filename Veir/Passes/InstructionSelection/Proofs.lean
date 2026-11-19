@@ -2,8 +2,8 @@ module
 
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.Ptr.Basic
 public import Veir.Data.Casting
-public import Veir.Data.Refinement
 public import Veir.Dialects.GMIR.Semantics
 
 meta import Std.Tactic.BVDecide
@@ -18,7 +18,6 @@ import all Veir.Data.LLVM.Int.Lemmas
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Data.Casting
-import all Veir.Data.Refinement
 
 public section
 
@@ -46,11 +45,26 @@ theorem constant_refinement {v : Int}:
   veir_bv_decide
 
 /--
-  Prove the correctness of the `poisonConst` lowering pattern.
+  Prove the correctness of the `gmirPoison` lowering pattern.
 -/
-theorem poisonConst_refinement :
+theorem gmirPoison_refinement :
     (LLVM.Int.poison (w := _)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) 64) := by
   veir_bv_decide
+
+/--
+  Prove the correctness of the `gmirPoison` lowering pattern at every width `w`, as for a
+  `g_poison` selected before legalization: the low `w` bits of `li 0` refine poison.
+-/
+theorem gmirPoison_refinement_any_width {w : Nat} :
+    (LLVM.Int.poison (w := w)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) w) :=
+  LLVM.Int.poison_isRefinedBy _
+
+/--
+  Prove the correctness of the `gmirPoison` lowering pattern for a pointer: the pointer that
+  `li 0` is cast to, like any other, refines a poison pointer.
+-/
+theorem gmirPoison_ptr_refinement (p : LLVM.Ptr) : LLVM.Ptr.poison ⊒ p := by
+  simp [LLVM.Ptr.isRefinedBy]
 
 /--
   Prove the correctness of the `constant` lowering pattern at every width `w ≤ 64`: the
@@ -60,7 +74,7 @@ theorem poisonConst_refinement :
 theorem constant_refinement_le64 {w : Nat} (h : w ≤ 64) {v : Int} :
     (LLVM.Int.constant w v) ⊒
       (RISCV.Reg.toInt (Data.RISCV.li ((BitVec.ofInt w v).signExtend 64)) w) := by
-  simp only [isRefinedBy, LLVM.Int.constant, RISCV.Reg.toInt, RISCV.li]
+  simp only [LLVM.Int.isRefinedBy, LLVM.Int.constant, RISCV.Reg.toInt, RISCV.li]
   generalize BitVec.ofInt w v = x
   pbv_decide 64
 
@@ -610,6 +624,22 @@ theorem zext_refinement_32_64 {x : LLVM.Int 32} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `and` lowering pattern with the mask `0xFFFF`
+-/
+theorem and_mask_zexth {x : LLVM.Int 64} :
+    (Data.LLVM.Int.and x (LLVM.Int.constant 64 0xFFFF)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zexth (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `and` lowering pattern with the mask `0xFFFFFFFF`
+-/
+theorem and_mask_zextw {x : LLVM.Int 64} :
+    (Data.LLVM.Int.and x (LLVM.Int.constant 64 0xFFFFFFFF)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zextw (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `zext` lowering pattern `i1` -> `i64`
 -/
 theorem zext_refinement_1_64 {x : LLVM.Int 1} :
@@ -1114,11 +1144,12 @@ theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
   veir_bv_decide
 
-/-- Freezing any integer that fits in a register is refined by its register round trip. -/
+/-- Prove `gmirFreeze`: freezing an integer that fits in a register is refined by its register
+  round trip. -/
 theorem freeze_refinement {w : Nat} (hw : w ≤ 64) {a : LLVM.Int w} :
     (Data.LLVM.Int.freeze a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) w) := by
-  cases a <;> simp [LLVM.Int.freeze, LLVM.Int.toReg, RISCV.Reg.toInt, isRefinedBy, Id.run,
+  cases a <;> simp [LLVM.Int.freeze, LLVM.Int.toReg, RISCV.Reg.toInt, LLVM.Int.isRefinedBy, Id.run,
     BitVec.setWidth_setWidth_of_le _ hw]
 
 /--
@@ -1132,3 +1163,13 @@ theorem anyext_of_reg_refinement (n m : Nat) (h : n < m) (r : Reg) :
     veir_bv_normalize
     simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
     grind⟩
+
+/--
+  A `g_load` of `n` bits `v` into an `i64` is refined by any register whose low `n` bits are `v`,
+  such as the result of `lbu`, `lh` or `lw` (see `gmirLoad_pattern`).
+-/
+theorem gmir_load_refinement {n : Nat} (h : n < 64) (v : BitVec n) (r : Reg)
+    (hlow : r.val.setWidth n = v) :
+    ∃ ext : BitVec (64 - n), LLVM.Int.ext (.val v) 64 ext h ⊒ RISCV.Reg.toInt r 64 := by
+  have hv : RISCV.Reg.toInt r n = .val v := by simp [RISCV.Reg.toInt, ← hlow]
+  simpa [hv] using anyext_of_reg_refinement n 64 h r

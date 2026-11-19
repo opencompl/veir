@@ -19,7 +19,7 @@ inductive Cf where
 | cond_br
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Cf.propertiesOf (op : Cf) : Type :=
 match op with
 | .cond_br => CondBrProperties

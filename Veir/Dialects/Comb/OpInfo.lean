@@ -37,7 +37,7 @@ inductive Comb where
 | xor
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Comb.propertiesOf (op : Comb) : Type :=
 match op with
 | .extract => CombExtractProperties

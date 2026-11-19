@@ -5,6 +5,7 @@ public import Veir.Interpreter.CTree
 public import Veir.Dialects.Builtin.Interpreter
 public import Veir.Dialects.LLVM.Interpreter
 public import Veir.Dialects.GMIR.Interpreter
+public import Veir.Dialects.RISCV.Interpreter
 
 public section
 
@@ -30,6 +31,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem
   | .gmir opType =>
     GMIR.interpretOpCTree opType properties resultTypes operands blockOperands mem
+  | .riscv opType =>
+    Riscv.interpretOpCTree opType properties resultTypes operands blockOperands mem
   | .builtin opType =>
     Builtin.interpretOpCTree opType properties resultTypes operands blockOperands mem
   /- Other dialects rely on lifting the `Interp`-based interpreter. -/
@@ -45,6 +48,23 @@ def OperationPtr.interpretCTree {ctx : WfIRContext OpCode} (op : OperationPtr)
   let code := op.getOpType ctx.raw opIn
   CTree.interpretOp' code (op.getProperties ctx.raw code) (op.getResultTypes ctx.raw)
     operands (op.getSuccessors ctx.raw) memory (op.getRegions ctx.raw)
+
+/--
+Unfold `OperationPtr.interpretCTree` into the `CTree.interpretOp'` of the operation's
+`!`-accessors.
+-/
+theorem OperationPtr.interpretCTree_def! {ctx : WfIRContext OpCode}
+    {op : OperationPtr} (opIn : op.InBounds ctx.raw) (operands : Array RuntimeValue)
+    (mem : MemoryState) :
+    op.interpretCTree opIn operands mem =
+      CTree.interpretOp' (op.getOpType! ctx.raw)
+        (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) (op.getResultTypes! ctx.raw)
+        operands (op.getSuccessors! ctx.raw) mem (op.getRegions! ctx.raw) := by
+  rw [OperationPtr.interpretCTree, OperationPtr.getOpType!_eq_getOpType opIn,
+    OperationPtr.getProperties!_eq_getProperties opIn (by grind),
+    OperationPtr.getResultTypes!_eq_getResultTypes opIn,
+    OperationPtr.getSuccessors!_eq_getSuccessors opIn,
+    OperationPtr.getRegions!_eq_getRegions opIn]
 
 namespace CTree
 

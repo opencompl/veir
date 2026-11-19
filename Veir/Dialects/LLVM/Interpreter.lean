@@ -41,8 +41,10 @@ def Llvm.interpretOpCTree {EIn : Type} {E : EIn → Type}
           return (#[.int w (LLVM.Int.val bv)], mem, none)
     | .byte w val =>
         let bv : FreezeC (.mk w) ← CTree.choose (FreezeCIn.mk w)
-        return (#[.byte w (.fromBitVec (val.val ||| (val.poison &&& bv)))], mem, none)
-    | .addr .poison => return (#[.addr LLVM.Ptr.null], mem, none)
+        return (#[.byte w (.fromBitVec (val.fillPoison bv))], mem, none)
+    | .addr .poison =>
+        let address : FreezeC (.mk 64) ← CTree.choose (FreezeCIn.mk 64)
+        return (#[.addr (.val ⟨UInt64.ofBitVec address⟩)], mem, none)
     | .addr (.val p) => return (#[.addr (.val p)], mem, none)
     | _ => fail
   | other =>

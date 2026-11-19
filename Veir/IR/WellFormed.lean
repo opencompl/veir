@@ -1691,4 +1691,15 @@ instance instWfIRContextInhabited {OpInfo} [IsOpCode OpInfo] :
     Inhabited (WfIRContext OpInfo) where
   default := ⟨IRContext.empty OpInfo, IRContext.empty_wellFormed⟩
 
+/-- Marks the maps of `ctx` as linear, which is a no-op logically. With `LEAN_ABORT_ON_NONLINEAR`
+    set, any later copy of them panics, so it catches every place that modifies a shared context. -/
+def WfIRContext.markLinear (ctx : WfIRContext OpInfo) : WfIRContext OpInfo :=
+  let ⟨⟨operations, blocks, regions, nextID⟩, wellFormed⟩ := ctx
+  ⟨⟨operations.markLinear, blocks.markLinear, regions.markLinear, nextID⟩,
+    by simpa using wellFormed⟩
+
+@[simp, grind =]
+theorem WfIRContext.markLinear_eq (ctx : WfIRContext OpInfo) : ctx.markLinear = ctx := by
+  simp [WfIRContext.markLinear]
+
 end Veir

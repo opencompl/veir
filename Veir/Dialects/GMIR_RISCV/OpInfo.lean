@@ -33,7 +33,7 @@ inductive GMIR_RISCV where
 | g_ctzw
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def GMIR_RISCV.propertiesOf (op : GMIR_RISCV) : Type :=
 match op with
 | _ => Unit

@@ -457,6 +457,16 @@ def OperationPtr.Verified (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds ctx.raw := by grind) : Prop :=
   op.verifyLocalInvariants ctx opInBounds = .ok ()
 
+/-- The opcode, declared types, and properties occur together on a locally verified operation. -/
+def IsFromVerifiedOp (opcode : OpCode) (operandTypes resultTypes : Array TypeAttr)
+    (properties : propertiesOf opcode) : Prop :=
+  ∃ (ctx : WfIRContext OpCode) (op : OperationPtr) (hin : op.InBounds ctx.raw),
+    op.Verified ctx hin ∧
+    op.getOpType! ctx.raw = opcode ∧
+    op.getOperandTypes! ctx.raw = operandTypes ∧
+    op.getResultTypes! ctx.raw = resultTypes ∧
+    op.getProperties! ctx.raw opcode = properties
+
 /--
 If the context satisfies the invariants of all operations, any operation in bounds is verified.
 -/
@@ -1036,6 +1046,18 @@ theorem OperationPtr.Verified.llvm_ashr {op : OperationPtr} {opInBounds}
 
 theorem OperationPtr.Verified.llvm_mul {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .mul) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__smulh {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__smulh) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__umulh {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__umulh) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
   simp [← getOpType!_eq_getOpType, opType]
 

@@ -19,7 +19,7 @@ inductive SMT where
 | eq
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def SMT.propertiesOf (op : SMT) : Type :=
 match op with
 | .bv__add | .bv__neg | .eq => Unit

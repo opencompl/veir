@@ -53,7 +53,7 @@ inductive Arith where
 | xori
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Arith.propertiesOf (op : Arith) : Type :=
 match op with
 | .constant => ArithConstantProperties

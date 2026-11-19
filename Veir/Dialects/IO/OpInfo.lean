@@ -44,7 +44,7 @@ def messageTooLong : Int := -3
 
 end Io.Error
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Io.propertiesOf (op : Io) : Type :=
 match op with
 | _ => Unit

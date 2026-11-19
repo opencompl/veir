@@ -3,7 +3,7 @@
 
 // `i32` analogue of udiv_pow2_exec.mlir (`udiv_by_pow2_pattern`).
 //
-// CHECK is #64 (SRC is #32): isel-abi-riscv64,reconcile-cast coerces `main`'s `i32` boundary to
+// CHECK is #64 (SRC is #32): call-lowering-riscv64 coerces `main`'s `i32` boundary to
 // `!riscv.reg`, so post-lowering the declared return type is a register.
 
 "builtin.module"() ({

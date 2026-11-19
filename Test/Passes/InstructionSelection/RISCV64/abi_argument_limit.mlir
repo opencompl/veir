@@ -1,4 +1,4 @@
-// RUN: veir-opt %s --print-op-generic -p=isel-abi-riscv64 | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p=call-lowering-riscv64 | filecheck %s
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s
 
 // Eight integer arguments fit in a0-a7. Calls with nine arguments must stay

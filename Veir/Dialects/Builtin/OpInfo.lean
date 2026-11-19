@@ -17,7 +17,7 @@ inductive Builtin where
 | unrealized_conversion_cast
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Builtin.propertiesOf (op : Builtin) : Type :=
 match op with
 | .unregistered => UnregisteredProperties

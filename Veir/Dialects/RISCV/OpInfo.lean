@@ -140,7 +140,7 @@ inductive Riscv where
 | la
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Riscv.propertiesOf (op : Riscv) : Type :=
 match op with
 | .li => RISCVImmediateProperties

@@ -2,9 +2,7 @@ module
 
 public meta import Veir.Meta.Tactic.BVDecide
 public import Veir.Data.LLVM.Int.Basic
-public import Veir.Data.Refinement
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 
 open Veir.Data.LLVM
 
@@ -825,16 +823,7 @@ theorem icmp_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
 theorem select_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (c₁ c₂ : Int 1)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (h₃ : c₁ ⊒ c₂) :
     select c₁ x₁ x₂ ⊒ select c₂ y₁ y₂ := by
-   /- TODO: use `grind` after https://github.com/leanprover/lean4/pull/14829 is resolved. -/
-  cases c₁ with
-  | poison => simp [select, Id.run, isRefinedBy_iff]
-  | val v =>
-    cases c₂ with
-    | poison => simp [isRefinedBy_iff] at h₃
-    | val v' =>
-      have hv : v = v' := by simp [isRefinedBy_iff] at h₃; grind
-      subst hv
-      by_cases hc : v = 1#1 <;> simp [select, Id.run, hc] <;> assumption
+  grind
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_freeze {w : Nat} (x : Int w) :
@@ -930,6 +919,46 @@ theorem getValue_freeze {w : Nat} (x : Int w) :
     (freeze x).getValue = if h : x.isPoison then 0#w else x.getValue := by
   simp [freeze, Id.run]
   grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_uaddOverflowFlag {w : Nat} (x y : Int w) :
+    (uaddOverflowFlag x y).isPoison = (x.isPoison || y.isPoison) := by
+  cases x <;> cases y <;> rfl
+
+@[veir_bv_normalize, grind =]
+theorem getValue_uaddOverflowFlag {w : Nat} (x y : Int w) (h : (uaddOverflowFlag x y).isPoison = false) :
+    (uaddOverflowFlag x y).getValue h = BitVec.ofBool (BitVec.uaddOverflow x.getValue y.getValue) := by
+  cases x <;> cases y <;> first | rfl | (rw [isPoison_uaddOverflowFlag] at h; simp [isPoison] at h)
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_saddOverflowFlag {w : Nat} (x y : Int w) :
+    (saddOverflowFlag x y).isPoison = (x.isPoison || y.isPoison) := by
+  cases x <;> cases y <;> rfl
+
+@[veir_bv_normalize, grind =]
+theorem getValue_saddOverflowFlag {w : Nat} (x y : Int w) (h : (saddOverflowFlag x y).isPoison = false) :
+    (saddOverflowFlag x y).getValue h = BitVec.ofBool (BitVec.saddOverflow x.getValue y.getValue) := by
+  cases x <;> cases y <;> first | rfl | (rw [isPoison_saddOverflowFlag] at h; simp [isPoison] at h)
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_usubOverflowFlag {w : Nat} (x y : Int w) :
+    (usubOverflowFlag x y).isPoison = (x.isPoison || y.isPoison) := by
+  cases x <;> cases y <;> rfl
+
+@[veir_bv_normalize, grind =]
+theorem getValue_usubOverflowFlag {w : Nat} (x y : Int w) (h : (usubOverflowFlag x y).isPoison = false) :
+    (usubOverflowFlag x y).getValue h = BitVec.ofBool (BitVec.usubOverflow x.getValue y.getValue) := by
+  cases x <;> cases y <;> first | rfl | (rw [isPoison_usubOverflowFlag] at h; simp [isPoison] at h)
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_ssubOverflowFlag {w : Nat} (x y : Int w) :
+    (ssubOverflowFlag x y).isPoison = (x.isPoison || y.isPoison) := by
+  cases x <;> cases y <;> rfl
+
+@[veir_bv_normalize, grind =]
+theorem getValue_ssubOverflowFlag {w : Nat} (x y : Int w) (h : (ssubOverflowFlag x y).isPoison = false) :
+    (ssubOverflowFlag x y).getValue h = BitVec.ofBool (BitVec.ssubOverflow x.getValue y.getValue) := by
+  cases x <;> cases y <;> first | rfl | (rw [isPoison_ssubOverflowFlag] at h; simp [isPoison] at h)
 
 @[veir_bv_normalize]
 theorem neg_twoPow_sub_eq_intMin {w : Nat} :

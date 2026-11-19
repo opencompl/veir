@@ -1,10 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
-// A `g_load` with a `size` smaller than its result only reads `size` bits.
+// A `g_load` with a `size` smaller than its result reads `size` bits and
+// leaves the high bits unspecified, as `g_anyext` does.
 // This test confirms this behavior: We load 8 bits of 0x11223344 into an `i64`
-// and ensure that the result is 0x44.
-// TODO: The high bits are undefined and should have the same semantic like
-// `g_anyext`. Support nondeterminism once CTrees have landed.
+// and ensure that the result is 0x44, since both interpreters set the high bits
+// to 0 by default.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({

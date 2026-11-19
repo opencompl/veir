@@ -15,7 +15,7 @@ public section
   A type family that maps an operation code to the type of its properties.
   For operations that do not have any properties, the type is `Unit`.
 -/
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def _propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith op => Arith.propertiesOf op
