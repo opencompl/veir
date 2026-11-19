@@ -776,6 +776,17 @@ theorem _root_.CTree.MuSimF.bind' {RR'} (t : CTree E C α') (u : CTree E C' β')
     MuSimF RR R.elem true (CTree.bind t k) (CTree.bind u k') := by
   apply MuSimF.bind (R := Chain.next (MuSimF RR) R)
 
+/-- Inserting one silent step on the left preserves each simulation approximation. -/
+theorem _root_.CTree.MuSimF.tau1_l {t : CTree E C α} {u : CTree E C' β}
+    (h : R.elem true t u) : R.elem true (CTree.tau1 t) u := by
+  have silentStep : Sim Eq (CTree.tau1 (CTree.ret PUnit.unit) : CTree E C PUnit)
+      (CTree.ret PUnit.unit : CTree E C' PUnit) := by
+    apply (Sim.tau_l Eq _ _ _).mpr
+    intro _
+    exact (Sim.ret Eq _ _).mpr rfl
+  have bound := MuSimF.bind RR R _ _ (fun _ => t) (fun _ => u) silentStep (fun _ _ _ => h)
+  simpa only [CTree.tau1_def, CTree.bind_tau, CTree.bind_ret] using bound
+
 theorem bind {RR RR'} (t : CTree E C α) (u : CTree E C' α') (k : α → CTree E C β) (k' : α' → CTree E C' β') :
   Sim RR t u →
   (∀ x y, RR x y → Sim RR' (k x) (k' y)) →

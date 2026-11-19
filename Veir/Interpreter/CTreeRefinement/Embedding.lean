@@ -273,11 +273,6 @@ theorem interp_embedRegion_closed
 
 /-! ## `inflate` on finished trees -/
 
-@[simp] theorem inflate_pure (value : α) : inflate (pure value : Tree α) = pure value := by
-  unfold inflate CTree.interp
-  rw [CTree.iter]
-  simp
-
 @[simp] theorem inflate_fail : inflate (fail : Tree α) = fail := by
   unfold inflate CTree.interp
   rw [CTree.iter]

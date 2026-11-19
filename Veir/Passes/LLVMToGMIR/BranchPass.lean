@@ -461,19 +461,13 @@ end Veir
 /-!
 ## Axioms of the refinement theorems
 
-Pinned so that a change to the axioms the proofs rest on shows up here. The
-CTree refinement theorems use `CTree.Sim.interp` when interpreting events. The theorems for a module that verifies
-assume that the opcodes without a proof are monotone in CTrees
-(`OpCode.interpretCTree_monotone_assumed`); those for opcodes proved monotone, and
-for the branch step in strict mode, which checks that, assume nothing about the
-interpreter.
+The refinement theorems for verified modules use `OpCode.interpretCTree_monotone_assumed`
+for opcodes whose monotonicity is assumed. The strict pass checks that each opcode has a
+monotonicity proof, so its refinement theorem uses only standard Lean axioms.
 -/
 
 /--
-info: 'Veir.LLVMBranchTranslation.isModuleRefinedByCTree' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- CTree.Sim.interp]
+info: 'Veir.LLVMBranchTranslation.isModuleRefinedByCTree' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms Veir.LLVMBranchTranslation.isModuleRefinedByCTree
@@ -487,8 +481,7 @@ info: 'Veir.convertLLVMBranches_translation' depends on axioms: [propext, Classi
 /--
 info: 'Veir.convertLLVMBranches_isModuleRefinedByCTree_of_treeMonotoneProved' depends on axioms: [propext,
  Classical.choice,
- Quot.sound,
- CTree.Sim.interp]
+ Quot.sound]
 -/
 #guard_msgs in
 #print axioms Veir.convertLLVMBranches_isModuleRefinedByCTree_of_treeMonotoneProved
@@ -497,7 +490,6 @@ info: 'Veir.convertLLVMBranches_isModuleRefinedByCTree_of_treeMonotoneProved' de
 info: 'Veir.convertLLVMBranches_isModuleRefinedByCTree' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
- CTree.Sim.interp,
  Veir.OpCode.interpretCTree_monotone_assumed]
 -/
 #guard_msgs in
@@ -507,17 +499,13 @@ info: 'Veir.convertLLVMBranches_isModuleRefinedByCTree' depends on axioms: [prop
 info: 'Veir.LLVMToGMIRBranches.run_isModuleRefinedByCTree' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
- CTree.Sim.interp,
  Veir.OpCode.interpretCTree_monotone_assumed]
 -/
 #guard_msgs in
 #print axioms Veir.LLVMToGMIRBranches.run_isModuleRefinedByCTree
 
 /--
-info: 'Veir.LLVMToGMIRBranches.run_strict_isModuleRefinedByCTree' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- CTree.Sim.interp]
+info: 'Veir.LLVMToGMIRBranches.run_strict_isModuleRefinedByCTree' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms Veir.LLVMToGMIRBranches.run_strict_isModuleRefinedByCTree
