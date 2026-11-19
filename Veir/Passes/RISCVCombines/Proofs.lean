@@ -574,8 +574,6 @@ axiom zextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextb)
 
 axiom zexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zexth)
 
-axiom sextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextb)
-
 axiom sexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sexth)
 
 /-! ## `sextw` of a sign-extending producer

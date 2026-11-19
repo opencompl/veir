@@ -325,7 +325,6 @@ theorem combinePatterns_pointwise :
   · exact PointwiseValid.compile drop_sextw_sb_valid
   · exact PointwiseValid.compile zextb_x0_valid
   · exact PointwiseValid.compile zexth_x0_valid
-  · exact PointwiseValid.compile sextb_x0_valid
   · exact PointwiseValid.compile sexth_x0_valid
   · exact PointwiseValid.compile zextb_li_low8_valid
   · exact PointwiseValid.compile zexth_li_low16_valid

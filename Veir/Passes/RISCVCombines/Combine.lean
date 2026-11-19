@@ -1354,7 +1354,6 @@ public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , drop_sextw_sb
      , zextb_x0
      , zexth_x0
-     , sextb_x0
      , sexth_x0
      , zextb_li_low8
      , zexth_li_low16
