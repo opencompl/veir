@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
+// RUN: RISCVTV
 
 // Immediate-form comparison selection: when the rhs is a constant fitting a
 // signed 12-bit immediate, `icmp` lowers directly to `slti`/`sltiu` (with an

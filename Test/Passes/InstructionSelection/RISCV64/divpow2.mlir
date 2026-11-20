@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
+// RUN: RISCVTV
 
 "builtin.module"() ({
     // llvm.udiv x, 8 -> riscv.srli x, 3

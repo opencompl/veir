@@ -1,6 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s --print-op-generic -p='canonicalize{sccp=false},instcombine,canonicalize{sccp=false},cse,dce,riscv' > %t && veir-interpret %t | filecheck %s
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
+// RUN: RISCVTV
 
 // Register-form rotate: the shift amount (8) is loaded back from a stack slot
 // rather than being a constant, which the post-legalizer combiner would fold,

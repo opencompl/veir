@@ -1,5 +1,6 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
+// RUN: RISCVTV
 
 // A function with ten arguments. The standard calling convention passes the
 // first eight in a0-a7 (x10-x17) and the last two in the caller's outgoing

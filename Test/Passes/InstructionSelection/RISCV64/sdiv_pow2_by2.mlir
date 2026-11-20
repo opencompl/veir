@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
+// RUN: RISCVTV
 
 // `sdiv x, 2` is the one power-of-two divisor where `sdiv_by_pow2_pattern`'s general
 // 4-instruction sequence shrinks to 3: the correction shift's amount `W - k`

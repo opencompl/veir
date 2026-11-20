@@ -1,5 +1,6 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
+// RUN: RISCVTV bswap_16 bswap_32 bswap_64
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "bitreverse_8", function_type = !llvm.func<i8 (i8)>}> ({
