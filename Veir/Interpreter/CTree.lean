@@ -143,6 +143,12 @@ instance [ErrorE -< E] [UBE -< E] : MonadLift Interp (CTree E C) where
     | .ok v => return v
 
 @[simp]
+theorem CTree.monadLift_interp_ok {EIn CIn R} {E : EIn → Type} {C : CIn → Type}
+    [ErrorE -< E] [UBE -< E] (a : R) :
+    ((monadLift (Interp.ok a)) : CTree E C R) = pure a := by
+  rfl
+
+@[simp]
 theorem Sim.monadLift_ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E] [UBE -< E]
     (location : Option OperationPtr) :
     (monadLift (Interp.ub location) : CTree E C α) = ub := by

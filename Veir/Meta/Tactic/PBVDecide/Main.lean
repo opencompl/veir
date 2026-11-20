@@ -33,14 +33,18 @@ way are collected in the `TranslateState`.
 meta def pbvTranslate (g : MVarId) : TranslateM MVarId := g.withContext do
   -- Introduce the width masks, bounded by the blast width
   let g ← introMaskWidths g
+  trace[pbv_decide] m!"after introducing the width masks:{indentD g}"
   -- Translate props on the width vars into props on the masks
   let g ← translatePropsToMask g
+  trace[pbv_decide] m!"after translating the preconditions to masks:{indentD g}"
   -- Intro the `BitVec`s
   let g ← introMaskedBitvectors g
+  trace[pbv_decide] m!"after introducing the masked `BitVec`s:{indentD g}"
   -- Lift the goal to the blast width and push the `setWidth`s in
   let g ← liftToBlastWidth g
   -- Drop references to `Nat` width variables
   let g ← dropNatReferences g
+  trace[pbv_decide] m!"translated goal:{indentD g}"
   return g
 
 /--
@@ -82,13 +86,24 @@ public meta def runPbvDecide (g : MVarId) (ctx : PbvDecideContext) : TacticM Uni
   let (_, g) ← g.introNP (getIntrosSize (← instantiateMVars (← g.getType)))
   -- Split conjunctions
   let g ← g.casesAnd
+  -- Keep the untranslated goal, to check counterexamples against it
+  let origGoal := g
+  trace[pbv_decide] m!"initial goal:{indentD g}"
+  -- Unfold derived operations, exposing their widths and values to the reification
+  let some g ← unfoldDerivedOps g
+    | trace[pbv_decide] "goal closed by unfolding the derived operations"
+      replaceMainGoal []
+      return
+  trace[pbv_decide] m!"after unfolding the derived operations (the goal seen by the reification):{indentD g}"
   let (ldeclsToRevert, reifiedState) ← ReifyM.run <| reifyWidths g
   -- Revert all ldecls
   let (_, g) ← g.revert ldeclsToRevert.keys.toArray
+  trace[pbv_decide] m!"after reverting the hypotheses:{indentD g}"
   -- Compute blastwidth or get it from input
   let blastWidth := ctx.config.blastWidth.getD <| Nat.max
           (reifiedState.props.getUpperBound ctx.bmcBound)
           <| reifiedState.widthTms.getUpperBound ctx.bmcBound
+  trace[pbv_decide] "blast width: {blastWidth}"
   let (g, translated) ← TranslateM.run { reifiedState with blastWidth } <| pbvTranslate g
 
   let subgoals ← if ctx.config.grind
@@ -96,7 +111,7 @@ public meta def runPbvDecide (g : MVarId) (ctx : PbvDecideContext) : TacticM Uni
                 else pure translated.subgoals
 
   if ctx.config.bv_decide then
-    closeWithBvDecide g translated
+    closeWithBvDecide g translated origGoal
     replaceMainGoal subgoals
   else
     replaceMainGoal <| g :: subgoals

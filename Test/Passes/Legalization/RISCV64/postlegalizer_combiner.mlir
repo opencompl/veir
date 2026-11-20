@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=postlegalizer-combiner-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `commutativeConstantRHS`, commented out of the pass as unproven.
+
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void ()>, sym_name = "main"}> ({
     %x = "test.test"() : () -> i64

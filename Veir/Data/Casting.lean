@@ -117,7 +117,13 @@ theorem LLVM.Byte.toReg_eq {w : Nat} {b : Veir.Data.LLVM.Byte w} :
 theorem LLVM.Byte.isRefinedBy_toByte_fillPoison {w : Nat} (hw : w ≤ 64)
     (b : Veir.Data.LLVM.Byte w) (chosen : BitVec w) :
     b ⊒ RISCV.Reg.toByte ⟨(b.fillPoison chosen).setWidth 64⟩ w := by
-  grind [RISCV.Reg.toByte, Veir.Data.LLVM.Byte.fillPoison, BitVec.setWidth_setWidth_of_le _ hw]
+  simp only [Veir.Data.LLVM.Byte.isRefinedBy, RISCV.Reg.toByte, Veir.Data.LLVM.Byte.fillPoison,
+    BitVec.truncate_eq_setWidth, BitVec.setWidth_setWidth_of_le _ hw, BitVec.setWidth_eq]
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_xor, BitVec.getLsbD_not,
+    BitVec.getLsbD_allOnes, hi, decide_true]
+  cases b.poison.getLsbD i <;> simp
 
 /--
   Cast `LLVM.Byte` to `LLVM.Int`. The result is poison only if every bit is poison, otherwise
@@ -125,17 +131,6 @@ theorem LLVM.Byte.isRefinedBy_toByte_fillPoison {w : Nat} (hw : w ≤ 64)
 -/
 def LLVM.Byte.toFrozenInt (b : Veir.Data.LLVM.Byte w) : Veir.Data.LLVM.Int w :=
   if b.poison = BitVec.allOnes w then .poison else .val b.val
-
-/--
-  A poison integer casts to the wholly poison byte, which `llvm.mlir.poison` of a byte type is.
-  This is the correctness of `lowerBytePoison` in `llvm-to-gmir`.
--/
-@[simp]
-theorem LLVM.Byte.fromInt_poison {w : Nat} :
-    Veir.Data.LLVM.Byte.fromInt (Veir.Data.LLVM.Int.poison : Veir.Data.LLVM.Int w) =
-      Veir.Data.LLVM.Byte.allPoison := by
-  simp [Veir.Data.LLVM.Byte.fromInt, Veir.Data.LLVM.Byte.allPoison,
-    Veir.Data.LLVM.Int.isPoison]
 
 /--
   An integer cast to a byte and back is unchanged.

@@ -21,6 +21,17 @@ open Puddle
 
 public section
 
+/--
+Matches an integer type of at most 64 bits, with the further `matcher` if any. These are the
+integer types the RISC-V 64 legalizer leaves: its legal types are `s64` and the narrower types
+its extensions and truncations read and write. The combines and lowerings match their types with
+it, so that their local correctness lemmas can be stated for widths up to 64 and decided by
+`pbv_decide`.
+-/
+def matchLegalInt (matcher : IntegerType → Bool := fun _ => true) :
+    MatchProg.Builder (Handle OpCode .type) :=
+  MatchProg.type (Attr := IntegerType) fun type => type.bitwidth ≤ 64 && matcher type
+
 /-- Create a `g_constant` of `type` whose value `value` computes from the metadata `inputs`. -/
 def createConstantWith {Inputs : Type} [IsMetadataTuple OpCode Inputs]
     (type : Handle OpCode .type) (inputs : Inputs)
@@ -56,6 +67,12 @@ def createSextInReg (x : Handle OpCode .value) (srcType type : Handle OpCode .ty
 
 end
 
+/-- The type groups of `opcode` that may hold pointers: the values of a `g_select`, the operands of a
+`g_icmp` and the address of a `g_load`. -/
+def mayHoldPointer : GMIR → TypeGroup → Bool
+  | .g_select, .type 0 | .g_icmp, .type 1 | .g_load, .type 1 => true
+  | _, _ => false
+
 /--
 Widens type group `typeIdx` of `opcode` to `width` bits. Its operands are extended with `extOpcode`
 and its results are truncated back, as in LLVM's `LegalizerHelper::widenScalar`.
@@ -65,12 +82,25 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
     Pattern OpCode :=
   let info := opcode.genericOpInfo
   let matchType (group : TypeGroup) : MatchProg.Builder (Handle OpCode .type) :=
-    if group = typeIdx then MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-    else MatchProg.type (Attr := TypeAttr)
+    -- The verifier rejects `i0`, at which `g_icmp` yields an `i1` that is not its result type.
+    -- The target is a legal width, at most 64 bits.
+    if group = typeIdx then
+      MatchProg.type (Attr := IntegerType) fun t => 0 < t.bitwidth && t.bitwidth < width && width ≤ 64
+    -- The other groups are integers no wider than the target, except those that may hold pointers.
+    else if mayHoldPointer opcode group then MatchProg.type (Attr := TypeAttr)
+    else MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ width)
   Pattern.Builder
     (do
-      let operands ← info.inOperandList.mapM fun group => do MatchProg.value (← matchType group)
-      let resultTypes ← info.outOperandList.mapM matchType
+      /- One type per type group, as in LLVM's type indices: a match whose operands and results of
+      a group have different types would be rewritten wrongly, as the operation computes at the
+      width of its operands but the rewrite truncates to the type of each result. -/
+      let groups := (info.inOperandList ++ info.outOperandList).foldl
+        (fun groups group => if groups.contains group then groups else groups.push group) #[]
+      let types ← groups.mapM fun group => do return (group, ← matchType group)
+      let typeOf (group : TypeGroup) : Handle OpCode .type :=
+        ((types.find? (·.1 == group)).map (·.2)).getD default
+      let operands ← info.inOperandList.mapM fun group => MatchProg.value (typeOf group)
+      let resultTypes := info.outOperandList.map typeOf
       let root ← MatchProg.root (.gmir opcode) operands resultTypes
       return (operands, resultTypes, root.properties))
     (fun (operands, resultTypes, props) => do
@@ -105,6 +135,11 @@ def widenConstant (width : Nat) : Pattern OpCode :=
     (do
       let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
       let root ← MatchProg.root (.gmir .g_constant) #[] #[type]
+      -- The value is read at the width of its attribute, which the verifier ties to the result.
+      MatchProg.matchNative (type, root.properties) fun (type, props) =>
+        match type.val with
+        | .integerType type => props.value.type.bitwidth == type.bitwidth
+        | _ => false
       return (type, root))
     (fun (type, root) => do
       let wideType ← CreateProg.type (IntegerType.signless width)
@@ -133,7 +168,7 @@ ensure by widening it first.
 -/
 def widenCtlzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_ctlz (· < width) (· = width))
+    (matchUnary .g_ctlz (fun w => 0 < w && w < width && width ≤ 64) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_zext) #[src] #[resType]
       let ctlz ← CreateProg.operation (.gmir .g_ctlz) #[ext.res[0]!] #[resType]
@@ -151,7 +186,7 @@ must already be `width` bits wide, which the rules ensure by widening it first.
 -/
 def widenCttzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_cttz (· < width) (· = width))
+    (matchUnary .g_cttz (fun w => 0 < w && w < width && width ≤ 64) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let topBit ← widthConstant srcType resType (2 ^ ·)
@@ -160,13 +195,17 @@ def widenCttzSrc (width : Nat) : Pattern OpCode :=
     (fun op => op)
 
 /--
-Widens `g_bswap` or `g_bitreverse` to `width` bits. The reversed operand ends up in the high
-bits, so it is shifted back down before it is truncated, as in LLVM's `LegalizerHelper::widenScalar`.
+Widens `g_bswap` or `g_bitreverse` to `width` bits, from a source width that `srcWidth` accepts.
+The reversed operand ends up in the high bits, so it is shifted back down before it is truncated,
+as in LLVM's `LegalizerHelper::widenScalar`.
 -/
-def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
+def widenReverse (opcode : GMIR) (width : Nat) (srcWidth : Nat → Bool := fun _ => true) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      -- The verifier rejects `i0`, at which the shift down by the whole wide width is poison.
+      let type ← MatchProg.type (Attr := IntegerType) fun t =>
+        0 < t.bitwidth && t.bitwidth < width && width ≤ 64 && srcWidth t.bitwidth
       let src ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[src] #[type]
       return (type, src))
@@ -183,15 +222,16 @@ def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
 at zero and refines it, as in LLVM's `LegalizerHelper::lowerBitCount`. -/
 def lowerZeroPoisonCount (opcode defined : GMIR) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary opcode)
+    (matchUnary opcode (· ≤ 64) (· ≤ 64))
     (fun (_, resType, src) => CreateProg.operation (.gmir defined) #[src] #[resType])
     (fun op => op)
 
 /-- Lowers `g_sext` to a `g_anyext` followed by a `g_sext_inreg` of the source width, which is what
-LLVM's artifact combiner makes of a `g_sext` of a `g_trunc`. -/
+LLVM's artifact combiner makes of a `g_sext` of a `g_trunc`. The source width is passed as a 64-bit
+size, so it must fit one. -/
 def lowerSext : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_sext)
+    (matchUnary .g_sext (srcWidth := (· < 2 ^ 64)))
     (fun (srcType, resType, src) => do
       let extProps ← CreateProg.property (.gmir .g_anyext) default
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType] extProps
@@ -202,7 +242,7 @@ def lowerSext : Pattern OpCode :=
 is what LLVM's artifact combiner makes of a `g_zext` of a `g_trunc`. -/
 def lowerZext : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_zext)
+    (matchUnary .g_zext (· ≤ 64) (· ≤ 64))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let mask ← widthConstant srcType resType (2 ^ · - 1)
@@ -210,23 +250,32 @@ def lowerZext : Pattern OpCode :=
     (fun op => op)
 
 /--
-Widens the condition of `g_brcond` to `width` bits with a `g_zext`, which is what LLVM's
-`LegalizerHelper::widenScalar` extends it with on a target whose booleans are 0 or 1, as on RISC-V.
-`g_brcond` forwards a variable number of operands to its successors, which a Puddle pattern cannot
-match, so this is a local rewrite.
+Widens the condition of the `g_brcond` `op` to `width` bits with a `g_zext`, which is what LLVM's
+`LegalizerHelper::widenScalar` extends it with on a target whose booleans are 0 or 1, as on RISC-V:
+the `g_zext` and a new `g_brcond` on it are created in front of `op`, which is erased. `g_brcond`
+forwards a variable number of operands to its successors, which a Puddle pattern cannot match, so
+this rewrites the context directly. Fails unless the condition is an integer narrower than `width`.
 -/
-def widenBrcondCondition (width : Nat) : LocalRewritePattern OpCode := fun ctx op => do
+public def widenBrcondCondition (width : Nat) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode) :=
   -- Read `ctx` before creating operations: any later read makes the first one copy the context.
   let operands := op.getOperands! ctx.raw
   let successors := op.getSuccessors! ctx.raw
-  let props := op.getProperties! ctx.raw GMIR.g_brcond
-  let .integerType type := (operands[0]!.getType! ctx.raw).val | return (ctx, none)
-  if width ≤ type.bitwidth then return (ctx, none)
-  let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_zext #[IntegerType.signless width]
-    #[operands[0]!] #[] #[] (NnegProperties.mk false) none
-  let (ctx, branch) ← WfRewriter.createOp! ctx GMIR.g_brcond #[]
-    (#[ValuePtr.opResult (ext.getResult 0)] ++ operands.extract 1) successors #[] props none
-  return (ctx, some (#[ext, branch], #[]))
+  let props : GMIRBrCondProperties := op.getProperties! ctx.raw (OpCode.gmir .g_brcond)
+  match (operands[0]!.getType! ctx.raw).val with
+  | .integerType type =>
+    if type.bitwidth < width then
+      match WfRewriter.createOp! ctx GMIR.g_zext #[IntegerType.signless width] #[operands[0]!] #[]
+          #[] (NnegProperties.mk false) (some (.before op)) with
+      | some (ctx₁, ext) =>
+        match WfRewriter.createOp! ctx₁ GMIR.g_brcond #[]
+            (#[ValuePtr.opResult (ext.getResult 0)] ++ operands.extract 1) successors #[] props
+            (some (.before op)) with
+        | some (ctx₂, _) => some (WfRewriter.eraseOp! ctx₂ op)
+        | none => none
+      | none => none
+    else none
+  | _ => none
 
 /--
 Lowers the `w`-bit funnel shift `g_fshl` (`isLeft`) or `g_fshr` to shifts, as the generic case of
@@ -243,8 +292,8 @@ def lowerFunnelShift (isLeft : Bool) : Pattern OpCode :=
   let opcode : GMIR := if isLeft then .g_fshl else .g_fshr
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let amtType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let amtType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let z ← MatchProg.value amtType
@@ -285,7 +334,7 @@ def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpC
   let baseOp : GMIR := if isAdd then .g_add else .g_sub
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
@@ -324,8 +373,9 @@ def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpC
 /-- Matches the overflowing `opcode`, returning its result type, overflow type and operands. -/
 private def matchOverflowing (opcode : GMIR) : MatchProg.Builder
     (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value × Handle OpCode .value) := do
-  let type ← MatchProg.type (Attr := IntegerType)
-  let ovType ← MatchProg.type (Attr := IntegerType)
+  let type ← matchLegalInt
+  -- The overflow flag is an `i1`, as the verifier requires; the lowerings compute it with `g_icmp`.
+  let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
   let lhs ← MatchProg.value type
   let rhs ← MatchProg.value type
   let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
@@ -403,8 +453,10 @@ def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
     | _ => (.g_sub, .g_zext)
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-      let ovType ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType)
+        (fun t => 0 < t.bitwidth && t.bitwidth < width && width ≤ 64)
+      -- The overflow flag is an `i1`, as the verifier requires; it is recomputed with `g_icmp`.
+      let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
@@ -517,7 +569,7 @@ def lowerAddSubSatToAddoSubo (opcode : GMIR) (isSigned isAdd : Bool) : Pattern O
     | true, false => .g_ssubo
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
@@ -551,8 +603,8 @@ def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
   let shiftBack : GMIR := if isSigned then .g_ashr else .g_lshr
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let amtType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let amtType ← matchLegalInt
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value amtType
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
@@ -589,7 +641,8 @@ def lowerThreewayCompare (signed : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
       let operandType ← MatchProg.type (Attr := IntegerType)
-      let resultType ← MatchProg.type (Attr := IntegerType)
+      -- The result holds `-1`, `0` and `1`, so it is at least two bits wide, as LLVM requires.
+      let resultType ← MatchProg.type (Attr := IntegerType) (1 < ·.bitwidth)
       let lhs ← MatchProg.value operandType
       let rhs ← MatchProg.value operandType
       let _ ← MatchProg.root (.gmir (if signed then .g_scmp else .g_ucmp))
@@ -617,7 +670,8 @@ def lowerThreewayCompare (signed : Bool) : Pattern OpCode :=
 def lowerMulh (signed : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      -- The verifier rejects `i0`, whose double width is itself.
+      let type ← MatchProg.type (Attr := IntegerType) (0 < ·.bitwidth)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir (if signed then .g_smulh else .g_umulh)) #[lhs, rhs] #[type]
@@ -644,9 +698,10 @@ def lowerMulh (signed : Bool) : Pattern OpCode :=
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
+  -- Unproven (`widthDependent`), so not run:
+  -- | .g_fshl => lowerFunnelShift true
+  -- | .g_fshr => lowerFunnelShift false
   | .g_zext => lowerZext
-  | .g_fshl => lowerFunnelShift true
-  | .g_fshr => lowerFunnelShift false
   | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
   | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
   | .g_uaddsat => lowerAddSubSatToMinMax .g_uaddsat false true
@@ -667,12 +722,8 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_ucmp => lowerThreewayCompare false
   | _ => none
 
-/-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
-def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
-    Option (LocalRewritePattern OpCode)
-  | .g_brcond, .type 0, width => widenBrcondCondition width
-  | opcode, typeIdx, width => Option.map Puddle.Pattern.interpret <|
-  match opcode, typeIdx, width with
+/-- The Puddle pattern that widens type group `typeIdx` of `opcode` to `width` bits, if any. -/
+def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
   -- The high bits of the operands never reach the low bits of the result, so any extension is
   -- fine.
   | .g_add, .type 0, width => widenTypeGroup .g_add (.type 0) .g_anyext width clearNswNuwProperties
@@ -726,7 +777,12 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_cttz, .type 1, width => widenCttzSrc width
   -- Zero bits do not add to the count.
   | .g_ctpop, .type 1, width => widenTypeGroup .g_ctpop (.type 1) .g_zext width
-  | .g_bswap, .type 0, width => widenReverse .g_bswap width
+  -- `g_bswap` is the byte swap only at the widths 16, 32 and 64 (and the identity elsewhere, which
+  -- the verifier rejects), so it is only widened between those (`widen_bswap_0_valid`).
+  | .g_bswap, .type 0, width =>
+    if width = 16 ∨ width = 32 ∨ width = 64 then
+      some (widenReverse .g_bswap width fun w => w == 16 || w == 32)
+    else none
   | .g_bitreverse, .type 0, width => widenReverse .g_bitreverse width
   -- Sign extension preserves the signed order, and also the unsigned order. For `g_umin` and
   -- `g_umax`, LLVM only sign-extends where it is cheaper than zero-extending (from `i32` on
@@ -744,6 +800,11 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_saddo, .type 0, width => widenScalarAddSubOverflow .g_saddo width
   | .g_ssubo, .type 0, width => widenScalarAddSubOverflow .g_ssubo width
   | _, _, _ => none
+
+/-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
+def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
+    Option (LocalRewritePattern OpCode)
+  | opcode, typeIdx, width => (widenScalarPattern? opcode typeIdx width).map Puddle.Pattern.interpret
 
 /-- Narrows type group `typeIdx` of `opcode` to `width` bits. -/
 def narrowScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
@@ -767,31 +828,71 @@ private def incomingEdges (ctx : IRContext OpCode) (block : BlockPtr) : List Blo
       use? := use.getNextUse! ctx
     return edges.reverse
 
+/-- The argument exists and can be the narrow type of a gMIR extension and truncation. -/
+def LegalizerInfo.narrowerArgument (block : BlockPtr) (ctx : IRContext OpCode)
+    (i width : Nat) : Bool :=
+  match (block.getArguments! ctx)[i]? with
+  | some arg =>
+    match (arg.getType! ctx).val with
+    | .integerType ⟨bits, .signless⟩ => 0 < bits && bits < width
+    | _ => false
+  | none => false
+
+/-- Change the argument type and redirect its original uses to the truncation inserted at `start`. -/
+def widenBlockArgument (start : InsertPoint) (arg : BlockArgumentPtr) (width : Nat)
+    (ctx : WfIRContext OpCode) : Option (WfIRContext OpCode) := do
+  let type := (ValuePtr.blockArgument arg).getType! ctx.raw
+  let ctx := WfRewriter.setType! ctx arg (IntegerType.signless width)
+  let (ctx, trunc) ← WfRewriter.createOp! ctx GMIR.g_trunc #[type] #[] #[] #[]
+    (({ nsw := false, nuw := false } : NswNuwProperties) : propertiesOf GMIR.g_trunc) start
+  let ctx := WfRewriter.replaceValue! ctx arg (trunc.getResult 0)
+  return WfRewriter.pushOperand! ctx trunc arg
+
+/-- Extend the value that the branch forwards in `operand`. -/
+def widenBranchOperand (ctx : WfIRContext OpCode) (operand : OpOperandPtr) (width : Nat) :
+    Option (WfIRContext OpCode) := do
+  let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_anyext #[IntegerType.signless width]
+    #[operand.op.getOperand! ctx.raw operand.index] #[] #[] () (InsertPoint.before operand.op)
+  return WfRewriter.replaceOperand! ctx operand (ext.getResult 0)
+
 /--
 Widens argument `i` of `block` to `width` bits for each `(i, width)` in `args`, as LLVM does for
 `G_PHI`: each branch to `block` passes a `g_anyext`, and a `g_trunc` restores the original type.
 Returns `none` if a predecessor is not a branch.
 -/
-def widenBlockArguments (block : BlockPtr) (args : List (Nat × Nat))
+private def widenBlockArgumentsImpl (block : BlockPtr) (args : List (Nat × Nat))
     (ctx : WfIRContext OpCode) : Option (WfIRContext OpCode) := do
   let edges ← (incomingEdges ctx.raw block).mapM fun edge =>
     return (edge.op, ← BranchOpInterface.getSuccessorOperands? edge.op edge.index ctx.raw)
   -- The `g_trunc`s go first: a branch from the block back to itself passes a `g_anyext` of one.
   let start := InsertPoint.atStart! block ctx.raw
-  let ctx ← args.foldlM (init := ctx) fun ctx (i, width) => do
-    let arg : BlockArgumentPtr := { block := block, index := i }
-    let type := (ValuePtr.blockArgument arg).getType! ctx.raw
-    let ctx := WfRewriter.setType! ctx arg (IntegerType.signless width)
-    let (ctx, trunc) ← WfRewriter.createOp! ctx GMIR.g_trunc #[type] #[] #[] #[]
-      (({ nsw := false, nuw := false } : NswNuwProperties) : propertiesOf GMIR.g_trunc) start
-    let ctx := WfRewriter.replaceValue! ctx arg (trunc.getResult 0)
-    return WfRewriter.pushOperand! ctx trunc arg
+  let ctx ← args.foldlM (init := ctx) fun ctx (i, width) =>
+    widenBlockArgument start ⟨block, i⟩ width ctx
   edges.foldlM (init := ctx) fun ctx (branch, operands) => args.foldlM (init := ctx)
-    fun ctx (i, width) => do
-      let operand : OpOperandPtr := { op := branch, index := operands.getOperandIndex i }
-      let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_anyext #[IntegerType.signless width]
-        #[branch.getOperand! ctx.raw operand.index] #[] #[] () (InsertPoint.before branch)
-      return WfRewriter.replaceOperand! ctx operand (ext.getResult 0)
+    fun ctx (i, width) => widenBranchOperand ctx ⟨branch, operands.getOperandIndex i⟩ width
+
+/-- Check the source types of all requested casts before changing the block or its predecessors. -/
+def widenBlockArgumentsChecked (block : BlockPtr) (args : List (Nat × Nat))
+    (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) :=
+  if args.all (fun (i, width) => LegalizerInfo.narrowerArgument block ctx.raw i width) then
+    match widenBlockArgumentsImpl block args ctx with
+    | some ctx' => .ok ctx'
+    | none => .error "unable to widen a block argument: a predecessor is not a branch"
+  else
+    .error "unable to widen a block argument: expected a narrower signless integer of positive width"
+
+theorem widenBlockArgumentsChecked_narrow {block : BlockPtr} {args : List (Nat × Nat)}
+    {ctx ctx' : WfIRContext OpCode} (h : widenBlockArgumentsChecked block args ctx = .ok ctx') :
+    args.all (fun (i, width) => LegalizerInfo.narrowerArgument block ctx.raw i width) = true := by
+  unfold widenBlockArgumentsChecked at h
+  split at h
+  · assumption
+  · contradiction
+
+/-- Widen the selected block arguments, returning `none` if the rewrite fails. -/
+def widenBlockArguments (block : BlockPtr) (args : List (Nat × Nat))
+    (ctx : WfIRContext OpCode) : Option (WfIRContext OpCode) :=
+  (widenBlockArgumentsChecked block args ctx).toOption
 
 end
 

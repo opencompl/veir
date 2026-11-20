@@ -6,6 +6,7 @@ public import Lean.Elab.Command
 public import Std.Data.Iterators.Producers.Array
 
 meta import Veir.Meta.Deriving
+meta import Std.Tactic.BVDecide
 
 /-!
   # Attributes
@@ -46,6 +47,14 @@ inductive IntegerType.Signedness
 | signed
 | unsigned
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+/- `bv_decide` realizes its helpers for an enum lazily, in whichever module first proves a goal
+about `Signedness`. Two modules that do so independently each export their own copy, and a module
+importing both then fails with "environment already contains". Realizing the helpers here, in the
+module that defines the enum, gives every proof the same copy. -/
+theorem IntegerType.Signedness.eq_signless_or_signed_or_unsigned (s : IntegerType.Signedness) :
+    s = .signless ∨ s = .signed ∨ s = .unsigned := by
+  bv_decide
 
 /--
   A `!builtin.integer` is an integer type with a given bitwidth.

@@ -9,6 +9,8 @@ public section
 
 namespace Veir.Data.LLVM.Byte
 
+public section
+
 open Veir.Data.LLVM.Int
 attribute [local grind cases] Int
 
@@ -244,6 +246,11 @@ theorem fromInt_isRefinedBy {w : Nat} {i i' : Int w} (h : i ⊒ i') :
 
 /-! ## fillPoison -/
 
+/-- Unfold `fillPoison` into its bits. -/
+theorem fillPoison_def {w : Nat} (b : Byte w) (chosen : BitVec w) :
+    b.fillPoison chosen = b.val ||| (b.poison &&& chosen) := by
+  simp [Byte.fillPoison]
+
 /--
   Filling the poison bits of a byte from `chosen` gives `chosen` back, provided `chosen` already
   agrees with the byte on its non-poison bits.
@@ -281,6 +288,7 @@ theorem eq_of_isRefinedBy_of_poison_eq_zero {w : Nat} {b b' : Byte w} (h : b ⊒
   simp only [h₀, BitVec.and_allOnes, Byte.fillPoison] at hv hp
   cases b; cases b'; simp_all; grind
 
+end
 
 end Veir.Data.LLVM.Byte
 

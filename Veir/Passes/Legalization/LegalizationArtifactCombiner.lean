@@ -1,6 +1,7 @@
 module
 
 public import Veir.PatternRewriter.Puddle.Definitions
+import Veir.Passes.Legalization.LegalizerHelper
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.Passes.Legalization.LegalizerHelper
 
@@ -19,14 +20,16 @@ namespace Veir
 open Puddle
 
 /--
-Matches `extOpcode (g_trunc x)` where the type of `x` and the result type satisfy `relation`.
+Matches `extOpcode (g_trunc x)` where the type of `x` and the result type satisfy `relation`, and
+the width of the truncated type satisfies `narrowWidth`.
 Returns `x`, the truncated type and the result type.
 -/
-def matchExtOfTrunc (extOpcode : GMIR) (relation : IntegerType → IntegerType → Bool) :
+def matchExtOfTrunc (extOpcode : GMIR) (relation : IntegerType → IntegerType → Bool)
+    (narrowWidth : Nat → Bool := fun _ => true) :
     MatchProg.Builder (Handle OpCode .value × Handle OpCode .type × Handle OpCode .type) := do
   let srcType ← MatchProg.type (Attr := IntegerType)
   let x ← MatchProg.value srcType
-  let narrowType ← MatchProg.type (Attr := IntegerType)
+  let narrowType ← MatchProg.type (Attr := IntegerType) (narrowWidth ·.bitwidth)
   let trunc ← MatchProg.operation (.gmir .g_trunc) #[x] #[narrowType]
   let type ← MatchProg.type (Attr := IntegerType)
   MatchProg.matchNative (srcType, type) fun (srcType, type) =>
@@ -53,12 +56,13 @@ def combineAnyExtOfTruncToCast (castOpcode : GMIR) (relation : IntegerType → I
     (fun cast => cast)
 
 /--
-Matches `extOpcode (g_trunc x)` where `x` has the result type, or a wider one when `trunc` is set.
+Matches `extOpcode (g_trunc x)` where `x` has the result type, or a wider one when `trunc` is set,
+and the width of the truncated type satisfies `narrowWidth`.
 Returns `x`, the truncated type and the result type.
 -/
-def extOfTruncSource (extOpcode : GMIR) (trunc : Bool) :
+def extOfTruncSource (extOpcode : GMIR) (trunc : Bool) (narrowWidth : Nat → Bool := fun _ => true) :
     MatchProg.Builder (Handle OpCode .value × Handle OpCode .type × Handle OpCode .type) :=
-  matchExtOfTrunc extOpcode (if trunc then (·.bitwidth > ·.bitwidth) else (· = ·))
+  matchExtOfTrunc extOpcode (if trunc then (·.bitwidth > ·.bitwidth) else (· = ·)) narrowWidth
 
 /--
 `x` as a value of `type`: itself, or its `g_trunc` when `trunc` is set, as LLVM's
@@ -73,9 +77,10 @@ def truncSource (trunc : Bool) (x : Handle OpCode .value) (type : Handle OpCode 
 /--
 Combines `g_sext (g_trunc x)` to a `g_sext_inreg` of `x` with the width of the `g_trunc`, as LLVM's
 `tryCombineSExt`. When `trunc` is set, `x` is wider than the `g_sext` and is truncated to its type.
+The width of the `g_trunc` is passed as a 64-bit `g_sext_inreg` size, so it must fit one.
 -/
 def combineSExtOfTrunc (trunc : Bool) : Pattern OpCode :=
-  Pattern.Builder (extOfTruncSource .g_sext trunc)
+  Pattern.Builder (extOfTruncSource .g_sext trunc (· < 2 ^ 64))
     (fun (x, narrowType, type) => do
       let x ← truncSource trunc x type
       createSextInReg x narrowType type)
@@ -119,11 +124,12 @@ def combineZExtOfTruncOfICmp : Pattern OpCode :=
       let operandType ← MatchProg.type (Attr := TypeAttr)
       let lhs ← MatchProg.value operandType
       let rhs ← MatchProg.value operandType
-      let wideType ← MatchProg.type (Attr := IntegerType)
+      let wideType ← matchLegalInt
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[wideType]
-      let narrowType ← MatchProg.type (Attr := IntegerType)
+      -- The verifier rejects `i0`, to which the truncation would drop the bit of the `g_icmp`.
+      let narrowType ← matchLegalInt (0 < ·.bitwidth)
       let trunc ← MatchProg.operation (.gmir .g_trunc) #[icmp.res[0]!] #[narrowType]
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       MatchProg.matchNative (wideType, type) fun (wideType, type) =>
         match wideType.val, type.val with
         | .integerType wideType, .integerType type => wideType = type
@@ -143,19 +149,21 @@ known zeros; both use known bits, which we do not have. The constant is the case
 def combineExtOfTruncOfConstant (signed : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      let narrowType ← MatchProg.type (Attr := IntegerType)
+      let narrowType ← matchLegalInt
       let trunc ← MatchProg.operation (.gmir .g_trunc) #[constant.res[0]!] #[narrowType]
-      MatchProg.matchNative (narrowType, constant.properties) fun (narrowType, c) =>
-        match narrowType.val with
-        | .integerType narrowType =>
+      MatchProg.matchNative (type, narrowType, constant.properties) fun (type, narrowType, c) =>
+        match type.val, narrowType.val with
+        | .integerType type, .integerType narrowType =>
+          -- The bits are read at the width of the attribute, which the verifier ties to the result.
           let width := narrowType.bitwidth
+          c.value.type.bitwidth == type.bitwidth &&
           if signed then
             0 < width && -2 ^ (width - 1) ≤ c.bits.toInt && c.bits.toInt < 2 ^ (width - 1)
           else
             c.bits.toNat < 2 ^ width
-        | _ => false
+        | _, _ => false
       let _ ← MatchProg.root (.gmir (if signed then .g_sext else .g_zext))
         #[trunc.res[0]!] #[type]
       return constant.res[0]!)
@@ -167,11 +175,11 @@ Combines `g_trunc (g_trunc x)` to `g_trunc x`. As in LLVM, the new `g_trunc` has
 def combineTruncOfTrunc : Pattern OpCode :=
   Pattern.Builder
     (do
-      let srcType ← MatchProg.type (Attr := IntegerType)
+      let srcType ← matchLegalInt
       let x ← MatchProg.value srcType
-      let midType ← MatchProg.type (Attr := IntegerType)
+      let midType ← matchLegalInt
       let inner ← MatchProg.operation (.gmir .g_trunc) #[x] #[midType]
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let _ ← MatchProg.root (.gmir .g_trunc) #[inner.res[0]!] #[type]
       return (x, type))
     (fun (x, type) => CreateProg.operation (.gmir .g_trunc) #[x] #[type])
@@ -204,8 +212,9 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
   | .g_anyext => [
       combineAnyExtOfTruncSame,
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
-      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
-      combineAnyExtOfAnyExt]
+      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)
+      -- Unproven (`rechoosesMatchedChoice`), so not run: `, combineAnyExtOfAnyExt`
+      ]
   | .g_zext => [
       combineZExtOfTruncOfICmp,
       combineExtOfTruncOfConstant false,

@@ -1,0 +1,563 @@
+module
+
+import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
+import all Veir.Dialects.RISCV.Interpreter
+import all Veir.Data.LLVM.Byte.Basic
+import all Veir.Data.LLVM.Ptr.Basic
+import all Veir.Interpreter.Memory
+import all Veir.Data.Pointer.Basic
+import all Veir.Interpreter.CTree
+import all Veir.Passes.Legalization.RISCV64LegalizerInfo
+import all Veir.Passes.Legalization.LegalizerInfo
+import all Veir.Passes.InstructionSelection.Proofs
+meta import Veir.Meta.ProofKind
+
+/-! Instruction-selection validity proofs: Truncation, bitcasts, and integer extensions. -/
+
+namespace Veir
+
+open Puddle
+open _root_.CTree
+
+attribute [local ctree_semantics]
+  OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
+  Riscv.interpretOp' Llvm.interpretOp' GMIR.interpretOp'
+  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree Riscv.interpretOpCTree
+
+attribute [local implicit_reducible] TypeAttr
+
+private theorem ext_query (op : GMIR) (hop : op = .g_sext ∨ op = .g_zext)
+    (q : LegalityQuery (GMIR.propertiesOf op))
+    (h : riscv64LegalizerInfo.getActionFor op q = .legal) :
+    q.getLLT! (.type 0) = .scalar 32 ∨ q.getLLT! (.type 0) = .scalar 64 := by
+  rcases hop with rfl | rfl
+  all_goals
+    unfold LegalizerInfo.getActionFor at h
+    dsimp only [riscv64LegalizerInfo] at h
+    simp only [List.findSome?_cons, LegalizeRule.legalForTypePairs, LegalizeRule.legalIf,
+      List.contains_cons, List.contains_nil, Bool.or_false] at h
+    split at h
+    · rename_i ht
+      simp_all only [Bool.or_eq_true, beq_iff_eq, Prod.mk.injEq, s32, s64]
+      grind
+    · simp only [LegalizeRule.lowerIf] at h
+      repeat' split at h <;> simp_all
+private theorem ext_scalar_type (type : TypeAttr) (w : Nat)
+    (h : LLT.ofType? type = some (.scalar w)) :
+      ∃ s, type = TypeAttr.of IntegerType ⟨w, s⟩ := by
+  rcases type with ⟨attr, hattr⟩
+  cases attr <;> simp only [LLT.ofType?, Option.some.injEq, reduceCtorEq, LLT.scalar.injEq] at h
+  rename_i integer
+  rcases integer with ⟨width, s⟩
+  cases h
+  exact ⟨s, rfl⟩
+theorem isLegal_ext_result (op : GMIR) (hop : op = .g_sext ∨ op = .g_zext)
+    (dst src : TypeAttr) (props : GMIR.propertiesOf op)
+    (h : riscv64LegalizerInfo.isLegal op #[dst, src] props = true) :
+    (∃ s, dst = TypeAttr.of IntegerType ⟨32, s⟩) ∨
+      (∃ s, dst = TypeAttr.of IntegerType ⟨64, s⟩) := by
+  unfold LegalizerInfo.isLegal at h
+  cases hq : LegalityQuery.ofTypes? #[dst, src] props with
+  | none => simp [hq] at h
+  | some q =>
+    simp only [hq] at h
+    have hlegal : riscv64LegalizerInfo.getActionFor op q = .legal := by
+      split at h <;> simp_all
+    have htypes := ext_query op hop q hlegal
+    cases hd : LLT.ofType? dst <;> cases hs : LLT.ofType? src <;>
+      simp [LegalityQuery.ofTypes?, Array.mapM, ↓Array.mapM.map, hd, hs] at hq
+    cases hq
+    change _ = LLT.scalar 32 ∨ _ = LLT.scalar 64 at htypes
+    rcases htypes with htypes | htypes
+    · exact .inl (ext_scalar_type dst 32 (htypes ▸ hd))
+    · exact .inr (ext_scalar_type dst 64 (htypes ▸ hd))
+
+private theorem legalTrunc_types (src dst : TypeAttr) (h : isLegalTrunc src dst = true) :
+    (∃ a b : IntegerType, src = .of IntegerType a ∧ dst = .of IntegerType b ∧ b.bitwidth < a.bitwidth ∧ a.bitwidth ≤ 64) ∨
+    (∃ a b : LLVM.ByteType, src = .of LLVM.ByteType a ∧ dst = .of LLVM.ByteType b ∧ b.bitwidth < a.bitwidth ∧ a.bitwidth ≤ 64) := by
+  rcases src with ⟨src, hs⟩
+  rcases dst with ⟨dst, hd⟩
+  cases src <;> simp [isLegalTrunc, getIntByteTypeBitwidth] at h
+  all_goals cases dst <;> simp  at h
+  all_goals simp_all [←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of]
+  all_goals first | exact .inl ⟨_,rfl,_,rfl,h.1,h.2⟩ | exact .inr ⟨_,rfl,_,rfl,h.1,h.2⟩
+
+private theorem bitcastType_cases (ty : TypeAttr) (h : checkBitcastType ty = true) :
+    (∃ a : IntegerType, ty = .of IntegerType a) ∨
+    (∃ a : LLVM.ByteType, ty = .of LLVM.ByteType a) ∨
+    (∃ a : LLVM.PointerType, ty = .of LLVM.PointerType a) := by
+  rcases ty with ⟨ty, ht⟩
+  cases ty <;> simp [checkBitcastType] at h
+  · exact .inl ⟨_,rfl⟩
+  · exact .inr (.inl ⟨_,rfl⟩)
+  · exact .inr (.inr ⟨_,rfl⟩)
+
+@[proof_manual]
+theorem trunc_pattern_valid :
+    Puddle.CTree.Pattern.Valid trunc_pattern := by
+  simpIselSemantics
+  intro src dst value hc props hv hlegal
+  rcases legalTrunc_types src dst hlegal with ⟨a,b,rfl,rfl,hlt,hle⟩ | ⟨a,b,rfl,rfl,hlt,hle⟩
+  · simp only [RuntimeValue.Conforms.integerType] at hc
+    rcases hc with ⟨x,rfl⟩
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, Nat.not_le.mpr hlt]
+    intro r hr
+    have h := Data.RISCV.trunc_refinement_le64 hle (x := x) (nsw := props.nsw) (nuw := props.nuw) (h := hlt)
+    cases x <;> simp_all [ctree_semantics, Data.LLVM.Int.trunc, RISCV.Reg.toInt, LLVM.Int.toReg, Id.run, RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]
+  · simp only [RuntimeValue.Conforms.byteType] at hc
+    rcases hc with ⟨x,rfl⟩
+    simp [ctree_semantics,  ←Attribute.byteType_eq_of, Nat.not_le.mpr hlt]
+    intro r bits hr
+    simp [ctree_semantics, RuntimeValue.isRefinedBy]
+    simp only [hr]
+    ext i
+    simp [Data.LLVM.Byte.trunc, BitVec.getLsbD_setWidth]
+    grind
+
+@[simp]
+private theorem xor_not_and_allOnes (x : BitVec w) :
+    (x ^^^ ~~~x) &&& BitVec.allOnes w = BitVec.allOnes w := by
+  ext i
+  simp
+
+private theorem byte_resolved_mask (v p b : BitVec w) (h : v &&& p = 0)
+    (h' : (v ||| p &&& b) &&& 0#w = 0) :
+    (⟨v, p, h⟩ : Data.LLVM.Byte w) ⊒ ⟨v ||| p &&& b, 0#w, h'⟩ := by
+  simp only [Data.LLVM.Byte.isRefinedBy]
+  ext i
+  simp
+  veir_bv_decide
+
+section
+
+attribute [local ctree_semantics] Llvm.bitcastValue
+
+/-- Normalize a strict singleton bitcast without unfolding its array/list destructors
+    in each of the type and width cases below. -/
+@[local ctree_semantics]
+private theorem llvm_bitcast_singleton (props : propertiesOf (OpCode.llvm .bitcast))
+    (type : TypeAttr) (val : RuntimeValue) (mem : MemoryState) (layout : DataLayout) :
+    Llvm.interpretOp' .bitcast props #[type] #[val] #[] mem layout = (do
+    let result ← Llvm.bitcastValue mem val type.val
+    return (#[result], mem, none)) := by
+  rcases type with ⟨type, ht⟩
+  rfl
+
+attribute [-ctree_semantics] Llvm.interpretOp'
+
+@[proof_manual]
+theorem bitcast_pattern_valid :
+    Puddle.CTree.Pattern.Valid bitcast_pattern := by
+  simpIselSemantics
+  intro src dst value hc props hv hlegal
+  have hs : checkBitcastType src = true := by simp only [isLegalBitcast, Bool.and_eq_true] at hlegal; exact hlegal.1.1.1
+  have hd : checkBitcastType dst = true := by simp only [isLegalBitcast, Bool.and_eq_true] at hlegal; exact hlegal.1.1.2
+  rcases bitcastType_cases src hs with ⟨a,rfl⟩ | ⟨a,rfl⟩ | ⟨a,rfl⟩ <;>
+    rcases bitcastType_cases dst hd with ⟨b,rfl⟩ | ⟨b,rfl⟩ | ⟨b,rfl⟩ <;>
+    simp [isLegalBitcast, checkBitcastType, isBitcastByteToPtr, Attribute.bitwidthOfType, ←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of, ←Attribute.llvmPointerType_eq_of] at hlegal
+  all_goals simp only [RuntimeValue.Conforms.integerType, RuntimeValue.Conforms.byteType,
+    RuntimeValue.Conforms.llvmPointerType] at hc
+  all_goals rcases hc with ⟨x,rfl⟩
+  all_goals cases a
+  all_goals cases b
+  all_goals dsimp -failIfUnchanged at *
+  all_goals try
+    rcases hlegal with ⟨ha,hb⟩
+    rcases ha with rfl | rfl | rfl | rfl <;>
+      rcases hb with rfl | rfl | rfl | rfl
+  all_goals try rcases hlegal with rfl | rfl | rfl | rfl
+  all_goals simp [ctree_semantics, ←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of,
+    ←Attribute.llvmPointerType_eq_of]
+  all_goals intros
+  all_goals cases x <;> simp_all [ctree_semantics, RuntimeValue.isRefinedBy,
+    Data.LLVM.Byte.fromInt, Data.LLVM.Byte.toInt, Data.LLVM.Ptr.toInt,
+    Data.LLVM.Ptr.toByte]
+  all_goals try (split <;> simp_all [Data.LLVM.Int.isRefinedBy])
+  all_goals try (ext i; simp; all_goals veir_bv_decide)
+  all_goals exact byte_resolved_mask _ _ _ _ _
+
+end
+
+/-- A register round trip preserves every low result bit that fits in the register,
+    even when the source integer is wider than a register. -/
+private theorem trunc_reg_refinement {src dst : Nat} (hw : dst ≤ 64) (hlt : dst < src)
+    (x : Data.LLVM.Int src) (reg : Data.RISCV.Reg)
+    (hr : ∀ bits, x = .val bits → reg.val = bits.setWidth 64) (nsw nuw : Bool) :
+    x.trunc dst nsw nuw hlt ⊒ RISCV.Reg.toInt reg dst := by
+  cases x with
+  | poison => simp [Data.LLVM.Int.trunc, Data.LLVM.Int.isRefinedBy, Id.run]
+  | val bits =>
+    have hreg := hr bits rfl
+    simp [Data.LLVM.Int.trunc, RISCV.Reg.toInt, hreg, Id.run,
+      BitVec.setWidth_setWidth_of_le bits hw]
+    by_cases hs : nsw = true ∧ ¬(bits.setWidth dst).signExtend src = bits
+    · simp [hs, Data.LLVM.Int.isRefinedBy, pure]
+    · by_cases hu : nuw = true ∧ ¬(bits.setWidth dst).setWidth src = bits <;>
+        simp [hs,hu,Data.LLVM.Int.isRefinedBy,pure]
+
+/-- If the source fits in a register, any-extension may choose the register's
+    existing high bits, including for results wider than a register. -/
+private theorem anyext_reg_refinement {src dst : Nat} (hw : src ≤ 64) (hlt : src < dst)
+    (x : Data.LLVM.Int src) (reg : Data.RISCV.Reg)
+    (hr : ∀ bits, x = .val bits → reg.val = bits.setWidth 64) :
+    ∃ msb, x.ext dst msb hlt ⊒ RISCV.Reg.toInt reg dst := by
+  cases x with
+  | poison => exact ⟨0,by simp [Data.LLVM.Int.ext, Data.LLVM.Int.isRefinedBy, Id.run]⟩
+  | val bits =>
+    have hreg := hr bits rfl
+    have hx : RISCV.Reg.toInt reg src = .val bits := by
+      simp [RISCV.Reg.toInt, hreg, BitVec.setWidth_setWidth_of_le bits hw]
+    simpa only [hx] using Data.RISCV.anyext_of_reg_refinement src dst hlt reg
+
+@[proof_manual]
+theorem gmirTrunc_pattern_valid :
+    Puddle.CTree.Pattern.Valid gmirTrunc_pattern := by
+  simpIselSemantics
+  intro ⟨src,hs⟩ ⟨dst,hd⟩ value hc props hv hguard
+  cases src <;> dsimp only at hguard <;> try contradiction
+  cases dst <;> dsimp only at hguard <;> try contradiction
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at hguard
+  obtain ⟨hw,hlegal⟩ := hguard
+  rename_i srcType dstType
+  cases value <;> simp [RuntimeValue.Conforms] at hc
+  cases hc
+  rename_i x
+  simp [ctree_semantics]
+  intro mem
+  by_cases hle : srcType.bitwidth ≤ dstType.bitwidth
+  · simp [hle]
+  · simp [hle]
+    intro reg hr
+    simpa [RuntimeValue.isRefinedBy, RISCV.Reg.toInt] using
+      trunc_reg_refinement hw (Nat.lt_of_not_ge hle) x reg hr props.nsw props.nuw
+
+@[proof_manual]
+theorem gmirAnyext_pattern_valid :
+    Puddle.CTree.Pattern.Valid gmirAnyext_pattern := by
+  simpIselSemantics
+  intro ⟨src,hs⟩ ⟨dst,hd⟩ value hc props hv hguard
+  cases src <;> dsimp only at hguard <;> try contradiction
+  cases dst <;> dsimp only at hguard <;> try contradiction
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at hguard
+  obtain ⟨hw,hlegal⟩ := hguard
+  rename_i srcType dstType
+  cases value <;> simp [RuntimeValue.Conforms] at hc
+  cases hc
+  rename_i x
+  simp [ctree_semantics]
+  intro mem reg hr
+  by_cases hle : dstType.bitwidth ≤ srcType.bitwidth
+  · simp [hle]
+  · simp [hle,
+      ctree_semantics, CTree.tau_def, Sim.pure_tau]
+    simp [RuntimeValue.isRefinedBy]
+    exact
+      anyext_reg_refinement hw
+        (GMIR.interpretOpCTree._proof_1 srcType.bitwidth dstType
+          (Eq.mpr_not (Eq.refl (dstType.bitwidth ≤ srcType.bitwidth)) (of_eq_false (eq_false hle))))
+        x reg hr
+
+/-! ## Pointer casts
+
+`gmirPtrIntCast_pattern` lowers `g_ptrtoint` and `g_inttoptr` to a round trip through a register.
+The legalizer accepts only the pointer and the 64-bit integer, which the register holds exactly:
+a defined address is the register's bits, and a poison one may become any register. -/
+
+/-- The type whose low-level type is a pointer. -/
+private theorem pointer_type (type : TypeAttr) (n : Nat)
+    (h : LLT.ofType? type = some (.pointer n)) :
+      ∃ p, type = TypeAttr.of LLVM.PointerType p := by
+  rcases type with ⟨attr, hattr⟩
+  cases attr <;> simp only [LLT.ofType?, Option.some.injEq, reduceCtorEq, LLT.pointer.injEq] at h
+  exact ⟨_, rfl⟩
+
+/-- The types `riscv64LegalizerInfo` accepts for `g_ptrtoint`: an `i64` from a pointer. -/
+private theorem isLegal_ptrtoint_types (dst src : TypeAttr) (props : GMIR.propertiesOf .g_ptrtoint)
+    (h : riscv64LegalizerInfo.isLegal .g_ptrtoint #[dst, src] props = true) :
+    (∃ s, dst = TypeAttr.of IntegerType ⟨64, s⟩) ∧ ∃ p, src = TypeAttr.of LLVM.PointerType p := by
+  unfold LegalizerInfo.isLegal at h
+  cases hq : LegalityQuery.ofTypes? #[dst, src] props with
+  | none => simp [hq] at h
+  | some q =>
+    simp only [hq] at h
+    have hlegal : riscv64LegalizerInfo.getActionFor .g_ptrtoint q = .legal := by
+      split at h <;> simp_all
+    unfold LegalizerInfo.getActionFor at hlegal
+    dsimp only [riscv64LegalizerInfo] at hlegal
+    simp only [List.findSome?_cons, List.findSome?_nil, LegalizeRule.legalForTypePairs,
+      LegalizeRule.legalIf, List.contains_cons, List.contains_nil, Bool.or_false, s64, p0] at hlegal
+    cases hd : LLT.ofType? dst <;> cases hs : LLT.ofType? src <;>
+      simp [LegalityQuery.ofTypes?, Array.mapM, ↓Array.mapM.map, hd, hs] at hq
+    subst hq
+    rename_i a b
+    simp only [LegalityQuery.getLLT!, show (#[a, b] : Array LLT)[0]! = a from rfl,
+      show (#[a, b] : Array LLT)[1]! = b from rfl, beq_iff_eq, Prod.mk.injEq] at hlegal
+    by_cases hpair : a = .scalar 64 ∧ b = .pointer 0
+    · obtain ⟨rfl, rfl⟩ := hpair
+      exact ⟨ext_scalar_type dst 64 hd, pointer_type src 0 hs⟩
+    · simp [hpair] at hlegal
+
+@[proof_manual]
+theorem gmirPtrToInt_pattern_valid :
+    Puddle.CTree.Pattern.Valid (gmirPtrIntCast_pattern .g_ptrtoint) := by
+  simpIselSemantics
+  intro src dst value hc props hv hlegal
+  obtain ⟨⟨s, rfl⟩, ⟨p, rfl⟩⟩ := isLegal_ptrtoint_types dst src props hlegal
+  simp only [RuntimeValue.Conforms.llvmPointerType] at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  intro reg hr
+  cases x <;> simp_all [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.toInt, Data.LLVM.Int.isRefinedBy]
+
+/-- The types `riscv64LegalizerInfo` accepts for `g_inttoptr`: a pointer from an `i64`. -/
+private theorem isLegal_inttoptr_types (dst src : TypeAttr) (props : GMIR.propertiesOf .g_inttoptr)
+    (h : riscv64LegalizerInfo.isLegal .g_inttoptr #[dst, src] props = true) :
+    (∃ p, dst = TypeAttr.of LLVM.PointerType p) ∧ ∃ s, src = TypeAttr.of IntegerType ⟨64, s⟩ := by
+  unfold LegalizerInfo.isLegal at h
+  cases hq : LegalityQuery.ofTypes? #[dst, src] props with
+  | none => simp [hq] at h
+  | some q =>
+    simp only [hq] at h
+    have hlegal : riscv64LegalizerInfo.getActionFor .g_inttoptr q = .legal := by
+      split at h <;> simp_all
+    unfold LegalizerInfo.getActionFor at hlegal
+    dsimp only [riscv64LegalizerInfo] at hlegal
+    simp only [List.findSome?_cons, List.findSome?_nil, LegalizeRule.legalForTypePairs,
+      LegalizeRule.legalIf, List.contains_cons, List.contains_nil, Bool.or_false, s64, p0] at hlegal
+    cases hd : LLT.ofType? dst <;> cases hs : LLT.ofType? src <;>
+      simp [LegalityQuery.ofTypes?, Array.mapM, ↓Array.mapM.map, hd, hs] at hq
+    subst hq
+    rename_i a b
+    simp only [LegalityQuery.getLLT!, show (#[a, b] : Array LLT)[0]! = a from rfl,
+      show (#[a, b] : Array LLT)[1]! = b from rfl, beq_iff_eq, Prod.mk.injEq] at hlegal
+    by_cases hpair : a = .pointer 0 ∧ b = .scalar 64
+    · obtain ⟨rfl, rfl⟩ := hpair
+      exact ⟨pointer_type dst 0 hd, ext_scalar_type src 64 hs⟩
+    · simp [hpair] at hlegal
+
+@[proof_manual]
+theorem   gmirIntToPtr_pattern_valid :
+    Puddle.CTree.Pattern.Valid (gmirPtrIntCast_pattern .g_inttoptr) := by
+  simpIselSemantics
+  intro src dst value hc props hv hlegal
+  obtain ⟨⟨p, rfl⟩, ⟨s, rfl⟩⟩ := isLegal_inttoptr_types dst src props hlegal
+  simp only [RuntimeValue.Conforms.integerType] at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics]
+  intro mem reg hr
+  cases x <;> simp_all [RuntimeValue.isRefinedBy, MemoryState.ptrFromInt, MemoryState.decode,
+    Data.LLVM.Ptr.isRefinedBy]
+
+/- The checked wide witnesses below document failures of the unguarded register
+   round trips. The selector guards exclude precisely the widths that lose defined bits. -/
+
+@[proof_manual]
+theorem gmirAnyextOfReg_pattern_valid :
+    Puddle.CTree.Pattern.Valid gmirAnyextOfReg_pattern := by
+  simpIselSemantics
+  intro regType reg src _castprops _hcastVerified value mem mem' hcast dst p
+    _hanyVerified hlegal memory
+  cases value <;> simp [ctree_semantics]
+  rcases src with ⟨sa, hs⟩
+  cases sa <;> dsimp [Builtin.interpretUnrealizedConversionCastCTree] at hcast
+  all_goals simp -failIfUnchanged [ctree_semantics] at hcast
+  all_goals try simp [fail, CTree.trigger_def, Bind.bind, _root_.CTree.CTree.bind_vis] at hcast
+  rcases hcast with ⟨⟨rfl, h⟩, rfl⟩
+  cases h
+  rcases dst with ⟨da, hd⟩
+  cases da <;> simp -failIfUnchanged [ctree_semantics]
+  split
+  · simp [ctree_semantics]
+  · simp [ctree_semantics, RISCV.Reg.toInt, Data.LLVM.Int.ext, Id.run]
+    simp only [CTree.tau_def, Sim.pure_tau]
+    rename_i srcTy dstTy hlt
+    refine ⟨reg.val.extractLsb' srcTy.bitwidth (dstTy.bitwidth - srcTy.bitwidth), ?_⟩
+    simp [ctree_semantics, RuntimeValue.isRefinedBy, Data.LLVM.Int.isRefinedBy]
+    simp only [Data.LLVM.Int.cast]
+    ext i
+    simp
+    grind
+
+
+@[proof_bv]
+theorem sext16_pattern_valid :
+    Puddle.CTree.Pattern.Valid sext16_pattern := by
+  simpIselSemantics
+  intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
+  have hw : width = 32 ∨ width = 64 := by
+    rcases isLegal_ext_result .g_sext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
+      first
+      | exact Or.inl (congrArg IntegerType.bitwidth (IsTypeAttr.of_injective h))
+      | exact Or.inr (congrArg IntegerType.bitwidth (IsTypeAttr.of_injective h))
+  rcases hw with rfl | rfl <;>
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, RuntimeValue.isRefinedBy] <;>
+    intros <;> cases a <;> simp_all <;> veir_bv_decide
+
+@[proof_bv]
+theorem sext32_pattern_valid :
+    Puddle.CTree.Pattern.Valid sext32_pattern := by
+  simpIselSemantics
+  intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
+  have hw : width = 32 ∨ width = 64 := by
+    rcases isLegal_ext_result .g_sext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
+      first
+      | exact Or.inl (congrArg IntegerType.bitwidth (IsTypeAttr.of_injective h))
+      | exact Or.inr (congrArg IntegerType.bitwidth (IsTypeAttr.of_injective h))
+  rcases hw with rfl | rfl <;>
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, RuntimeValue.isRefinedBy] <;>
+    intros <;> cases a <;> simp_all <;> veir_bv_decide
+
+@[proof_bv]
+theorem sextInReg8_valid :
+    Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 8 .sextb ()) := by
+  simpIselSemantics
+  intro src sign value hc props hsz hv hlegal mem
+  have ht := hv.gmir_sext_inreg_type_eq
+  subst src
+  rcases props with ⟨sz⟩
+  have hs : sz = 8#64 := BitVec.eq_of_toNat_eq hsz
+  subst sz
+  simp at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics, hsz, RuntimeValue.isRefinedBy]
+  intro r hr
+  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run] <;> veir_bv_decide
+
+@[proof_bv]
+theorem sextInReg16_valid :
+    Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 16 .sexth ()) := by
+  simpIselSemantics
+  intro src sign value hc props hsz hv hlegal mem
+  have ht := hv.gmir_sext_inreg_type_eq
+  subst src
+  rcases props with ⟨sz⟩
+  have hs : sz = 16#64 := BitVec.eq_of_toNat_eq hsz
+  subst sz
+  simp at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics, hsz, RuntimeValue.isRefinedBy]
+  intro r hr
+  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run] <;> veir_bv_decide
+
+@[proof_bv]
+theorem sextInReg32_valid :
+    Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 32 .sextw ()) := by
+  simpIselSemantics
+  intro src sign value hc props hsz hv hlegal mem
+  have ht := hv.gmir_sext_inreg_type_eq
+  subst src
+  rcases props with ⟨sz⟩
+  have hs : sz = 32#64 := BitVec.eq_of_toNat_eq hsz
+  subst sz
+  simp at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics, hsz, RuntimeValue.isRefinedBy]
+  intro r hr
+  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run] <;> veir_bv_decide
+
+private theorem sext_low_shift (x : BitVec 64) (w : Nat) (hpos : 0 < w) (hle : w ≤ 64) :
+    (x.setWidth w).signExtend 64 = (x <<< (64 - w)).sshiftRight (64 - w) := by
+  ext i
+  simp [BitVec.getElem_signExtend, BitVec.getElem_sshiftRight, BitVec.getElem_shiftLeft]
+  grind
+
+@[proof_bv]
+theorem sextInRegShift_pattern_valid :
+    Puddle.CTree.Pattern.Valid sextInRegShift_pattern := by
+  simpIselSemantics
+  intro src sign value hc props h8 h16 h32 hv hlegal mem
+  have ht := hv.gmir_sext_inreg_type_eq
+  subst src
+  have hb := hv.gmir_sext_inreg_size_bounds
+  simp at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics]
+  have hlo : (1#64).sle props.sz = true := BitVec.sle_iff_toInt_le.mpr hb.1
+  have hhi : props.sz.slt (64#64) = true := BitVec.slt_iff_toInt_lt.mpr hb.2
+  have hbits : (0#64).ult props.sz = true ∧ props.sz.ult (64#64) = true := by veir_bv_decide
+  have hpos : 0 < props.sz.toNat := BitVec.ult_iff_toNat_lt.mp hbits.1
+  have hlt : props.sz.toNat < 64 := BitVec.ult_iff_toNat_lt.mp hbits.2
+  simp [ctree_semantics, RuntimeValue.isRefinedBy, Nat.not_le.mpr hlt]
+  intro r hr
+  have himm : (mkRISCVImm (64 - ↑props.sz.toNat)).immField 6 = (64#64 - props.sz).setWidth 6 := by
+    simp only [mkRISCVImm, RISCVImmediateProperties.immField, Int.sub_eq_add_neg,
+      BitVec.ofInt_add, BitVec.ofInt_neg, BitVec.ofInt_natCast, BitVec.ofNat_toNat]
+    veir_bv_decide
+  have hamount : ((64#64 - props.sz).setWidth 6).toNat = 64 - props.sz.toNat := by
+    rw [BitVec.toNat_setWidth, BitVec.toNat_sub_of_le (BitVec.le_def.mpr (Nat.le_of_lt hlt))]
+    exact Nat.mod_eq_of_lt (Nat.sub_lt (by veir_bv_decide) hpos)
+  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run, Data.LLVM.Int.isRefinedBy]
+  all_goals rw [sext_low_shift _ _ hpos (Nat.le_of_lt hlt)]
+  all_goals simp [Data.RISCV.srai, Data.RISCV.slli, hamount, hr]
+
+
+@[proof_bv]
+theorem zext16_pattern_valid :
+    Puddle.CTree.Pattern.Valid zext16_pattern := by
+  simpIselSemantics
+  intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
+  have hw : width = 32 ∨ width = 64 := by
+    rcases isLegal_ext_result .g_zext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
+      first
+      | exact Or.inl (congrArg IntegerType.bitwidth (IsTypeAttr.of_injective h))
+      | exact Or.inr (congrArg IntegerType.bitwidth (IsTypeAttr.of_injective h))
+  rcases hw with rfl | rfl <;>
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, RuntimeValue.isRefinedBy] <;>
+    intros <;> cases a <;> simp_all <;> veir_bv_decide
+
+@[proof_bv]
+theorem zext32_pattern_valid :
+    Puddle.CTree.Pattern.Valid zext32_pattern := by
+  simpIselSemantics
+  intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
+  have hw : width = 32 ∨ width = 64 := by
+    rcases isLegal_ext_result .g_zext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
+      first
+      | exact Or.inl (congrArg IntegerType.bitwidth (IsTypeAttr.of_injective h))
+      | exact Or.inr (congrArg IntegerType.bitwidth (IsTypeAttr.of_injective h))
+  rcases hw with rfl | rfl <;>
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, RuntimeValue.isRefinedBy] <;>
+    intros <;> cases a <;> simp_all <;> veir_bv_decide
+
+/-- Truncation through a 64-bit register loses a defined bit above bit 63. -/
+theorem gmirTrunc_wide_counterexample :
+    ¬ (RuntimeValue.int 128
+      ((Data.LLVM.Int.val (1#129 <<< 100)).trunc 128 false false (by veir_bv_decide)) ⊒
+      RuntimeValue.int 128 (.val 0)) := by
+  simp [RuntimeValue.isRefinedBy]
+  veir_bv_decide
+
+/-- Any extension must preserve the defined low source bits, including bit 100. -/
+theorem gmirAnyext_wide_counterexample (msb : BitVec 1) :
+    ¬ (RuntimeValue.int 129
+      ((Data.LLVM.Int.val (1#128 <<< 100)).ext 129 msb (by veir_bv_decide)) ⊒
+      RuntimeValue.int 129 (.val 0)) := by
+  simp [RuntimeValue.isRefinedBy]
+  veir_bv_decide
+
+/-- A raw width-mismatched operation fails refinement; verification excludes it. -/
+theorem sextInReg_width_counterexample :
+    ¬ (RuntimeValue.int 128
+      (((Data.LLVM.Int.val (1#128)).trunc 8 false false (by veir_bv_decide)).sext 128 (by veir_bv_decide)) ⊒
+      RuntimeValue.int 64 (.val 1)) := by
+  simp [RuntimeValue.isRefinedBy]
+
+theorem sextInReg16_width_counterexample :
+    ¬ (RuntimeValue.int 128
+      (((Data.LLVM.Int.val (1#128)).trunc 16 false false (by veir_bv_decide)).sext 128 (by veir_bv_decide)) ⊒
+      RuntimeValue.int 64 (.val 1)) := by
+  simp [RuntimeValue.isRefinedBy]
+
+theorem sextInReg32_width_counterexample :
+    ¬ (RuntimeValue.int 128
+      (((Data.LLVM.Int.val (1#128)).trunc 32 false false (by veir_bv_decide)).sext 128 (by veir_bv_decide)) ⊒
+      RuntimeValue.int 64 (.val 1)) := by
+  simp [RuntimeValue.isRefinedBy]
+
+theorem sextInRegShift_width_counterexample :
+    ¬ (RuntimeValue.int 128
+      (((Data.LLVM.Int.val (1#128)).trunc 7 false false (by veir_bv_decide)).sext 128 (by veir_bv_decide)) ⊒
+      RuntimeValue.int 64 (.val 1)) := by
+  simp [RuntimeValue.isRefinedBy]
+
+end Veir

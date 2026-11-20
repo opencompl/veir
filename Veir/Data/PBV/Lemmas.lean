@@ -52,4 +52,101 @@ theorem twoPow_ne_zero {o k : Nat} (h : k < o) : twoPow o k ≠ 0#o := by
     Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by lia) h)] at hn
   exact absurd hn (Nat.ne_of_gt (Nat.two_pow_pos k))
 
+/-! ### Leading and trailing zeros -/
+
+theorem toNat_clz_zero : (0#w).clz.toNat = w := by
+  rw [BitVec.clz_eq_iff_eq_zero.mpr rfl, BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt Nat.lt_two_pow_self]
+
+theorem toNat_ctz_zero : (0#w).ctz.toNat = w := by
+  rw [BitVec.ctz_eq_reverse_clz, BitVec.reverse_eq_zero_iff.mpr rfl, toNat_clz_zero]
+
+/-- Zero-extending a nonzero bitvector keeps it nonzero. -/
+theorem setWidth_ne_zero_of_le {a : BitVec w} (h : w ≤ o) (ha : a ≠ 0#w) :
+    a.setWidth o ≠ 0#o := by
+  intro hz
+  apply ha
+  apply BitVec.eq_of_toNat_eq
+  have := congrArg BitVec.toNat hz
+  rw [BitVec.toNat_setWidth,
+    Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le a.isLt (Nat.pow_le_pow_right (by decide) h))] at this
+  simpa using this
+
+/-- The leading zeros of a nonzero bitvector, in terms of the position of its highest set bit. -/
+theorem clz_eq_log2 {a : BitVec w} (ha : a ≠ 0#w) : a.clz.toNat = w - 1 - a.toNat.log2 := by
+  have hw : 0 < w := by
+    rcases w with _ | w
+    · exact absurd (BitVec.eq_nil a) ha
+    · grind
+  have hlt : a.clz.toNat < w := by
+    have := (BitVec.clz_lt_iff_ne_zero (x := a)).2 ha
+    simpa [BitVec.lt_def, Nat.mod_eq_of_lt (Nat.lt_two_pow_self)] using this
+  have h_le := BitVec.two_pow_sub_clz_le_toNat_of_ne_zero hw ha
+  have h_lt := BitVec.toNat_lt_two_pow_sub_clz (x := a)
+  have : a.toNat.log2 = w - 1 - a.clz.toNat :=
+    (Nat.log2_eq_iff (by grind)).mpr ⟨h_le, by grind⟩
+  grind
+
+theorem log2_toNat_of_lt_two_pow {a : BitVec w} (ha : a ≠ 0#w) (h : a.toNat < 2^o) :
+    a.toNat.log2 < o := by
+  have : 0 < a.toNat := by grind
+  rw [Nat.log2_lt (by grind)]
+  exact h
+
+theorem toNat_clz_setWidth_add_one {a : BitVec w} (h : w ≤ o) :
+    (BitVec.setWidth (o + 1) a).clz.toNat = (BitVec.setWidth o a).clz.toNat + 1 := by
+  by_cases h' : a = 0#w
+  · subst h'
+    rw [BitVec.setWidth_zero, BitVec.setWidth_zero, toNat_clz_zero, toNat_clz_zero]
+  · have a_lt : a.toNat < 2 ^ o :=
+      Nat.lt_of_lt_of_le a.isLt (Nat.pow_le_pow_right (by decide) h)
+    have hlog := log2_toNat_of_lt_two_pow h' a_lt
+    rw [clz_eq_log2 (setWidth_ne_zero_of_le (by omega) h'),
+      clz_eq_log2 (setWidth_ne_zero_of_le h h')]
+    simp only [BitVec.toNat_setWidth, Nat.mod_eq_of_lt a_lt,
+      Nat.mod_eq_of_lt (Nat.lt_trans a_lt (Nat.pow_lt_pow_succ (by decide)))]
+    omega
+
+/-- Zero-extending by `o - w` bits adds `o - w` leading zeros. -/
+theorem toNat_clz_setWidth {o w : Nat} (a : BitVec w) (h : w ≤ o) :
+    (a.setWidth o).clz.toNat = a.clz.toNat + (o - w) := by
+  induction o
+  case zero =>
+    have : w = 0 := by grind
+    simp only [BitVec.clz, Nat.zero_le, Nat.sub_eq_zero_of_le, BitVec.clzAuxRec, Std.le_refl,
+      BitVec.getLsbD_of_ge, Bool.false_eq_true, ↓reduceIte, BitVec.toNat_ofNat, Nat.pow_zero,
+      Nat.mod_succ, this, Nat.add_zero]
+  case succ o' ih =>
+    rcases Nat.lt_or_eq_of_le h
+    case inl h' =>
+      have w_le_o : w ≤ o' := by apply Nat.le_of_lt_add_one h'
+      rw [toNat_clz_setWidth_add_one w_le_o, ih w_le_o, Nat.add_assoc, Nat.sub_add_comm w_le_o]
+    case inr h' =>
+      subst h'
+      simp only [BitVec.setWidth_eq, Nat.sub_self, Nat.add_zero]
+
+/-- Zero-extending a nonzero bitvector does not change its trailing zeros. -/
+theorem toNat_ctz_setWidth_of_ne_zero {a : BitVec w} (h : w ≤ o) (ha : a ≠ 0#w) :
+    (a.setWidth o).ctz.toNat = a.ctz.toNat := by
+  have ha' := setWidth_ne_zero_of_le h ha
+  have hb : ∀ i, (a.setWidth o).getLsbD i = a.getLsbD i := by
+    intro i
+    rw [BitVec.getLsbD_setWidth]
+    by_cases hi : i < o
+    · simp [hi]
+    · simp [hi, BitVec.getLsbD_of_ge a i (by omega)]
+  have h1 := BitVec.getLsbD_true_ctz_of_ne_zero ha
+  have h2 := BitVec.getLsbD_true_ctz_of_ne_zero ha'
+  apply Nat.le_antisymm
+  · apply Nat.le_of_not_lt
+    intro hlt
+    have := BitVec.getLsbD_false_of_lt_ctz hlt
+    rw [hb] at this
+    simp_all
+  · apply Nat.le_of_not_lt
+    intro hlt
+    have := BitVec.getLsbD_false_of_lt_ctz hlt
+    rw [← hb] at this
+    simp_all
+
 end BitVec

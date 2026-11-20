@@ -3,6 +3,7 @@ module
 public meta import Lean.Elab.Tactic
 public meta import Veir.Meta.Tactic.PBVDecide.Main
 public meta import Veir.Meta.Tactic.PBVDecide.Config
+public import Veir.Meta.Tactic.ProofMarkers
 
 public section
 
@@ -33,7 +34,8 @@ public meta def evalPbvDecide : Tactic := fun stx => do
   | `(tactic| pbv_decide $n:num $cfgStx:optConfig) => do
       let cfg ← elabPbvDecideConfig cfgStx
       let ctx : PbvDecideContext := { bmcBound := n.getNat, config := cfg }
-      runPbvDecide (← getMainGoal) ctx
+      Veir.Meta.Tactic.markIfClosed ``Veir.Meta.Tactic.provedByPbvDecide do
+        runPbvDecide (← getMainGoal) ctx
   | _ => throwUnsupportedSyntax
 
 end Veir.Meta.Tactic.PBVDecide

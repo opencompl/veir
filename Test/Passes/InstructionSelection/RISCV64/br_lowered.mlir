@@ -1,7 +1,11 @@
-// RUN: veir-opt %s -p=llvm-to-gmir,isel-br-riscv64 --print-op-generic | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,isel-br-riscv64{strict=false} --print-op-generic | filecheck %s
+// RUN: not veir-opt %s -p=llvm-to-gmir,isel-br-riscv64 2>&1 | filecheck %s --check-prefix=STRICT
 
 // A RISC-V branch and a register block argument are already lowered, and the
-// pass leaves them alone.
+// pass leaves them alone. Strict mode fails instead: it would accept the
+// `riscv_cf` branch as lowered, which the refinement proof does not cover.
+
+// STRICT: isel-br-riscv64: the module has a riscv_cf branch already
 
 // CHECK:      "riscv_cf.branch"(%{{.*}}) [^{{.*}}] : (!riscv.reg) -> ()
 // CHECK-NEXT: ^{{.*}}(%{{.*}} : !riscv.reg):

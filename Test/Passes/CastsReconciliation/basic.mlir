@@ -151,17 +151,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "f11"}> ({
-      ^1(%0 : !llvm.ptr):
-        // ptr -> reg -> ptr (64-bit)
-        %1 = "builtin.unrealized_conversion_cast"(%0) : (!llvm.ptr) -> !riscv.reg
-        %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> !llvm.ptr
-        "test.test"(%2) : (!llvm.ptr) -> ()
-        // CHECK:        func.func @f11([[ARG:%.*]]: !llvm.ptr) {
-        // CHECK-NEXT:   "test.test"([[ARG]]) : (!llvm.ptr) -> ()
-        "func.return"() : () -> ()
-    }) : () -> ()
-
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f12"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> ptr -> reg (64-bit)
@@ -215,7 +204,8 @@
 
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f16"}> ({
       ^1(%0 : !riscv.reg):
-        // reg -> i14 -> reg : should not be folded away.
+        // reg -> i14 -> reg : the two-shift narrowing (`reconcileRegIntShift`) keeps the low
+        // 14 bits with a shift left and back right by 64 - 14 = 50.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i14
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i14) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()

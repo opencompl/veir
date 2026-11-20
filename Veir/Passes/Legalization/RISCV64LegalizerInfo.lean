@@ -2,8 +2,9 @@ module
 
 public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
-import Veir.Passes.Legalization.Legalizer
+public import Veir.Passes.Legalization.Legalizer
 import Veir.Passes.Legalization.LegalizerHelper
+meta import Std.Tactic.BVDecide
 
 /-!
 # RISC-V 64 Legalization
@@ -15,6 +16,14 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 -/
 
 namespace Veir
+
+/- `bv_decide` realizes its helpers for an enum lazily, in whichever module first proves a goal
+mentioning it (here `GMIR.enumToBitVec`), and exports them from there. The legalization and the
+instruction-selection proofs each did so, so `Veir` could not import both ("environment already
+contains"). Realizing them here, upstream of both, gives every proof the same copy. -/
+public theorem GMIR.eq_of_eq_g_add_bv (a b : GMIR) (ha : a = .g_add) (hb : b = .g_add) :
+    a = b := by
+  bv_decide
 
 /--
   Custom legalization of an `i32` binary operation into the word operation `wordOpcode` (LLVM's
@@ -327,10 +336,18 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_ssubsat => lowerAddSubSatToAddoSubo .g_ssubsat true false
     | _ => none
 
+/-- The pass: the legalizations, all proved valid, through the module-filtered driver. Its
+soundness is `LegalizeRISCV64Pass.run_sound`. -/
+def LegalizeRISCV64Pass.run : PurePass := riscv64LegalizerInfo.legalize "legalize-riscv64"
+
+def LegalizeRISCV64Pass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (LegalizeRISCV64Pass.run ctx op))
+
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"
     description := "Legalize gMIR operations for RISC-V 64."
-    run := fun _ ctx op _ => riscv64LegalizerInfo.legalize ctx op }
+    run := fun _ => LegalizeRISCV64Pass.impl }
 
 end
 

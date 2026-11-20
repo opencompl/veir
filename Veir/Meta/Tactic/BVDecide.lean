@@ -1,6 +1,7 @@
 module
 
 public import Veir.Meta.Tactic.BVNormalizeSimp
+public import Veir.Meta.Tactic.ProofMarkers
 
 /-! ## Veir Bitblasting Tactic -/
 
@@ -20,11 +21,11 @@ conditions of lemmas such as `BitVec.le_toInt_iff_sle`. These simprocs are passe
 because builtin simprocs cannot be added to the `veir_bv_normalize` simp set.
 -/
 @[expose] macro "veir_bv_normalize" : tactic =>
-  `(tactic| ((
+  `(tactic| veir_mark_normalized (((
       simp -failIfUnchanged only [veir_bv_normalize, Nat.reduceSub, Int.reducePow, Int.reduceNeg,
         Int.reduceLE, Int.reduceLT] <;>
       simp +contextual -failIfUnchanged
-        only [veir_bv_normalize_post, reduceIte])))
+        only [veir_bv_normalize_post, reduceIte]))))
 /-
 The lack of `only` is copied from the previous version of this tactic, and indeed
 some of the tests seem to rely on certain simp-lemmas from the default simp-set.

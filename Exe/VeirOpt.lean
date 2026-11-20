@@ -22,8 +22,8 @@ import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
-import Veir.Passes.Legalization.RISCV64PreLegalizerCombiner
-import Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
+import Veir.Passes.GMIRCombines.RISCV64PreLegalizerCombiner
+import Veir.Passes.GMIRCombines.RISCV64PostLegalizerCombiner
 import Veir.Passes.CirToStd
 import Veir.Passes.LLVMToGMIR
 
@@ -68,14 +68,14 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
   in place to its member passes. If a name is both a pass and a group, the pass wins.
 -/
 def passGroups : Std.HashMap String String :=
-  (Std.HashMap.emptyWithCapacity 2)
+  (Std.HashMap.emptyWithCapacity 8)
     |>.insert "O" "canonicalize,instcombine,cse,dce"
     |>.insert "mod-arith"
         "mod-arith-to-arith{barrett},cse,coerce-mod-arith-function-boundaries,reconcile-cast,canonicalize,cse,dce"
     |>.insert "mod-arith-pow2-width"
         "mod-arith-to-arith{barrett pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,cse,dce"
     |>.insert "riscv"
-        "llvm-to-gmir,call-lowering-riscv64,prelegalizer-combiner-riscv64,legalize-riscv64,postlegalizer-combiner-riscv64,isel-br-riscv64,isel-riscv64,reconcile-cast,riscv-combine,dce"
+        "call-lowering-riscv64,llvm-to-gmir,prelegalizer-combiner-riscv64,legalize-riscv64,postlegalizer-combiner-riscv64,isel-br-riscv64,isel-riscv64,reconcile-cast,riscv-combine,dce"
     |>.insert "cir"
         "cir-to-std,cse,coerce-cir-function-boundaries,reconcile-cast,canonicalize,cse,dce"
 
@@ -160,6 +160,8 @@ def parsePipelineOption (args : List String) :
     match PassPipeline.ofString? availablePasses expanded with
     | .ok pipeline => passes := passes ++ pipeline.passes
     | .error errMsg => throw s!"Error parsing -p flag: {errMsg}"
+  if passes.any (·.1.name == "instcombine") then
+    throw "instcombine should not be invoked"
   return ({ passes }, rest)
 
 /--
@@ -203,7 +205,6 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
              printGenericOpForm, splitInputFile, timePasses }
   | .error errMsg => .error errMsg
 
-set_option warn.sorry false in
 /--
   Parse `input` starting at `start`, run the passes on it, and print the result.
 -/
@@ -213,7 +214,7 @@ def processBuffer (args : VeirOptArgs) (sourceName : String) (input : ByteArray)
   let (ctx, op, _) ← liftExcept (parseSourceString input sourceName
     args.allowUnregisteredDialect (verifyAfterParse := !args.disableVerifiers) start)
   if args.timePasses then reportTime "parse" totalStart
-  let ctx ← try args.passes.run ⟨ctx, by sorry⟩ op args.disableVerifiers args.timePasses
+  let ctx ← try args.passes.run ⟨ctx, by exact WfIRContext_raw_wellFormed ctx⟩ op args.disableVerifiers args.timePasses
             catch errMsg => throw s!"Error: {errMsg}"
   let printStart ← IO.monoNanosNow
   Veir.Printer.printModule ctx.raw op { printGenericOpForm := args.printGenericOpForm }

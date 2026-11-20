@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
 
+// XFAIL: *
+// Needs `lowerByteShift`, commented out of the pass as unproven.
+
 "builtin.module"() ({
     "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "foo"}> ({
     ^bb0(%a: i64, %b: i64):

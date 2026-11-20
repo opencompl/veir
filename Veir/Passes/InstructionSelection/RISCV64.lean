@@ -2,6 +2,8 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
+public import Veir.Passes.CheckedDriver
+public import Veir.PatternRewriter.Choice
 import Veir.DataLayout.RISCV64
 import Veir.IR.SymbolRef
 import Veir.Passes.Matching.GMIR.Basic
@@ -10,6 +12,7 @@ import Veir.Passes.InstructionSelection.Common
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
+import Veir.Passes.InstructionSelection.Simp
 
 namespace Veir
 
@@ -35,6 +38,7 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   RISC-V lowerings for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
   identical).
 -/
+@[isel_pattern]
 def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
   Pattern.Builder
@@ -58,20 +62,25 @@ def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.intr.fshl` with identical data operands (`i64`) -> `riscv.rol`. -/
+@[isel_pattern]
 def fshl64_pattern : Pattern OpCode := lowerRotate .intr__fshl 64 .rol ()
 
 /-- `llvm.intr.fshl` with identical data operands (`i32`) -> `riscv.rolw`. -/
+@[isel_pattern]
 def fshl32_pattern : Pattern OpCode := lowerRotate .intr__fshl 32 .rolw ()
 
 /-- `llvm.intr.fshr` with identical data operands (`i64`) -> `riscv.ror`. -/
+@[isel_pattern]
 def fshr64_pattern : Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
 
 /-- `llvm.intr.fshr` with identical data operands (`i32`) -> `riscv.rorw`. -/
+@[isel_pattern]
 def fshr32_pattern : Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
 
 
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
+@[isel_pattern]
 def constant_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -120,6 +129,7 @@ def isLegalTrunc (opType resType : TypeAttr) : Bool :=
   (`trunc`/`bitcast`/`g_freeze`): when `legal` accepts the operand and result types, cast the operand to a
   register, then cast the register to the result type.
 -/
+@[isel_pattern]
 def lowerRegCast (srcOp : OpCode) (legal : TypeAttr → TypeAttr → propertiesOf srcOp → Bool) :
     Pattern OpCode :=
   Pattern.Builder
@@ -147,6 +157,7 @@ def lowerRegCast (srcOp : OpCode) (legal : TypeAttr → TypeAttr → propertiesO
   where `iY`'s width is smaller than `iX`'s (see `isLegalTrunc`).
   Also accepts the byte type.
 -/
+@[isel_pattern]
 def trunc_pattern : Pattern OpCode :=
   lowerRegCast (.llvm .trunc) fun opType resType _ => isLegalTrunc opType resType
 
@@ -181,6 +192,7 @@ def isLegalBitcast (opType resType : TypeAttr) : Bool :=
   Integers, bytes, and pointers are all lowered to !riscv.reg, making this basically a no-op.
   The `byte -> ptr` case is excluded (see `isLegalBitcast`).
 -/
+@[isel_pattern]
 def bitcast_pattern : Pattern OpCode :=
   lowerRegCast (.llvm .bitcast) fun opType resType _ => isLegalBitcast opType resType
 
@@ -191,6 +203,7 @@ def bitcast : Puddle.CompiledPattern OpCode := bitcast_pattern.compile
   Lower LLVM lifetime instructions to nothing. This is a refinement that we can
   revisit later if we want to perform certain stack slot optimizations.
 -/
+@[isel_pattern]
 def lowerLifetime (llvmOp : Llvm) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -200,12 +213,6 @@ def lowerLifetime (llvmOp : Llvm) : Pattern OpCode :=
       return ())
     pure
     (fun () => ⟨#[]⟩)
-
-/-- Erase `llvm.intr.lifetime.start`. -/
-def lifetimeStart : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifetime__start).compile
-
-/-- Erase `llvm.intr.lifetime.end`. -/
-def lifetimeEnd : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifetime__end).compile
 
 /-- Resolve a global in the nearest enclosing module, without entering nested modules. -/
 private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
@@ -236,6 +243,7 @@ private def isLaAddressable (ctx : IRContext OpCode) (op : OperationPtr) : Optio
 
 /-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type, except for TLS and
   external weak globals. -/
+@[isel_pattern]
 def addressof_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -274,23 +282,58 @@ inductive AddrMode where
   | gepIndex
   | gepConst
 
+/-- A RISC-V memory instruction, with the proof that its properties are memory properties. -/
+abbrev MemOp := { op : Riscv // propertiesOf (OpCode.riscv op) = RISCVMemProperties }
+
 /-- `riscv.lb` / `riscv.lh` / `riscv.lw` / `riscv.ld`, for a `width`-byte load. -/
-def createLoadLocal (ctx : WfIRContext OpCode) (width : Nat) (addr : ValuePtr)
-    (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
+def loadOp (width : Nat) : MemOp :=
   match width with
-  | 1 => WfRewriter.createOp! ctx Riscv.lb #[RegisterType.mk] #[addr] #[] #[] props none
-  | 2 => WfRewriter.createOp! ctx Riscv.lh #[RegisterType.mk] #[addr] #[] #[] props none
-  | 4 => WfRewriter.createOp! ctx Riscv.lw #[RegisterType.mk] #[addr] #[] #[] props none
-  | _ => WfRewriter.createOp! ctx Riscv.ld #[RegisterType.mk] #[addr] #[] #[] props none
+  | 1 => ⟨.lb, rfl⟩
+  | 2 => ⟨.lh, rfl⟩
+  | 4 => ⟨.lw, rfl⟩
+  | _ => ⟨.ld, rfl⟩
+
+/-- `riscv.lbu` / `riscv.lhu` / `riscv.lwu`, for a `width`-byte zero-extending load. -/
+def zextLoadOp (width : Nat) : MemOp :=
+  match width with
+  | 1 => ⟨.lbu, rfl⟩
+  | 2 => ⟨.lhu, rfl⟩
+  | _ => ⟨.lwu, rfl⟩
 
 /-- `riscv.sb` / `riscv.sh` / `riscv.sw` / `riscv.sd`, for a `width`-byte store. -/
-def createStoreLocal (ctx : WfIRContext OpCode) (width : Nat) (val addr : ValuePtr)
-    (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
+def storeOp (width : Nat) : MemOp :=
   match width with
-  | 1 => WfRewriter.createOp! ctx Riscv.sb #[] #[val, addr] #[] #[] props none
-  | 2 => WfRewriter.createOp! ctx Riscv.sh #[] #[val, addr] #[] #[] props none
-  | 4 => WfRewriter.createOp! ctx Riscv.sw #[] #[val, addr] #[] #[] props none
-  | _ => WfRewriter.createOp! ctx Riscv.sd #[] #[val, addr] #[] #[] props none
+  | 1 => ⟨.sb, rfl⟩
+  | 2 => ⟨.sh, rfl⟩
+  | 4 => ⟨.sw, rfl⟩
+  | _ => ⟨.sd, rfl⟩
+
+/-- The properties of `memOp` for an access at `offset` from its address register, volatile as
+  `volatile` says of the matched access's properties `access`. -/
+@[isel_pattern]
+def offsetMemProps (memOp : MemOp) {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool)
+    (offset : Nat) (access : Handle OpCode (.prop accessOp)) :
+    CreateProg.Builder (Handle OpCode (.prop (.riscv memOp.val))) :=
+  CreateProg.applyNative access fun props =>
+    some (cast memOp.property.symm
+      (RISCVMemProperties.mk (BitVec.ofNat 64 offset) (volatile props)))
+
+/-- Create a load with `memOp` at `offset` from `addr`, for the matched access `access`. -/
+@[isel_pattern]
+def createMemLoad (memOp : MemOp) {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool)
+    (offset : Nat) (access : Handle OpCode (.prop accessOp)) (addr : Handle OpCode .value)
+    (regType : Handle OpCode .type) : CreateProg.Builder CreatedOpHandle := do
+  let props ← offsetMemProps memOp volatile offset access
+  CreateProg.operation (.riscv memOp.val) #[addr] #[regType] props
+
+/-- Create a store of `val` with `memOp` at `offset` from `addr`, for the matched access
+  `access`. -/
+@[isel_pattern]
+def createMemStore (memOp : MemOp) {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool)
+    (offset : Nat) (access : Handle OpCode (.prop accessOp)) (val addr : Handle OpCode .value) :
+    CreateProg.Builder CreatedOpHandle := do
+  let props ← offsetMemProps memOp volatile offset access
+  CreateProg.operation (.riscv memOp.val) #[val, addr] #[] props
 
 abbrev FoldedGEPProperties :=
   Handle OpCode (.prop (.llvm .getelementptr)) ×
@@ -298,6 +341,7 @@ abbrev FoldedGEPProperties :=
 
 /-- Match the address of a load or store of `base`, split into a base register and a signed
   12-bit offset as `mode` says (see `AddrMode`). -/
+@[isel_pattern]
 def matchAddr (mode : AddrMode) (base : Handle OpCode .value) :
     MatchProg.Builder (Handle OpCode .value × Option FoldedGEPProperties) :=
   match mode with
@@ -320,6 +364,7 @@ def matchAddr (mode : AddrMode) (base : Handle OpCode .value) :
   matched by `matchAddr`: the folded offset, and the access's volatility. Volatility carries
   over since, although the riscv op encodes the same access, the flag keeps later passes
   from deleting or duplicating it. -/
+@[isel_pattern]
 def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties)
     {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool) (gep? : Option FoldedGEPProperties)
     (access : Handle OpCode (.prop accessOp)) :
@@ -340,6 +385,7 @@ def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RI
   Lower the load `accessOp` to `riscvOp` if `guard` accepts its result type, address type and
   properties. The address is split as `mode` says (see `AddrMode`).
 -/
+@[isel_pattern]
 def lowerLoadOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
     (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop accessOp) →
       MatchProg.Builder Unit) (mode : AddrMode) (riscvOp : Riscv)
@@ -371,6 +417,7 @@ def lowerLoadOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
   llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8), for a
   `width`-byte load with `riscvOp`, its address split as `mode` says (see `AddrMode`).
 -/
+@[isel_pattern]
 def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
     Pattern OpCode :=
@@ -384,15 +431,17 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
   would do; like LLVM (`LdPat<extloadi8, LBU>`), take `lbu`, whose result `riscv-combine`
   can then use for a zero-extension without a mask.
 -/
-def load : Array (Puddle.CompiledPattern OpCode) :=
+def loadPatterns : Array (Pattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[lowerLoad mode 1 .lbu, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
-      lowerLoad mode 8 .ld].map (·.compile)
+    #[lowerLoad mode 1 .lbu, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw, lowerLoad mode 8 .ld]
+
+def load : Array (Puddle.CompiledPattern OpCode) := loadPatterns.map (·.compile)
 
 /--
   Lower the store `accessOp` to `riscvOp` if `guard` accepts its value type, address type and
   properties. The address is split as in `lowerLoadOf`.
 -/
+@[isel_pattern]
 def lowerStoreOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
     (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop accessOp) →
       MatchProg.Builder Unit) (mode : AddrMode) (riscvOp : Riscv)
@@ -427,6 +476,7 @@ def lowerStoreOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
   llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8), for a
   `width`-byte store with `riscvOp`. The address is split as in `lowerLoad`.
 -/
+@[isel_pattern]
 def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
     Pattern OpCode :=
@@ -437,34 +487,60 @@ def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
   llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8).
   The patterns folding a constant `getelementptr` offset into the immediate come first.
 -/
-def store : Array (Puddle.CompiledPattern OpCode) :=
+def storePatterns : Array (Pattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[lowerStore mode 1 .sb, lowerStore mode 2 .sh, lowerStore mode 4 .sw,
-      lowerStore mode 8 .sd].map (·.compile)
+    #[lowerStore mode 1 .sb, lowerStore mode 2 .sh, lowerStore mode 4 .sw, lowerStore mode 8 .sd]
+
+def store : Array (Puddle.CompiledPattern OpCode) := storePatterns.map (·.compile)
+
+/-- How the constant offset of a `getelementptr` is added to its address register. -/
+inductive GEPOffset where
+  /-- No constant offset. -/
+  | zero
+  /-- A signed 12-bit offset, added by `addi`. -/
+  | imm
+  /-- A wider offset, loaded by `li` and added by `add`. -/
+  | wide
+  deriving Repr, DecidableEq
+
+def gepOffsetKind (offset : Int) : GEPOffset :=
+  if offset = 0 then .zero
+  else if -2048 ≤ offset ∧ offset ≤ 2047 then .imm
+  else .wide
 
 /--
-  Create the detached ops computing `pReg + iReg * scale`, returning them and the
-  register holding the sum.
+  The constant offset and the stride of each of the `numIndices` dynamic indices of a
+  `getelementptr` with properties `gep`, as `gepOffsets` decomposes it, when every dynamic index
+  is used once, in order.
 -/
-def addScaledLocal (ctx : WfIRContext OpCode) (pReg iReg : ValuePtr) (scale : Nat) :
-    Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
+def gepDecomposition? (gep : GetelementptrProperties) (numIndices : Nat) :
+    Option (Int × Array Nat) := do
+  let indices := GEPIndex.decode gep.rawConstantIndices.values (Array.range numIndices)
+  let (offset, dynamic) ← DataLayout.riscv64.gepOffsets gep.elem_type.val indices
+  guard (dynamic.map (·.1) = Array.range numIndices)
+  return (offset, dynamic.map (·.2))
+
+/-- Create the ops computing `pReg + iReg * scale`, returning the register holding the sum. -/
+@[isel_pattern]
+def addScaled (pReg iReg : Handle OpCode .value) (regType : Handle OpCode .type) (scale : Nat) :
+    CreateProg.Builder (Handle OpCode .value) := do
   match scale with
   | 1 =>
     /- ptr + idx -/
-    let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, iReg]
-    pure (ctx, #[addOp], addOp.getResult 0)
+    let addOp ← CreateProg.operation (.riscv .add) #[pReg, iReg] #[regType]
+    pure addOp.res[0]!
   | 2 =>
     /- (idx << 1) + ptr -/
-    let (ctx, addOp) ← createRISCVUnitLocal ctx .sh1add rfl #[iReg, pReg]
-    pure (ctx, #[addOp], addOp.getResult 0)
+    let addOp ← CreateProg.operation (.riscv .sh1add) #[iReg, pReg] #[regType]
+    pure addOp.res[0]!
   | 4 =>
     /- (idx << 2) + ptr -/
-    let (ctx, addOp) ← createRISCVUnitLocal ctx .sh2add rfl #[iReg, pReg]
-    pure (ctx, #[addOp], addOp.getResult 0)
+    let addOp ← CreateProg.operation (.riscv .sh2add) #[iReg, pReg] #[regType]
+    pure addOp.res[0]!
   | 8 =>
     /- (idx << 3) + ptr -/
-    let (ctx, addOp) ← createRISCVUnitLocal ctx .sh3add rfl #[iReg, pReg]
-    pure (ctx, #[addOp], addOp.getResult 0)
+    let addOp ← CreateProg.operation (.riscv .sh3add) #[iReg, pReg] #[regType]
+    pure addOp.res[0]!
   | _ =>
     /- `0 < scale` excludes zero-sized element types, for which `Nat.log2 0 = 0` would give
        `ptr + idx`, and `Nat.log2 scale < 64` excludes shifts that do not fit the 6-bit
@@ -472,57 +548,82 @@ def addScaledLocal (ctx : WfIRContext OpCode) (pReg iReg : ValuePtr) (scale : Na
        source does. -/
     if 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64 then
       /- scale is a power of two: ptr + (idx << log2 scale) -/
-      let (ctx, slliOp) ← createRISCVImmLocal ctx .slli rfl #[iReg] (Nat.log2 scale)
-      let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, slliOp.getResult 0]
-      pure (ctx, #[slliOp, addOp], addOp.getResult 0)
+      let slliOp ← CreateProg.operation (.riscv .slli) #[iReg] #[regType]
+        (.inl (mkRISCVImm (Nat.log2 scale)))
+      let addOp ← CreateProg.operation (.riscv .add) #[pReg, slliOp.res[0]!] #[regType]
+      pure addOp.res[0]!
     else
       /- arbitrary scale: ptr + idx * scale -/
-      let (ctx, liOp) ← createRISCVImmLocal ctx .li rfl #[] scale
-      let (ctx, mulOp) ← createRISCVUnitLocal ctx .mul rfl #[iReg, liOp.getResult 0]
-      let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, mulOp.getResult 0]
-      pure (ctx, #[liOp, mulOp, addOp], addOp.getResult 0)
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] (.inl (mkRISCVImm scale))
+      let mulOp ← CreateProg.operation (.riscv .mul) #[iReg, liOp.res[0]!] #[regType]
+      let addOp ← CreateProg.operation (.riscv .add) #[pReg, mulOp.res[0]!] #[regType]
+      pure addOp.res[0]!
+
+/-- The immediate properties of `riscvOp` holding the constant offset of the `getelementptr`
+  with properties `gep` and `numIndices` dynamic indices. -/
+@[isel_pattern]
+def gepOffsetImm (riscvOp : Riscv)
+    (h : propertiesOf (OpCode.riscv riscvOp) = RISCVImmediateProperties) (numIndices : Nat)
+    (gep : Handle OpCode (.prop (.llvm .getelementptr))) :
+    CreateProg.Builder (Handle OpCode (.prop (.riscv riscvOp))) :=
+  CreateProg.applyNative gep fun gep => do
+    let (offset, _) ← gepDecomposition? gep numIndices
+    return cast h.symm (mkRISCVImm offset)
 
 /--
   Lower a `llvm.getelementptr` to the address `gepOffsets` decomposes it into:
-  the base, plus `idx * stride` for each dynamic index, plus a constant offset.
-  Dynamic indices must have been normalized to `i64` by LLVM-to-GMIR.
+  the base, plus `idx * stride` for each dynamic index, with the strides `strides`, plus a
+  constant offset added as `offset` says. Dynamic indices must have been normalized to `i64` by
+  LLVM-to-GMIR.
+-/
+@[isel_pattern]
+def getelementptr_pattern (strides : Array Nat) (offset : GEPOffset) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      let ptr ← MatchProg.value ptrType
+      let mut idxs := #[]
+      for _ in strides do
+        let idxType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+        idxs := idxs.push (← MatchProg.value idxType)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let root ← MatchProg.root (.llvm .getelementptr) (#[ptr] ++ idxs) #[resType]
+      MatchProg.matchNative root.properties fun gep =>
+        match gepDecomposition? gep strides.size with
+        | some (off, gepStrides) => gepStrides = strides ∧ gepOffsetKind off = offset
+        | none => false
+      return (ptr, idxs, resType, root.properties))
+    (fun (ptr, idxs, resType, gep) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let pcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[ptr] #[regType]
+      let mut addr := pcastOp.res[0]!
+      for (idx, stride) in idxs.zip strides do
+        let icastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[idx] #[regType]
+        addr ← addScaled addr icastOp.res[0]! regType stride
+      match offset with
+      | .zero => pure ()
+      | .imm =>
+        let addiProps ← gepOffsetImm .addi rfl strides.size gep
+        let addiOp ← CreateProg.operation (.riscv .addi) #[addr] #[regType] addiProps
+        addr := addiOp.res[0]!
+      | .wide =>
+        let liProps ← gepOffsetImm .li rfl strides.size gep
+        let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+        let addOp ← CreateProg.operation (.riscv .add) #[addr, liOp.res[0]!] #[regType]
+        addr := addOp.res[0]!
+      /- Cast the resulting register back to `!llvm.ptr`. -/
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[addr] #[resType])
+    (fun castOp => castOp)
+
+/--
+  Lower a `llvm.getelementptr` with `getelementptr_pattern`, at the strides and offset
+  `gepOffsets` decomposes it into.
 -/
 def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (ptr, idxs, properties) := matchGetelementptrIndices op ctx.raw | return (ctx, none)
-  let indices := GEPIndex.decode properties.rawConstantIndices.values idxs
-  let some (offset, dynamic) := DataLayout.riscv64.gepOffsets properties.elem_type.val indices
-    | return (ctx, none)
-  for (idx, _) in dynamic do
-    let .integerType itype := (idx.getType! ctx.raw).val | return (ctx, none)
-    if itype.bitwidth ≠ 64 then return (ctx, none)
-  let (ctx, pcastOp) ← castToRegLocal ctx ptr
-  let mut ctx := ctx
-  let mut ops := #[pcastOp]
-  let mut addr : ValuePtr := pcastOp.getResult 0
-  for (idx, stride) in dynamic do
-    let (ctx', icastOp) ← castToRegLocal ctx idx
-    ops := ops.push icastOp
-    ctx := ctx'
-    let (ctx', addOps, sum) ← addScaledLocal ctx addr (icastOp.getResult 0) stride
-    ops := ops ++ addOps
-    addr := sum
-    ctx := ctx'
-  if offset ≠ 0 then
-    if -2048 ≤ offset ∧ offset ≤ 2047 then
-      let (ctx', addiOp) ← createRISCVImmLocal ctx .addi rfl #[addr] offset
-      ops := ops.push addiOp
-      addr := addiOp.getResult 0
-      ctx := ctx'
-    else
-      let (ctx', liOp) ← createRISCVImmLocal ctx .li rfl #[] offset
-      let (ctx', addOp) ← createRISCVUnitLocal ctx' .add rfl #[addr, liOp.getResult 0]
-      ops := ops ++ #[liOp, addOp]
-      addr := addOp.getResult 0
-      ctx := ctx'
-  /- Cast the resulting register back to `!llvm.ptr`. -/
-  let (ctx', castOp) ← replaceWithRegLocal ctx op addr
-  some (ctx', some (ops.push castOp, #[castOp.getResult 0]))
+  let some (_, idxs, properties) := matchGetelementptrIndices op ctx.raw | return (ctx, none)
+  let some (offset, strides) := gepDecomposition? properties idxs.size | return (ctx, none)
+  (getelementptr_pattern strides (gepOffsetKind offset)).interpret ctx op
 
 /--
   Lower a `llvm.getelementptr` to the address `gepOffsets` decomposes it into
@@ -531,6 +632,20 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite getelementptr_local rewriter op opInBounds
+
+/--
+  The rule lowering the `llvm.getelementptr` `op`, for the per-operation choice of the main
+  selection loop (`RewritePattern.ofRules`): `getelementptr_pattern` at the strides and offset
+  `gepDecomposition?` finds, and no rule at any other operation. This is `getelementptr_local` as
+  a choice of Puddle patterns, whose validity (`getelementptr_valid`) the pass soundness uses.
+-/
+public def getelementptrRules (ctx : WfIRContext OpCode) (op : OperationPtr) : List (Pattern OpCode) :=
+  match matchGetelementptrIndices op ctx.raw with
+  | none => []
+  | some (_, idxs, properties) =>
+    match gepDecomposition? properties idxs.size with
+    | none => []
+    | some (offset, strides) => [getelementptr_pattern strides (gepOffsetKind offset)]
 
 /-! ## Zbb min/max and rotate intrinsics
 
@@ -542,23 +657,13 @@ def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 
 
-/-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol (riscv.rolw for i32).
-    The general (distinct-operand) funnel shift is left unselected. -/
-def fshl64 : Puddle.CompiledPattern OpCode := fshl64_pattern.compile
-
-def fshl32 : Puddle.CompiledPattern OpCode := fshl32_pattern.compile
-
-/-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror (riscv.rorw for i32).
-    The general (distinct-operand) funnel shift is left unselected. -/
-def fshr64 : Puddle.CompiledPattern OpCode := fshr64_pattern.compile
-
-def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
 /--
   `llvm.intr.fshl`/`llvm.intr.fshr` (`rotateLeft` set/unset) on `bw`-bit values with identical
   data operands and a constant shift amount is a constant rotate: -> `riscv.rori` (`riscv.roriw`
   for `i32`), mirroring `PatGprImm<rotr, RORI>`. There is no `roli`, so (like LLVM) a rotate-left
   lowers to `rori` with the negated immediate `(bw - amt) mod bw`.
 -/
+@[isel_pattern]
 def lowerFshConst (rotateLeft : Bool) (bw : Nat) (throughTrunc : Bool := false) :
     Pattern OpCode :=
   Pattern.Builder
@@ -608,23 +713,6 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) (throughTrunc : Bool := false) 
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- llvm.intr.fshr with identical data operands and a constant shift amount is a
-    constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
-def fshrConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst false 64).compile
-
-def fshrConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst false 32).compile
-
-def fshrConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst false 32 true).compile
-
-/-- llvm.intr.fshl with identical data operands and a constant shift amount is a
-    constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
-    `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
-def fshlConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst true 64).compile
-
-def fshlConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst true 32).compile
-
-def fshlConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst true 32 true).compile
-
 /-! ## General (distinct-operand) funnel shift
 
   A funnel shift whose two data operands differ is a true funnel shift, not a
@@ -649,6 +737,7 @@ def fshlConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst true 32 t
 
 /-- General `llvm.intr.fshl x y z` -> `(x << z) | ((y >> 1) >> ~z)` (see the
     section comment), for `bw`-bit values. The i32 form uses the `w` shifts. -/
+@[isel_pattern]
 def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -706,14 +795,9 @@ def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- General `llvm.intr.fshl` (`i64`) -> shift/or expansion (see `lowerFshlGeneral`). -/
-def fshlGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshlGeneral 64).compile
-
-/-- General `llvm.intr.fshl` (`i32`) -> shift/or expansion (see `lowerFshlGeneral`). -/
-def fshlGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshlGeneral 32).compile
-
 /-- General `llvm.intr.fshr x y z` -> `((x << 1) << ~z) | (y >> z)` (see the
     section comment), for `bw`-bit values. The i32 form uses the `w` shifts. -/
+@[isel_pattern]
 def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -771,14 +855,8 @@ def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- General `llvm.intr.fshr` (`i64`) -> shift/or expansion (see `lowerFshrGeneral`). -/
-def fshrGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 64).compile
-
-/-- General `llvm.intr.fshr` (`i32`) -> shift/or expansion (see `lowerFshrGeneral`). -/
-def fshrGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 32).compile
-
-
 /-- gmir.g_poison -> riscv.li 0 -/
+@[isel_pattern]
 def gmirPoison_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -798,6 +876,7 @@ def gmirPoison_pattern : Pattern OpCode :=
 def gmirPoison : Puddle.CompiledPattern OpCode := gmirPoison_pattern.compile
 
 /-- `gmir.g_freeze` (`i64`) -> a cast through `!riscv.reg`: a register value is never poison. -/
+@[isel_pattern]
 def gmirFreeze_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_freeze) fun _ resType properties =>
     riscv64LegalizerInfo.isLegal .g_freeze #[resType] properties
@@ -843,6 +922,7 @@ def memIntrinsicAccesses? (ctx : IRContext OpCode) (isMemset : Bool)
   return accesses
 
 /-- Lower a memcpy/memset that cannot be expanded inline to its C library call. -/
+@[isel_pattern]
 def memIntrinsicCallPattern (isMemset : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -875,7 +955,102 @@ def memIntrinsicCallPattern (isMemset : Bool) : Pattern OpCode :=
 def memIntrinsicCalls : Array (CompiledPattern OpCode) :=
   #[memIntrinsicCallPattern false, memIntrinsicCallPattern true].map (·.compile)
 
-/-- Expand a constant-length memcpy/memset into at most memMaxStores aligned accesses. -/
+/-- `llvm.intr.memset` or `llvm.intr.memcpy`. -/
+def memIntrinsicOp (isMemset : Bool) : Llvm :=
+  if isMemset then .intr__memset else .intr__memcpy
+
+theorem propertiesOf_memIntrinsicOp (isMemset : Bool) :
+    propertiesOf (OpCode.llvm (memIntrinsicOp isMemset)) = LLVMMemIntrinsicProperties := by
+  cases isMemset <;> rfl
+
+/-- Whether the memory intrinsic with properties `props` is volatile. -/
+def memVolatile (isMemset : Bool) (props : propertiesOf (OpCode.llvm (memIntrinsicOp isMemset))) :
+    Bool :=
+  (cast (propertiesOf_memIntrinsicOp isMemset) props).isVolatile
+
+/-- How the register a `memset` stores, or a `memcpy` copies from, is obtained. -/
+inductive MemFill where
+  /-- The fill byte of a `memset` whose accesses are all one byte wide, or the source pointer of
+  a `memcpy`, cast to a register. -/
+  | cast
+  /-- A constant fill byte: `li` of its 64-bit splat. -/
+  | constant
+  /-- Any other fill byte: zero-extended and multiplied by `0x0101010101010101`. -/
+  | splat
+  deriving Repr, DecidableEq
+
+/-- The fill of a `memset` of `accesses` with the fill byte `src`, or of a `memcpy`. -/
+def memFill (ctx : IRContext OpCode) (isMemset : Bool) (accesses : Array (Nat × Nat))
+    (src : ValuePtr) : MemFill :=
+  if !isMemset || accesses.all (·.2 = 1) then .cast
+  else if (matchGConstantIntVal src ctx).isSome then .constant
+  else .splat
+
+/--
+  Expand a constant-length memcpy/memset into the aligned accesses `accesses` (at most
+  `memMaxStores`, see `memIntrinsicAccesses?`), with the fill `fill`.
+-/
+@[isel_pattern]
+def memIntrinsicInline_pattern (isMemset : Bool) (accesses : Array (Nat × Nat)) (fill : MemFill) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let dst ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let srcType ← MatchProg.type (Attr := TypeAttr)
+      /- A constant fill byte is read from its `g_constant`. -/
+      let (src, constant?) ← match fill with
+        | .constant => do
+          MatchProg.matchNative srcType fun type => type.val matches .integerType _
+          let cst ← MatchProg.operation (.gmir .g_constant) #[] #[srcType]
+          pure (cst.res[0]!, some cst.properties)
+        | _ => do
+          let src ← MatchProg.value srcType
+          pure (src, none)
+      let len ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let root ← MatchProg.root (.llvm (memIntrinsicOp isMemset)) #[dst, src, len] #[]
+      let () ← MatchProg.inspectOperation (Outputs := Unit) root.op fun ctx op => do
+        let props : LLVMMemIntrinsicProperties :=
+          if isMemset then op.getProperties! ctx Llvm.intr__memset
+          else op.getProperties! ctx Llvm.intr__memcpy
+        guard (memIntrinsicAccesses? ctx isMemset props (op.getOperand! ctx 2) = some accesses)
+        guard (memFill ctx isMemset accesses (op.getOperand! ctx 1) = fill)
+      return (dst, src, constant?, srcType, root.properties))
+    (fun (dst, src, constant?, srcType, props) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let dstCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[dst] #[regType]
+      let dstReg := dstCast.res[0]!
+      /- The source register of a `memcpy`; the value to store for a `memset`. Narrower stores
+         take the low bits of the 64-bit splat of the fill byte. -/
+      let srcReg ← match fill, constant? with
+        | .constant, some cst => do
+          let liProps ← CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv .li))) (srcType, cst)
+              fun (type, cst) => do
+                let .integerType type := type.val | none
+                let c := (BitVec.ofInt type.bitwidth cst.value.value).toInt
+                return mkRISCVImm ((c % 256) * 0x0101010101010101)
+          let li ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+          pure li.res[0]!
+        | .splat, _ => do
+          let srcCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[src] #[regType]
+          let ext ← CreateProg.operation (.riscv .zextb) #[srcCast.res[0]!] #[regType]
+          let ones ← CreateProg.operation (.riscv .li) #[] #[regType]
+            (.inl (mkRISCVImm 0x0101010101010101))
+          let splat ← CreateProg.operation (.riscv .mul) #[ext.res[0]!, ones.res[0]!] #[regType]
+          pure splat.res[0]!
+        | _, _ => do
+          let srcCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[src] #[regType]
+          pure srcCast.res[0]!
+      for (offset, width) in accesses do
+        let val ← if isMemset then pure srcReg else do
+          let ld ← createMemLoad (loadOp width) (memVolatile isMemset) offset props srcReg regType
+          pure ld.res[0]!
+        let _ ← createMemStore (storeOp width) (memVolatile isMemset) offset props val dstReg
+      return ())
+    (fun () => ⟨#[]⟩)
+
+/-- Expand a constant-length memcpy/memset into at most `memMaxStores` aligned accesses, with
+  `memIntrinsicInline_pattern` at the accesses and fill of `op`. -/
 def memIntrinsicInline_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let isMemset := op.getOpType! ctx.raw = Llvm.intr__memset
@@ -885,110 +1060,75 @@ def memIntrinsicInline_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     else op.getProperties! ctx.raw Llvm.intr__memcpy
   let operands := op.getOperands! ctx.raw
   /- src is the source pointer of a memcpy and the fill byte of a memset. -/
-  let (dst, src, len) := (operands[0]!, operands[1]!, operands[2]!)
-  let some accesses := memIntrinsicAccesses? ctx.raw isMemset props len | return (ctx, none)
-  let (ctx, dstCast) ← castToRegLocal ctx dst
-  let dstReg := dstCast.getResult 0
-  let mut ctx := ctx
-  let mut ops := #[dstCast]
-  /- The source register of a `memcpy`; the value to store for a `memset`. Narrower stores
-     take the low bits of the 64-bit splat of the fill byte. -/
-  let mut srcReg := dstReg
-  if isMemset && !accesses.all (·.2 = 1) then
-    match matchGConstantIntVal src ctx.raw with
-    | some c =>
-      let (ctx', li) ← createRISCVImmLocal ctx .li rfl #[] ((c % 256) * 0x0101010101010101)
-      ctx := ctx'; ops := ops.push li; srcReg := li.getResult 0
-    | none =>
-      let (ctx', srcCast) ← castToRegLocal ctx src
-      let (ctx', ext) ← createRISCVUnitLocal ctx' .zextb rfl #[srcCast.getResult 0]
-      let (ctx', ones) ← createRISCVImmLocal ctx' .li rfl #[] 0x0101010101010101
-      let (ctx', splat) ← createRISCVUnitLocal ctx' .mul rfl
-          #[ext.getResult 0, ones.getResult 0]
-      ctx := ctx'; ops := ops ++ #[srcCast, ext, ones, splat]; srcReg := splat.getResult 0
-  else
-    let (ctx', srcCast) ← castToRegLocal ctx src
-    ctx := ctx'; ops := ops.push srcCast; srcReg := srcCast.getResult 0
-  for (offset, width) in accesses do
-    let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.isVolatile
-    let mut val := srcReg
-    if !isMemset then
-      let (ctx', ld) ← createLoadLocal ctx width srcReg memProps
-      ctx := ctx'; ops := ops.push ld; val := ld.getResult 0
-    let (ctx', st) ← createStoreLocal ctx width val dstReg memProps
-    ctx := ctx'; ops := ops.push st
-  return (ctx, some (ops, #[]))
-
-/-- llvm.intr.memcpy / llvm.intr.memset -> loads and stores, or a libcall. -/
-def memIntrinsic : RewritePattern OpCode :=
-  .GreedyRewritePattern <| memIntrinsicCalls.map (·.run) ++
-    #[.fromLocalRewrite memIntrinsicInline_local]
+  let some accesses := memIntrinsicAccesses? ctx.raw isMemset props operands[2]! | return (ctx, none)
+  let fill := memFill ctx.raw isMemset accesses operands[1]!
+  (memIntrinsicInline_pattern isMemset accesses fill).interpret ctx op
 
 /-!
 An integer of 3, 5, 6 or 7 bytes fits no single `l*`/`s*` instruction, so it is accessed in
 power-of-two pieces, as in LLVM's `LegalizerHelper::lowerLoad`/`lowerStore`.
 -/
 
-/-- The `(offset, width)` pieces of a load or store of a value of `type`, if it needs splitting. -/
-def splitAccesses? (type : TypeAttr) : Option (Array (Nat × Nat)) := do
-  let .integerType t := type.val | none
-  guard (t.bitwidth % 8 = 0 ∧ t.bitwidth / 8 ∈ [3, 5, 6, 7])
-  return memAccesses (t.bitwidth / 8) 8
+/-- The `(offset, width)` pieces of a load or store of `bytes` bytes. -/
+def splitAccesses (bytes : Nat) : Array (Nat × Nat) :=
+  memAccesses bytes 8
 
-/-- `riscv.lbu` / `riscv.lhu` / `riscv.lwu`, for a `width`-byte zero-extending load. -/
-def createZextLoadLocal (ctx : WfIRContext OpCode) (width : Nat) (addr : ValuePtr)
-    (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
-  match width with
-  | 1 => WfRewriter.createOp! ctx Riscv.lbu #[RegisterType.mk] #[addr] #[] #[] props none
-  | 2 => WfRewriter.createOp! ctx Riscv.lhu #[RegisterType.mk] #[addr] #[] #[] props none
-  | _ => WfRewriter.createOp! ctx Riscv.lwu #[RegisterType.mk] #[addr] #[] #[] props none
+/-- llvm.load of `bytes` bytes -> zero-extending loads of the pieces, shifted into place and
+  or-ed together. -/
+@[isel_pattern]
+def splitLoad_pattern (bytes : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let addrType ← MatchProg.type (Attr := TypeAttr)
+      let addr ← MatchProg.value addrType
+      let resType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 8 * bytes)
+      let root ← MatchProg.root (.llvm .load) #[addr] #[resType]
+      return (resType, addr, root.properties))
+    (fun (resType, addr, loadProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let addrCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[addr] #[regType]
+      let addrReg := addrCast.res[0]!
+      /- Replaced by the piece at offset 0, which comes first. -/
+      let mut result := addrReg
+      for (offset, width) in splitAccesses bytes do
+        let ld ← createMemLoad (zextLoadOp width) (accessOp := .llvm .load) (·.volatile_) offset
+          loadProps addrReg regType
+        if offset = 0 then
+          result := ld.res[0]!
+        else
+          let shifted ← CreateProg.operation (.riscv .slli) #[ld.res[0]!] #[regType]
+            (.inl (mkRISCVImm (8 * offset)))
+          let merged ← CreateProg.operation (.riscv .or) #[result, shifted.res[0]!] #[regType]
+          result := merged.res[0]!
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[result] #[resType])
+    (fun castBack => castBack)
 
-/-- llvm.load -> zero-extending loads of the pieces, shifted into place and or-ed together. -/
-def splitLoad_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  if op.getOpType! ctx.raw ≠ Llvm.load then return (ctx, none)
-  let some accesses := splitAccesses? ((op.getResult 0).getType! ctx.raw) | return (ctx, none)
-  let props : LoadProperties := op.getProperties! ctx.raw Llvm.load
-  let (ctx, addrCast) ← castToRegLocal ctx (op.getOperand! ctx.raw 0)
-  let addr := addrCast.getResult 0
-  let mut ctx := ctx
-  let mut ops := #[addrCast]
-  /- Replaced by the piece at offset 0, which comes first. -/
-  let mut result := addr
-  for (offset, width) in accesses do
-    let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.volatile_
-    let (ctx', ld) ← createZextLoadLocal ctx width addr memProps
-    ctx := ctx'; ops := ops.push ld
-    if offset = 0 then
-      result := ld.getResult 0
-    else
-      let (ctx', shifted) ← createRISCVImmLocal ctx .slli rfl #[ld.getResult 0] (8 * offset)
-      let (ctx', merged) ← createRISCVUnitLocal ctx' .or rfl #[result, shifted.getResult 0]
-      ctx := ctx'; ops := ops ++ #[shifted, merged]; result := merged.getResult 0
-  let (ctx', castBack) ← replaceWithRegLocal ctx op result
-  return (ctx', some (ops.push castBack, #[castBack.getResult 0]))
-
-/-- llvm.store -> a store of each piece, shifted down to the low bits of a register. -/
-def splitStore_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  if op.getOpType! ctx.raw ≠ Llvm.store then return (ctx, none)
-  let operands := op.getOperands! ctx.raw
-  let some accesses := splitAccesses? (operands[0]!.getType! ctx.raw) | return (ctx, none)
-  let props : StoreProperties := op.getProperties! ctx.raw Llvm.store
-  let (ctx, valCast) ← castToRegLocal ctx operands[0]!
-  let (ctx, addrCast) ← castToRegLocal ctx operands[1]!
-  let addr := addrCast.getResult 0
-  let mut ctx := ctx
-  let mut ops := #[valCast, addrCast]
-  for (offset, width) in accesses do
-    let mut piece := valCast.getResult 0
-    if offset ≠ 0 then
-      let (ctx', shifted) ← createRISCVImmLocal ctx .srli rfl #[piece] (8 * offset)
-      ctx := ctx'; ops := ops.push shifted; piece := shifted.getResult 0
-    let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.volatile_
-    let (ctx', st) ← createStoreLocal ctx width piece addr memProps
-    ctx := ctx'; ops := ops.push st
-  return (ctx, some (ops, #[]))
+/-- llvm.store of `bytes` bytes -> a store of each piece, shifted down to the low bits of a
+  register. -/
+@[isel_pattern]
+def splitStore_pattern (bytes : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let valType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 8 * bytes)
+      let val ← MatchProg.value valType
+      let addrType ← MatchProg.type (Attr := TypeAttr)
+      let addr ← MatchProg.value addrType
+      let root ← MatchProg.root (.llvm .store) #[val, addr] #[]
+      return (val, addr, root.properties))
+    (fun (val, addr, storeProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[val] #[regType]
+      let addrCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[addr] #[regType]
+      for (offset, width) in splitAccesses bytes do
+        let mut piece := valCast.res[0]!
+        if offset ≠ 0 then
+          let shifted ← CreateProg.operation (.riscv .srli) #[piece] #[regType]
+            (.inl (mkRISCVImm (8 * offset)))
+          piece := shifted.res[0]!
+        let _ ← createMemStore (storeOp width) (accessOp := .llvm .store) (·.volatile_) offset
+          storeProps piece addrCast.res[0]!
+      return ())
+    (fun () => ⟨#[]⟩)
 
 /-! # gMIR Lowering Patterns
 
@@ -1001,6 +1141,7 @@ def splitStore_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   is legal. Opcodes with a second type index of another type (e.g. `g_icmp`'s operand type) pass it
   as `type₁`.
 -/
+@[isel_pattern]
 def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
     (properties : Handle OpCode (.prop (.gmir opcode)))
     (type₁ : Option (Handle OpCode .type) := none) : MatchProg.Builder Unit :=
@@ -1017,6 +1158,7 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
   Its high bits are unspecified, so a sign- or zero-extending load refines it
   (see `gmir_load_refinement`).
 -/
+@[isel_pattern]
 def gmirLoad_pattern (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
     Pattern OpCode :=
@@ -1029,10 +1171,12 @@ def gmirLoad_pattern (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
   The `gmirLoad_pattern`s. A widened `g_load` is an any-extending load, which LLVM selects as `lbu`,
   `lh` and `lw` (`LdPat<extloadi8, LBU>`, `LdPat<extloadi16, LH>`, `LdPat<extloadi32, LW, i64>`).
 -/
-def gmirLoad : Array (Puddle.CompiledPattern OpCode) :=
+def gmirLoadPatterns : Array (Pattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
     #[gmirLoad_pattern mode 1 .lbu, gmirLoad_pattern mode 2 .lh, gmirLoad_pattern mode 4 .lw,
-      gmirLoad_pattern mode 8 .ld].map (·.compile)
+      gmirLoad_pattern mode 8 .ld]
+
+def gmirLoad : Array (Puddle.CompiledPattern OpCode) := gmirLoadPatterns.map (·.compile)
 
 /--
   gmir.g_store -> riscv.sd / riscv.sw / riscv.sh / riscv.sb, for a legal `width`-byte store.
@@ -1072,6 +1216,7 @@ def gmirStore : Array (Puddle.CompiledPattern OpCode) :=
   `gmir.g_select c t 0` -> `riscv.czeroeqz t c` when `zeroFalse` is set, and
   `gmir.g_select c 0 f` -> `riscv.czeronez f c` otherwise.
 -/
+@[isel_pattern]
 def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1117,6 +1262,7 @@ def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
   where `(xor x, 0)` is `x` when `zeroRhs` is set. They take priority over `gmirSelectZero`, which
   would test the `0`/`1` result of the selected `g_icmp`.
 -/
+@[isel_pattern]
 def gmirSelectZeroOfSetcc_pattern (zeroFalse : Bool) (pred : Data.LLVM.IntPred) (zeroRhs : Bool) :
     Pattern OpCode :=
   Pattern.Builder
@@ -1170,20 +1316,23 @@ def gmirSelectZeroOfSetcc_pattern (zeroFalse : Bool) (pred : Data.LLVM.IntPred) 
 
 /-- The zero-arm `gmir.g_select` patterns on an equality `gmir.g_icmp` (see
     `gmirSelectZeroOfSetcc_pattern`), the zero-`rhs` ones first. -/
-def gmirSelectZeroOfSetcc : Array (Puddle.CompiledPattern OpCode) :=
+def gmirSelectZeroOfSetccPatterns : Array (Pattern OpCode) :=
   #[true, false].flatMap fun zeroRhs =>
     #[true, false].flatMap fun zeroFalse =>
       #[Data.LLVM.IntPred.ne, .eq].map fun pred =>
-        (gmirSelectZeroOfSetcc_pattern zeroFalse pred zeroRhs).compile
+        gmirSelectZeroOfSetcc_pattern zeroFalse pred zeroRhs
 
 /-- The zero-arm `gmir.g_select` patterns (see `gmirSelectZero_pattern`). -/
-def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) :=
-  #[true, false].map (gmirSelectZero_pattern · |>.compile)
+def gmirSelectZeroPatterns : Array (Pattern OpCode) :=
+  #[true, false].map gmirSelectZero_pattern
+
+def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) := gmirSelectZeroPatterns.map (·.compile)
 
 /--
   General branchless select:
   `gmir.g_select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
 -/
+@[isel_pattern]
 def gmirSelect_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1215,30 +1364,34 @@ def gmirSelect_pattern : Pattern OpCode :=
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[orOp.res[0]!] #[type])
     (fun castBackOp => castBackOp)
 
-def gmirSelect : Puddle.CompiledPattern OpCode := gmirSelect_pattern.compile
-
 /-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
+@[isel_pattern]
 def gmirAdd_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_add) (·.bitwidth = 64) .add () (guard := matchLegal .g_add)
 
 /-- `gmir.g_sub` (`i64`) -> `riscv.sub`. -/
+@[isel_pattern]
 def gmirSub_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_sub) (·.bitwidth = 64) .sub () (guard := matchLegal .g_sub)
 
 /-- `gmir.g_shl` (`i64`) -> `riscv.sll`. -/
+@[isel_pattern]
 def gmirShl_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_shl) (·.bitwidth = 64) .sll () (guard := matchLegal .g_shl)
 
 /-- `gmir.g_lshr` (`i64`) -> `riscv.srl`. -/
+@[isel_pattern]
 def gmirLshr_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_lshr) (·.bitwidth = 64) .srl () (guard := matchLegal .g_lshr)
 
 /-- `gmir.g_ashr` (`i64`) -> `riscv.sra`. -/
+@[isel_pattern]
 def gmirAshr_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_ashr) (·.bitwidth = 64) .sra () (guard := matchLegal .g_ashr)
 
 /-- `gmir.g_trunc` -> a cast through `!riscv.reg` when the result fits in a register.
 The operand may be wider: truncation only needs the low result bits. -/
+@[isel_pattern]
 def gmirTrunc_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_trunc) fun opType resType properties =>
     match opType.val, resType.val with
@@ -1248,12 +1401,14 @@ def gmirTrunc_pattern : Pattern OpCode :=
     | _, _ => false
 
 /-- `gmir.g_ptrtoint`/`g_inttoptr` (`i64`) -> a cast through `!riscv.reg`. -/
+@[isel_pattern]
 def gmirPtrIntCast_pattern (opcode : GMIR) : Pattern OpCode :=
   lowerRegCast (.gmir opcode) fun opType resType properties =>
     riscv64LegalizerInfo.isLegal opcode #[resType, opType] properties
 
 /-- `gmir.g_anyext` -> a cast through `!riscv.reg` when the operand fits in a register.
 The result may be wider: the additional bits may all be chosen as zero. -/
+@[isel_pattern]
 def gmirAnyext_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_anyext) fun opType resType properties =>
     match opType.val, resType.val with
@@ -1268,6 +1423,7 @@ def gmirAnyext_pattern : Pattern OpCode :=
   avoids the `!riscv.reg -> iN -> !riscv.reg` round trip of `gmirAnyext`, which reconciles to a
   zero-extension (see `anyext_of_reg_refinement`).
 -/
+@[isel_pattern]
 def gmirAnyextOfReg_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1285,16 +1441,8 @@ def gmirAnyextOfReg_pattern : Pattern OpCode :=
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[r] #[resType])
     (fun castOp => castOp)
 
-def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
-def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
-def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
-def gmirPtrToInt : Puddle.CompiledPattern OpCode := (gmirPtrIntCast_pattern .g_ptrtoint).compile
-def gmirIntToPtr : Puddle.CompiledPattern OpCode := (gmirPtrIntCast_pattern .g_inttoptr).compile
 def gmirAnyextOfReg : Puddle.CompiledPattern OpCode := gmirAnyextOfReg_pattern.compile
-def gmirShl : Puddle.CompiledPattern OpCode := gmirShl_pattern.compile
-def gmirLshr : Puddle.CompiledPattern OpCode := gmirLshr_pattern.compile
-def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
 
 /--
   RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
@@ -1305,6 +1453,7 @@ def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
   halfword/word extension op matching `opBw`, and cast the result back to the (generically-matched)
   result type. Only extensions that `riscv64LegalizerInfo` considers legal are selected.
 -/
+@[isel_pattern]
 def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
   lowerUnary (.gmir srcOp) opBw riscvOp riscvProps fun opType resType properties => do
@@ -1313,9 +1462,11 @@ def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
     matchLegal srcOp resType properties (type₁ := opType)
 
 /-- `gmir.g_sext` (`i16` operand) -> `riscv.sexth`. -/
+@[isel_pattern]
 def sext16_pattern : Pattern OpCode := lowerExt .g_sext 16 .sexth ()
 
 /-- `gmir.g_sext` (`i32` operand) -> `riscv.sextw`. -/
+@[isel_pattern]
 def sext32_pattern : Pattern OpCode := lowerExt .g_sext 32 .sextw ()
 
 /--
@@ -1326,6 +1477,7 @@ def sext32_pattern : Pattern OpCode := lowerExt .g_sext 32 .sextw ()
   Matches a legal `i64` `gmir.g_sext_inreg` whose `sz` satisfies `szMatches`, returning its result
   type, operand and properties.
 -/
+@[isel_pattern]
 def matchSextInReg (szMatches : Nat → Bool) :
     MatchProg.Builder (Handle OpCode .type × Handle OpCode .value ×
       Handle OpCode (.prop (.gmir .g_sext_inreg))) := do
@@ -1339,6 +1491,7 @@ def matchSextInReg (szMatches : Nat → Bool) :
 
 /-- `gmir.g_sext_inreg` (`i64`) with `sz` of `sz` -> `riscvOp` (`riscv.sextb` / `riscv.sexth` /
   `riscv.sextw`). -/
+@[isel_pattern]
 def sextInRegExt_pattern (sz : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
   Pattern.Builder
@@ -1351,6 +1504,7 @@ def sextInRegExt_pattern (sz : Nat) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /-- `gmir.g_sext_inreg` (`i64`) with any other `sz` -> `riscv.slli` + `riscv.srai` by `64 - sz`. -/
+@[isel_pattern]
 def sextInRegShift_pattern : Pattern OpCode :=
   Pattern.Builder
     (matchSextInReg fun sz => sz ≠ 8 && sz ≠ 16 && sz ≠ 32)
@@ -1370,52 +1524,31 @@ def sextInRegShift_pattern : Pattern OpCode :=
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[right.res[0]!] #[resType])
     (fun castBackOp => castBackOp)
 
-def sextInReg8 : Puddle.CompiledPattern OpCode := (sextInRegExt_pattern 8 .sextb ()).compile
-def sextInReg16 : Puddle.CompiledPattern OpCode := (sextInRegExt_pattern 16 .sexth ()).compile
-def sextInReg32 : Puddle.CompiledPattern OpCode := (sextInRegExt_pattern 32 .sextw ()).compile
-def sextInRegShift : Puddle.CompiledPattern OpCode := sextInRegShift_pattern.compile
-
 /-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth`. -/
+@[isel_pattern]
 def zext16_pattern : Pattern OpCode := lowerExt .g_zext 16 .zexth ()
 
 /-- `gmir.g_zext` (`i32` operand) -> `riscv.zextw`. -/
+@[isel_pattern]
 def zext32_pattern : Pattern OpCode := lowerExt .g_zext 32 .zextw ()
 
-/--
-  gmir.g_sext %x `i16` to `i64` -> riscv.sexth %x
-  gmir.g_sext %x `i16` to `i32` -> riscv.sexth %x
-  gmir.g_sext %x `i32` to `i64` -> riscv.sextw %x
--/
-def sext16 : Puddle.CompiledPattern OpCode := sext16_pattern.compile
-
-def sext32 : Puddle.CompiledPattern OpCode := sext32_pattern.compile
-
-/--
-  gmir.g_zext %x `i16` to `i64` -> riscv.zexth %x
-  gmir.g_zext %x `i16` to `i32` -> riscv.zexth %x
-  gmir.g_zext %x `i32` to `i64` -> riscv.zextw %x
--/
-def zext16 : Puddle.CompiledPattern OpCode := zext16_pattern.compile
-
-def zext32 : Puddle.CompiledPattern OpCode := zext32_pattern.compile
-
 /-- `gmir.g_and` (`i64`) -> `riscv.and`. -/
+@[isel_pattern]
 def gmirAnd_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_and) (·.bitwidth = 64) .and () (guard := matchLegal .g_and)
 
 /-- `gmir.g_or` (`i64`) -> `riscv.or`. -/
+@[isel_pattern]
 def gmirOr_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_or) (·.bitwidth = 64) .or () (guard := matchLegal .g_or)
 
 /-- `gmir.g_xor` (`i64`) -> `riscv.xor`. -/
+@[isel_pattern]
 def gmirXor_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_xor) (·.bitwidth = 64) .xor () (guard := matchLegal .g_xor)
 
-def gmirAnd : Puddle.CompiledPattern OpCode := gmirAnd_pattern.compile
-def gmirOr : Puddle.CompiledPattern OpCode := gmirOr_pattern.compile
-def gmirXor : Puddle.CompiledPattern OpCode := gmirXor_pattern.compile
-
 /-- Cast `operands` to registers, apply `riscvOp`, and cast its result back to `type`. -/
+@[isel_pattern]
 def createRegOp (type : Handle OpCode .type) (operands : Array (Handle OpCode .value))
     (riscvOp : Riscv) (props : PropertiesOrHandle (OpCode.riscv riscvOp)) :
     CreateProg.Builder CreatedOpHandle := do
@@ -1432,6 +1565,7 @@ def createRegOp (type : Handle OpCode .type) (operands : Array (Handle OpCode .v
 
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1467-L1477
 -/
+@[isel_pattern]
 def lowerBinaryImm (srcOp : OpCode) (riscvOp : Riscv)
     (h : Riscv.propertiesOf riscvOp = RISCVImmediateProperties) (lo hi : Int)
     (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
@@ -1455,20 +1589,24 @@ def lowerBinaryImm (srcOp : OpCode) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /-- `gmir.g_add` (`i64`) with a simm12 constant rhs -> `riscv.addi`. -/
+@[isel_pattern]
 def gmirAddi_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_add) .addi rfl (-2048) 2047 (guard := matchLegal .g_add)
 
 /-- `gmir.g_and` (`i64`) with a simm12 constant rhs -> `riscv.andi`. -/
+@[isel_pattern]
 def gmirAndi_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_and) .andi rfl (-2048) 2047 (guard := matchLegal .g_and)
 
 /-- Match a `gmir.g_constant` of `type` whose value, read as a 64-bit integer, is `value`. -/
+@[isel_pattern]
 def matchConstant64 (type : Handle OpCode .type) (value : BitVec 64) :
     MatchProg.Builder (OpHandle (.gmir .g_constant)) :=
   MatchProg.operation (.gmir .g_constant) #[] #[type] fun ⟨const⟩ =>
     BitVec.ofInt 64 const.value = value
 
 /-- `gmir.g_and` (`i64`) with the constant rhs `mask` -> `riscvOp`. -/
+@[isel_pattern]
 def gmirAndMask_pattern (mask : BitVec 64) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
   Pattern.Builder
@@ -1483,60 +1621,57 @@ def gmirAndMask_pattern (mask : BitVec 64) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /-- `gmir.g_and` (`i64`) with the constant rhs `0xFFFF` -> `riscv.zexth`. -/
+@[isel_pattern]
 def gmirZexth_pattern : Pattern OpCode := gmirAndMask_pattern 0xFFFF .zexth ()
 
 /-- `gmir.g_and` (`i64`) with the constant rhs `0xFFFFFFFF` -> `riscv.zextw`. -/
+@[isel_pattern]
 def gmirZextw_pattern : Pattern OpCode := gmirAndMask_pattern 0xFFFFFFFF .zextw ()
 
 /-- `gmir.g_or` (`i64`) with a simm12 constant rhs -> `riscv.ori`. -/
+@[isel_pattern]
 def gmirOri_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_or) .ori rfl (-2048) 2047 (guard := matchLegal .g_or)
 
 /-- `gmir.g_xor` (`i64`) with a simm12 constant rhs -> `riscv.xori`. -/
+@[isel_pattern]
 def gmirXori_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_xor) .xori rfl (-2048) 2047 (guard := matchLegal .g_xor)
 
 /-- `gmir.g_shl` (`i64`) with a uimm6 constant rhs -> `riscv.slli`. -/
+@[isel_pattern]
 def gmirSlli_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_shl) .slli rfl 0 63 (guard := matchLegal .g_shl)
 
 /-- `gmir.g_lshr` (`i64`) with a uimm6 constant rhs -> `riscv.srli`. -/
+@[isel_pattern]
 def gmirSrli_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_lshr) .srli rfl 0 63 (guard := matchLegal .g_lshr)
 
 /-- `gmir.g_ashr` (`i64`) with a uimm6 constant rhs -> `riscv.srai`. -/
+@[isel_pattern]
 def gmirSrai_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_ashr) .srai rfl 0 63 (guard := matchLegal .g_ashr)
 
 /-- `gmir_riscv.g_addw` (`i64`) with a simm12 constant rhs -> `riscv.addiw`. -/
+@[isel_pattern]
 def gmirRiscvAddiw_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir_riscv .g_addw) .addiw rfl (-2048) 2047
 
 /-- `gmir_riscv.g_sllw` (`i64`) with a uimm5 constant rhs -> `riscv.slliw`. -/
+@[isel_pattern]
 def gmirRiscvSlliw_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir_riscv .g_sllw) .slliw rfl 0 31
 
 /-- `gmir_riscv.g_srlw` (`i64`) with a uimm5 constant rhs -> `riscv.srliw`. -/
+@[isel_pattern]
 def gmirRiscvSrliw_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir_riscv .g_srlw) .srliw rfl 0 31
 
 /-- `gmir_riscv.g_sraw` (`i64`) with a uimm5 constant rhs -> `riscv.sraiw`. -/
+@[isel_pattern]
 def gmirRiscvSraiw_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir_riscv .g_sraw) .sraiw rfl 0 31
-
-def gmirAddi : Puddle.CompiledPattern OpCode := gmirAddi_pattern.compile
-def gmirAndi : Puddle.CompiledPattern OpCode := gmirAndi_pattern.compile
-def gmirZexth : Puddle.CompiledPattern OpCode := gmirZexth_pattern.compile
-def gmirZextw : Puddle.CompiledPattern OpCode := gmirZextw_pattern.compile
-def gmirOri : Puddle.CompiledPattern OpCode := gmirOri_pattern.compile
-def gmirXori : Puddle.CompiledPattern OpCode := gmirXori_pattern.compile
-def gmirSlli : Puddle.CompiledPattern OpCode := gmirSlli_pattern.compile
-def gmirSrli : Puddle.CompiledPattern OpCode := gmirSrli_pattern.compile
-def gmirSrai : Puddle.CompiledPattern OpCode := gmirSrai_pattern.compile
-def gmirRiscvAddiw : Puddle.CompiledPattern OpCode := gmirRiscvAddiw_pattern.compile
-def gmirRiscvSlliw : Puddle.CompiledPattern OpCode := gmirRiscvSlliw_pattern.compile
-def gmirRiscvSrliw : Puddle.CompiledPattern OpCode := gmirRiscvSrliw_pattern.compile
-def gmirRiscvSraiw : Puddle.CompiledPattern OpCode := gmirRiscvSraiw_pattern.compile
 
 /-! ## Zbs single-bit immediate selection
 
@@ -1574,6 +1709,7 @@ def singleBitImm? (complement : Bool) (c : Int) : Option Int :=
   *complement* of the immediate is a single set bit). The emitted immediate is the
   bit index. Only fires when the immediate does not fit a signed 12-bit field.
 -/
+@[isel_pattern]
 def gmirSingleBit_pattern (opcode : GMIR) (riscvOp : Riscv)
     (h : Riscv.propertiesOf riscvOp = RISCVImmediateProperties) (complement : Bool) :
     Pattern OpCode :=
@@ -1594,17 +1730,16 @@ def gmirSingleBit_pattern (opcode : GMIR) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /-- `gmir.g_or` (`i64`) with a single-bit constant rhs -> `riscv.bseti`. -/
+@[isel_pattern]
 def gmirBseti_pattern : Pattern OpCode := gmirSingleBit_pattern .g_or .bseti rfl false
 
 /-- `gmir.g_xor` (`i64`) with a single-bit constant rhs -> `riscv.binvi`. -/
+@[isel_pattern]
 def gmirBinvi_pattern : Pattern OpCode := gmirSingleBit_pattern .g_xor .binvi rfl false
 
 /-- `gmir.g_and` (`i64`) with a single-cleared-bit constant rhs -> `riscv.bclri`. -/
+@[isel_pattern]
 def gmirBclri_pattern : Pattern OpCode := gmirSingleBit_pattern .g_and .bclri rfl true
-
-def gmirBseti : Puddle.CompiledPattern OpCode := gmirBseti_pattern.compile
-def gmirBinvi : Puddle.CompiledPattern OpCode := gmirBinvi_pattern.compile
-def gmirBclri : Puddle.CompiledPattern OpCode := gmirBclri_pattern.compile
 
 /-! ## Composed patterns
 
@@ -1617,6 +1752,7 @@ def gmirBclri : Puddle.CompiledPattern OpCode := gmirBclri_pattern.compile
   `not`'s operand `y` to registers, apply the binary reg-reg riscv op `riscvOp`, and cast the result
   back to `i64`. `notLhs` selects the operand that is the `not`.
 -/
+@[isel_pattern]
 def gmirBinopNot_pattern (opcode : GMIR) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) (notLhs : Bool) : Pattern OpCode :=
   Pattern.Builder
@@ -1641,6 +1777,7 @@ def orcbMaskBV (y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
   `sub (shl M (8 - Y)) (lshr M Y)` -> `riscv.orcb M`,
   where `M = and Z (0x0101_0101_0101_0101 <<< Y)`
 -/
+@[isel_pattern]
 def gmirOrcb_pattern (y : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1663,6 +1800,7 @@ def gmirOrcb_pattern (y : Nat) : Pattern OpCode :=
 
 /-- `and (lshr x n) 1` -> `riscv.bexti x n` (`PatGprImm`-style single-bit extract).
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L536-L537 -/
+@[isel_pattern]
 def gmirBexti_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1688,6 +1826,7 @@ def gmirBexti_pattern : Pattern OpCode :=
   if `masked` is true, `g_and x 0xFFFFFFFF` with `x : i64`.
   Returns `x` and the zero-extended value.
 -/
+@[isel_pattern]
 def matchZext32 (type : Handle OpCode .type) (masked : Bool) :
     MatchProg.Builder (Handle OpCode .value × Handle OpCode .value) := do
   if masked then
@@ -1704,6 +1843,7 @@ def matchZext32 (type : Handle OpCode .type) (masked : Bool) :
     (Zba: `(i64 (shl (and GPR, 0xFFFFFFFF), uimm5)) -> SLLI_UW`; our `zext` is the mask).
     If `masked` is true, the `zext` is `g_and x 0xFFFFFFFF` instead (see `matchZext32`).
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L821-L822 -/
+@[isel_pattern]
 def gmirSlliuw_pattern (masked : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1727,6 +1867,7 @@ def gmirSlliuw_pattern (masked : Bool) : Pattern OpCode :=
   `(ctpop (zexti32 x)) -> CPOPW`. If `masked` is true, the `gmir.g_zext` is `g_and x 0xFFFFFFFF`
   instead (see `matchZext32`).
 -/
+@[isel_pattern]
 def gmirCpopw_pattern (masked : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1739,40 +1880,46 @@ def gmirCpopw_pattern (masked : Bool) : Pattern OpCode :=
     (fun castBackOp => castBackOp)
 
 /-- The composed patterns, in the order they are tried. -/
-def gmirComposed : Array (Puddle.CompiledPattern OpCode) :=
+def gmirComposedPatterns : Array (Pattern OpCode) :=
   let binopNot := #[false, true].flatMap fun notLhs =>
     #[gmirBinopNot_pattern .g_and .andn () notLhs, gmirBinopNot_pattern .g_or .orn () notLhs,
       gmirBinopNot_pattern .g_xor .xnor () notLhs]
   let zext32 := #[false, true].flatMap fun masked =>
     #[gmirSlliuw_pattern masked, gmirCpopw_pattern masked]
-  (binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++ #[gmirBexti_pattern] ++
-    zext32).map (·.compile)
+  binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++ #[gmirBexti_pattern] ++ zext32
 
 /-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
+@[isel_pattern]
 def gmirMul_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_mul) (·.bitwidth = 64) .mul () (guard := matchLegal .g_mul)
 
 /-- `gmir.g_smulh` (`i64`) -> `riscv.mulh`. -/
+@[isel_pattern]
 def gmirSmulh_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_smulh) (·.bitwidth = 64) .mulh () (guard := matchLegal .g_smulh)
 
 /-- `gmir.g_umulh` (`i64`) -> `riscv.mulhu`. -/
+@[isel_pattern]
 def gmirUmulh_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_umulh) (·.bitwidth = 64) .mulhu () (guard := matchLegal .g_umulh)
 
 /-- `gmir.g_sdiv` (`i64`) -> `riscv.div`. -/
+@[isel_pattern]
 def gmirSdiv_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_sdiv) (·.bitwidth = 64) .div () (guard := matchLegal .g_sdiv)
 
 /-- `gmir.g_udiv` (`i64`) -> `riscv.divu`. -/
+@[isel_pattern]
 def gmirUdiv_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_udiv) (·.bitwidth = 64) .divu () (guard := matchLegal .g_udiv)
 
 /-- `gmir.g_srem` (`i64`) -> `riscv.rem`. -/
+@[isel_pattern]
 def gmirSrem_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_srem) (·.bitwidth = 64) .rem () (guard := matchLegal .g_srem)
 
 /-- `gmir.g_urem` (`i64`) -> `riscv.remu`. -/
+@[isel_pattern]
 def gmirUrem_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_urem) (·.bitwidth = 64) .remu () (guard := matchLegal .g_urem)
 
@@ -1785,62 +1932,62 @@ def gmirSrem : Puddle.CompiledPattern OpCode := gmirSrem_pattern.compile
 def gmirUrem : Puddle.CompiledPattern OpCode := gmirUrem_pattern.compile
 
 /-- `gmir_riscv.g_addw` (`i64`) -> `riscv.addw`. -/
+@[isel_pattern]
 def gmirRiscvAddw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_addw) (·.bitwidth = 64) .addw ()
 
 /-- `gmir_riscv.g_subw` (`i64`) -> `riscv.subw`. -/
+@[isel_pattern]
 def gmirRiscvSubw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_subw) (·.bitwidth = 64) .subw ()
 
 /-- `gmir_riscv.g_mulw` (`i64`) -> `riscv.mulw`. -/
+@[isel_pattern]
 def gmirRiscvMulw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_mulw) (·.bitwidth = 64) .mulw ()
 
 /-- `gmir_riscv.g_divw` (`i64`) -> `riscv.divw`. -/
+@[isel_pattern]
 def gmirRiscvDivw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_divw) (·.bitwidth = 64) .divw ()
 
 /-- `gmir_riscv.g_divuw` (`i64`) -> `riscv.divuw`. -/
+@[isel_pattern]
 def gmirRiscvDivuw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_divuw) (·.bitwidth = 64) .divuw ()
 
 /-- `gmir_riscv.g_remuw` (`i64`) -> `riscv.remuw`. -/
+@[isel_pattern]
 def gmirRiscvRemuw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_remuw) (·.bitwidth = 64) .remuw ()
 
 /-- `gmir_riscv.g_sllw` (`i64`) -> `riscv.sllw`. -/
+@[isel_pattern]
 def gmirRiscvSllw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_sllw) (·.bitwidth = 64) .sllw ()
 
 /-- `gmir_riscv.g_srlw` (`i64`) -> `riscv.srlw`. -/
+@[isel_pattern]
 def gmirRiscvSrlw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_srlw) (·.bitwidth = 64) .srlw ()
 
 /-- `gmir_riscv.g_sraw` (`i64`) -> `riscv.sraw`. -/
+@[isel_pattern]
 def gmirRiscvSraw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_sraw) (·.bitwidth = 64) .sraw ()
 
 /-- `gmir_riscv.g_clzw` (`i64`) -> `riscv.clzw`. -/
+@[isel_pattern]
 def gmirRiscvClzw_pattern : Pattern OpCode :=
   lowerUnary (.gmir_riscv .g_clzw) 64 .clzw ()
 
 /-- `gmir_riscv.g_ctzw` (`i64`) -> `riscv.ctzw`. -/
+@[isel_pattern]
 def gmirRiscvCtzw_pattern : Pattern OpCode :=
   lowerUnary (.gmir_riscv .g_ctzw) 64 .ctzw ()
 
-def gmirRiscvAddw : Puddle.CompiledPattern OpCode := gmirRiscvAddw_pattern.compile
-def gmirRiscvSubw : Puddle.CompiledPattern OpCode := gmirRiscvSubw_pattern.compile
-def gmirRiscvMulw : Puddle.CompiledPattern OpCode := gmirRiscvMulw_pattern.compile
-def gmirRiscvDivw : Puddle.CompiledPattern OpCode := gmirRiscvDivw_pattern.compile
-def gmirRiscvDivuw : Puddle.CompiledPattern OpCode := gmirRiscvDivuw_pattern.compile
-def gmirRiscvRemuw : Puddle.CompiledPattern OpCode := gmirRiscvRemuw_pattern.compile
-def gmirRiscvSllw : Puddle.CompiledPattern OpCode := gmirRiscvSllw_pattern.compile
-def gmirRiscvSrlw : Puddle.CompiledPattern OpCode := gmirRiscvSrlw_pattern.compile
-def gmirRiscvSraw : Puddle.CompiledPattern OpCode := gmirRiscvSraw_pattern.compile
-def gmirRiscvClzw : Puddle.CompiledPattern OpCode := gmirRiscvClzw_pattern.compile
-def gmirRiscvCtzw : Puddle.CompiledPattern OpCode := gmirRiscvCtzw_pattern.compile
-
 /-- `gmir.g_constant` (`i64` or pointer) -> `riscv.li`. -/
+@[isel_pattern]
 def gmirConstant_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1861,25 +2008,30 @@ def gmirConstant_pattern : Pattern OpCode :=
 def gmirConstant : Puddle.CompiledPattern OpCode := gmirConstant_pattern.compile
 
 /-- `gmir.g_ctlz` (`i64`) -> `riscv.clz`. -/
+@[isel_pattern]
 def gmirCtlz_pattern : Pattern OpCode :=
   lowerUnary (.gmir .g_ctlz) 64 .clz () fun opType resType props =>
     matchLegal .g_ctlz resType props (type₁ := opType)
 
 /-- `gmir.g_cttz` (`i64`) -> `riscv.ctz`. -/
+@[isel_pattern]
 def gmirCttz_pattern : Pattern OpCode :=
   lowerUnary (.gmir .g_cttz) 64 .ctz () fun opType resType props =>
     matchLegal .g_cttz resType props (type₁ := opType)
 
 /-- `gmir.g_ctpop` (`i64`) -> `riscv.cpop`. -/
+@[isel_pattern]
 def gmirCtpop_pattern : Pattern OpCode :=
   lowerUnary (.gmir .g_ctpop) 64 .cpop () fun opType resType props =>
     matchLegal .g_ctpop resType props (type₁ := opType)
 
 /-- `gmir.g_bswap` (`i64`) -> `riscv.rev8`. -/
+@[isel_pattern]
 def gmirBswap_pattern : Pattern OpCode :=
   lowerUnary (.gmir .g_bswap) 64 .rev8 () fun _ resType props => matchLegal .g_bswap resType props
 
 /-- `gmir.g_brev8` (`i64`) -> `riscv.brev8`. -/
+@[isel_pattern]
 def gmirBrev8_pattern : Pattern OpCode :=
   lowerUnary (.gmir .g_brev8) 64 .brev8 () fun _ resType props => matchLegal .g_brev8 resType props
 
@@ -1887,6 +2039,7 @@ def gmirBrev8_pattern : Pattern OpCode :=
   `gmir.g_bitreverse` (`i64`) -> `riscv.brev8` + `riscv.rev8`: reverse the bits within each byte
   with Zbkb's `brev8`, then reverse the byte order.
 -/
+@[isel_pattern]
 def gmirBitreverse_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -1904,32 +2057,24 @@ def gmirBitreverse_pattern : Pattern OpCode :=
     (fun castBackOp => castBackOp)
 
 /-- `gmir.g_smax` (`i64`) -> `riscv.max`. -/
+@[isel_pattern]
 def gmirSmax_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_smax) (·.bitwidth = 64) .max () (guard := matchLegal .g_smax)
 
 /-- `gmir.g_smin` (`i64`) -> `riscv.min`. -/
+@[isel_pattern]
 def gmirSmin_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_smin) (·.bitwidth = 64) .min () (guard := matchLegal .g_smin)
 
 /-- `gmir.g_umax` (`i64`) -> `riscv.maxu`. -/
+@[isel_pattern]
 def gmirUmax_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_umax) (·.bitwidth = 64) .maxu () (guard := matchLegal .g_umax)
 
 /-- `gmir.g_umin` (`i64`) -> `riscv.minu`. -/
+@[isel_pattern]
 def gmirUmin_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_umin) (·.bitwidth = 64) .minu () (guard := matchLegal .g_umin)
-
-def gmirSmax : Puddle.CompiledPattern OpCode := gmirSmax_pattern.compile
-def gmirSmin : Puddle.CompiledPattern OpCode := gmirSmin_pattern.compile
-def gmirUmax : Puddle.CompiledPattern OpCode := gmirUmax_pattern.compile
-def gmirUmin : Puddle.CompiledPattern OpCode := gmirUmin_pattern.compile
-
-def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
-def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
-def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
-def gmirBswap : Puddle.CompiledPattern OpCode := gmirBswap_pattern.compile
-def gmirBrev8 : Puddle.CompiledPattern OpCode := gmirBrev8_pattern.compile
-def gmirBitreverse : Puddle.CompiledPattern OpCode := gmirBitreverse_pattern.compile
 
 /-! ### `gmir.icmp` lowering
 
@@ -1953,6 +2098,7 @@ def gmirBitreverse : Puddle.CompiledPattern OpCode := gmirBitreverse_pattern.com
   - `sle`/`sge`/`ule`/`uge`: `slt`/`sltu` then `xori _ 1`.
   - the generic `eq`: `xor` then `sltiu _ 1`.
 -/
+@[isel_pattern]
 def icmpEmitCmp (regType : Handle OpCode .type) (a b : Handle OpCode .value)
     (rop : Riscv) (ropProps : propertiesOf (OpCode.riscv rop)) (swap : Bool)
     (ropImm : Option (Σ immOp : Riscv, propertiesOf (OpCode.riscv immOp)) := none) :
@@ -1968,6 +2114,7 @@ def icmpEmitCmp (regType : Handle OpCode .type) (a b : Handle OpCode .value)
 
 /-- The comparison sequence of the `icmp` arm for `pred` on the comparison registers `a` and `b`.
     `zeroRhs` selects the `eq`/`ne`-against-zero peepholes, which only use `a`. -/
+@[isel_pattern]
 def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
     (zeroRhs : Bool) (a b : Handle OpCode .value) :
     CreateProg.Builder CreatedOpHandle :=
@@ -2007,6 +2154,7 @@ def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
   `icmpEmit`). Legal operands are `i64` or `!llvm.ptr`, so they fill a register and need no
   sign-extension. When `zeroRhs` is set, the rhs must be the `gmir.g_constant` `0`.
 -/
+@[isel_pattern]
 def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -2039,12 +2187,12 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
   `gmir.g_icmp` -> riscv comparison sequence. The `eq`/`ne`-against-zero
   peepholes come first so they take priority over the generic arms.
 -/
-def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
+def gmirIcmpPatterns : Array (Pattern OpCode) :=
   let preds : Array Data.LLVM.IntPred :=
     #[.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule]
   let peepholes := #[Data.LLVM.IntPred.eq, .ne].map (gmirIcmp_pattern · true)
   let generic := preds.map (gmirIcmp_pattern · false)
-  (peepholes ++ generic).map (·.compile)
+  peepholes ++ generic
 
 /--
   The immediate of the `riscv.slti`/`riscv.sltiu` that `gmir.g_icmp pred x, c` (`i64`) is lowered
@@ -2069,7 +2217,8 @@ def sltiImm? (pred : Data.LLVM.IntPred) (c : Int) : Option Int :=
   imm?.filter fun imm => -2048 ≤ imm && imm ≤ 2047
 
 /-- `gmir.g_icmp pred x, c` (`i64`) -> `slti`/`sltiu` with the immediate `sltiImm? pred c`,
-    inverted with `xori _ 1` for `sge`/`uge` (see `sltiImm?`). -/
+    inverted with `xori _ 1` for `sge`/`uge` (see `sltiImm?`). Not in `isel_pattern`: Lean does not
+    generate an equation lemma for it. -/
 def gmirSlti_pattern (pred : Data.LLVM.IntPred) : Pattern OpCode :=
   let unsigned := pred matches .ult | .uge | .ule
   let invert := pred matches .sge | .uge
@@ -2103,60 +2252,75 @@ def gmirSlti_pattern (pred : Data.LLVM.IntPred) : Pattern OpCode :=
     (fun castBackOp => castBackOp)
 
 /-- The `slti`/`sltiu` selections of `gmir.g_icmp` (see `gmirSlti_pattern`). -/
-def gmirSlti : Array (Puddle.CompiledPattern OpCode) :=
-  #[Data.LLVM.IntPred.slt, .ult, .sge, .uge, .sle, .ule].map (gmirSlti_pattern · |>.compile)
+def gmirSltiPatterns : Array (Pattern OpCode) :=
+  #[Data.LLVM.IntPred.slt, .ult, .sge, .uge, .sle, .ule].map gmirSlti_pattern
 
-/-! # Pass implementation -/
+/-! # Pass implementation
 
-def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
-    ExceptT String IO (WfIRContext OpCode) := do
-  /- Composed loop: select expressions of several gMIR operations into one instruction, before
-     the later loops select their inner operations. -/
-  let composed := RewritePattern.GreedyRewritePattern <| gmirComposed.map (·.run)
-  let ctx ← match RewritePattern.applyToFunctions composed ctx op with
-  | none => throw "Error while applying composed instruction-selection patterns"
-  | some ctx => pure ctx
-  /- Early loop: fold composed intrinsics and inspect constants before the per-op
-     lowerings consume them. -/
-  let early := RewritePattern.GreedyRewritePattern <|
-    #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic, .fromLocalRewrite splitLoad_local,
-    .fromLocalRewrite splitStore_local] ++ load.map (·.run) ++ gmirLoad.map (·.run) ++
-    store.map (·.run) ++ gmirStore.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++
-    gmirSelectZero.map (·.run) ++ #[
-    fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
-    fshlConst32Trunc.run, fshrConst32Trunc.run,
-    gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
-    gmirZexth.run, gmirZextw.run,
-    gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
-    gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
-  let ctx ← match RewritePattern.applyToFunctions early ctx op with
-  | none => throw "Error while applying early memory-lowering patterns"
-  | some ctx => pure ctx
-  /- Main loop: the existing per-op lowerings. -/
-  let pattern := RewritePattern.GreedyRewritePattern <|
-    #[gmirSelect.run,
-    constant.run, addressof.run] ++
-    #[
-    sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
-    zext32.run, zext16.run, trunc.run,
-    bitcast.run] ++
-    load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++
-    gmirStore.map (·.run) ++ #[
-    fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
-    gmirPoison.run, gmirFreeze.run,
-    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirPtrToInt.run, gmirIntToPtr.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
-    gmirAnd.run, gmirOr.run, gmirXor.run,
-    gmirMul.run, gmirSmulh.run, gmirUmulh.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
-    gmirRiscvAddw.run, gmirRiscvSubw.run, gmirRiscvMulw.run,
-    gmirRiscvDivw.run, gmirRiscvDivuw.run, gmirRiscvRemuw.run, gmirRiscvSllw.run, gmirRiscvSrlw.run,
-    gmirRiscvSraw.run, gmirRiscvClzw.run, gmirRiscvCtzw.run,
-    gmirConstant.run,
-    gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
-    gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
-    gmirIcmp.map (·.run)
-  match RewritePattern.applyToFunctions pattern ctx op with
-  | none => throw "Error while applying main instruction-selection patterns"
-  | some ctx => pure ctx
+The pass runs, through the module-filtered driver, three selection loops whose patterns are all
+proved or assumed to refine the module (`Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass`).
+The main loop also chooses, per `llvm.getelementptr`, the instance of `getelementptr_pattern` that
+lowers it (`getelementptrRules`). Its validity is proved in `getelementptr_valid`.
+The memory-intrinsic libcalls rely on `memIntrinsicCall_valid` because the call has no semantics.
+The inline memory-intrinsic expansion and the split loads and stores
+are unproven and no loop runs them: an input that needs one of those keeps the operation
+unselected. -/
+
+/-- The composed loop: select expressions of several gMIR operations into one instruction, before
+the later loops select their inner operations. -/
+public def iselComposedPatterns : Array (Pattern OpCode) := gmirComposedPatterns
+
+/-- The early loop: fold composed intrinsics and inspect constants before the per-op lowerings
+consume them. -/
+public def iselEarlyPatterns : Array (Pattern OpCode) :=
+  #[lowerLifetime .intr__lifetime__start, lowerLifetime .intr__lifetime__end] ++
+  loadPatterns ++ gmirLoadPatterns ++ storePatterns ++ gmirSelectZeroOfSetccPatterns ++
+  gmirSelectZeroPatterns ++ #[
+    lowerFshConst true 64, lowerFshConst true 32, lowerFshConst false 64, lowerFshConst false 32,
+    lowerFshConst true 32 true, lowerFshConst false 32 true,
+    gmirAddi_pattern, gmirAndi_pattern, gmirOri_pattern, gmirXori_pattern, gmirSlli_pattern,
+    gmirSrli_pattern, gmirSrai_pattern, gmirZexth_pattern, gmirZextw_pattern,
+    gmirRiscvAddiw_pattern, gmirRiscvSlliw_pattern, gmirRiscvSrliw_pattern, gmirRiscvSraiw_pattern,
+    gmirBseti_pattern, gmirBinvi_pattern, gmirBclri_pattern] ++
+  gmirSltiPatterns
+
+/-- The main loop: the per-op lowerings. -/
+public def iselMainPatterns : Array (Pattern OpCode) :=
+  #[gmirSelect_pattern, constant_pattern, addressof_pattern,
+    sext32_pattern, sext16_pattern, sextInRegExt_pattern 8 .sextb (),
+    sextInRegExt_pattern 16 .sexth (), sextInRegExt_pattern 32 .sextw (), sextInRegShift_pattern,
+    zext32_pattern, zext16_pattern, trunc_pattern, bitcast_pattern] ++
+  loadPatterns ++ gmirLoadPatterns ++ storePatterns ++ #[
+    fshl64_pattern, fshl32_pattern, fshr64_pattern, fshr32_pattern, lowerFshlGeneral 64,
+    lowerFshlGeneral 32, lowerFshrGeneral 64, lowerFshrGeneral 32,
+    gmirPoison_pattern, gmirFreeze_pattern,
+    gmirAdd_pattern, gmirSub_pattern, gmirTrunc_pattern, gmirAnyextOfReg_pattern,
+    gmirAnyext_pattern, gmirPtrIntCast_pattern .g_ptrtoint, gmirPtrIntCast_pattern .g_inttoptr,
+    gmirShl_pattern, gmirLshr_pattern, gmirAshr_pattern,
+    gmirAnd_pattern, gmirOr_pattern, gmirXor_pattern,
+    gmirMul_pattern, gmirSdiv_pattern, gmirUdiv_pattern, gmirSrem_pattern, gmirUrem_pattern,
+    gmirRiscvAddw_pattern, gmirRiscvSubw_pattern, gmirRiscvMulw_pattern,
+    gmirRiscvDivw_pattern, gmirRiscvDivuw_pattern, gmirRiscvRemuw_pattern, gmirRiscvSllw_pattern,
+    gmirRiscvSrlw_pattern, gmirRiscvSraw_pattern, gmirRiscvClzw_pattern, gmirRiscvCtzw_pattern,
+    gmirConstant_pattern,
+    gmirCtlz_pattern, gmirCttz_pattern, gmirCtpop_pattern, gmirBswap_pattern, gmirBrev8_pattern,
+    gmirBitreverse_pattern,
+    gmirSmax_pattern, gmirSmin_pattern, gmirUmax_pattern, gmirUmin_pattern,
+    memIntrinsicCallPattern false, memIntrinsicCallPattern true] ++
+  gmirIcmpPatterns
+
+/-- The pass: the three loops, through the module-filtered driver. Its soundness is
+`ISelPass.run_sound`. -/
+public def ISelPass.run : PurePass :=
+  checkedFunctionsPasses "isel-riscv64" [
+    RewritePattern.GreedyRewritePattern (iselComposedPatterns.map fun rule => rule.compile.run),
+    RewritePattern.GreedyRewritePattern (iselEarlyPatterns.map fun rule => rule.compile.run),
+    RewritePattern.GreedyRewritePattern ((iselMainPatterns.map fun rule => rule.compile.run) ++
+      #[RewritePattern.ofRules getelementptrRules])]
+
+public def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+    ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (ISelPass.run ctx op))
 
 public def IselRISCV64 : Pass OpCode :=
   { name := "isel-riscv64"

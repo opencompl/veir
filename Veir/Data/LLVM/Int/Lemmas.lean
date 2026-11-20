@@ -56,16 +56,6 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
   cases x <;> cases y <;>
   simp [BitVec.mul_comm, BitVec.smulOverflow_comm, BitVec.umulOverflow_comm]
 
-theorem IntPred.eq_cases (p : IntPred) :
-    p = .eq ∨ p = .ne ∨ p = .ugt ∨ p = .uge ∨ p = .ult ∨ p = .ule ∨
-      p = .sgt ∨ p = .sge ∨ p = .slt ∨ p = .sle := by
-  cases p <;> simp
-
-@[simp]
-theorem poison_ext {w₁ w₂ : Nat} {msb : BitVec (w₂-w₁)} {h : w₁ < w₂} :
-    (poison : Int w₁).ext w₂ msb h = poison := by
-  rfl
-
 @[simp, grind =]
 theorem IntPred.eval_eq {w : Nat} (x y : BitVec w) :
     IntPred.eq.eval x y = (x == y) := by
@@ -143,6 +133,5 @@ theorem zext_val {w₁ w₂ : Nat} (v : BitVec w₁) (h : w₁ < w₂) :
 theorem poison_zext {w₁ w₂ : Nat} {nneg : Bool} (h : w₁ < w₂) :
     zext (poison : Int w₁) w₂ nneg h = poison := by
   simp only [zext, Id.run]
-
 
 end Int

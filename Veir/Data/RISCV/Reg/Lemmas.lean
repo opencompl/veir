@@ -8,7 +8,8 @@ public section
 
 namespace Veir.Data.RISCV
 
-@[simp]
+/- Not `@[simp]`: it collapses the `∀ reg, reg.val = … → …` goals that the instruction-selection
+proofs `intro`. -/
 theorem forall_val_eq {P : Reg → Prop} :
     (∀ (r : Reg), r.val = v → P r) ↔ P ⟨v⟩ := by
   grind [cases Reg]

@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+public import Veir.Passes.CheckedDriver
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 import Veir.PatternRewriter.Puddle.Builders
@@ -27,7 +28,7 @@ namespace Veir.RISCV
   added to the pattern list in `Combine.impl`.
 
   The generic GlobalISel combines run on gMIR in `postlegalizer-combiner-riscv64` (see
-  `Veir.Passes.Legalization.CombinerHelper`).
+  `Veir.Passes.GMIRCombines.Combine`).
 -/
 
 /-- riscv.add x 0 -> x -/
@@ -1117,18 +1118,6 @@ def ext_x0_pattern (ext : Riscv) : Puddle.Pattern OpCode :=
 
 def ext_x0 (ext : Riscv) : Puddle.CompiledPattern OpCode := (ext_x0_pattern ext).compile
 
-/-- `riscv.zextw x0 -> x0`. -/
-def zextw_x0 := ext_x0 .zextw
-
-/-- `riscv.sextw x0 -> x0`. -/
-def sextw_x0 := ext_x0 .sextw
-
-/-- Byte- and half-word mirrors: every extension of `x0` (which reads as 0) is a
-    no-op, since 0 is its own zero- and sign-extension at any width. -/
-def zextb_x0 := ext_x0 .zextb
-def zexth_x0 := ext_x0 .zexth
-def sextb_x0 := ext_x0 .sextb
-def sexth_x0 := ext_x0 .sexth
 
 /-- `riscv.<ext> (riscv.li v) -> riscv.li v` when `redundant v` holds. -/
 @[riscv_pattern]
@@ -1193,7 +1182,7 @@ def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
 closures are initialized once and reused for every operation. Each has a CTree validity
 certificate in `Veir.Passes.RISCVCombines.Proofs`; the soundness of the pass is
 `Combine.run_sound` (`Veir.Passes.RISCVCombines.Validity.Pass`). -/
-def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
+public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
     #[ packh_low_bytes
      , packh_low_bytes_commuted
      , packh_high_bytes
@@ -1255,7 +1244,6 @@ def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , zextw_or
      , zextw_xor
      , drop_zextw_sw
-     , zextw_x0
      , zextw_li_low32
      , sextw_sextw
      , drop_sextw_addw
@@ -1283,7 +1271,6 @@ def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , sextw_or
      , sextw_xor
      , drop_sextw_sw
-     , sextw_x0
      , sextw_li_low32
      , sextw_lw
      , sextw_lh
@@ -1351,10 +1338,6 @@ def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , drop_sextb_sb
      , drop_zextw_sb
      , drop_sextw_sb
-     , zextb_x0
-     , zexth_x0
-     , sextb_x0
-     , sexth_x0
      , zextb_li_low8
      , zexth_li_low16
      , sextb_li_low8
@@ -1362,18 +1345,15 @@ def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , li_zero_to_x0
      ]
 
-/-- The pass as a pure function: the greedy combination of the combines, applied everywhere
-below `op`. `none` reports a failed rewrite. Its soundness is `Combine.run_sound`. -/
-def Combine.run (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode) :=
-  RewritePattern.applyInContext
-    (RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run))) ctx op
+/-- The pass: the combines, through the module-filtered driver. Its soundness is
+`Combine.run_sound`. -/
+public def Combine.run : PurePass :=
+  checkedContextPass "riscv-combine"
+    (RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run)))
 
 public def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
-    ExceptT String IO (WfIRContext OpCode) := do
-  match Combine.run ctx op with
-  | none => throw "Error while applying pattern rewrites"
-  | some ctx => pure ctx
+    ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (Combine.run ctx op))
 
 public def Combine : Pass OpCode :=
   { name := "riscv-combine"

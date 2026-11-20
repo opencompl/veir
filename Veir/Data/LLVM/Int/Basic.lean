@@ -1,5 +1,8 @@
 module
 
+public import Std.Tactic.BVDecide
+meta import Std.Tactic.BVDecide
+
 namespace Veir.Data.LLVM
 
 public section
@@ -28,6 +31,15 @@ inductive IntPred where
   | slt
   | sle
 deriving DecidableEq, Inhabited, Repr, Hashable
+
+/- `bv_decide` realizes its helpers for an enum lazily, in whichever module first proves a goal
+about `IntPred`, and exports them from there; two modules doing so independently cannot be
+imported together. Proving one such goal here, where the enum is defined, gives every proof the
+same copy. -/
+theorem IntPred.eq_cases (p : IntPred) :
+    p = .eq ∨ p = .ne ∨ p = .ugt ∨ p = .uge ∨ p = .ult ∨ p = .ule ∨
+      p = .sgt ∨ p = .sge ∨ p = .slt ∨ p = .sle := by
+  bv_decide
 
 /-- Mapped as in MLIR:
   https://github.com/llvm/llvm-project/blob/d3417c8bf35852af88f41aa721a719ea756fdd8c/mlir/include/mlir/Dialect/LLVMIR/LLVMEnums.td#L571 -/
@@ -848,6 +860,12 @@ that extends its operand with unspecified bits.
 def ext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (msb : BitVec (w₂-w₁)) (_h : w₁ < w₂) : Int w₂ := Id.run do
   let val v := x | poison
   (val (msb ++ v)).cast (by grind)
+
+/-- Extending poison gives poison. -/
+@[simp]
+theorem poison_ext {w₁ w₂ : Nat} {msb : BitVec (w₂-w₁)} {h : w₁ < w₂} :
+    (poison : Int w₁).ext w₂ msb h = poison := by
+  rfl
 
 /--
 The `icmp` instruction takes three operands.

@@ -1,9 +1,11 @@
 module
 
 public import Veir.Passes.Legalization.LegalizerInfo
+public import Veir.Passes.Legalization.LegalizerHelper
+public import Veir.Passes.CheckedDriver
+public import Veir.PatternRewriter.Choice
 import Veir.PatternRewriter.Basic
-import Veir.Passes.Legalization.LegalizerHelper
-import Veir.Passes.Legalization.LegalizationArtifactCombiner
+import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import Veir.PatternRewriter.Puddle.Execution
 import Veir.Interfaces.ControlFlowInterfaces
 
@@ -38,42 +40,6 @@ private def hasIllegalSource (info : LegalizerInfo) (ctx : IRContext OpCode) (op
       | none => false
     | _ => false
 
-/--
-Applies the action of the rules to `op`. Does not match legal operations or illegal ones.
-
-An artifact is not legalized while its source is still illegal. LLVM's legalizer legalizes all
-other instructions before it combines artifacts, and only legalizes the artifacts it cannot combine.
-Legalizing the source first may turn it into an artifact that the artifact combiner folds away,
-e.g. widening a `g_icmp` under a `g_zext` leaves `g_zext (g_trunc (g_icmp))`.
--/
-private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCode :=
-  fun ctx op => do
-    let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
-    if isArtifact opcode && hasIllegalSource info ctx.raw op then return (ctx, none)
-    let pattern? : Option (LocalRewritePattern OpCode) := match info.getAction ctx.raw op opcode with
-      | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
-      | .narrowScalar typeIdx width =>
-        (narrowScalar? opcode typeIdx width).map Puddle.Pattern.interpret
-      | .lower => (lower? opcode).map Puddle.Pattern.interpret
-      | .custom => (info.legalizeCustom opcode).map Puddle.Pattern.interpret
-      | .legal | .unsupported => none
-    let some pattern := pattern? | return (ctx, none)
-    pattern ctx op
-
-/-- Combines the artifact `op` away with the first `tryCombineInstruction` pattern that applies. -/
-private def combineArtifactStep : LocalRewritePattern OpCode :=
-  fun ctx op => do
-    let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
-    go op (tryCombineInstruction opcode) ctx
-where
-  go (op : OperationPtr) : List (Puddle.Pattern OpCode) → WfIRContext OpCode →
-      Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr))
-    | [], ctx => some (ctx, none)
-    | pattern :: patterns, ctx =>
-      match pattern.interpret ctx op with
-      | some (ctx, none) => go op patterns ctx
-      | result => result
-
 /-- The error message when `action` cannot legalize `name`, whose type groups have `types`. -/
 private def illegalReason (name : String) (types : Array TypeAttr) (action : LegalizeAction) :
     String :=
@@ -89,7 +55,7 @@ private def illegalReason (name : String) (types : Array TypeAttr) (action : Leg
 /-! ## Block arguments -/
 
 /-- The action for a block argument of type `type`, or `none` if it has no low-level type. -/
-private def blockArgumentAction? (info : LegalizerInfo) (type : TypeAttr) :
+def blockArgumentAction? (info : LegalizerInfo) (type : TypeAttr) :
     Option LegalizeAction :=
   (LegalityQuery.ofTypes? #[type] ()).map info.getBlockArgumentAction
 
@@ -106,17 +72,54 @@ private def phiBlocks (ctx : IRContext OpCode) (root : OperationPtr) : List Bloc
       block? := block.getNextBlock! ctx
   return blocks.reverse
 
+private def phiArgumentsToWiden (info : LegalizerInfo) (ctx : IRContext OpCode)
+    (block : BlockPtr) : List (Nat × Nat) :=
+  (block.getArguments! ctx).toList.zipIdx.filterMap fun (arg, i) => do
+    let .widenScalar (.type 0) width ← blockArgumentAction? info (arg.getType! ctx) | none
+    return (i, width)
+
+/-- Widen the arguments selected by the block-argument rules. -/
+def widenPhiBlock (info : LegalizerInfo) (ctx : WfIRContext OpCode) (block : BlockPtr) :
+    Except String (WfIRContext OpCode) :=
+  let args := phiArgumentsToWiden info ctx.raw block
+  if args.isEmpty then .ok ctx
+  else if block.InBounds ctx.raw ∧ block.hasPredecessor! ctx.raw = true then
+    if (args.map Prod.fst).Nodup then
+      widenBlockArgumentsChecked block args ctx
+    else .error "unable to widen a block argument: an argument is widened twice"
+  else .error "unable to widen a block argument: the block is not a phi block"
+
 /-- Widens the block arguments in the functions under `root` as the block-argument rules ask. -/
-private def legalizeBlockArguments (info : LegalizerInfo) (ctx : WfIRContext OpCode)
+def legalizeBlockArguments (info : LegalizerInfo) (ctx : WfIRContext OpCode)
     (root : OperationPtr) : Except String (WfIRContext OpCode) :=
-  (phiBlocks ctx.raw root).foldlM (init := ctx) fun ctx block => do
-    let args := (block.getArguments! ctx.raw).toList.zipIdx.filterMap fun (arg, i) => do
-      let .widenScalar (.type 0) width ← blockArgumentAction? info (arg.getType! ctx.raw) | none
-      return (i, width)
-    if args.isEmpty then return ctx
-    let some ctx := widenBlockArguments block args ctx
-      | throw "unable to widen a block argument: a predecessor is not a branch"
-    return ctx
+  (phiBlocks ctx.raw root).foldlM (widenPhiBlock info) ctx
+
+/-! ## Branch conditions
+
+`g_brcond` forwards a variable number of operands to its successors, which a Puddle pattern cannot
+match, so its condition is widened by a step of its own (`widenBrcondCondition`) before the rules,
+which then legalize the `g_zext` it creates. -/
+
+/-- Widens the condition of `op` if it is a `g_brcond` whose condition the rules widen. -/
+def widenBrcond (info : LegalizerInfo) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Except String (WfIRContext OpCode) :=
+  if op.getOpType! ctx.raw = .gmir .g_brcond then
+    match info.getAction ctx.raw op .g_brcond with
+    | .widenScalar (.type 0) width =>
+      if op.getNumResults! ctx.raw ≠ 0 ∨ op.getNumRegions! ctx.raw ≠ 0 then
+        .error "unable to widen a branch condition: the branch has results or regions"
+      else
+        match widenBrcondCondition width ctx op with
+        | some ctx' => .ok ctx'
+        | none => .error "unable to widen a branch condition: it is not a narrower integer"
+    | _ => .ok ctx
+  else .ok ctx
+
+/-- Widens the conditions of the `g_brcond`s as the rules ask. The operations to visit are fixed up
+front, so the branches the step creates are not visited. -/
+def widenBrconds (info : LegalizerInfo) (ctx : WfIRContext OpCode) :
+    Except String (WfIRContext OpCode) :=
+  ctx.raw.operations.keys.foldlM (widenBrcond info) ctx
 
 /-- Fails if a block argument that is a phi is not legal. -/
 private def checkBlockArguments (info : LegalizerInfo) (ctx : IRContext OpCode) :
@@ -129,28 +132,63 @@ private def checkBlockArguments (info : LegalizerInfo) (ctx : IRContext OpCode) 
       | none | some .legal => pure ()
       | some action => throw (illegalReason s!"a block argument of type {type}" #[type] action)
 
-/--
-Legalizes the block arguments and all GMIR operations in the functions under `root`. Fails if one of
-them remains illegal.
--/
-def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) (root : OperationPtr) :
-    Except String (WfIRContext OpCode) := do
-  let ctx ← info.legalizeBlockArguments ctx root
-  -- As in LLVM, an artifact is combined before it is legalized.
-  -- TODO: Use a proper worklist for artifacts.
-  let pattern := RewritePattern.GreedyRewritePattern
-    #[.fromLocalRewrite combineArtifactStep, .fromLocalRewrite info.legalizeInstrStep]
-  let some ctx := RewritePattern.applyToFunctions pattern ctx root
-    | throw "error while applying legalization"
-  -- The greedy rewriter does not report the operations it could not rewrite, so we check the
-  -- legality of every operation afterwards.
-  ctx.raw.forOpsDepM fun op _ => do
-    let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return
-    match info.getAction ctx.raw op opcode with
+/-- Fails if a gMIR operation in `ctx` is not legal. -/
+private def checkOperations (info : LegalizerInfo) (ctx : IRContext OpCode) :
+    Except String Unit :=
+  ctx.forOpsDepM fun op _ => do
+    let some opcode := toDialect? GMIR (op.getOpType! ctx) | return
+    match info.getAction ctx op opcode with
     | .legal => pure ()
     | action =>
-      let name := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx.raw))
-      throw (illegalReason name (opcode.getTypeGroupTypes! op ctx.raw) action)
+      let name := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx))
+      throw (illegalReason name (opcode.getTypeGroupTypes! op ctx) action)
+
+/-! ## Legalization
+
+The legalizer widens the narrow phis (`legalizeBlockArguments`) and the narrow branch conditions
+(`widenBrconds`). It verifies the module after both widening phases, then runs the registry rules through
+the module-filtered driver and rejects any operations or block arguments that are still illegal.
+
+An artifact is not legalized while its source is still illegal. LLVM's legalizer legalizes all
+other instructions before it combines artifacts, and only legalizes the artifacts it cannot combine.
+Legalizing the source first may turn it into an artifact that the artifact combiner folds away,
+e.g. widening a `g_icmp` under a `g_zext` leaves `g_zext (g_trunc (g_icmp))`. -/
+
+/-- The rule that legalizes `op`, an `opcode`: the action of the rules, as a pattern. Legal and
+unsupported operations have none. -/
+def legalizeInstrChoice (info : LegalizerInfo) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) (opcode : GMIR) : Option (Puddle.Pattern OpCode) :=
+  if isArtifact opcode && hasIllegalSource info ctx.raw op then none else
+  match info.getAction ctx.raw op opcode with
+  | .widenScalar typeIdx width => widenScalarPattern? opcode typeIdx width
+  | .narrowScalar typeIdx width => narrowScalar? opcode typeIdx width
+  | .lower => lower? opcode
+  | .custom => info.legalizeCustom opcode
+  | .legal | .unsupported => none
+
+/-- The rules the legalizer tries at `op`, in order: the artifact combines (as in LLVM, an
+artifact is combined before it is legalized), then the legalization rule. -/
+def legalizeRules (info : LegalizerInfo) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    List (Puddle.Pattern OpCode) :=
+  match toDialect? GMIR (op.getOpType! ctx.raw) with
+  | none => []
+  | some opcode =>
+    tryCombineInstruction opcode ++ (legalizeInstrChoice info ctx op opcode).toList
+
+/-- The pattern of the legalizer: combine an artifact away, else legalize the operation. -/
+def legalizePattern (info : LegalizerInfo) : RewritePattern OpCode :=
+  RewritePattern.ofRules (legalizeRules info)
+
+/-- The legalizer, `pass` naming the pass in its errors: it checks the module, widens its phis,
+applies the rules to its functions, and fails if an operation or a phi is left illegal (the greedy
+rewriter does not report the operations it could not rewrite). -/
+def legalize (info : LegalizerInfo) (pass : String) : PurePass := fun ctx root => do
+  checkModuleRoot pass ctx root
+  let ctx ← info.legalizeBlockArguments ctx root
+  let ctx ← info.widenBrconds ctx
+  checkModuleRoot pass ctx root
+  let ctx ← applyToFunctionsChecked pass (legalizePattern info) ctx root
+  info.checkOperations ctx.raw
   info.checkBlockArguments ctx.raw
   return ctx
 

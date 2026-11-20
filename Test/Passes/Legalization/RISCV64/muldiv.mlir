@@ -1,5 +1,9 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `combineAnyExtOfAnyExt`, commented out of the pass as unproven: the chains of
+// `g_anyext` are not folded.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
     // `i64` is legal.

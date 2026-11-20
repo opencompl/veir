@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `combineAnyExtOfAnyExt`, commented out of the pass as unproven.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
     %x_i32 = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32

@@ -34,6 +34,68 @@ theorem and_add_one_eq_zero_of_maskOfWidth {o w : Nat} {m : BitVec o}
     Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
     Nat.and_two_pow_sub_one_eq_mod]
 
+/--
+Lemma 5.1 from Bhat et al. (https://dl.acm.org/doi/10.1145/3839511)
+A `BitVec` m equals 2^k - 1 iff m & (m + 1) = 0
+-/
+theorem twoPow_iff_and_add_one_eq_zero {o : Nat} (m : BitVec o) :
+    (∃ w ≤ o, m = maskOfWidth o w) ↔ m &&& (m + 1) = 0 := by
+  constructor
+  case mp =>
+    intro h
+    obtain ⟨w, hw⟩ := h
+    apply and_add_one_eq_zero_of_maskOfWidth (by apply And.right hw)
+  case mpr =>
+    intro h
+    unfold maskOfWidth
+    induction m with
+    | nil => exact ⟨0, by simp⟩
+    | @cons o' msb lsbs ih =>
+      have ih' : lsbs &&& lsbs + 1 = 0 := by
+        have h' := by apply congrArg (·.setWidth o') h
+        rw [BitVec.setWidth_and, BitVec.setWidth_cons, BitVec.setWidth_add, BitVec.setWidth_cons,
+            BitVec.ofNat_eq_ofNat, BitVec.ofNat_eq_ofNat, BitVec.setWidth_ofNat_of_le, BitVec.setWidth_ofNat_of_le] at h'
+        exact h'
+        all_goals lia
+      obtain ⟨w', hwle', hlsb⟩ := ih ih'
+      have twopow_w'_le : 2^w' - 1 < 2^o' := by
+        apply Nat.lt_of_lt_of_le (by apply Nat.sub_one_lt (by grind)) (by apply Nat.pow_le_pow_right (by decide : 2 > 0) hwle')
+      cases msb
+      · have : BitVec.cons false lsbs = lsbs.setWidth (o' + 1) := by grind
+        refine ⟨w', ?_, ?_⟩
+        · apply Nat.le_trans hwle' (by apply Nat.le_add_right)
+        rw [this, hlsb, BitVec.setWidth_ofNat_of_le_of_lt (h' := twopow_w'_le)]
+        apply Nat.le_add_right
+      · refine ⟨w' + 1, ?_, ?_⟩
+        · apply Nat.add_le_add_right hwle'
+        rw [hlsb]
+        apply BitVec.eq_of_toNat_eq
+        simp [Nat.shiftLeft_eq]
+        -- force w' = o' from h
+        have w'_eq_o' : w' = o' := by
+          false_or_by_contra
+          rename_i not_eq
+          have contra : w' < o' := by lia
+          have hlsb' := hlsb
+          rw [← BitVec.setWidth_ofNat_of_le_of_lt hwle' (by apply Nat.sub_one_lt (by grind)), ← BitVec.toNat_allOnes,
+              BitVec.ofNat_toNat, BitVec.setWidth_eq] at hlsb'
+          rw [hlsb'] at h
+          have := by apply BitVec.carry_of_and_eq_zero h (i := o' + 1)
+          simp only [BitVec.carry, BitVec.toNat_cons, BitVec.toNat_setWidth, BitVec.toNat_allOnes, BitVec.toNat_add,
+            Nat.or_mod_two_pow, Nat.mod_mod, Bool.toNat_false, Nat.add_zero, Bool.toNat_true, Nat.shiftLeft_eq,
+            Nat.one_mul, Nat.mod_eq_of_lt twopow_w'_le, Nat.mod_eq_of_lt (by grind : 2^o' < 2^(o'+1)), BitVec.ofNat_eq_ofNat, BitVec.toNat_ofNat] at this
+          rw [Nat.mod_eq_of_lt, Nat.or_comm, Nat.or_two_pow_eq_add_of_lt twopow_w'_le, Nat.mod_eq_of_lt (a := 1), Nat.mod_eq_of_lt] at this
+          lia
+          · rw [Nat.add_comm, ← Nat.add_assoc, Nat.add_comm (n := 1), Nat.sub_one_add_one, Nat.pow_add, Nat.mul_two]
+            apply Nat.add_lt_add_right
+            exact Nat.pow_lt_pow_right (by decide : 1 < 2) contra
+            grind
+          · lia
+          lia
+        rw [Nat.mod_eq_of_lt twopow_w'_le, Nat.or_comm, Nat.or_two_pow_eq_add_of_lt twopow_w'_le, Nat.add_comm, w'_eq_o',
+            Nat.mod_eq_of_lt (by apply Nat.sub_one_lt (by grind)), Nat.pow_add, Nat.pow_one, Nat.self_add_sub_one, Nat.mul_comm]
+
+
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
     (x &&& maskOfWidth o w).toNat = x.toNat % 2 ^ w := by
@@ -82,6 +144,16 @@ theorem cpop_eq_width_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (h
   apply BitVec.eq_of_toNat_eq
   simp only [hm, toNat_cpop_maskOfWidth_eq_width h, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt (by grind [Nat.lt_pow_self])]
+
+/-- `o - w`, written with definitions the bitblaster can see. -/
+theorem toNat_ofNat_sub_cpop_maskOfWidth {o w : Nat} (h : w ≤ o) :
+    (BitVec.ofNat o o - (maskOfWidth o w).cpop).toNat = o - w := by
+  have ho : o < 2 ^ o := Nat.lt_two_pow_self
+  rw [cpop_eq_width_of_maskOfWidth h rfl, BitVec.toNat_sub_of_le, BitVec.toNat_ofNat,
+    BitVec.toNat_ofNat, Nat.mod_eq_of_lt ho, Nat.mod_eq_of_lt (by omega)]
+  rw [BitVec.le_def, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ho,
+    Nat.mod_eq_of_lt (by omega)]
+  exact h
 
 /-- Every mask of blast width `0` is the empty bitvector. -/
 @[simp] theorem maskOfWidth_zero_eq_zero {w : Nat} : maskOfWidth 0 w = 0#0 := by

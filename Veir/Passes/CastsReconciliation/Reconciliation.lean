@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Puddle.Builders
+public import Veir.Passes.CheckedDriver
 import Veir.Passes.DCE.dce
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -25,7 +26,6 @@ def isRegToI64RoundTrip (inputType interType : TypeAttr): Bool :=
 -/
 def isRiscvRegToPtrCast (inputType interType : TypeAttr): Bool :=
  match inputType.val, interType.val with
-  | .llvmPointerType _ , .registerType _ => true
   | .registerType _, .llvmPointerType _  => true
   | _, _ => false
 
@@ -72,11 +72,6 @@ public def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) : Patte
     pure
     (fun input => input)
 
-def reconcileRegToI64 := (reconcilePairingCast isRegToI64RoundTrip).compile
-def reconcileRegToPtr := (reconcilePairingCast isRiscvRegToPtrCast).compile
-def reconcileModArithToInt := (reconcilePairingCast isPreservingModArithToIntCast).compile
-def reconcileCirToInt := (reconcilePairingCast isCirToIntRoundTrip).compile
-
 /-- Match an unallocated-register round trip through an integer of an accepted width. -/
 def matchRegIntCast (widthMatches : Nat → Bool) :
     MatchProg.Builder (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value) := do
@@ -96,44 +91,46 @@ def reconcileRegIntExt (width : Nat) (opcode : Riscv)
       CreateProg.operation (.riscv opcode) #[input] #[regType] props)
     (fun op => op)
 
-/-- Reconcile other narrow register round trips with two shifts; leave the parent cast to DCE. -/
+/-- Reconcile other narrow register round trips with two shifts; leave the parent cast to DCE.
+Over-wide casts (65 bits and more) are not matched: they stay in the module, where the later
+passes report them. -/
 def reconcileRegIntShift : Pattern OpCode :=
   Pattern.Builder
     -- i0 needs a constant zero, which this two-shift sequence cannot compute.
-    (matchRegIntCast fun bw => bw ≠ 0 && bw ≠ 8 && bw ≠ 16 && bw ≠ 32)
+    (matchRegIntCast fun bw => bw ≠ 0 && bw ≠ 8 && bw ≠ 16 && bw ≠ 32 && bw < 64)
     (fun (regType, interType, input) => do
       let (leftProps, rightProps) ← CreateProg.applyNative
           (Outputs := Handle OpCode (.prop (.riscv .slli)) ×
             Handle OpCode (.prop (.riscv .srli))) interType fun type => do
         let type ← type.cast? IntegerType
-        -- Preserve the existing error on over-wide casts. The identity rule handles i64 first.
-        guard (type.bitwidth < 64)
         let props : RISCVImmediateProperties := ⟨BitVec.ofNat 64 (64 - type.bitwidth)⟩
         return (props, props)
       let left ← CreateProg.operation (.riscv .slli) #[input] #[regType] (.inr leftProps)
       CreateProg.operation (.riscv .srli) #[left.res[0]!] #[regType] (.inr rightProps))
     (fun op => op)
 
-private def reconcileRegIntCasts : Array (CompiledPattern OpCode) :=
-  #[reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (),
-    reconcileRegIntExt 32 .zextw (), reconcileRegIntShift].map (·.compile)
+/-- The patterns of the pass, all proved valid (`Veir.Passes.CastsReconciliation.Validity`). The
+dedicated extensions come before the two-shift narrowing, whose matcher excludes their widths
+anyway. -/
+public def reconcilePatterns : Array (Pattern OpCode) :=
+  #[reconcilePairingCast isRegToI64RoundTrip,
+    reconcilePairingCast isRiscvRegToPtrCast,
+    reconcilePairingCast isPreservingModArithToIntCast,
+    reconcilePairingCast isCirToIntRoundTrip,
+    reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (), reconcileRegIntExt 32 .zextw (),
+    reconcileRegIntShift]
 
+/-- The pass: the patterns, then the erasure of the dead parent casts by the driver (a pattern
+can only erase the operation it matched). `eliminateDeadOp`, which also erases allocating
+operations, is unproven, so not run. Its soundness is `CastReconcilePass.run_sound`. -/
+public def CastReconcilePass.run : PurePass :=
+  checkedContextPasses "reconcile-cast"
+    [RewritePattern.GreedyRewritePattern (reconcilePatterns.map (fun rule => rule.compile.run)),
+     RewritePattern.GreedyRewritePattern #[]]
 
-def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
-    ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern <| #[
-    reconcileRegToI64.run,
-    reconcileRegToPtr.run,
-    reconcileModArithToInt.run,
-    reconcileCirToInt.run] ++ reconcileRegIntCasts.map (·.run)
-  match RewritePattern.applyInContext pattern ctx op with
-  | none => throw "Error while applying cast reconciliation"
-  -- The patterns leave the (now dead) parent casts behind: `LocalRewritePattern` can only erase
-  -- the matched operation. Clean them up here so the pass is self-contained.
-  | some ctx =>
-    match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx op with
-    | none => throw "Error while applying DCE after cast reconciliation"
-    | some ctx => pure ctx
+public def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (CastReconcilePass.run ctx op))
 
 public def CastReconcilePass : Pass OpCode :=
   { name := "reconcile-cast"

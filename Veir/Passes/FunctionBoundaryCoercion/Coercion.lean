@@ -48,7 +48,6 @@ def returnOpCodeFor : OpCode → OpCode
   | .cir .func => .cir .return
   | _ => .func .return
 
-set_option warn.sorry false in
 /-- Coerce one function's arguments and return values as dictated by `coercion`,
     inserting bridging casts and rewriting the `function_type` to match. Handles
     `func.func`, `llvm.func` and `cir.func`. -/
@@ -71,13 +70,12 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
     let origType := (ValuePtr.blockArgument bap).getType! ctx.raw
     match coercion.target origType with
     | some newType =>
-      ctx := WfRewriter.setType ctx bap newType sorry
-      let ip := InsertPoint.atStart entry ctx.raw sorry
-      let some (ctx', cast) := WfRewriter.createOp ctx
-        Builtin.unrealized_conversion_cast #[origType] #[] #[] #[] default (some ip)
-        sorry sorry sorry sorry | throw "cannot create a cast for a function argument"
-      let ctx' := WfRewriter.replaceValue ctx' bap (cast.getResult 0) sorry sorry sorry
-      ctx := WfRewriter.pushOperand ctx' cast bap sorry sorry
+      ctx := WfRewriter.setType! ctx bap newType
+      let ip := InsertPoint.atStart! entry ctx.raw
+      let some (ctx', cast) := WfRewriter.createOp! ctx
+        Builtin.unrealized_conversion_cast #[origType] #[] #[] #[] default (some ip) | throw "cannot create a cast for a function argument"
+      let ctx' := WfRewriter.replaceValue! ctx' bap (cast.getResult 0)
+      ctx := WfRewriter.pushOperand! ctx' cast bap
       inputs := inputs.push newType.val
     | none =>
       inputs := inputs.push origType.val
@@ -98,11 +96,11 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       let opType := opVal.getType! ctx.raw
       match coercion.target opType with
       | some newType =>
-        let some (ctx', cast) := WfRewriter.createOp ctx
+        let some (ctx', cast) := WfRewriter.createOp! ctx
           Builtin.unrealized_conversion_cast #[newType] #[opVal] #[] #[] default
-          (some (InsertPoint.before retOp)) sorry sorry sorry sorry
+          (some (InsertPoint.before retOp))
           | throw "cannot create a cast for a return operand"
-        ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
+        ctx := WfRewriter.replaceOperand! ctx' ⟨retOp, j⟩ (cast.getResult 0)
         -- The `j`-th operand maps to the `j`-th declared result: the verifier guarantees
         -- a return's operand count equals the function's declared result count.
         outputs := outputs.set! j newType.val
