@@ -79,7 +79,7 @@ abbrev OpInterpreter {EIn : Type} (E : EIn → Type) :=
 
 section
 
-variable {EIn : Type} {E : EIn → Type} [ErrorE -< E] [UBE -< E] (interp : OpInterpreter E)
+variable {EIn : Type} {E : EIn → Type} [ErrorE -< E] (interp : OpInterpreter E)
 
 /-- Interpret an operation given an operation pointer and an interpreter state. -/
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
