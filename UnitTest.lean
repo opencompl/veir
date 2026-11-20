@@ -19,6 +19,7 @@ import UnitTest.DataFlowFramework.ModArithRangeAnalysis
 import UnitTest.ConstantValue
 import UnitTest.Evaluate
 import UnitTest.Interp
+import UnitTest.Printer
 import UnitTest.RuntimeValueSimp
 import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
