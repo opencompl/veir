@@ -197,8 +197,8 @@ def OperationPtr.isRefinedByAsFunctionCTree (op₁ : OperationPtr) (ctx₁ : WfI
     ∀ (valuesSource valuesTarget : Array RuntimeValue) (mem : MemoryState),
       valuesSource ⊒ valuesTarget →
       CTree.Sim (fun target source => RuntimeValue.arrayIsRefinedBy source target)
-        (CTree.interpretFunction op₂ valuesTarget mem op₂In)
-        (CTree.interpretFunction op₁ valuesSource mem op₁In)
+        (CTree.interpretFunction @CTree.interpretOp' op₂ valuesTarget mem op₂In)
+        (CTree.interpretFunction @CTree.interpretOp' op₁ valuesSource mem op₁In)
   | _, _ => False
 
 /--

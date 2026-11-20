@@ -68,17 +68,31 @@ theorem OperationPtr.interpretCTree_def! {ctx : WfIRContext OpCode}
 
 namespace CTree
 
+/--
+An interpreter of single operations with the effects `E`, such as `interpretOp'`, which the
+functions below use to interpret the operations of a region.
+-/
+abbrev OpInterpreter {EIn : Type} (E : EIn → Type) :=
+  (opType : OpCode) → propertiesOf opType → Array TypeAttr → Array RuntimeValue →
+    Array BlockPtr → MemoryState → Array RegionPtr →
+    CTree E FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction)
+
+section
+
+variable {EIn : Type} {E : EIn → Type} [ErrorE -< E] (interp : OpInterpreter E)
+
 /-- Interpret an operation given an operation pointer and an interpreter state. -/
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
     (state : InterpreterState ctx) (inBounds : op.InBounds ctx.raw := by grind)
-    : RegionTree ctx (InterpreterState ctx) (InterpreterState ctx × Option ControlFlowAction) := do
+    : RegionTree E ctx (InterpreterState ctx)
+        (InterpreterState ctx × Option ControlFlowAction) := do
   let some operands := state.variables.getOperandValues op
     | fail
   let opType := op.getOpType ctx.raw inBounds
-  let opCTree := (interpretOp' opType (op.getProperties ctx.raw opType)
+  let opCTree := (interp opType (op.getProperties ctx.raw opType)
     (op.getResultTypes ctx.raw) operands (op.getSuccessors ctx.raw) state.memory
     (op.getRegions ctx.raw))
-  let opCTreeWithRegion : RegionTree _ _ _ := CTree.interp CTree.trigger opCTree
+  let opCTreeWithRegion : RegionTree E _ _ _ := CTree.interp CTree.trigger opCTree
   /- Call the dialect-specific operation interpreter.
   While the user-defined interpreter calls region with a `MemoryState`, we here attach the
   `InterpreterState` as well. This prevents the user from using the `InterpreterState` directly. -/
@@ -87,7 +101,7 @@ def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
       let (state, results) ← runRegion region values
         ({ variables := state.variables, memory := memoryState } : InterpreterState ctx) inBounds
       return (state.memory, results)
-    | .inr e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
+    | .inr e => CTree.trigger (SubE := E) e)
     opCTreeWithRegion
   let some variables := state.variables.setResultValues? op resultValues inBounds
     | fail
@@ -106,7 +120,7 @@ and next locations to interpret.
 -/
 def interpretCFG.iter {ctx : WfIRContext OpCode} (location : interpretCFG.StateLocation ctx)
     (state : InterpreterState ctx)
-    : RegionTree ctx (InterpreterState ctx)
+    : RegionTree E ctx (InterpreterState ctx)
         ((interpretCFG.StateLocation ctx × InterpreterState ctx) ⊕
           (InterpreterState ctx × Array RuntimeValue)) := do
   match location with
@@ -117,7 +131,7 @@ def interpretCFG.iter {ctx : WfIRContext OpCode} (location : interpretCFG.StateL
     rlet some firstOp := block.getFirstOp ctx.raw | fail
     return .inl (.inr ⟨firstOp, by grind⟩, ⟨variables, state.memory⟩)
   | .inr ⟨op, opInBounds⟩ =>
-    let (state, action) ← interpretOp op state opInBounds
+    let (state, action) ← interpretOp interp op state opInBounds
     match action with
     | some (.return results) => return .inr (state, results)
     | some (.branch args dest) =>
@@ -133,31 +147,33 @@ def interpretCFG.iter {ctx : WfIRContext OpCode} (location : interpretCFG.StateL
 def interpretCFG (region : RegionPtr) (values : Array RuntimeValue)
     {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (inBounds : region.InBounds ctx.raw := by grind)
-    : RegionTree ctx (InterpreterState ctx) (InterpreterState ctx × Array RuntimeValue) := do
+    : RegionTree E ctx (InterpreterState ctx) (InterpreterState ctx × Array RuntimeValue) := do
   rlet some firstBlock := region.getFirstBlock ctx.raw | fail
   /- Iterate (possibly infinitely) over the region's blocks and operations. -/
-  CTree.iter (fun (next, state) => interpretCFG.iter next state)
+  CTree.iter (fun (next, state) => interpretCFG.iter interp next state)
     (.inl (⟨firstBlock, by grind⟩, values), state)
 
 /-- Interpret a region starting at its entry block with the given values. -/
 def interpretRegion (region : RegionPtr) (values : Array RuntimeValue)
     {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (inBounds : region.InBounds ctx.raw := by grind)
-    : Tree (InterpreterState ctx × Array RuntimeValue) :=
+    : CTree E FreezeC (InterpreterState ctx × Array RuntimeValue) :=
   CTree.mrec (E := RunRegionE ctx (InterpreterState ctx)) (fun ⟨region, values, state, inBounds⟩ =>
-    interpretCFG region values state inBounds) ⟨region, values, state, inBounds⟩
+    interpretCFG interp region values state inBounds) ⟨region, values, state, inBounds⟩
 
 /-- Interpret a function body with the given runtime arguments and initial memory. -/
 def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) (mem : MemoryState)
     {ctx : WfIRContext OpCode} (opIn : op.InBounds ctx.raw := by grind)
-    : Tree (Array RuntimeValue) := do
+    : CTree E FreezeC (Array RuntimeValue) := do
   let some funcOp := FunctionOp.of? op ctx.raw | fail
   if h : op.getNumRegions ctx.raw ≠ 1 then
     fail
   else
-    let (_, results) ← interpretRegion funcOp.getFunctionBody
+    let (_, results) ← interpretRegion interp funcOp.getFunctionBody
       values ⟨.empty ctx, mem⟩
     return results
+
+end
 
 end CTree
 end Veir
