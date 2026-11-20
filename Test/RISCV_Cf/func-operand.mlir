@@ -5,4 +5,4 @@
   "riscv_cf.func"(%v) <{sym_name = "f", function_type = () -> ()}> ({}) : (!riscv.reg) -> ()
 }) : () -> ()
 
-// CHECK: riscv_cf.func: Expected 0 operands
+// CHECK: riscv_cf.func: Expected 0 operand(s)

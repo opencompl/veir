@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // A rotate (funnel shift with identical data operands) by a constant amount
 // selects to riscv.rori. There is no `roli`, so a rotate-left by C lowers to

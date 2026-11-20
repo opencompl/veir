@@ -38,7 +38,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   have bv_hw := le_of_le_of_eq_maskOfWidth w_le_bw (by decide) h_mw h_lit4_mask hw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-      eq_iff (o := 4),             -- Introduce `setWidth` to goal
+      eq_setWidth (o := 4),       -- Introduce `setWidth` to goal
       setWidth_add,       -- Push `setWidth` down add
       setWidth_setWidth,  -- Push `setWidth` down setWidth
       BitVec.setWidth_eq,         -- Remove redundant setWidths
@@ -89,7 +89,7 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
   have bv_q_lt_r := lt_of_lt_of_eq_maskOfWidth q_le_bw r_le_bw h_mq h_mr h_qr
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-    eq_iff (o := 8),
+    eq_setWidth (o := 8),
     setWidth_setWidth,
     BitVec.zeroExtend_eq_setWidth,
     BitVec.setWidth_eq,
@@ -142,7 +142,7 @@ theorem trace_zero_zero_extend_conj (p q r : Nat) (x : BitVec p)
     · apply lt_of_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq (And.right h)
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-    eq_iff (o := 8),
+    eq_setWidth (o := 8),
     setWidth_setWidth,
     BitVec.zeroExtend_eq_setWidth,
     BitVec.setWidth_eq,
@@ -195,9 +195,9 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   have bv_p_lt_q := lt_of_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq hpq
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-    eq_iff (o := 8),
-    msb_eq_and_signBitOfMask_maskOfWidth_ne_zero (o := 8),          -- Replace the sign bit test with a mask test
-    setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
+    eq_setWidth (o := 8),
+    msb_eq_and_signBitOfMask_ne_zero (o := 8),          -- Replace the sign bit test with a mask test
+    setWidth_signExtend,          -- Push `setWidth` down signExtend
     BitVec.zeroExtend_eq_setWidth,
     setWidth_setWidth,
     signBitOfMask_eq,                 -- Unfold, else `bv_decide` abstracts it away
@@ -205,7 +205,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
     p_le_bw,
     r_le_bw,
     q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition of
-                                   -- `setWidth_signExtend_eq_and_maskOfWidth`
+                                   -- `setWidth_signExtend`
     ← h_mr,
     ← h_mq,
     ← h_mp,
@@ -238,19 +238,19 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
   intro b h_bmw
 -- Step 5: Convert width hypothesis to mask hypothesis.
   have mw_mask := and_add_one_eq_zero_of_maskOfWidth h_mw
-  have w_add_w_mask := add_eq_shift_sum_of_maskOfWidth w_le_bw w_le_bw w_add_w_le_bw h_mw h_mw h_mw_add_w
+  have w_add_w_mask := add_eq_shiftLeft_of_maskOfWidth w_le_bw w_le_bw w_add_w_le_bw h_mw h_mw h_mw_add_w
 -- Step 5B: Translate the width precondition `w ≤ 8` into `mw ≤ BitVec.ofNat 16 (2 ^ 8 - 1)`
   let lit8 : BitVec 16 := 255#16
   have h_lit8_mask : lit8 = maskOfWidth 16 8 := by rfl
   have bv_hw := le_of_le_of_eq_maskOfWidth w_le_bw (by decide) h_mw h_lit8_mask hw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down.
   simp only [
-    eq_iff (o := 16),
+    eq_setWidth (o := 16),
     setWidth_add,
-    setWidth_append_eq_or_mul_maskOfWidth_add_one (o := 16),
+    setWidth_append (o := 16),
     setWidth_setWidth,
     w_add_w_le_bw,                 -- Lets simp discharge the `v + w ≤ o` side condition of
-                                   -- `setWidth_append_eq_or_mul_maskOfWidth_add_one`.
+                                   -- `setWidth_append`.
     w_le_bw,
     ← h_mw,
     ← h_mw_add_w,
@@ -258,5 +258,59 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
   ]
 -- Step 7: Rewrite the mask into the hypotheses too.
   clear h_mw h_amw h_bmw h_mw_add_w w_le_bw w_add_w_le_bw
+-- Step 8: BitBlast!
+  bv_decide
+
+/-- A pair of bitvectors, to have `BitVec` terms that are not free variables. -/
+structure TraceBVPair (w : Nat) where
+  fst : BitVec w
+  snd : BitVec w
+
+/-- Manual trace of the a theorem where the bitvectors and not fvars. -/
+theorem trace_leaf_masks (p q r : Nat) (a : TraceBVPair p)
+  (hr : r ≤ 8)
+  (hqr : q < r)
+  (hpq : p ≤ q)
+  (h : a.fst = a.snd) :
+  (a.fst.zeroExtend q).zeroExtend r = a.snd.zeroExtend r
+  := by
+-- Step 1: Bound widths to the provided blast width
+  have r_le_bw : r ≤ 8 := by grind
+  have q_le_bw : q ≤ 8 := by grind
+  have p_le_bw : p ≤ 8 := by grind
+-- Step 2-3: Introduce mask to replace `w` Nat var
+  apply width_elim 8 r
+  intro mr h_mr
+  apply width_elim 8 q
+  intro mq h_mq
+  apply width_elim 8 p
+  intro mp h_mp
+-- Step 4: revert the hypotheses mentioning parametric `BitVec`s, so that they
+--         are lifted together with the goal.
+  revert h
+-- Step 5: Convert width hypothesis to mask hypothesis
+  have mr_mask := and_add_one_eq_zero_of_maskOfWidth h_mr
+  have mq_mask := and_add_one_eq_zero_of_maskOfWidth h_mq
+  have mp_mask := and_add_one_eq_zero_of_maskOfWidth h_mp
+-- Step 5B: Translate the condition on the natural number width
+--          into a fact about the bitvector masks
+  let lit8 : BitVec 8 := 255#8
+  have h_lit8_mask : lit8 = maskOfWidth 8 8 := by rfl
+  have bv_hr := le_of_le_of_eq_maskOfWidth r_le_bw (by decide) h_mr h_lit8_mask hr
+  have bv_p_le_q := le_of_le_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq hpq
+  have bv_q_lt_r := lt_of_lt_of_eq_maskOfWidth q_le_bw r_le_bw h_mq h_mr hqr
+-- Step 6: Lift the premise and the conclusion, and push the `setWidth`s down.
+  simp only [
+    eq_setWidth (o := 8),
+    setWidth_setWidth,
+    BitVec.zeroExtend_eq_setWidth,
+    p_le_bw,
+    q_le_bw,
+    r_le_bw,
+  ]
+-- Step 7: Convert any leftover setWidths into their masked version
+  simp +singlePass only [setWidth_toMask, p_le_bw]
+  simp only [← h_mq, ← h_mp, ← h_mr]
+  clear h_mp h_mq h_mr r_le_bw q_le_bw p_le_bw h_lit8_mask
 -- Step 8: BitBlast!
   bv_decide

@@ -31,7 +31,7 @@ inductive Riscv_Cf where
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Riscv_Cf.propertiesOf (op : Riscv_Cf) : Type :=
 match op with
 | .func => RISCVFuncProperties
@@ -53,8 +53,7 @@ def Riscv_Cf.fromAttrDict
   case func => exact RISCVFuncProperties.fromAttrDict attrDict
   case call => exact RISCVCallProperties.fromAttrDict attrDict
   case «return» =>
-    exact if attrDict.isEmpty then .ok ()
-      else .error "riscv_cf.return: expected no properties"
+    exact expectNoProperties "riscv_cf.return" attrDict
   case beq | bne | blt | bge | bltu | bgeu | beqz | bnez =>
     exact RISCVBrProperties.fromAttrDict attrDict
   all_goals exact .ok ()
@@ -114,13 +113,41 @@ instance : IsOpCode Riscv_Cf where
   fromAttrDict := Riscv_Cf.fromAttrDict
   toAttrDict := Riscv_Cf.toAttrDict
 
+def Riscv_Cf.symbolInterface? (op : Riscv_Cf) :
+    Option (SymbolOpInterface (Riscv_Cf.propertiesOf op)) :=
+  match op with
+  | .func => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def Riscv_Cf.functionInterface? (op : Riscv_Cf) :
     Option (FunctionOpInterface (Riscv_Cf.propertiesOf op)) :=
   match op with
   | .func => some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type
+      { getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType => { props with function_type := functionType } }
+  | _ => none
+
+/--
+`riscv_cf.call` calls the function it names, or else the one whose address is its first operand.
+-/
+def Riscv_Cf.callInterface : CallOpInterface RISCVCallProperties where
+  getCallableForCallee? props operands :=
+    match props.callee with
+    | some callee => some (.symbol callee)
+    | none => operands[0]?.map .value
+  getArgOperands props operands := if props.callee.isSome then operands else operands.extract 1
+
+def Riscv_Cf.callOpInterface? (op : Riscv_Cf) :
+    Option (CallOpInterface (Riscv_Cf.propertiesOf op)) :=
+  match op with
+  | .call => some Riscv_Cf.callInterface
+  | _ => none
+
+def Riscv_Cf.unconditionalBranch? (op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf op) :
+    Option (OpKind Riscv_Cf) :=
+  match op with
+  | .branch | .beqz | .bnez | .beq | .bne | .blt | .bge | .bltu | .bgeu =>
+    some ⟨.branch, ()⟩
   | _ => none
 
 def Riscv_Cf.branchOpInterface?
@@ -131,85 +158,85 @@ def Riscv_Cf.branchOpInterface?
       getSuccessorOperandsImpl? := fun _ operands successorIndex => do
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
-      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorIndexForOperandsImpl? := fun _ _ => some 0
     }
   | .beqz =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg condition) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition.val = 0#64)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition.val = 0#64))
     }
   | .bnez =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg condition) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition.val ≠ 0#64)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition.val ≠ 0#64))
     }
   | .beq =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (lhs = rhs)
+        some (BranchOpInterface.getConditionalSuccessorIndex (lhs = rhs))
     }
   | .bne =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (lhs ≠ rhs)
+        some (BranchOpInterface.getConditionalSuccessorIndex (lhs ≠ rhs))
     }
   | .blt =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (BitVec.slt lhs.val rhs.val)
+        some (BranchOpInterface.getConditionalSuccessorIndex (BitVec.slt lhs.val rhs.val))
     }
   | .bge =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (!BitVec.slt lhs.val rhs.val)
+        some (BranchOpInterface.getConditionalSuccessorIndex (!BitVec.slt lhs.val rhs.val))
     }
   | .bltu =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (BitVec.ult lhs.val rhs.val)
+        some (BranchOpInterface.getConditionalSuccessorIndex (BitVec.ult lhs.val rhs.val))
     }
   | .bgeu =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (!BitVec.ult lhs.val rhs.val)
+        some (BranchOpInterface.getConditionalSuccessorIndex (!BitVec.ult lhs.val rhs.val))
     }
   | .func | .unreachable | .call | .return => none
 
@@ -250,67 +277,55 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .func => do
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "riscv_cf.func: Expected 1 region"
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "riscv_cf.func: Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "riscv_cf.func: Expected 0 results"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "riscv_cf.func: Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     let ft := (op.getProperties! ctx.raw Riscv_Cf.func).function_type
     for ty in ft.inputs ++ ft.outputs do
       let .registerType _ := ty
         | throw "riscv_cf.func: Expected register types in function signature"
-    let body := op.getRegion! ctx.raw 0
-    if let some entry := (body.get! ctx.raw).firstBlock then
-      if entry.getNumArguments! ctx.raw ≠ ft.inputs.size then
-        throw "riscv_cf.func: Entry block argument count does not match function signature"
-      for i in [0:ft.inputs.size] do
-        if ((entry.getArgument i).get! ctx.raw).type.val ≠ ft.inputs[i]! then
-          throw s!"riscv_cf.func: Entry block argument {i} type does not match function signature"
-  | .branch =>
+    -- The entry block arguments are checked by the `FunctionOpInterface` verifier.
+  | .branch => do
     op.verifyUnconditionalBranch ctx opIn
+    op.verifyRISCVRegisterTypes ctx opIn
   | .beq => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.beq).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bne => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bne).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .blt => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.blt).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bge => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bge).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bltu => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bltu).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bgeu => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bgeu).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .beqz => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.beqz).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bnez => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bnez).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .unreachable =>
     op.verifyPlainOpCounts ctx opIn 0 0
   -- Calls are variadic in their register arguments and results; control
@@ -432,7 +447,10 @@ instance : HasOpInfo Riscv_Cf where
   getEffects := Riscv_Cf.getEffects
   isConstantLike := Riscv_Cf.isConstantLike
   branchOpInterface? := Riscv_Cf.branchOpInterface?
+  unconditionalBranch? := Riscv_Cf.unconditionalBranch?
+  symbolInterface? := Riscv_Cf.symbolInterface?
   functionInterface? := Riscv_Cf.functionInterface?
+  callOpInterface? := Riscv_Cf.callOpInterface?
   hasSSADominance := Riscv_Cf.hasSSADominance
   isTerminator := Riscv_Cf.isTerminator
   isIsolatedFromAbove := Riscv_Cf.isIsolatedFromAbove

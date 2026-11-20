@@ -75,7 +75,7 @@ m5 m4 . m3 m2 m1 m0
             guard bit index.
             guardBitIndex = 2 = (lsbIndex - 1) = k:4 - prec:1 - 1`
                 |
-                sticky bits indeces = [m1, m0]
+                sticky bit indices = [m1, m0]
 
 -/
 
@@ -147,7 +147,7 @@ We write it in format `(e, s)`, as an `EDyadic`.
 - if `x` is nonzero finite and already at target precision (`k ≤ prec`): `lower = x`
 - if `x` is nonzero finite and not at target precision, we truncate `mag`: `lower = mag.truncate (k - prec) · 2^(-prec)`.
 - if `x` underflows, i.e., the truncation is zero: `lower = +0`, recall that both `-0` and `+0` map to the
-  real`0`, and we pick `+0` as `+0` is the greatest value `≤ 0`.
+  real `0`, and we pick `+0` as `+0` is the greatest value `≤ 0`.
 -/
 private def computeLowerNonneg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
   if isOverflow mag k e then
@@ -234,8 +234,8 @@ private def computeUpper (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : 
 These predicates classify `x`'s position within the interval `[lower, upper]`.
 
 - `computeIsLowerHalf` checks whether `x` is strictly closer to `lower` than `upper`.
-- `computeIsTieBreak` checks whether`x` is exactly at the midpoint.
-- `computeIsLowerEven` / `computeIsUpperEven` checks whether the `lower` / `upper` candidat
+- `computeIsTieBreak` checks whether `x` is exactly at the midpoint.
+- `computeIsLowerEven` / `computeIsUpperEven` check whether the `lower` / `upper` candidates
   have even magnitude (i.e. the lsb of the significand is zero).
   This is used for RNE rounding.
 -/

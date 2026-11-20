@@ -1,8 +1,10 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: CTREE
 // RUN: ALIVE_EXEC
+// RUN: LLUBI_CHECK
 
-// LLUBI: cannot cross-check this test: it returns a pointer, which the
-// comparison does not know how to read.
+// llubi gives a load of uninitialized memory an arbitrary value, here a
+// pointer, rather than poison.
 
 
 // A ptr value loaded from a stack-allocated pointer that was never written to
@@ -18,3 +20,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[poison]
+// LLUBI: Program output: #[ptr]

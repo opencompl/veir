@@ -19,7 +19,7 @@ inductive Cf where
 | cond_br
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Cf.propertiesOf (op : Cf) : Type :=
 match op with
 | .cond_br => CondBrProperties
@@ -69,6 +69,10 @@ instance : IsOpCode Cf where
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
 
+def Cf.unconditionalBranch? (op : Cf) (_props : Cf.propertiesOf op) : Option (OpKind Cf) :=
+  match op with
+  | .br | .cond_br => some ⟨.br, ()⟩
+
 def Cf.branchOpInterface? (op : Cf) : Option (BranchOpInterface (Cf.propertiesOf op)) :=
   match op with
   | .br =>
@@ -76,16 +80,16 @@ def Cf.branchOpInterface? (op : Cf) : Option (BranchOpInterface (Cf.propertiesOf
       getSuccessorOperandsImpl? := fun _ operands successorIndex => do
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
-      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorIndexForOperandsImpl? := fun _ _ => some 0
     }
   | .cond_br =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.int _ (.val condition)) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition ≠ 0))
     }
 
 /--
@@ -133,6 +137,7 @@ instance : HasOpInfo Cf where
   getEffects := Cf.getEffects
   isConstantLike := Cf.isConstantLike
   branchOpInterface? := Cf.branchOpInterface?
+  unconditionalBranch? := Cf.unconditionalBranch?
   hasSSADominance := Cf.hasSSADominance
   isTerminator := Cf.isTerminator
 

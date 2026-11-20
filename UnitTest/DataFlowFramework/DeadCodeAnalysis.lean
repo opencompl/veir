@@ -14,7 +14,7 @@ private def run
         return #[err]
     | Except.ok recovered =>
         checkNamedBlockLiveness dfCtx ctx recovered.blocks expectedBlockLives ++
-          checkNamedEdgeLiveness dfCtx recovered.blocks expectedEdgeLives)
+          checkNamedEdgeLiveness dfCtx ctx recovered.blocks expectedEdgeLives)
 
 private def testTopLevelAndFunctionEntryBlocksLive : String :=
   run

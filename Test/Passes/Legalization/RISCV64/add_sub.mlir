@@ -3,12 +3,16 @@
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
     %x_i32 = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32
-    // TODO: Legalize `i32` with LLVM's custom rule instead, so that `addw` can be selected.
+    // `i32` -> the `gmir_riscv` word operations on the any-extended operands, without the no-wrap
+    // flags (custom legalization).
     %add32 = "gmir.g_add"(%x_i32, %x_i32) <{overflowFlags = 3 : i32}> : (i32, i32) -> i32
-    // CHECK:      "gmir.g_anyext"({{.*}}) : (i32) -> i64
-    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i32) -> i64
-    // CHECK-NEXT: "gmir.g_add"({{.*}}) : (i64, i64) -> i64
-    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i32
+    // CHECK:      %[[X_I32:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
+    // CHECK-NEXT: %[[ADD_LHS:.*]] = "gmir.g_anyext"(%[[X_I32]]) : (i32) -> i64
+    // CHECK-NEXT: %[[ADD_RHS:.*]] = "gmir.g_anyext"(%[[X_I32]]) : (i32) -> i64
+    // CHECK-NEXT: %[[ADDW:.*]] = "gmir_riscv.g_addw"(%[[ADD_LHS]], %[[ADD_RHS]]) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"(%[[ADDW]]) : (i64) -> i32
+    %sub32 = "gmir.g_sub"(%x_i32, %x_i32) : (i32, i32) -> i32
+    // CHECK:      "gmir_riscv.g_subw"({{.*}}) : (i64, i64) -> i64
 
     %lhs = "llvm.mlir.constant"() <{value = 1 : i8}> : () -> i8
     %rhs = "llvm.mlir.constant"() <{value = 2 : i8}> : () -> i8
@@ -20,7 +24,7 @@
     // CHECK-NEXT: "gmir.g_sub"(%[[WIDE_LHS]], %[[WIDE_RHS]]) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i8
 
-    // Widths that are not a power of two are widened to `i64` directly.
+    // Widths that are not a power of two are widened to `i64`.
     %x_i3 = "llvm.mlir.constant"() <{value = 1 : i3}> : () -> i3
     %add3 = "gmir.g_add"(%x_i3, %x_i3) : (i3, i3) -> i3
     // CHECK:      "gmir.g_anyext"({{.*}}) : (i3) -> i64
@@ -28,7 +32,7 @@
     // CHECK-NEXT: "gmir.g_add"({{.*}}) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i3
 
-    "test.test"(%add32, %sub, %add3) : (i32, i8, i3) -> ()
+    "test.test"(%add32, %sub32, %sub, %add3) : (i32, i32, i8, i3) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

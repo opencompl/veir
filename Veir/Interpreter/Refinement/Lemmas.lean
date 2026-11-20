@@ -3,6 +3,7 @@ module
 public import Veir.Interpreter.Refinement.Basic
 
 import all Veir.Interpreter.Refinement.Basic
+import Veir.Data.LLVM.Ptr.Lemmas
 
 public section
 
@@ -44,16 +45,33 @@ theorem RuntimeValue.arrayIsRefinedBy_cons {a b : RuntimeValue} {as bs : List Ru
   · grind
 
 @[simp, grind .]
-theorem MemoryObject.isRefinedBy_refl (m : MemoryObject) :
-    m ⊒ m := by
-  refine ⟨rfl, ?_⟩
+theorem MemoryByte.isRefinedBy_refl (b : MemoryByte) : b ⊒ b := by
+  simp only [MemoryByte.isRefinedBy]
   bv_normalize
   grind
 
 @[simp, grind .]
 theorem MemoryState.isRefinedBy_refl (m : MemoryState) :
     m ⊒ m :=
-  ⟨rfl, fun _ => MemoryObject.isRefinedBy_refl _⟩
+  ⟨⟨rfl, fun _ => MemoryByte.isRefinedBy_refl _⟩, rfl⟩
+
+/-- Refinement preserves memory-object identities and layout. -/
+theorem MemoryState.isRefinedBy.objects_eq {source target : MemoryState}
+    (refines : source ⊒ target) : source.objects = target.objects := refines.1.1
+
+/-- Refinement preserves the symbol-to-object table. -/
+theorem MemoryState.isRefinedBy.globals_eq {source target : MemoryState}
+    (refines : source ⊒ target) : source.globals = target.globals := refines.2
+
+/-- Each stored byte becomes at least as defined. -/
+theorem MemoryState.isRefinedBy.byte_refines {source target : MemoryState}
+    (refines : source ⊒ target) (address : UInt64) : source.byte address ⊒ target.byte address :=
+  refines.1.2 address
+
+/-- Exact memory agreement is a special case of memory refinement. -/
+theorem MemoryState.isRefinedBy_of_eq {source target : MemoryState} (same : source = target) : source ⊒ target := by
+  subst target
+  exact MemoryState.isRefinedBy_refl source
 
 @[simp, grind .]
 theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) : r ⊒ r := by
@@ -75,6 +93,20 @@ theorem InterpreterState.isRefinedBy_refl
     {ctx : WfIRContext OpInfo} {state : InterpreterState ctx} :
     state.isRefinedBy state id := by
   grind [InterpreterState.isRefinedBy, VariableState.isRefinedBy]
+
+@[simp, grind .]
+theorem VariableState.isRefinedByAt_refl
+    {ctx : WfIRContext OpInfo} (state : VariableState ctx) (point : RefinementPoint)
+    (pointIn : point.InBounds ctx.raw) :
+    state.isRefinedByAt state id point point pointIn pointIn := by
+  grind [VariableState.isRefinedByAt]
+
+@[simp, grind .]
+theorem InterpreterState.isRefinedByAt_refl
+    {ctx : WfIRContext OpInfo} (state : InterpreterState ctx) (point : RefinementPoint)
+    (pointIn : point.InBounds ctx.raw) :
+    state.isRefinedByAt state id point point pointIn pointIn :=
+  ⟨MemoryState.isRefinedBy_refl _, VariableState.isRefinedByAt_refl _ _ pointIn⟩
 
 @[simp, grind .]
 theorem ControlFlowAction.isRefinedBy_refl (cf : ControlFlowAction) : cf ⊒ cf := by
@@ -104,23 +136,19 @@ theorem Interp.isRefinedBy_refl_operationResult
 theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
     (h12 : v₁ ⊒ v₂) (h23 : v₂ ⊒ v₃) : v₁ ⊒ v₃ := by
   cases v₁ <;>
-    grind [RuntimeValue.isRefinedBy, isRefinedBy_trans,
+    grind [RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy_trans,
       cases RuntimeValue, LLVM.Byte.isRefinedBy_trans]
 
-theorem MemoryObject.isRefinedBy_trans {m1 m2 m3 : MemoryObject}
-    (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 := by
-  obtain ⟨hb12, h12⟩ := h12
-  obtain ⟨hb23, h23⟩ := h23
-  refine ⟨hb12.trans hb23, ?_⟩
-  intro addr
-  specialize h12 addr
-  specialize h23 addr
+theorem MemoryByte.isRefinedBy_trans {b1 b2 b3 : MemoryByte}
+    (h12 : b1 ⊒ b2) (h23 : b2 ⊒ b3) : b1 ⊒ b3 := by
+  simp only [MemoryByte.isRefinedBy] at *
   bv_normalize
   grind
 
 theorem MemoryState.isRefinedBy_trans {m1 m2 m3 : MemoryState}
     (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 :=
-  ⟨h12.1.trans h23.1, fun i => MemoryObject.isRefinedBy_trans (h12.2 i) (h23.2 i)⟩
+  ⟨⟨h12.1.1.trans h23.1.1, fun addr => MemoryByte.isRefinedBy_trans (h12.1.2 addr) (h23.1.2 addr)⟩,
+    h12.2.trans h23.2⟩
 
 theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
     (h12 : a ⊒ b) (h23 : b ⊒ c) : a ⊒ c := by
@@ -128,7 +156,30 @@ theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
 
 theorem FunctionResult.isRefinedBy_trans {r₁ r₂ r₃ : MemoryState × Array RuntimeValue}
     (h12 : r₁ ⊒ r₂) (h23 : r₂ ⊒ r₃) : r₁ ⊒ r₃ := by
-  grind [FunctionResult.isRefinedBy, RuntimeValue.arrayIsRefinedBy_trans]
+  exact ⟨MemoryState.isRefinedBy_trans h12.1 h23.1, RuntimeValue.arrayIsRefinedBy_trans h12.2 h23.2⟩
+
+theorem ControlFlowAction.isRefinedBy_trans {a b c : ControlFlowAction}
+    (ab : a ⊒ b) (bc : b ⊒ c) : a ⊒ c := by
+  cases a <;> cases b <;> cases c <;>
+    simp only [ControlFlowAction.isRefinedBy] at ab bc ⊢ <;>
+    grind [RuntimeValue.arrayIsRefinedBy_trans]
+
+theorem ControlFlowAction.optionIsRefinedBy_trans {a b c : Option ControlFlowAction}
+    (ab : ControlFlowAction.optionIsRefinedBy a b)
+    (bc : ControlFlowAction.optionIsRefinedBy b c) :
+    ControlFlowAction.optionIsRefinedBy a c := by
+  cases a <;> cases b <;> cases c <;>
+    simp_all only [ControlFlowAction.optionIsRefinedBy] <;>
+    grind [ControlFlowAction.isRefinedBy_trans]
+
+/-- Operation-result refinement composes through values, memory, and control flow. -/
+theorem OperationResult.isRefinedBy_trans
+    {a b c : Array RuntimeValue × MemoryState × Option ControlFlowAction}
+    (ab : OperationResult.isRefinedBy a b) (bc : OperationResult.isRefinedBy b c) :
+    OperationResult.isRefinedBy a c :=
+  ⟨RuntimeValue.arrayIsRefinedBy_trans ab.1 bc.1,
+    MemoryState.isRefinedBy_trans ab.2.1 bc.2.1,
+    ControlFlowAction.optionIsRefinedBy_trans ab.2.2 bc.2.2⟩
 
 theorem Interp.isRefinedBy_trans {α : Type} {R : α → α → Prop}
     (hR : ∀ a b c, R a b → R b c → R a c)
@@ -191,11 +242,29 @@ theorem RuntimeValue.float_of_isRefinedBy {ty : FloatType} {v : Data.Float.Float
     tv = RuntimeValue.float ty v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
+/-- A non-poison pointer value is refined only by itself. -/
+theorem RuntimeValue.addr_val_isRefinedBy_iff {p : Data.Pointer} {tv : RuntimeValue} :
+    RuntimeValue.addr (.val p) ⊒ tv ↔ tv = RuntimeValue.addr (.val p) := by
+  cases tv <;> simp only [RuntimeValue.isRefinedBy, reduceCtorEq, RuntimeValue.addr.injEq]
+  exact Data.LLVM.Ptr.val_isRefinedBy_iff
+
+/-- A non-poison integer value is refined only by itself. -/
+@[simp]
+theorem RuntimeValue.int_val_isRefinedBy_iff {bw : Nat} {v : BitVec bw} {tv : RuntimeValue} :
+    RuntimeValue.int bw (.val v) ⊒ tv ↔ tv = RuntimeValue.int bw (.val v) := by
+  cases tv <;> grind [RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy_eq, cases Data.LLVM.Int]
+
 /-- A runtime value `tv` that refines a register runtime value `v` is equal to it. -/
 theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
     (h : RuntimeValue.reg v ⊒ tv) :
     tv = RuntimeValue.reg v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
+
+/-- An array of one value is refined by the arrays of one value that refines it. -/
+@[simp]
+theorem RuntimeValue.singleton_isRefinedBy_iff {v : RuntimeValue} {b : Array RuntimeValue} :
+    #[v] ⊒ b ↔ ∃ w, b = #[w] ∧ v ⊒ w := by
+  cases b; grind [arrayIsRefinedBy, List.length_eq_one_iff]
 
 /--
 A register runtime value can only be refined by itself, so operand arrays that consist purely of
@@ -204,6 +273,15 @@ registers are refined only by themselves.
 theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
     (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
   grind [arrayIsRefinedBy, reg_of_isRefinedBy, Array.getElem_mem]
+
+/-- `target`, a refinement of `source`, conforms to every type `source` conforms to. -/
+theorem RuntimeValue.Conforms.of_isRefinedBy {source target : RuntimeValue}
+    {type : TypeAttr} (hConforms : source.Conforms type) (hRefined : source ⊒ target) :
+    target.Conforms type := by
+  obtain ⟨attr, hattr⟩ := type
+  cases source <;> cases target <;> simp only [RuntimeValue.isRefinedBy] at hRefined <;>
+    cases attr <;>
+    simp_all only [RuntimeValue.Conforms, Ptr.isRefinedBy, dite_false_right, true_and] <;> grind
 
 /-! ## Interp refinements -/
 
@@ -272,19 +350,10 @@ open Veir.Data.LLVM
 /-- The least value both refine to, if there is one. -/
 @[expose] def RuntimeValue.glb? : RuntimeValue → RuntimeValue → Option RuntimeValue
   | .int w x, .int w' y =>
-    if h : w = w' then
-      match x.cast h, y with
-      | .poison, y => some (.int w' y)
-      | x, .poison => some (.int w' x)
-      | .val a, .val b => if a = b then some (.int w' (.val a)) else none
-    else none
+    if h : w = w' then ((x.cast h).glb? y).map (.int w') else none
   | .byte w x, .byte w' y =>
     if h : w = w' then ((x.cast h).glb? y).map (.byte w') else none
-  | .addr p, .addr q =>
-    match p, q with
-    | .poison, q => some (.addr q)
-    | p, .poison => some (.addr p)
-    | .val a, .val b => if a = b then some (.addr (.val a)) else none
+  | .addr p, .addr q => (p.glb? q).map .addr
   | c, d => if c = d then some c else none
 
 /-- `RuntimeValue.glb?` is a lower bound: what it returns refines both values. -/
@@ -295,9 +364,10 @@ theorem RuntimeValue.glb?_isRefinedBy {c d m : RuntimeValue} (h : c.glb? d = som
     split at h
     · next hw =>
       subst hw
-      simp only [Data.LLVM.Int.cast_self] at h
-      split at h <;> (try split at h) <;> cases h <;>
-        simp_all [RuntimeValue.isRefinedBy, _root_.isRefinedBy_eq, Data.LLVM.Int.cast_self]
+      simp only [Data.LLVM.Int.cast_self, Option.map_eq_some_iff] at h
+      obtain ⟨m, hm, rfl⟩ := h
+      obtain ⟨hx, hy⟩ := LLVM.Int.glb?_isRefinedBy hm
+      exact ⟨⟨rfl, by simpa using hx⟩, ⟨rfl, by simpa using hy⟩⟩
     · cases h
   case byte.byte w x w' y =>
     split at h
@@ -309,8 +379,8 @@ theorem RuntimeValue.glb?_isRefinedBy {c d m : RuntimeValue} (h : c.glb? d = som
       exact ⟨⟨rfl, by simpa using hx⟩, ⟨rfl, by simpa using hy⟩⟩
     · cases h
   case addr.addr p q =>
-    split at h <;> (try split at h) <;> cases h <;>
-      simp_all [RuntimeValue.isRefinedBy] <;> split <;> simp_all
+    obtain ⟨m, hm, rfl⟩ := Option.map_eq_some_iff.mp h
+    exact LLVM.Ptr.glb?_isRefinedBy hm
   all_goals
     split at h
     · next he =>
@@ -329,16 +399,16 @@ theorem RuntimeValue.glb?_greatest {c d e : RuntimeValue} (hc : c ⊒ e) (hd : d
   case int.int.int w x w' y we z =>
     obtain ⟨rfl, hx⟩ := hc; obtain ⟨rfl, hy⟩ := hd
     simp only [Data.LLVM.Int.cast_self] at hx hy
-    cases x <;> cases y <;> cases z <;>
-      simp_all [RuntimeValue.glb?, RuntimeValue.isRefinedBy, _root_.isRefinedBy_eq,
-        Data.LLVM.Int.cast_self]
+    obtain ⟨m, hm, hme⟩ := LLVM.Int.glb?_greatest hx hy
+    exact ⟨.int _ m, by simp [RuntimeValue.glb?, hm], rfl, by simpa using hme⟩
   case byte.byte.byte w x w' y we z =>
     obtain ⟨rfl, hx⟩ := hc; obtain ⟨rfl, hy⟩ := hd
     simp only [Byte.cast_self] at hx hy
     obtain ⟨m, hm, hme⟩ := Byte.glb?_greatest hx hy
     exact ⟨.byte _ m, by simp [RuntimeValue.glb?, hm], rfl, by simpa using hme⟩
   case addr.addr.addr p q r =>
-    cases p <;> cases q <;> cases r <;> simp_all [RuntimeValue.glb?, RuntimeValue.isRefinedBy]
+    obtain ⟨m, hm, hme⟩ := LLVM.Ptr.glb?_greatest hc hd
+    exact ⟨.addr m, by simp [RuntimeValue.glb?, hm], hme⟩
   case reg.reg.reg =>
     subst hc; subst hd; exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
   case felt.felt.felt =>
@@ -357,12 +427,12 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
   case int.int w x w' y =>
     obtain ⟨rfl, h₁⟩ := h₁; obtain ⟨_, h₂⟩ := h₂
     simp only [Data.LLVM.Int.cast_self] at h₁ h₂
-    cases x <;> cases y <;> simp_all [_root_.isRefinedBy_eq]
+    rw [LLVM.Int.isRefinedBy_antisymm h₁ h₂]
   case byte.byte w x w' y =>
     obtain ⟨rfl, h₁⟩ := h₁; obtain ⟨_, h₂⟩ := h₂
     simp only [Byte.cast_self] at h₁ h₂
     rw [Byte.isRefinedBy_antisymm h₁ h₂]
-  case addr.addr p q => cases p <;> cases q <;> simp_all
+  case addr.addr p q => rw [Data.LLVM.Ptr.isRefinedBy_antisymm h₁ h₂]
   case reg.reg => rw [h₁]
   case felt.felt => obtain ⟨rfl, rfl⟩ := h₁; rfl
   case float.float =>

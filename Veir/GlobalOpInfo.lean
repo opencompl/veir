@@ -15,7 +15,7 @@ public section
   A type family that maps an operation code to the type of its properties.
   For operations that do not have any properties, the type is `Unit`.
 -/
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def _propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith op => Arith.propertiesOf op
@@ -35,12 +35,15 @@ match opCode with
 | .pdl op => PDL.propertiesOf op
 | .io op => Io.propertiesOf op
 | .gmir op => GMIR.propertiesOf op
+| .gmir_riscv op => GMIR_RISCV.propertiesOf op
 | .test op => Test.propertiesOf op
 | .felt op => Felt.propertiesOf op
 | .cir op => Cir.propertiesOf op
 | .include op => LLZK.Include.propertiesOf op
 | .function op => LLZK.Function.propertiesOf op
 | .seq op => Seq.propertiesOf op
+| .tensor op => Tensor.propertiesOf op
+| .smt op => SMT.propertiesOf op
 
 /--
   What are the memory effects of an operation with this opcode and these
@@ -66,12 +69,15 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .pdl op, props => PDL.getEffects op props
   | .io op, props => Io.getEffects op props
   | .gmir op, props => GMIR.getEffects op props
+  | .gmir_riscv op, props => GMIR_RISCV.getEffects op props
   | .test op, props => Test.getEffects op props
   | .felt op, props => Felt.getEffects op props
   | .cir op, props => Cir.getEffects op props
   | .include op, props => LLZK.Include.getEffects op props
   | .function op, props => LLZK.Function.getEffects op props
   | .seq op, props => Seq.getEffects op props
+  | .tensor op, props => Tensor.getEffects op props
+  | .smt op, props => SMT.getEffects op props
 
 /-- Delegate folding to the operation's dialect-local `HasOpInfo` instance. -/
 def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
@@ -95,12 +101,15 @@ def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
   | .pdl op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .io op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .gmir op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .gmir_riscv op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .test op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .felt op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .cir op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .include op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .function op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .seq op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .tensor op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .smt op, props => HasOpInfo.tryFold op props resultTypes constantOperands
 
 /--
   Return the kind of the region with the given index inside this operation.
@@ -124,12 +133,15 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .pdl op => HasOpInfo.getRegionKind op index
   | .io op => HasOpInfo.getRegionKind op index
   | .gmir op => HasOpInfo.getRegionKind op index
+  | .gmir_riscv op => HasOpInfo.getRegionKind op index
   | .test op => HasOpInfo.getRegionKind op index
   | .felt op => HasOpInfo.getRegionKind op index
   | .cir op => HasOpInfo.getRegionKind op index
   | .include op => HasOpInfo.getRegionKind op index
   | .function op => HasOpInfo.getRegionKind op index
   | .seq op => HasOpInfo.getRegionKind op index
+  | .tensor op => HasOpInfo.getRegionKind op index
+  | .smt op => HasOpInfo.getRegionKind op index
 
 /--
   Whether definitions in the indexed region of this opcode must dominate
@@ -154,12 +166,15 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .pdl op => PDL.hasSSADominance op index
   | .io op => Io.hasSSADominance op index
   | .gmir op => GMIR.hasSSADominance op index
+  | .gmir_riscv op => GMIR_RISCV.hasSSADominance op index
   | .test op => Test.hasSSADominance op index
   | .felt op => Felt.hasSSADominance op index
   | .cir op => Cir.hasSSADominance op index
   | .include op => LLZK.Include.hasSSADominance op index
   | .function op => LLZK.Function.hasSSADominance op index
   | .seq op => Seq.hasSSADominance op index
+  | .tensor op => Tensor.hasSSADominance op index
+  | .smt op => SMT.hasSSADominance op index
 
 /--
   Whether the indexed region of this opcode is exempt from the requirement
@@ -185,12 +200,15 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .pdl op => HasOpInfo.hasNoTerminator op index
   | .io op => HasOpInfo.hasNoTerminator op index
   | .gmir op => HasOpInfo.hasNoTerminator op index
+  | .gmir_riscv op => HasOpInfo.hasNoTerminator op index
   | .test op => HasOpInfo.hasNoTerminator op index
   | .felt op => HasOpInfo.hasNoTerminator op index
   | .cir op => HasOpInfo.hasNoTerminator op index
   | .include op => HasOpInfo.hasNoTerminator op index
   | .function op => HasOpInfo.hasNoTerminator op index
   | .seq op => HasOpInfo.hasNoTerminator op index
+  | .tensor op => HasOpInfo.hasNoTerminator op index
+  | .smt op => HasOpInfo.hasNoTerminator op index
 
 /-- Whether this opcode carries MLIR's `IsolatedFromAbove` trait. -/
 def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
@@ -212,12 +230,45 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .pdl op => HasOpInfo.isIsolatedFromAbove op
   | .io op => HasOpInfo.isIsolatedFromAbove op
   | .gmir op => HasOpInfo.isIsolatedFromAbove op
+  | .gmir_riscv op => HasOpInfo.isIsolatedFromAbove op
   | .test op => HasOpInfo.isIsolatedFromAbove op
   | .felt op => HasOpInfo.isIsolatedFromAbove op
   | .cir op => HasOpInfo.isIsolatedFromAbove op
   | .include op => HasOpInfo.isIsolatedFromAbove op
   | .function op => HasOpInfo.isIsolatedFromAbove op
   | .seq op => HasOpInfo.isIsolatedFromAbove op
+  | .tensor op => HasOpInfo.isIsolatedFromAbove op
+  | .smt op => HasOpInfo.isIsolatedFromAbove op
+
+/-- Whether this opcode carries MLIR's `SymbolTable` trait. -/
+def OpCode.isSymbolTable (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isSymbolTable op
+  | .llvm op => HasOpInfo.isSymbolTable op
+  | .riscv op => HasOpInfo.isSymbolTable op
+  | .riscv_cf op => HasOpInfo.isSymbolTable op
+  | .riscv_stack op => HasOpInfo.isSymbolTable op
+  | .rv64 op => HasOpInfo.isSymbolTable op
+  | .mod_arith op => HasOpInfo.isSymbolTable op
+  | .cf op => HasOpInfo.isSymbolTable op
+  | .comb op => HasOpInfo.isSymbolTable op
+  | .hw op => HasOpInfo.isSymbolTable op
+  | .verif op => HasOpInfo.isSymbolTable op
+  | .builtin op => HasOpInfo.isSymbolTable op
+  | .func op => HasOpInfo.isSymbolTable op
+  | .datapath op => HasOpInfo.isSymbolTable op
+  | .pdl op => HasOpInfo.isSymbolTable op
+  | .io op => HasOpInfo.isSymbolTable op
+  | .gmir op => HasOpInfo.isSymbolTable op
+  | .gmir_riscv op => HasOpInfo.isSymbolTable op
+  | .test op => HasOpInfo.isSymbolTable op
+  | .felt op => HasOpInfo.isSymbolTable op
+  | .cir op => HasOpInfo.isSymbolTable op
+  | .include op => HasOpInfo.isSymbolTable op
+  | .function op => HasOpInfo.isSymbolTable op
+  | .seq op => HasOpInfo.isSymbolTable op
+  | .tensor op => HasOpInfo.isSymbolTable op
+  | .smt op => HasOpInfo.isSymbolTable op
 
 /--
   Does this OpCode count as an MLIR basic block terminator? Dialects that do
@@ -243,12 +294,15 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .pdl op => HasOpInfo.isTerminator op
   | .io op => HasOpInfo.isTerminator op
   | .gmir op => HasOpInfo.isTerminator op
+  | .gmir_riscv op => HasOpInfo.isTerminator op
   | .test op => HasOpInfo.isTerminator op
   | .felt op => HasOpInfo.isTerminator op
   | .cir op => HasOpInfo.isTerminator op
   | .include op => HasOpInfo.isTerminator op
   | .function op => HasOpInfo.isTerminator op
   | .seq op => HasOpInfo.isTerminator op
+  | .tensor op => HasOpInfo.isTerminator op
+  | .smt op => HasOpInfo.isTerminator op
 
 /--
   Does this `OpCode` materialize a literal constant value, i.e. an op
@@ -277,12 +331,15 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .pdl op => PDL.isConstantLike op
   | .io op => Io.isConstantLike op
   | .gmir op => GMIR.isConstantLike op
+  | .gmir_riscv op => GMIR_RISCV.isConstantLike op
   | .test op => Test.isConstantLike op
   | .felt op => Felt.isConstantLike op
   | .cir op => Cir.isConstantLike op
   | .include op => LLZK.Include.isConstantLike op
   | .function op => LLZK.Function.isConstantLike op
   | .seq op => Seq.isConstantLike op
+  | .tensor op => Tensor.isConstantLike op
+  | .smt op => SMT.isConstantLike op
 
 /--
   Does an operation with this opcode produce a wholly poisoned result whenever
@@ -307,12 +364,15 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .pdl op => HasOpInfo.propagatesPoison op
   | .io op => HasOpInfo.propagatesPoison op
   | .gmir op => HasOpInfo.propagatesPoison op
+  | .gmir_riscv op => HasOpInfo.propagatesPoison op
   | .test op => HasOpInfo.propagatesPoison op
   | .felt op => HasOpInfo.propagatesPoison op
   | .cir op => HasOpInfo.propagatesPoison op
   | .include op => HasOpInfo.propagatesPoison op
   | .function op => HasOpInfo.propagatesPoison op
   | .seq op => HasOpInfo.propagatesPoison op
+  | .tensor op => HasOpInfo.propagatesPoison op
+  | .smt op => SMT.propagatesPoison op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
@@ -334,12 +394,15 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .pdl op => PDL.fromAttrDict op attrDict
   | .io op => Io.fromAttrDict op attrDict
   | .gmir op => GMIR.fromAttrDict op attrDict
+  | .gmir_riscv op => GMIR_RISCV.fromAttrDict op attrDict
   | .test op => Test.fromAttrDict op attrDict
   | .felt op => Felt.fromAttrDict op attrDict
   | .cir op => Cir.fromAttrDict op attrDict
   | .include op => LLZK.Include.fromAttrDict op attrDict
   | .function op => LLZK.Function.fromAttrDict op attrDict
   | .seq op => Seq.fromAttrDict op attrDict
+  | .tensor op => Tensor.fromAttrDict op attrDict
+  | .smt op => SMT.fromAttrDict op attrDict
 
 /--
   Converts the properties of an operation into a dictionary of attributes.
@@ -365,12 +428,15 @@ def Properties.toAttrDict
   | .pdl op, props => PDL.toAttrDict op props
   | .io op, props => Io.toAttrDict op props
   | .gmir op, props => GMIR.toAttrDict op props
+  | .gmir_riscv op, props => GMIR_RISCV.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
   | .felt op, props => Felt.toAttrDict op props
   | .cir op, props => Cir.toAttrDict op props
   | .include op, props => LLZK.Include.toAttrDict op props
   | .function op, props => LLZK.Function.toAttrDict op props
   | .seq op, props => Seq.toAttrDict op props
+  | .tensor op, props => Tensor.toAttrDict op props
+  | .smt op, props => SMT.toAttrDict op props
 
 instance : IsOpCode OpCode where
   fromName := OpCode.fromName
@@ -378,6 +444,36 @@ instance : IsOpCode OpCode where
   propertiesOf := _propertiesOf
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
+
+/-- Symbol-interface information assembled from the registered dialects. -/
+def OpCode.symbolInterface? (opCode : OpCode) : Option (SymbolOpInterface (_propertiesOf opCode)) :=
+  match opCode with
+  | .arith op => HasOpInfo.symbolInterface? op
+  | .llvm op => HasOpInfo.symbolInterface? op
+  | .riscv op => HasOpInfo.symbolInterface? op
+  | .riscv_cf op => HasOpInfo.symbolInterface? op
+  | .riscv_stack op => HasOpInfo.symbolInterface? op
+  | .rv64 op => HasOpInfo.symbolInterface? op
+  | .mod_arith op => HasOpInfo.symbolInterface? op
+  | .cf op => HasOpInfo.symbolInterface? op
+  | .comb op => HasOpInfo.symbolInterface? op
+  | .hw op => HasOpInfo.symbolInterface? op
+  | .verif op => HasOpInfo.symbolInterface? op
+  | .builtin op => HasOpInfo.symbolInterface? op
+  | .func op => HasOpInfo.symbolInterface? op
+  | .datapath op => HasOpInfo.symbolInterface? op
+  | .pdl op => HasOpInfo.symbolInterface? op
+  | .io op => HasOpInfo.symbolInterface? op
+  | .gmir op => HasOpInfo.symbolInterface? op
+  | .gmir_riscv op => HasOpInfo.symbolInterface? op
+  | .test op => HasOpInfo.symbolInterface? op
+  | .felt op => HasOpInfo.symbolInterface? op
+  | .cir op => HasOpInfo.symbolInterface? op
+  | .include op => HasOpInfo.symbolInterface? op
+  | .function op => HasOpInfo.symbolInterface? op
+  | .seq op => HasOpInfo.symbolInterface? op
+  | .tensor op => HasOpInfo.symbolInterface? op
+  | .smt op => HasOpInfo.symbolInterface? op
 
 /-- Function-interface information assembled from the registered dialects. -/
 def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_propertiesOf opCode)) :=
@@ -399,12 +495,29 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .pdl op => HasOpInfo.functionInterface? op
   | .io op => HasOpInfo.functionInterface? op
   | .gmir op => HasOpInfo.functionInterface? op
+  | .gmir_riscv op => HasOpInfo.functionInterface? op
   | .test op => HasOpInfo.functionInterface? op
   | .felt op => HasOpInfo.functionInterface? op
   | .cir op => HasOpInfo.functionInterface? op
   | .include op => HasOpInfo.functionInterface? op
   | .function op => HasOpInfo.functionInterface? op
   | .seq op => HasOpInfo.functionInterface? op
+  | .tensor op => HasOpInfo.functionInterface? op
+  | .smt op => HasOpInfo.functionInterface? op
+
+theorem OpCode.functionInterface_requires_symbol {opCode : OpCode}
+    {f : FunctionOpInterface (_propertiesOf opCode)}
+    (h : OpCode.functionInterface? opCode = some f) :
+    (OpCode.symbolInterface? opCode).isSome := by
+  cases opCode <;> exact HasOpInfo.functionInterface_requires_symbol h
+
+theorem OpCode.functionInterface_getSymName_isSome {opCode : OpCode}
+    {f : FunctionOpInterface (_propertiesOf opCode)}
+    {symbolInterface : SymbolOpInterface (_propertiesOf opCode)}
+    (h : OpCode.functionInterface? opCode = some f)
+    (hs : OpCode.symbolInterface? opCode = some symbolInterface) {props : _propertiesOf opCode} :
+    (symbolInterface.getSymName props).isSome := by
+  cases opCode <;> exact HasOpInfo.functionInterface_getSymName_isSome h hs
 
 /-- Branch-interface information assembled from the registered dialects. -/
 def OpCode.branchOpInterface?
@@ -427,14 +540,84 @@ def OpCode.branchOpInterface?
   | .pdl op => HasOpInfo.branchOpInterface? op
   | .io op => HasOpInfo.branchOpInterface? op
   | .gmir op => HasOpInfo.branchOpInterface? op
+  | .gmir_riscv op => HasOpInfo.branchOpInterface? op
   | .test op => HasOpInfo.branchOpInterface? op
   | .felt op => HasOpInfo.branchOpInterface? op
   | .cir op => HasOpInfo.branchOpInterface? op
   | .include op => HasOpInfo.branchOpInterface? op
   | .function op => HasOpInfo.branchOpInterface? op
   | .seq op => HasOpInfo.branchOpInterface? op
+  | .tensor op => HasOpInfo.branchOpInterface? op
+  | .smt op => HasOpInfo.branchOpInterface? op
+
+/-- Call-interface information assembled from the registered dialects. -/
+def OpCode.callOpInterface?
+    (opCode : OpCode) : Option (CallOpInterface (_propertiesOf opCode)) :=
+  match opCode with
+  | .arith op => HasOpInfo.callOpInterface? op
+  | .llvm op => HasOpInfo.callOpInterface? op
+  | .riscv op => HasOpInfo.callOpInterface? op
+  | .riscv_cf op => HasOpInfo.callOpInterface? op
+  | .riscv_stack op => HasOpInfo.callOpInterface? op
+  | .rv64 op => HasOpInfo.callOpInterface? op
+  | .mod_arith op => HasOpInfo.callOpInterface? op
+  | .cf op => HasOpInfo.callOpInterface? op
+  | .comb op => HasOpInfo.callOpInterface? op
+  | .hw op => HasOpInfo.callOpInterface? op
+  | .verif op => HasOpInfo.callOpInterface? op
+  | .builtin op => HasOpInfo.callOpInterface? op
+  | .func op => HasOpInfo.callOpInterface? op
+  | .datapath op => HasOpInfo.callOpInterface? op
+  | .pdl op => HasOpInfo.callOpInterface? op
+  | .io op => HasOpInfo.callOpInterface? op
+  | .gmir op => HasOpInfo.callOpInterface? op
+  | .gmir_riscv op => HasOpInfo.callOpInterface? op
+  | .test op => HasOpInfo.callOpInterface? op
+  | .felt op => HasOpInfo.callOpInterface? op
+  | .cir op => HasOpInfo.callOpInterface? op
+  | .include op => HasOpInfo.callOpInterface? op
+  | .function op => HasOpInfo.callOpInterface? op
+  | .seq op => HasOpInfo.callOpInterface? op
+  | .tensor op => HasOpInfo.callOpInterface? op
+  | .smt op => HasOpInfo.callOpInterface? op
 
 #generate_has_dialect_instances OpCode
+
+/-- Unconditional-branch replacements assembled from the registered dialects. -/
+def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) :
+    Option (OpKind OpCode) :=
+  match opCode, props with
+  | .arith op, props => lift op props
+  | .llvm op, props => lift op props
+  | .riscv op, props => lift op props
+  | .riscv_cf op, props => lift op props
+  | .riscv_stack op, props => lift op props
+  | .rv64 op, props => lift op props
+  | .mod_arith op, props => lift op props
+  | .cf op, props => lift op props
+  | .comb op, props => lift op props
+  | .hw op, props => lift op props
+  | .verif op, props => lift op props
+  | .builtin op, props => lift op props
+  | .func op, props => lift op props
+  | .datapath op, props => lift op props
+  | .pdl op, props => lift op props
+  | .io op, props => lift op props
+  | .gmir op, props => lift op props
+  | .gmir_riscv op, props => lift op props
+  | .test op, props => lift op props
+  | .felt op, props => lift op props
+  | .cir op, props => lift op props
+  | .include op, props => lift op props
+  | .function op, props => lift op props
+  | .seq op, props => lift op props
+  | .tensor op, props => lift op props
+  | .smt op, props => lift op props
+where
+  lift {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode Dialect]
+      (op : Dialect) (props : propertiesOf op) : Option (OpKind OpCode) := do
+    let ⟨branch, branchProps⟩ ← HasOpInfo.unconditionalBranch? op props
+    return Materialized.of branch branchProps
 
 @[expose]
 def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
@@ -454,6 +637,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
     Riscv_Cf.verifyLocalInvariants OpCode.functionInterface? opType op ctx opIn
   | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
   | .gmir opType => GMIR.verifyLocalInvariants opType op ctx opIn
+  | .gmir_riscv opType => GMIR_RISCV.verifyLocalInvariants opType op ctx opIn
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
   | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
   | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
@@ -464,20 +648,59 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .include opType => LLZK.Include.verifyLocalInvariants opType op ctx opIn
   | .function opType => LLZK.Function.verifyLocalInvariants opType op ctx opIn
   | .seq opType => Seq.verifyLocalInvariants opType op ctx opIn
+  | .tensor opType => Tensor.verifyLocalInvariants opType op ctx opIn
+  | .smt opType => SMT.verifyLocalInvariants opType op ctx opIn
+
+/-- Delegate commutativity to the operation's dialect-local `HasOpInfo` instance. -/
+def OpCode.isCommutative (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isCommutative op
+  | .llvm op => HasOpInfo.isCommutative op
+  | .riscv op => HasOpInfo.isCommutative op
+  | .riscv_cf op => HasOpInfo.isCommutative op
+  | .riscv_stack op => HasOpInfo.isCommutative op
+  | .rv64 op => HasOpInfo.isCommutative op
+  | .mod_arith op => HasOpInfo.isCommutative op
+  | .cf op => HasOpInfo.isCommutative op
+  | .comb op => HasOpInfo.isCommutative op
+  | .hw op => HasOpInfo.isCommutative op
+  | .verif op => HasOpInfo.isCommutative op
+  | .builtin op => HasOpInfo.isCommutative op
+  | .func op => HasOpInfo.isCommutative op
+  | .datapath op => HasOpInfo.isCommutative op
+  | .pdl op => HasOpInfo.isCommutative op
+  | .io op => HasOpInfo.isCommutative op
+  | .gmir op => HasOpInfo.isCommutative op
+  | .gmir_riscv op => HasOpInfo.isCommutative op
+  | .test op => HasOpInfo.isCommutative op
+  | .felt op => HasOpInfo.isCommutative op
+  | .cir op => HasOpInfo.isCommutative op
+  | .include op => HasOpInfo.isCommutative op
+  | .function op => HasOpInfo.isCommutative op
+  | .seq op => HasOpInfo.isCommutative op
+  | .tensor op => HasOpInfo.isCommutative op
+  | .smt op => HasOpInfo.isCommutative op
 
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
   tryFold := OpCode.tryFold
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
+  isCommutative := OpCode.isCommutative
   propagatesPoison := OpCode.propagatesPoison
+  symbolInterface? := OpCode.symbolInterface?
   functionInterface? := OpCode.functionInterface?
+  functionInterface_requires_symbol := OpCode.functionInterface_requires_symbol
+  functionInterface_getSymName_isSome := OpCode.functionInterface_getSymName_isSome
+  callOpInterface? := OpCode.callOpInterface?
   branchOpInterface? := OpCode.branchOpInterface?
+  unconditionalBranch? := OpCode.unconditionalBranch?
   getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
   isTerminator := OpCode.isTerminator
   isIsolatedFromAbove := OpCode.isIsolatedFromAbove
+  isSymbolTable := OpCode.isSymbolTable
 
 /--
 Ask the dialect of `opCode` how to represent a folded
@@ -495,40 +718,15 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .mod_arith op => Mod_Arith.materializeConstant op value type
     | .riscv op => Riscv.materializeConstant op value type
     | .felt op => Felt.materializeConstant op value type
+    | .gmir op => GMIR.materializeConstant op value type
     -- Listed rather than folded into a catch-all so that adding a dialect
     -- fails to compile until it decides how, or whether, to materialize.
-    | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
+    | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .gmir_riscv _ | .cf _ | .builtin _
     | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .include _
-    | .function _ | .seq _ | .gmir _ => none
+    | .function _ | .seq _ | .tensor _ | .smt _ => none
   guard materialized.fst.isConstantLike
   return materialized
-
-/--
-  Is this `OpCode` commutative in its operands, i.e. `op x y` always
-  computes the same value as `op y x`?
--/
-def OpCode.isCommutative (opCode : OpCode) : Bool :=
-  match opCode with
-  | .arith .addi | .arith .muli
-  | .arith .andi | .arith .ori | .arith .xori
-  | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui
-  | .arith .addui_extended
-  | .arith .mulsi_extended | .arith .mului_extended
-  | .llvm .add | .llvm .mul
-  | .llvm .and | .llvm .or | .llvm .xor
-  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
-  | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
-  | .llvm .fadd | .llvm .fmul
-  | .riscv .add | .riscv .and | .riscv .or | .riscv .xor | .riscv .xnor
-  | .riscv .mul | .riscv .mulh | .riscv .mulhu
-  | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
-  | .riscv .addw | .riscv .mulw
-  | .mod_arith .add | .mod_arith .mul
-  | .felt .add | .felt .mul
-  | .felt .bit_and | .felt .bit_or | .felt .bit_xor
-  | .cir .add | .cir .mul | .cir .and | .cir .or | .cir .xor | .cir .min | .cir .max => true
-  | _ => false
 
 instance : HasCustomPrinting OpCode OpCode where
   customPrinter?

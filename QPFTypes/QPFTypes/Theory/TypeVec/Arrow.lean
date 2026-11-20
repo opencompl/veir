@@ -164,6 +164,7 @@ theorem dropFun_appendFun {α α' : TypeVec n} {β β' : Type _} (f : α ⟹ α'
 theorem lastFun_appendFun {α α' : TypeVec n} {β β' : Type _} (f : α ⟹ α') (g : β → β') :
     lastFun (f ::: g) = g := rfl
 
+@[simp, grind =]
 theorem split_dropFun_lastFun {α α' : TypeVec (n + 1)} (f : α ⟹ α') :
     splitFun (dropFun f) (lastFun f) = f :=
   eq_of_drop_last_eq rfl rfl

@@ -23,7 +23,7 @@ inductive Mod_Arith where
 | sub
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Mod_Arith.propertiesOf (op : Mod_Arith) : Type :=
 match op with
 | .constant => ModArithConstantProperties
@@ -49,6 +49,10 @@ def Mod_Arith.toAttrDict
 def Mod_Arith.getEffects
     (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : MemoryEffects :=
   .none
+
+def Mod_Arith.isCommutative : Mod_Arith → Bool
+  | .add | .mul => true
+  | _ => false
 
 def Mod_Arith.isConstantLike (op : Mod_Arith) : Bool :=
   match op with
@@ -109,7 +113,7 @@ def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [IsOpCode OpInfo]
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 0 1
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  let mat ← ((op.getResult 0).get! ctx.raw).type.verifyModArithType
+  let mat ← ((op.getResult 0).getType! ctx.raw).verifyModArithType
     s!"{instrName}: Expected result to have ModArithType"
   let value := (op.getProperties! ctx.raw Mod_Arith.constant).value.value
   let bw := mat.modulus.type.bitwidth
@@ -182,4 +186,5 @@ instance : HasOpInfo Mod_Arith where
   verifyLocalInvariants := Mod_Arith.verifyLocalInvariants
   getEffects := Mod_Arith.getEffects
   isConstantLike := Mod_Arith.isConstantLike
+  isCommutative := Mod_Arith.isCommutative
   hasSSADominance := Mod_Arith.hasSSADominance

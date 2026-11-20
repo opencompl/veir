@@ -8,6 +8,7 @@ public import Veir.IRNesting
 public import Veir.Interfaces.RegionIsolationInterfaces
 public import Veir.Interfaces.RegionKindInterfaces
 public import Veir.IR.Dominance
+public import Veir.Dominance.Basic
 
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
@@ -26,10 +27,10 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 -/
 def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let operation := op.get ctx.raw opIn
-  if operation.opType.isTerminator && operation.next.isSome then
+  let next := op.getNextOp ctx.raw opIn
+  if (op.getOpType ctx.raw opIn).isTerminator && next.isSome then
     throw "Expected a terminator to be the last operation of its block"
-  if op.getNumSuccessors ctx.raw opIn ≠ 0 && operation.next.isSome then
+  if op.getNumSuccessors ctx.raw opIn ≠ 0 && next.isSome then
     throw "operation with block successors must terminate its parent block"
 
 /--
@@ -60,12 +61,12 @@ def OperationPtr.verifyOperandIsolation
 -/
 def BlockPtr.mayBeValidWithoutTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Bool :=
-  match (block.get ctx.raw blockIn).parent with
+  match block.getParent ctx.raw blockIn with
   | none => true
   | some region =>
-    (region.get! ctx.raw).firstBlock = some block &&
-    (block.get ctx.raw blockIn).next.isNone &&
-    match (region.get! ctx.raw).parent with
+    region.getFirstBlock! ctx.raw = some block &&
+    (block.getNextBlock ctx.raw blockIn).isNone &&
+    match region.getParent! ctx.raw with
     | none => true
     | some _ => region.hasNoTerminator ctx
 
@@ -78,15 +79,14 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   if block.mayBeValidWithoutTerminator ctx blockIn then
     return
-  let b := block.get ctx.raw blockIn
   let named (msg : String) : String :=
-    match b.parent with
+    match block.getParent ctx.raw blockIn with
     | some region =>
-      match (region.get! ctx.raw).parent with
+      match region.getParent! ctx.raw with
       | some parentOp => s!"{String.fromUTF8! (parentOp.getOpType! ctx.raw).name}: {msg}"
       | none => msg
     | none => msg
-  match b.lastOp with
+  match block.getLastOp ctx.raw blockIn with
   | none => throw (named "Expected the block to end in a terminator, but the block is empty")
   | some lastOp =>
     if !(lastOp.getOpType! ctx.raw).isTerminator then
@@ -100,10 +100,9 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
 -/
 def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
-  let b := block.get ctx.raw blockIn
-  let some parent := b.parent | return
-  if (parent.get! ctx.raw).firstBlock ≠ some block then return
-  if b.firstUse.isSome then
+  let some parent := block.getParent ctx.raw blockIn | return
+  if parent.getFirstBlock! ctx.raw ≠ some block then return
+  if block.hasPredecessor ctx.raw blockIn then
     throw "entry block of region may not have predecessors"
 
 /-- Check that a `block` terminates and that, in case it is the entry block,
@@ -117,12 +116,11 @@ def BlockPtr.verifyBlock (block : BlockPtr) (ctx : WfIRContext OpCode)
     operation makes no promise about its regions, so it is exempt. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
   ctx.raw.regions.keys.all fun region =>
-    let isUnregistered := match (region.get! ctx.raw).parent with
+    let isUnregistered := match region.getParent! ctx.raw with
       | none => false
       | some parent => parent.getOpType! ctx.raw = .builtin .unregistered
     if region.getRegionKind ctx = .Graph && !isUnregistered then
-      let body := region.get! ctx.raw
-      body.firstBlock = body.lastBlock
+      region.getFirstBlock! ctx.raw = region.getLastBlock! ctx.raw
     else
       true
 
@@ -297,13 +295,13 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
 -/
 private def WfIRContext.verifyDominance
     (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
-  let some dfCtx := Veir.fixpointSolve root #[DominanceAnalysis] ctx
-    | throw "dominance analysis did not reach a fixpoint"
+  let dfCtx := DominanceAnalysis root .empty ctx
+  let positions := ctx.opPositions
   ctx.raw.forOpsDepM fun op opIn => do
-    let some block := (op.get ctx.raw opIn).parent | return
+    let some block := op.getParent ctx.raw opIn | return
     if !block.isReachable dfCtx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
-      if !value.properlyDominatesUse op dfCtx ctx then
+      if !value.properlyDominatesUse op dfCtx positions ctx then
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
         throw s!"{opName}: operand #{index} does not dominate this use"
 
@@ -326,10 +324,12 @@ def WfIRContext.verify
       (fun msg => if opName.isEmpty || msg.startsWith opName then msg else s!"{opName}: {msg}")
       (do
         op.verifyLocalInvariants ctx opIn
-        match (op.get ctx.raw opIn).parent with
+        match op.getParent ctx.raw opIn with
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
-        op.verifyOperandIsolation ctx opIn))
+        op.verifyOperandIsolation ctx opIn
+        if let some funcOp := FunctionOp.of? op ctx.raw then
+          funcOp.verifyTrait))
   ctx.raw.forBlocksDepM (fun block blockIn => block.verifyBlock ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyLLVMComdats
@@ -347,6 +347,12 @@ Assert that the IR context verifies successfully with `root` as the root operati
 def WfIRContext.Verified (ctx : WfIRContext OpCode) (root : OperationPtr) : Prop :=
   ctx.verify root = .ok ()
 
+/-- Soundness of the executable verifier's dominance analysis. -/
+axiom WfIRContext.Verified.dominance
+    {ctx : WfIRContext OpCode} {root : OperationPtr}
+    (verified : ctx.Verified root) :
+    ctx.Dom root
+
 /-- A verified context satisfies the same-parent successor check. -/
 private theorem WfIRContext.Verified.successorsHaveSameParent
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root) :
@@ -361,9 +367,9 @@ private theorem WfIRContext.Verified.successorsHaveSameParent
 theorem WfIRContext.Verified.successor_parent
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {source : BlockPtr} (sourceIn : source.InBounds ctx.raw)
-    (hsourceParent : (source.get! ctx.raw).parent = some region)
+    (hsourceParent : source.getParent! ctx.raw = some region)
     (hsuccessor : successor ∈ source.getSuccessors! ctx.raw) :
-    (successor.get! ctx.raw).parent = some region := by
+    successor.getParent! ctx.raw = some region := by
   have hcheck := ctxVerified.successorsHaveSameParent
   have hsourceKeys : source ∈ ctx.raw.blocks.keys := by grind [source.inBounds_def]
   grind [Array.getElem_of_mem hsuccessor, (List.all_eq_true.mp hcheck) source hsourceKeys]
@@ -384,10 +390,10 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
-    {parent : OperationPtr} (hregionParent : (region.get! ctx.raw).parent = some parent)
+    {parent : OperationPtr} (hregionParent : region.getParent! ctx.raw = some parent)
     (hparentRegistered : parent.getOpType! ctx.raw ≠ .builtin .unregistered)
     (hregionKind : region.getRegionKind ctx = .Graph) :
-    (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
+    region.getFirstBlock! ctx.raw = region.getLastBlock! ctx.raw := by
   have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
   have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
   have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
@@ -428,22 +434,21 @@ private theorem WfIRContext.Verified.verifyNoEntryBlockPredecessors_eq_ok
   exact hEntry
 
 /-- The entry block of a region in a verified context is not branched to. -/
-theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
+theorem WfIRContext.Verified.entryBlock_hasNoPredecessor
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) {region : RegionPtr}
-    (hParent : (block.get! ctx.raw).parent = some region)
-    (hFirstBlock : (region.get! ctx.raw).firstBlock = some block) :
-    (block.get! ctx.raw).firstUse = none := by
+    (hParent : block.getParent! ctx.raw = some region)
+    (hFirstBlock : region.getFirstBlock! ctx.raw = some block) :
+    block.hasPredecessor! ctx.raw = false := by
   have hCheck := ctxVerified.verifyNoEntryBlockPredecessors_eq_ok blockIn
-  have hParent' : (block.get ctx.raw blockIn).parent = some region := by grind
+  have hParent' : block.getParent ctx.raw blockIn = some region := by grind
   simp only [BlockPtr.verifyNoEntryBlockPredecessors, hParent', hFirstBlock, ne_eq,
     not_true_eq_false, ↓reduceIte] at hCheck
   split at hCheck
   · cases hCheck
   · rename_i hUse
-    have hGet : block.get! ctx.raw = block.get ctx.raw blockIn := by grind
-    rw [hGet]
-    cases hFirstUse : (block.get ctx.raw blockIn).firstUse <;> simp_all
+    rw [BlockPtr.hasPredecessor!_eq_hasPredecessor blockIn]
+    simpa using hUse
 
 /--
 Assert that a given operation satisfies its local invariants.
@@ -451,6 +456,16 @@ Assert that a given operation satisfies its local invariants.
 def OperationPtr.Verified (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds ctx.raw := by grind) : Prop :=
   op.verifyLocalInvariants ctx opInBounds = .ok ()
+
+/-- The opcode, declared types, and properties occur together on a locally verified operation. -/
+def IsFromVerifiedOp (opcode : OpCode) (operandTypes resultTypes : Array TypeAttr)
+    (properties : propertiesOf opcode) : Prop :=
+  ∃ (ctx : WfIRContext OpCode) (op : OperationPtr) (hin : op.InBounds ctx.raw),
+    op.Verified ctx hin ∧
+    op.getOpType! ctx.raw = opcode ∧
+    op.getOperandTypes! ctx.raw = operandTypes ∧
+    op.getResultTypes! ctx.raw = resultTypes ∧
+    op.getProperties! ctx.raw opcode = properties
 
 /--
 If the context satisfies the invariants of all operations, any operation in bounds is verified.
@@ -496,19 +511,18 @@ private theorem OperationPtr.verifyIntegerBinop_ok_of_Verified {op : OperationPt
   | ok u => rfl
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
 
-theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
-    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .constant) :
+theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds} {attr : IntegerAttr}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .constant)
+    (hProp : op.getProperties! ctx.raw Arith.constant = .int attr) :
     op.getNumResults! ctx.raw = 1 ∧
     op.getNumOperands! ctx.raw = 0 ∧
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
-    ((op.getResult 0).get! ctx.raw).type =
-      .of IntegerType (op.getProperties! ctx.raw Arith.constant).value.type := by
+    (op.getResult 0).getType! ctx.raw = .of IntegerType attr.type := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
-    OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts,
-    ← getOpType!_eq_getOpType, opType, ne_eq,
-    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
-    ite_not] at opVerify
+    OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, ← getOpType!_eq_getOpType, opType, hProp, ne_eq, bind, Except.bind,
+    throw, throwThe, MonadExceptOf.throw, pure, Except.pure, ite_not] at opVerify
   simp only [TypeAttr.inj]
   grind
 
@@ -518,15 +532,15 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .mlir__constant)
     (hProp : (op.getProperties! ctx.raw Llvm.mlir__constant).value = .integer intAttr) :
-    ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = Attribute.of IntegerType intTy := by
+    ∃ intTy : IntegerType, ((op.getResult 0).getType! ctx.raw).val = Attribute.of IntegerType intTy := by
   rw [Verified] at opVerify
   simp only [verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Llvm.verifyLocalInvariants,
     ← getOpType!_eq_getOpType, opType] at opVerify
   replace opVerify := Except.ok_of_bind_ok opVerify
-  simp only [verifyPlainOpCounts, hProp, ne_eq, bind, Except.bind, throw, throwThe,
-    MonadExceptOf.throw, pure, Except.pure] at opVerify
-  cases hty : ((op.getResult 0).get! ctx.raw).type.val with
+  simp only [verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts, hProp, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at opVerify
+  cases hty : ((op.getResult 0).getType! ctx.raw).val with
   | integerType intTy => exact ⟨intTy, by grind⟩
   | _ =>
     rw [hty] at opVerify
@@ -544,7 +558,7 @@ def OperationPtr.IsVerifiedIcmp (op : OperationPtr) (ctx : WfIRContext OpCode) :
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   (∃ i1ty : IntegerType,
-    ((op.getResult 0).get! ctx.raw).type.val = Attribute.of IntegerType i1ty ∧ i1ty.bitwidth = 1) ∧
+    ((op.getResult 0).getType! ctx.raw).val = Attribute.of IntegerType i1ty ∧ i1ty.bitwidth = 1) ∧
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
     = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val
 
@@ -552,9 +566,10 @@ def OperationPtr.IsVerifiedIcmp (op : OperationPtr) (ctx : WfIRContext OpCode) :
 private theorem OperationPtr.verifyLLVMICmp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMICmp ctx opInBounds = .ok ()) :
     op.IsVerifiedIcmp ctx := by
-  simp only [IsVerifiedIcmp, verifyLLVMICmp, verifyPlainOpCounts, verifyOperandTypesMatch,
-    TypeAttr.verifyIntegerOrPointerType, TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw,
-    throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIcmp, verifyLLVMICmp, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, verifyOperandTypesMatch, TypeAttr.verifyIntegerOrPointerType,
+    TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
+    Except.pure] at h ⊢
   split at h <;> (try split at h) <;> (try split at h) <;> (try split at h) <;> grind
 
 private theorem OperationPtr.verifyLLVMICmp_ok_of_Verified {op : OperationPtr} {opInBounds}
@@ -618,16 +633,16 @@ theorem OperationPtr.Verified.llvm_select {op : OperationPtr} {opInBounds}
 def OperationPtr.IsVerifiedLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
   op.getNumResults! ctx.raw = 1 ∧
   op.getNumOperands! ctx.raw = 2 ∧
-  ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ∧
+  ((op.getResult 0).getType! ctx.raw).val = ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ∧
   ∃ intType, ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .of IntegerType intType
 
 private theorem OperationPtr.verifyLLVMShift_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMShift ctx opInBounds = .ok ()) :
     op.IsVerifiedLLVMShift ctx := by
   simp only [IsVerifiedLLVMShift] at ⊢
-  simp [verifyLLVMShift, verifyPlainOpCounts, verifyResultTypeMatches,
-    TypeAttr.verifyIntegerType, TypeAttr.verifyIntegerOrByteType, bind, Except.bind, throw,
-    throwThe, MonadExceptOf.throw, pure, Except.pure] at h
+  simp [verifyLLVMShift, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
+    verifyResultTypeMatches, TypeAttr.verifyIntegerType, TypeAttr.verifyIntegerOrByteType, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h
   grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
 
 private theorem OperationPtr.verifyLLVMShift_ok_of_Verified {op : OperationPtr} {opInBounds}
@@ -788,8 +803,8 @@ theorem OperationPtr.Verified.llvm_mlir__constant {op : OperationPtr} {opInBound
     op.getNumRegions! ctx.raw = 0 := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType,
-    verifyPlainOpCounts, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
-    Except.pure] at opVerify
+    verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts, ne_eq, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at opVerify
   grind
 
 theorem OperationPtr.Verified.llvm_intr__smax {op : OperationPtr} {opInBounds}
@@ -1034,6 +1049,18 @@ theorem OperationPtr.Verified.llvm_mul {op : OperationPtr} {opInBounds}
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
   simp [← getOpType!_eq_getOpType, opType]
 
+theorem OperationPtr.Verified.llvm_intr__smulh {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__smulh) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__umulh {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__umulh) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
 theorem OperationPtr.Verified.llvm_sdiv {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sdiv) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
@@ -1064,7 +1091,7 @@ def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext 
   ∃ modArithType,
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
-    ((op.getResult 0).get! ctx.raw).type = .of ModArithType modArithType ∧
+    (op.getResult 0).getType! ctx.raw = .of ModArithType modArithType ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) = .of ModArithType modArithType ∧
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) = .of ModArithType modArithType
 
@@ -1073,8 +1100,8 @@ private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyModArithBinOp ctx opInBounds = .ok ()) :
     op.IsVerifiedModArithBinop ctx := by
   simp only [IsVerifiedModArithBinop, TypeAttr.inj]
-  simp only [verifyModArithBinOp, verifyPlainOpCounts, verifyOperandTypesMatch,
-             verifyResultTypeMatches, TypeAttr.verifyModArithType,
+  simp only [verifyModArithBinOp, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
+             verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyModArithType,
              Except_bind_ok_iff, exists_punit] at h
   obtain ⟨hPlainOpCounts, operandType, hOperandTypesMatch,
           hResultTypeMatches, modArithType, hModArithType, _⟩ := h
@@ -1115,7 +1142,7 @@ def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRConte
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ modArithType,
-    ((op.getResult 0).get! ctx.raw).type = .of ModArithType modArithType ∧
+    (op.getResult 0).getType! ctx.raw = .of ModArithType modArithType ∧
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
     -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)
@@ -1135,7 +1162,8 @@ theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds
     | ok _ => rfl
     | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
   simp only [IsVerifiedModArithConstant, TypeAttr.inj]
-  simp only [verifyModArithConstantOp, verifyPlainOpCounts, TypeAttr.verifyModArithType,
+  simp only [verifyModArithConstantOp, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
+            TypeAttr.verifyModArithType,
             Except_bind_ok_iff, exists_punit] at h
   obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
@@ -1151,8 +1179,8 @@ theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 1 := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
-    OpCode.verifyLocalInvariants, Func.verifyLocalInvariants,
-    ← getOpType!_eq_getOpType, opType, ne_eq, bind, Except.bind, throw,
+    OpCode.verifyLocalInvariants, Func.verifyLocalInvariants, verifyOpCounts,
+    verifyNonOperandCounts, ← getOpType!_eq_getOpType, opType, ne_eq, bind, Except.bind, throw,
     throwThe, MonadExceptOf.throw, pure, Except.pure, ite_not] at opVerify
   grind
 

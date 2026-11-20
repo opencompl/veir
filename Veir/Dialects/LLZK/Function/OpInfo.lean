@@ -21,28 +21,19 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 end LLZK
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def LLZK.Function.propertiesOf (op : LLZK.Function) : Type :=
 match op with
 | .«def» => FunctionDefProperties
 | .return => Unit
 | .call => FunctionCallProperties
 
-/-- Reject properties on an operation whose schema has none. -/
-private def noProperties (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String Unit :=
-  if attrDict.size > 0 then
-    let plural := if attrDict.size = 1 then "property" else "properties"
-    .error s!"{opName}: expected no properties, but got {attrDict.size} {plural}"
-  else
-    .ok ()
-
 def LLZK.Function.fromAttrDict
     (op : LLZK.Function) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (LLZK.Function.propertiesOf op) :=
   match op with
   | .«def» => FunctionDefProperties.fromAttrDict attrDict
-  | .return => noProperties "function.return" attrDict
+  | .return => expectNoProperties "function.return" attrDict
   | .call => FunctionCallProperties.fromAttrDict attrDict
 
 def LLZK.Function.toAttrDict
@@ -95,16 +86,36 @@ instance : IsOpCode LLZK.Function where
   fromAttrDict := LLZK.Function.fromAttrDict
   toAttrDict := LLZK.Function.toAttrDict
 
+def LLZK.Function.symbolInterface? (op : LLZK.Function) :
+    Option (SymbolOpInterface (LLZK.Function.propertiesOf op)) :=
+  match op with
+  | .«def» => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def LLZK.Function.functionInterface? (op : LLZK.Function) :
     Option (FunctionOpInterface (LLZK.Function.propertiesOf op)) :=
   match op with
   | .«def» =>
     some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type
+      { getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType =>
           { props with function_type := functionType } }
   | .return | .call => none
+
+/--
+`function.call` calls the function it names. The arguments are the first operand segment; the rest
+are affine map operands.
+-/
+def LLZK.Function.callInterface : CallOpInterface FunctionCallProperties where
+  getCallableForCallee? props _ := some (.symbol props.callee)
+  getArgOperands props operands :=
+    operands.extract 0 (props.operandSegmentSizes.values[0]?.getD 0).toNat
+
+def LLZK.Function.callOpInterface? (op : LLZK.Function) :
+    Option (CallOpInterface (LLZK.Function.propertiesOf op)) :=
+  match op with
+  | .call => some LLZK.Function.callInterface
+  | .«def» | .return => none
 
 /-- The currently representable subset of the types checked by LLZK's `FuncDefOp::verify`:
 https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Dialect/Function/IR/Ops.cpp#L338-L383
@@ -187,14 +198,7 @@ def LLZK.Function.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .«def» => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "function.def: Expected 0 operand(s)"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "function.def: Expected 0 result(s)"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "function.def: Expected 1 region (the function body)"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "function.def: Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     -- LLZK allows module, struct, and polymorphic-template parents. VeIR only supports the first
     -- until those other dialects are ported:
     -- https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/include/llzk/Dialect/Function/IR/Ops.td#L38-L45
@@ -213,17 +217,7 @@ def LLZK.Function.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     for type in props.function_type.inputs ++ props.function_type.outputs do
       if !type.isSupportedLLZKFunctionType then
         throw s!"function.def: expected a supported LLZK type, got {type}"
-    let body := op.getRegion! ctx.raw 0
-    match (body.get! ctx.raw).firstBlock with
-    | none => pure ()
-    | some entry =>
-      let inputs := props.function_type.inputs
-      if entry.getNumArguments! ctx.raw ≠ inputs.size then
-        throw s!"function.def: entry block expected {inputs.size} argument(s), got {entry.getNumArguments! ctx.raw}"
-      for i in [0:inputs.size] do
-        let argType := ((entry.getArgument i).get! ctx.raw).type
-        if !Attribute.branchArgCompatible inputs[i]! argType.val then
-          throw s!"function.def: entry block argument {i} type does not match the function's declared input type"
+    -- The entry block arguments are checked by the `FunctionOpInterface` verifier.
   | .return => do
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyLLZKFunctionReturnTypes ctx opIn
@@ -268,7 +262,9 @@ instance : HasOpInfo LLZK.Function where
   verifyLocalInvariants := LLZK.Function.verifyLocalInvariants
   getEffects := LLZK.Function.getEffects
   isConstantLike := LLZK.Function.isConstantLike
+  symbolInterface? := LLZK.Function.symbolInterface?
   functionInterface? := LLZK.Function.functionInterface?
+  callOpInterface? := LLZK.Function.callOpInterface?
   hasSSADominance := LLZK.Function.hasSSADominance
   isTerminator := LLZK.Function.isTerminator
   isIsolatedFromAbove := LLZK.Function.isIsolatedFromAbove

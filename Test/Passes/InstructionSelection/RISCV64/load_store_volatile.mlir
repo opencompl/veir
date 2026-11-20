@@ -22,7 +22,7 @@
         %val = "llvm.load"(%a) <{volatile_}> : (!llvm.ptr) -> i32
         // CHECK:      {{.*}} = "riscv.lw"({{.*}}) <{"value" = 0 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
         %byte = "llvm.load"(%a) <{volatile_}> : (!llvm.ptr) -> i8
-        // CHECK:      {{.*}} = "riscv.lb"({{.*}}) <{"value" = 0 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
+        // CHECK:      {{.*}} = "riscv.lbu"({{.*}}) <{"value" = 0 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
         "llvm.store"(%byte, %a) <{volatile_}> : (i8, !llvm.ptr) -> ()
         // CHECK:      "riscv.sb"({{.*}}) <{"value" = 0 : i64, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
         "func.return"() : () -> ()

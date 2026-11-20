@@ -373,8 +373,12 @@ def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
     let actual ← Assignment.getType assignment typeHandle
     guard (matcher actual)
     return assignment
-  | @MatchDecl.applyNative _ _ _Inputs inputBundle inputs predicate =>
-    let values ← MetadataTuple.resolve (self := inputBundle) assignment inputs
+  | inspectOperation opHandle inspect outputs =>
+    let operation ← Assignment.getOp assignment opHandle
+    let values ← inspect ctx operation
+    MetadataTuple.bind assignment outputs values
+  | applyNative inputs predicate =>
+    let values ← MetadataTuple.resolve assignment inputs
     guard (predicate values)
     return assignment
 
@@ -399,6 +403,10 @@ match succeeds.
 def MatchProg.run (prog : MatchProg OpInfo α) (ctx : IRContext OpInfo)
     (root : OperationPtr) : Option (Assignment OpInfo) :=
   do
+    /- Early exit speeds things up substantially, but remove this when we get
+       per-opcode dispatch -/
+    if let .operation opCode .. :: _ := prog.decls then
+      guard (root.getOpType! ctx = opCode)
     let assignment ← Assignment.bindOp
       (Assignment.empty OpInfo prog.numHandles) prog.rootHandle root
     MatchProg.runDecls prog.decls ctx assignment
@@ -421,7 +429,7 @@ def CreateDecl.run (decl : CreateDecl OpInfo) (assignment : Assignment OpInfo)
     let assignment ← Assignment.bindProperty assignment result value
     return (ctx, #[], assignment)
   | .operation opCode operandHandles resultTypeHandles properties opHandle resultHandles =>
-    /- Get the operands, result types, and properties of the new operaiton. -/
+    /- Get the operands, result types, and properties of the new operation. -/
     let operands ← Assignment.getValues assignment operandHandles
     let resultTypes ← Assignment.getTypes assignment resultTypeHandles
     let properties ← Assignment.getProperty assignment properties

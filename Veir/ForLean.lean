@@ -109,15 +109,10 @@ def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
   if h : i < ba.size then ba[i] else default
 
 /-- Interpret the bytes of a little-endian `ByteArray`
-    as a `BitVec (8 * bytes)` (byte 0 is the least significant). -/
-def toBitVecLE (ba : ByteArray) (bytes : Nat) : BitVec (8 * bytes) :=
-  ba.toByteSlice.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth (8 * bytes)) 0
-
-axiom toBitVecLE_one (ba : ByteArray) :
-    ba.toBitVecLE 1 = BitVec.ofNat 8 ba[0]!.toNat
-
-axiom toBitVecLE_eight (ba : ByteArray) :
-    ba.toBitVecLE 8 = BitVec.ofNat 64 ba.toUInt64LE!.toNat
+    as a `BitVec w` (byte 0 is the least significant). The width is in bits, so that
+    a read of a known size has a literal width, which `bv_decide` requires. -/
+def toBitVecLE (ba : ByteArray) (w : Nat) : BitVec w :=
+  ba.toByteSlice.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth w) 0
 
 end ByteArray
 
@@ -316,6 +311,13 @@ theorem Except.ok_of_bind_ok {ε α : Type} {x : Except ε PUnit}
   | ok u => cases u; simpa [bind, Except.bind] using h
   | error e => simp [bind, Except.bind] at h
 
+/-- Peel the leading `PUnit` statement off a `do` block: it succeeded. -/
+theorem Except.ok_left_of_bind_ok {ε α : Type} {x : Except ε PUnit}
+    {f : PUnit → Except ε α} {a : α} (h : (x >>= f) = .ok a) : x = .ok () := by
+  cases x with
+  | ok u => rfl
+  | error e => simp [bind, Except.bind] at h
+
 /-- Unpack a successful `Except` bind into the success of both steps. -/
 theorem Except_bind_ok_iff {ε α β} {x : Except ε α} {f : α → Except ε β}
     {b : β} :
@@ -503,6 +505,127 @@ theorem umulOverflow_comm {w : Nat} (x y : BitVec w) :
     x.umulOverflow y = y.umulOverflow x := by
   grind [BitVec.umulOverflow]
 
+/-- An unsigned add overflows exactly when its sum is less than the right operand. -/
+theorem uaddOverflow_eq_ult {w : Nat} (x y : BitVec w) :
+    x.uaddOverflow y = (x + y).ult y := by
+  simp only [uaddOverflow, ult_eq_decide, toNat_add, Nat.add_mod_eq_ite, toNat_mod_cancel]
+  split <;> simp only [ge_iff_le, decide_eq_decide] <;> omega
+
+/--
+An unsigned add overflows exactly when its sum is less than the left operand.
+
+As in LLVM, `g_uaddo` compares the sum with the right operand and `g_uadde` with the left one.
+Either works, because a sum that wraps around is less than both operands.
+-/
+theorem uaddOverflow_eq_ult_left {w : Nat} (x y : BitVec w) : x.uaddOverflow y = (x + y).ult x := by
+  rw [uaddOverflow_comm, uaddOverflow_eq_ult, BitVec.add_comm]
+
+/-- Every `BitVec 1` is a `Bool`. -/
+theorem exists_eq_ofBool (c : BitVec 1) : ∃ b, c = ofBool b :=
+  ⟨c.getLsbD 0, by simpa using c.setWidth_one⟩
+
+/-- `x + y + b` carries exactly when `x + y` carries, or adding `b` to it carries. -/
+theorem carry_eq_uaddOverflow_or {w : Nat} (hw : 0 < w) (x y : BitVec w) (b : Bool) :
+    carry w x y b = (x.uaddOverflow y || (x + y).uaddOverflow ((ofBool b).setWidth w)) := by
+  have := Nat.one_lt_two_pow (Nat.pos_iff_ne_zero.mp hw); have := Bool.toNat_le b
+  simp (disch := omega) only [carry_width, uaddOverflow, toNat_add, toNat_setWidth, toNat_ofBool,
+    Nat.mod_eq_of_lt, Nat.add_mod_eq_ite]
+  split <;> simp only [ge_iff_le, ← Bool.decide_or, decide_eq_decide] <;> omega
+
+/-- Adding a carry-in `b` overflows exactly when `b` is set and the result is zero. -/
+theorem uaddOverflow_setWidth_ofBool {w : Nat} (hw : 0 < w) (x : BitVec w) (b : Bool) :
+    x.uaddOverflow ((ofBool b).setWidth w) = (x + (ofBool b).setWidth w == 0#w && b) := by
+  cases b
+  · simp [uaddOverflow, x.isLt]
+  · simp only [uaddOverflow, Bool.beq_eq_decide_eq, ← toNat_inj, toNat_add, toNat_setWidth,
+      toNat_ofBool, Bool.toNat_true, Nat.one_mod_two_pow hw, Nat.add_mod_eq_ite, toNat_mod_cancel,
+      toNat_ofNat, Nat.zero_mod, Bool.and_true, decide_eq_decide]
+    split <;> omega
+
+/-- An unsigned sub `x - y` borrows exactly when the result is greater than `x`. -/
+theorem usubOverflow_eq_ult_sub {w : Nat} (x y : BitVec w) : x.usubOverflow y = x.ult (x - y) := by
+  have := y.isLt
+  simp only [usubOverflow, ult_eq_decide, decide_eq_decide]
+  by_cases h : y.toNat ≤ x.toNat
+  · rw [toNat_sub_of_le (le_def.mpr h)]; omega
+  · rw [toNat_sub_of_lt (lt_def.mpr (by omega))]; omega
+
+/--
+`x - y - b` borrows when `x < y + b`, compared in `w + 1` bits. This happens exactly when `x - y`
+borrows, or subtracting `b` from it borrows.
+-/
+theorem ult_setWidth_add_ofBool {w : Nat} (hw : 0 < w) (x y : BitVec w) (b : Bool) :
+    (x.setWidth (w + 1)).ult (y.setWidth (w + 1) + (ofBool b).setWidth (w + 1)) =
+      (x.usubOverflow y || (x - y).usubOverflow ((ofBool b).setWidth w)) := by
+  have := x.isLt; have := y.isLt; have := Bool.toNat_le b
+  have := Nat.one_lt_two_pow (Nat.pos_iff_ne_zero.mp hw)
+  simp (disch := omega) only [ult_eq_decide, usubOverflow, toNat_add, toNat_setWidth, toNat_ofBool,
+    Nat.pow_succ, Nat.mod_eq_of_lt]
+  by_cases h : y.toNat ≤ x.toNat
+  · rw [toNat_sub_of_le (le_def.mpr h)]; simp only [← Bool.decide_or, decide_eq_decide]; omega
+  · rw [toNat_sub_of_lt (lt_def.mpr (by omega))]; simp only [← Bool.decide_or, decide_eq_decide]; omega
+
+/-- Subtracting a borrow-in `b` from `x` borrows exactly when `b` is set and `x` is zero. -/
+theorem usubOverflow_setWidth_ofBool {w : Nat} (hw : 0 < w) (x : BitVec w) (b : Bool) :
+    x.usubOverflow ((ofBool b).setWidth w) = (x == 0#w && b) := by
+  cases b <;> simp [usubOverflow, Bool.beq_eq_decide_eq, ← toNat_inj, Nat.one_mod_two_pow hw]
+
+/--
+The carry into bit `start + i` of `x + y` is the carry into bit `i` of their bits from `start` on.
+-/
+theorem carry_add_eq_carry_extractLsb' {w start len i : Nat} (h : i ≤ len) (x y : BitVec w)
+    (c : Bool) :
+    carry (start + i) x y c =
+      carry i (x.extractLsb' start len) (y.extractLsb' start len) (carry start x y c) := by
+  induction i with
+  | zero => simp
+  | succ i ih =>
+    rw [← Nat.add_assoc, carry_succ, carry_succ, ih (by omega)]
+    simp [show i < len by omega]
+
+/-- The carry into bit `w` of a sum is the overflow of the sum of the low `w` bits. -/
+theorem carry_eq_uaddOverflow_setWidth {v w : Nat} (x y : BitVec v) :
+    carry w x y false = (x.setWidth w).uaddOverflow (y.setWidth w) := by
+  simp only [carry, uaddOverflow, toNat_setWidth, Bool.toNat_false, Nat.add_zero]
+
+/-- The bits of `x + y` from `start` on are the sum of those bits and of the carry into `start`. -/
+theorem extractLsb'_add_eq_add_carry {w start len : Nat} (h : start + len ≤ w) (x y : BitVec w) :
+    (x + y).extractLsb' start len =
+      x.extractLsb' start len + y.extractLsb' start len +
+        (ofBool (carry start x y false)).setWidth len := by
+  ext i hi
+  rw [getElem_add_add_bool hi, getElem_extractLsb', getLsbD_add (by omega),
+    carry_add_eq_carry_extractLsb' (Nat.le_of_lt hi)]
+  simp [getElem_extractLsb']
+
+/-- The high half of `x + y` adds the high halves and the carry of the low halves. -/
+theorem add_eq_append {w : Nat} (x y : BitVec (w + w)) :
+    x + y =
+      (x.extractLsb' w w + y.extractLsb' w w +
+        (ofBool ((x.setWidth w).uaddOverflow (y.setWidth w))).setWidth w) ++
+      (x.setWidth w + y.setWidth w) := by
+  rw [← extractLsb'_append_extractLsb' (x := x + y), extractLsb'_add_eq_add_carry (by omega),
+    carry_eq_uaddOverflow_setWidth, ← setWidth_eq_extractLsb' (by omega),
+    setWidth_add _ _ (by omega)]
+
+/-- Adding `y` back to `x - y` overflows exactly when `x - y` borrows. -/
+theorem uaddOverflow_sub_self {w : Nat} (x y : BitVec w) :
+    (x - y).uaddOverflow y = x.usubOverflow y := by
+  rw [uaddOverflow_eq_ult, BitVec.sub_add_cancel, usubOverflow_eq, ult_eq_decide_lt]
+
+/-- The high half of `x - y` subtracts the high halves and the borrow of the low halves. -/
+theorem sub_eq_append {w : Nat} (x y : BitVec (w + w)) :
+    x - y =
+      (x.extractLsb' w w - y.extractLsb' w w -
+        (ofBool ((x.setWidth w).usubOverflow (y.setWidth w))).setWidth w) ++
+      (x.setWidth w - y.setWidth w) := by
+  -- Adding `y` back to the right side gives `x`, so the low half carries where it borrowed.
+  rw [eq_comm, eq_sub_iff_add_eq, add_eq_append, extractLsb'_append_eq_left,
+    setWidth_append_eq_right, uaddOverflow_sub_self, sub_add_cancel]
+  -- The borrow and the high half of `y` are subtracted and added back.
+  rw [sub_sub, BitVec.add_assoc, sub_add_cancel, setWidth_eq_extractLsb' (by omega),
+    extractLsb'_append_extractLsb']
+
 @[veir_bv_normalize]
 theorem udiv_one_shl {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂) :
     x / 1#w₁ <<< k = x >>> k := by
@@ -522,7 +645,7 @@ theorem toInt_sshiftRight'' {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂
 /-- An exact `sdiv` by a power of two (i.e. one where the dividend has no fractional part to
     round, witnessed by `x.smod (2^k) = 0`) agrees with the arithmetic shift `x.sshiftRight' k`.
     `k` must leave room for a sign bit (`k.toNat + 1 < w`, i.e. `2^k` isn't `x`'s own `intMin`),
-    matching the range for which `sdivPow2Exact`/`sdivwPow2Exact` are selected. -/
+    matching the range for which `sdiv_exact_by_pow2_pattern` applies. -/
 @[veir_bv_normalize_post]
 theorem sdiv_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂)
     (hk : k.toNat + 1 < w₁) (h : x.smod ((1#w₁) <<< k) = 0#w₁) :
@@ -583,9 +706,52 @@ theorem sdiv_neg_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k 
     Int.tdiv_eq_ediv_of_dvd hdvd, ← Int.shiftRight_eq_div_pow,
     BitVec.toInt_neg, toInt_sshiftRight'']
 
+/-! ### Comparisons of `toInt` with integer constants
+
+`bv_decide` does not see `Int` facts such as `-2048 ≤ x.toInt`. When the constant `c` is
+representable in `w` bits (the side conditions, which `veir_bv_normalize` discharges for literals), such a
+comparison is a signed bit-vector comparison with `BitVec.ofInt w c`. -/
+
+section toInt
+
+variable {w : Nat} {x : BitVec w} {c : Int}
+
+/-- `toInt_ofInt_eq_self` with the width condition as an instance, which `simp` synthesizes for a
+literal width. -/
+theorem toInt_ofInt_eq_self' [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    (BitVec.ofInt w c).toInt = c :=
+  BitVec.toInt_ofInt_eq_self (Nat.pos_of_neZero w) h₁ h₂
+
+@[veir_bv_normalize]
+theorem le_toInt_iff_sle [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    c ≤ x.toInt ↔ (BitVec.ofInt w c).sle x := by
+  rw [BitVec.sle_iff_toInt_le, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem lt_toInt_iff_slt [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    c < x.toInt ↔ (BitVec.ofInt w c).slt x := by
+  rw [BitVec.slt_iff_toInt_lt, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem toInt_le_iff_sle [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    x.toInt ≤ c ↔ x.sle (BitVec.ofInt w c) := by
+  rw [BitVec.sle_iff_toInt_le, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem toInt_lt_iff_slt [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    x.toInt < c ↔ x.slt (BitVec.ofInt w c) := by
+  rw [BitVec.slt_iff_toInt_lt, toInt_ofInt_eq_self' h₁ h₂]
+
+@[veir_bv_normalize]
+theorem toInt_eq_iff_eq_ofInt [NeZero w] (h₁ : -2 ^ (w - 1) ≤ c) (h₂ : c < 2 ^ (w - 1)) :
+    x.toInt = c ↔ x = BitVec.ofInt w c := by
+  rw [← BitVec.toInt_inj, toInt_ofInt_eq_self' h₁ h₂]
+
+end toInt
+
 end BitVec
 
-/-- The Hacker's-Delight bias/shift identity underlying `sdivPow2`/`sdivwPow2`: truncating
+/-- The Hacker's-Delight bias/shift identity underlying `sdiv_by_pow2_pattern`: truncating
     division by a positive `p` equals floor division of the dividend biased by `p - 1` when the
     dividend is negative (so the floor rounds toward zero instead of toward `-∞`). -/
 theorem Int.tdiv_eq_ediv_add_of_pos {a p : Int} (hp : 0 < p) :
@@ -645,7 +811,7 @@ namespace BitVec
 /-- The bias term added before the arithmetic shift in the Hacker's-Delight bias/shift sequence
     for signed division by `2^k`: `2^k - 1` when `x` is negative, `0` otherwise, computed as a
     plain arithmetic-then-logical shift (mirroring `sign := srai 63 x; corr := srli (64-k) sign`
-    in the `sdivPow2`/`sdivwPow2` lowering). -/
+    in the `sdiv_by_pow2_pattern` lowering). -/
 theorem toNat_sign_mask_shift {w₁ : Nat} (x : BitVec w₁) (k : Nat) (hk : k < w₁) :
     (x.sshiftRight (w₁ - 1) >>> (w₁ - k)).toNat = if x.msb then 2 ^ k - 1 else 0 := by
   have hdouble : 2 ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
@@ -670,7 +836,7 @@ theorem toNat_sign_mask_shift {w₁ : Nat} (x : BitVec w₁) (k : Nat) (hk : k <
       exact Nat.div_eq_of_lt hxlt
     rw [hinner, Nat.zero_shiftRight]
 
-/-- `sdivPow2` (general, non-`exact` positive divisor): dividing by `2^k` equals arithmetic-shifting
+/-- `sdiv_by_pow2_pattern` (general, non-`exact` positive divisor): dividing by `2^k` equals arithmetic-shifting
     `x` biased by `2^k - 1` when `x` is negative (so truncation rounds toward zero instead of
     toward `-∞`). Unlike `sdiv_one_shl_of_smod_eq_zero`, this holds for *every* `x` (no `smod = 0`
     side condition), but — like it — needs `k.toNat + 1 < w₁` to keep `2^k` off `x`'s own `intMin`.
@@ -739,7 +905,7 @@ theorem sdiv_one_shl_eq_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec w₁) (
     ← Int.shiftRight_eq_div_pow, ← toInt_sshiftRight'']
   exact BitVec.toInt_bmod_cancel _
 
-/-- Negative-divisor analogue of `sdiv_one_shl_eq_biased_sshiftRight` (`sdivPow2`, negative
+/-- Negative-divisor analogue of `sdiv_one_shl_eq_biased_sshiftRight` (`sdiv_by_pow2_pattern`, negative
     divisor): negate the biased-shift result. Like `sdiv_neg_one_shl_of_smod_eq_zero`, no bound
     relating `k` to `w` is needed beyond `k < w`: `-2^(w-1)` is itself a valid divisor here too.
     Stated with plain `Nat`-indexed shifts; see `sdiv_neg_one_shl_eq_neg_biased_sshiftRight_bv`. -/
@@ -811,7 +977,7 @@ theorem toNat_neg_eq_sub {w : Nat} (v : BitVec w) (hv : 0 < v.toNat) :
   exact Nat.mod_eq_of_lt (Nat.sub_lt (Nat.two_pow_pos w) hv)
 
 /-- `BitVec`-typed-shift-amount form of `sdiv_one_shl_eq_biased_sshiftRight`, matching the shape
-    `sdivPow2`/`sdivwPow2` actually lower to: RISC-V immediates are register-width-sized (`w₂` bits
+    `sdiv_by_pow2_pattern` actually lower to: RISC-V immediates are register-width-sized (`w₂` bits
     for a `2^w₂`-bit register), so the source's `srai (w₁-1) x`/`srli (w₁-k) sign` are literally
     `sshiftRight' (-1)`/`ushiftRight (-k)` once the `w₁`-valued immediate wraps to `0` in `w₂` bits.
     `bv_decide` can only bitblast a shift by a genuine `BitVec` value (not a symbolic `Nat`
@@ -1008,10 +1174,102 @@ theorem setWidth_ofInt_1_64 (v : Int) :
     BitVec.toInt_ofInt]
   grind
 
+/--
+`bv_decide` does not support `BitVec.carry`, so we rewrite it as the top bit of the sum in `w + 1`
+bits.
+-/
+@[veir_bv_normalize]
+theorem carry_eq_msb_add_setWidth {w : Nat} (x y : BitVec w) (b : Bool) :
+    carry w x y b = (x.setWidth (w + 1) + y.setWidth (w + 1) + (ofBool b).setWidth (w + 1)).msb := by
+  have := x.isLt; have := y.isLt; have := Bool.toNat_le b; have := Nat.one_le_two_pow (n := w)
+  simp (disch := omega) only [carry_width, msb_eq_decide, toNat_add, toNat_setWidth, toNat_ofBool,
+    Nat.add_sub_cancel, Nat.pow_succ, Nat.mod_eq_of_lt, ge_iff_le]
+
 @[grind =]
 theorem eq_setWidth_zero (x : BitVec w) :
     x = 0#w → x.setWidth w' = 0#w' := by
   grind
+
+/-- `ofInt w k` of a natural number `k < w` has the value `k`. -/
+theorem toNat_ofInt_natCast_of_lt {w k : Nat} (hk : k < w) : (BitVec.ofInt w k).toNat = k := by
+  rw [BitVec.ofInt_natCast, BitVec.toNat_ofNat]
+  exact Nat.mod_eq_of_lt (Nat.lt_trans hk Nat.lt_two_pow_self)
+
+/-- `ofInt w k` of a natural number `k < w` is less than `w`. -/
+theorem lt_ofInt_natCast_ofNat_of_lt {w k : Nat} (hk : k < w) :
+    BitVec.ofInt w k < BitVec.ofNat w w := by
+  rw [BitVec.lt_def, toNat_ofInt_natCast_of_lt hk, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt Nat.lt_two_pow_self]
+  exact hk
+
+/-- `2^k` is `1` shifted left by `ofInt w k`, for a natural number `k < w`. -/
+theorem twoPow_eq_shiftLeft_one_ofInt_natCast {w k : Nat} (hk : k < w) :
+    BitVec.twoPow w k = 1#w <<< BitVec.ofInt w k := by
+  rw [BitVec.shiftLeft_eq', toNat_ofInt_natCast_of_lt hk, BitVec.twoPow_eq]
+
+
+@[veir_bv_normalize]
+theorem ofInt_two_pow_eq_setWidth_allones {v w : Nat} :
+    BitVec.ofInt v (2^w - 1) = (BitVec.allOnes w).setWidth v := by
+  apply BitVec.eq_of_toInt_eq
+  simp [Int.ofNat_sub (by exact Nat.one_le_two_pow (n := w))]
+
+/-- Shifting left and back right keeps `a` iff its top `s` bits are zero. -/
+theorem shiftLeft_ushiftRight_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
+    (a <<< s) >>> s = a ↔ ∀ i < w, w ≤ s + i → a.getLsbD i = false := by
+  constructor
+  · intro h i hi hs
+    have := congrArg (·.getLsbD i) h
+    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft] at this
+    rw [← this]
+    simp [Nat.not_lt.mpr hs]
+  · intro h
+    apply BitVec.eq_of_getLsbD_eq
+    intro i hi
+    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft]
+    by_cases hs : s + i < w
+    · simp [hs, Nat.add_sub_cancel_left]
+    · simp [hs, h i hi (Nat.not_lt.mp hs)]
+
+/-- Shifting right and back left keeps `a` iff its low `s` bits are zero. -/
+theorem ushiftRight_shiftLeft_eq_iff {w : Nat} (a : BitVec w) (s : Nat) :
+    (a >>> s) <<< s = a ↔ ∀ i < w, i < s → a.getLsbD i = false := by
+  constructor
+  · intro h i hi hs
+    have := congrArg (·.getLsbD i) h
+    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft] at this
+    rw [← this]
+    simp [hs]
+  · intro h
+    apply BitVec.eq_of_getLsbD_eq
+    intro i hi
+    simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft]
+    by_cases hs : i < s
+    · simp [hs, h i hi hs]
+    · simp [hs, hi, Nat.add_sub_cancel' (Nat.not_lt.mp hs)]
+
+@[veir_bv_normalize]
+theorem toByteArrayLE_extract_eq_iff {a b : BitVec 64} :
+    (UInt64.ofBitVec a).toByteArrayLE.extract 0 i = (UInt64.ofBitVec b).toByteArrayLE.extract 0 i ↔
+      a.setWidth (8 * i) = b.setWidth (8 * i) := by
+  rw [show ∀ x y : ByteArray, x = y ↔ x.data = y.data from fun _ _ => ⟨congrArg _, ByteArray.ext⟩]
+  simp only [ByteArray.data_extract, UInt64.toByteArrayLE]
+  by_cases hi : 8 ≤ i
+  · have hw : 2 ^ 64 ≤ 2 ^ (8 * i) := Nat.pow_le_pow_right (by omega) (by omega)
+    have hset : a.setWidth (8 * i) = b.setWidth (8 * i) ↔ a = b := by
+      rw [← BitVec.toNat_inj, BitVec.toNat_setWidth, BitVec.toNat_setWidth,
+        Nat.mod_eq_of_lt (by have := a.isLt; omega), Nat.mod_eq_of_lt (by have := b.isLt; omega),
+        BitVec.toNat_inj]
+    rw [Array.extract_eq_self_of_le (by simpa using hi),
+      Array.extract_eq_self_of_le (by simpa using hi),
+      hset]
+    have := a.isLt
+    have := b.isLt
+    simp [← UInt8.toBitVec_inj, ← BitVec.toNat_inj, Nat.shiftRight_eq_div_pow]
+    omega
+  · obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl :
+        i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
+    all_goals simp [← UInt8.toBitVec_inj, ← BitVec.toNat_inj, Nat.shiftRight_eq_div_pow] <;> omega
 
 end BitVec
 

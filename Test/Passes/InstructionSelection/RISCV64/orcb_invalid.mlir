@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // None of these should fuse into `riscv.orcb`: each violates one of the matcher's
 // guards, so the `sub` must lower normally to `riscv.sub`. The `CHECK-NOT`s

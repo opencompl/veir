@@ -9,3 +9,4 @@ public import QPFTypes.Theory.PFunctor.Multivariate.Const
 public import QPFTypes.Theory.PFunctor.Multivariate.Rel
 public import QPFTypes.Theory.PFunctor.Multivariate.W
 public import QPFTypes.Theory.PFunctor.Multivariate.M
+public import QPFTypes.Theory.PFunctor.Multivariate.M.Order

@@ -1,4 +1,5 @@
 import UnitTest.Lexer
+import UnitTest.LeanBugs
 import UnitTest.Deriving
 import UnitTest.ParserError
 import UnitTest.Parser
@@ -8,9 +9,10 @@ import UnitTest.IR.Operation
 import UnitTest.Dialect
 import UnitTest.BuiltinProperties
 import UnitTest.Verifier
+import UnitTest.RegisterAllocation
 import UnitTest.FP
 import UnitTest.Bitblasting.Bitblasting
-import UnitTest.DataFlowFramework.Dominance
+import UnitTest.Dominance
 import UnitTest.DataFlowFramework.DeadCodeAnalysis
 import UnitTest.DataFlowFramework.EntryState
 import UnitTest.DataFlowFramework.ModArithRangeAnalysis
@@ -21,9 +23,16 @@ import UnitTest.RuntimeValueSimp
 import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
 import UnitTest.RegionKindInterfaces
+import UnitTest.SymbolInterfaces
+import UnitTest.CallInterfaces
+import UnitTest.ControlFlowInterfaces
 import UnitTest.Puddle
+import UnitTest.CTreePuddle
 import UnitTest.BoundedBitblasting.BoundedBitblasting
 import UnitTest.BoundedBitblasting.Elab
 import UnitTest.BoundedBitblasting.CounterExamples
 import UnitTest.DataFlowFramework.SparseConstantPropagation
 import UnitTest.MemoryLayout
+import UnitTest.DataLayout
+import UnitTest.RegisterAllocation
+import UnitTest.ResultsConform

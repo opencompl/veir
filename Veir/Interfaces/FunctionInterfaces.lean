@@ -1,6 +1,7 @@
 module
 
 public import Veir.Rewriter.WfRewriter
+public import Veir.Interfaces.SymbolInterfaces
 
 /-!
 # FunctionOpInterface
@@ -25,9 +26,15 @@ def OperationPtr.isFunctionLike (op : OperationPtr) (ctx : IRContext OpCode) : B
   (HasOpInfo.functionInterface? (op.getOpType! ctx)).isSome
 
 /-- A function-like operation. -/
-structure FunctionOp (ctx : IRContext OpCode) (op : OperationPtr) where
-  interface : FunctionOpInterface (propertiesOf (op.getOpType! ctx))
-  functionInterface?_eq : HasOpInfo.functionInterface? (op.getOpType! ctx) = some interface
+structure FunctionOp (ctx : IRContext OpCode) (op : OperationPtr) extends SymbolOp ctx op where
+  functionInterface : FunctionOpInterface (propertiesOf (op.getOpType! ctx))
+  functionInterface?_eq :
+    HasOpInfo.functionInterface? (op.getOpType! ctx) = some functionInterface
+  symbolInterface := (HasOpInfo.symbolInterface? (op.getOpType! ctx)).get
+    (HasOpInfo.functionInterface_requires_symbol functionInterface?_eq)
+  symbolInterface?_eq := by simp
+  getSymName_isSome :=
+    HasOpInfo.functionInterface_getSymName_isSome functionInterface?_eq symbolInterface?_eq
 
 namespace FunctionOp
 
@@ -39,15 +46,8 @@ This is equivalent to `mlir::dyn_cast<FunctionOpInterface>(op)` in MLIR.
 @[inline]
 def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (FunctionOp ctx op) :=
   match h : HasOpInfo.functionInterface? (op.getOpType! ctx) with
-  | some interface => some ⟨interface, h⟩
+  | some functionInterface => some { functionInterface, functionInterface?_eq := h }
   | none => none
-
-@[simp]
-theorem of?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (funcOp : FunctionOp ctx op) :
-    of? op ctx = some funcOp := by
-  cases funcOp; grind [of?]
-
-grind_pattern of?_eq_some => of? op ctx, funcOp.interface
 
 /--
 The `FunctionOp` view of a function-like operation.
@@ -61,15 +61,10 @@ def of (op : OperationPtr) (ctx : IRContext OpCode) (h : op.isFunctionLike ctx :
 
 variable {ctx : IRContext OpCode} {op : OperationPtr}
 
-/-- Returns the symbol name of the function. -/
-def getSymName (funcOp : FunctionOp ctx op) : StringAttr :=
-  let opType := op.getOpType! ctx
-  funcOp.interface.getSymName (op.getProperties! ctx opType)
-
 /-- Returns the type of the function. -/
 def getFunctionType (funcOp : FunctionOp ctx op) : FunctionType :=
   let opType := op.getOpType! ctx
-  funcOp.interface.getFunctionType (op.getProperties! ctx opType)
+  funcOp.functionInterface.getFunctionType (op.getProperties! ctx opType)
 
 /-!
 ## Body Handling
@@ -102,7 +97,7 @@ grind_pattern getFunctionBody!_inBounds => (getFunctionBody! (ctx := ctx) funcOp
 
 /-- Returns the first block in the body region, or `none` if the body is empty. -/
 def getEntryBlock? (funcOp : FunctionOp ctx op) : Option BlockPtr :=
-  if op.getNumRegions! ctx = 0 then none else (funcOp.getFunctionBody!.get! ctx).firstBlock
+  if op.getNumRegions! ctx = 0 then none else (funcOp.getFunctionBody!.getFirstBlock! ctx)
 
 /--
 Returns true if the function has no body, e.g. a declaration of an external function.
@@ -120,7 +115,7 @@ def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw 
     (opInBounds : op.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
   let opType := op.getOpType! wfCtx.raw
   let props := op.getProperties! wfCtx.raw opType
-  let newProps := funcOp.interface.setFunctionType props { inputs, outputs }
+  let newProps := funcOp.functionInterface.setFunctionType props { inputs, outputs }
   WfRewriter.setProperties wfCtx op opType newProps opInBounds
 
 /-- Sets the function type to the given input/output type lists, panicking if the op
@@ -151,6 +146,37 @@ def getNumResults (funcOp : FunctionOp ctx op) : Nat :=
 /-- Returns the result types of the function. -/
 def getResultTypes (funcOp : FunctionOp ctx op) : Array Attribute :=
   funcOp.getFunctionType.outputs
+
+/-!
+## Verification
+-/
+
+/--
+Check that the entry block of the function has one argument per function argument, of the same
+type. External functions have no entry block and always pass.
+
+This is equivalent to the default `FunctionOpInterface::verifyBody` in MLIR.
+-/
+def verifyBody (funcOp : FunctionOp ctx op) : Except String Unit := do
+  let some entry := funcOp.getEntryBlock? | return
+  let inputs := funcOp.getArgumentTypes
+  if entry.getNumArguments! ctx ≠ inputs.size then
+    throw s!"entry block must have {inputs.size} arguments to match function signature"
+  for h : i in [0:inputs.size] do
+    let argType := ((entry.getArgument i : ValuePtr).getType! ctx).val
+    if argType ≠ inputs[i] then
+      throw s!"type of entry block argument #{i}({argType}) must match the type of the \
+        corresponding argument in function signature({inputs[i]})"
+
+/--
+Check the invariants that every function-like operation shares.
+
+This is equivalent to `function_interface_impl::verifyTrait` in MLIR.
+
+TODO: also check `arg_attrs` and `res_attrs`, once `FunctionOpInterface` exposes them.
+-/
+def verifyTrait (funcOp : FunctionOp ctx op) : Except String Unit :=
+  funcOp.verifyBody
 
 end FunctionOp
 

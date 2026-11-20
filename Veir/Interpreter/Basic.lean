@@ -10,7 +10,7 @@ public import Veir.Data.Felt
 
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
-import Veir.Data.Casting
+public import Veir.Data.Casting
 public import Veir.Interfaces.FunctionInterfaces
 
 public section
@@ -39,6 +39,7 @@ variable {ctx : WfIRContext OpInfo}
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   returns `none`.
 -/
+@[expose]
 def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)
@@ -78,6 +79,10 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     return (#[], mem, some (.return operands))
   | .cir .return => do
     return (#[], mem, some (.return operands))
+  | .gmir gmirOp => do
+    GMIR.interpretOp' gmirOp properties resultTypes operands blockOperands mem
+  | .gmir_riscv gmirRiscvOp =>
+    GMIR_RISCV.interpretOp' gmirRiscvOp properties resultTypes operands blockOperands mem
   | .builtin .unrealized_conversion_cast => do
     let some resType := resultTypes[0]? | none
     match resType.val, operands.toList with
@@ -88,7 +93,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     | .registerType _, [.addr val] =>
       /- A register has no poison to carry. Like a poison integer, a poison pointer
          may become any register value; the interpreter picks 0. -/
-      return (#[.reg (LLVM.Int.toReg (mem.intFromPtr val))], mem, none)
+      return (#[.reg (LLVM.Int.toReg val.toInt)], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
@@ -97,6 +102,12 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
       return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
     | .llvmPointerType _, [.reg val] =>
       return (#[.addr (mem.ptrFromInt (.val val.val))], mem, none)
+    | .integerType resBw, [.byte bw val] =>
+      if resBw.bitwidth ≠ bw then none
+      return (#[.int bw (LLVM.Byte.toFrozenInt val)], mem, none)
+    | .byteType resBw, [.int bw val] =>
+      if resBw.bitwidth ≠ bw then none
+      return (#[.byte bw (LLVM.Byte.fromInt val)], mem, none)
     | _ , _ => none
   | _ => none
 
@@ -138,7 +149,7 @@ def interpretOpChain (op : OperationPtr) {ctx : WfIRContext OpCode} (state : Int
   let (state, action) ← interpretOp op state
   match action with
   | none =>
-    rlet next ← (op.get ctx.raw).next
+    rlet next ← op.getNextOp ctx.raw
     interpretOpChain next state
   | some action =>
     return (state, action)
@@ -191,7 +202,7 @@ def interpretBlock (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : Wf
     Interp (InterpreterState ctx × ControlFlowAction) := do
   let newVars ← state.variables.setArgumentValues? blockPtr values
   let state := ⟨newVars, state.memory⟩
-  rlet firstOp ← (blockPtr.get ctx.raw).firstOp
+  rlet firstOp ← blockPtr.getFirstOp ctx.raw
   interpretOpChain firstOp state
 
 /--
@@ -223,7 +234,7 @@ partial_fixpoint
 def interpretRegion (region : RegionPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
     (state : InterpreterState ctx) (regionIn : region.InBounds ctx.raw := by grind) :
     Interp (InterpreterState ctx × Array RuntimeValue) := do
-  rlet block ← (region.get ctx.raw).firstBlock
+  rlet block ← region.getFirstBlock ctx.raw
   interpretBlockCFG block values state
 
 /--

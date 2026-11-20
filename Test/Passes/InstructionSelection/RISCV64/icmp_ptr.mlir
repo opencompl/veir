@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64,isel-riscv64,reconcile-cast | filecheck %s
 
 // Pointer comparisons lower exactly like `i64` comparisons: a pointer fills a
 // whole register, so no sign-extension prologue is needed.

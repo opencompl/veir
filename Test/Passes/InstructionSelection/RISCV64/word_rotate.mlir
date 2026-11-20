@@ -1,9 +1,9 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // A constant-amount i32 rotate (funnel shift with identical data operands) selects
 // to riscv.roriw. There is no `roliw`, so a rotate-left by C lowers to roriw with the
-// negated immediate (32 - C) mod 32, mirroring `fshlConst` at i64. These fire only on
-// i32 results; i64 rotates are left for the generic isel-riscv64 pass.
+// negated immediate (32 - C) mod 32, mirroring `fshlConst` at i64. Legalization turns
+// the i32 amount into `g_trunc (g_constant i64)`, which the selector looks through.
 
 "builtin.module"() ({
 
@@ -39,12 +39,12 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-    // i64 rotate-left is not selected here (stays `llvm.intr.fshl` for isel-riscv64).
+    // i64 rotate-left by 5 selects to rori a, 59.
     "func.func"() <{function_type = (i64) -> (), sym_name = "f3"}> ({
     ^bb0(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
         %l = "llvm.intr.fshl"(%a, %a, %c) : (i64, i64, i64) -> i64
-        // CHECK: %{{.*}} = "llvm.intr.fshl"(%{{.*}}, %{{.*}}, %{{.*}}) : (i64, i64, i64) -> i64
+        // CHECK: %{{.*}} = "riscv.rori"(%{{.*}}) <{"value" = 59 : i64}> : (!riscv.reg) -> !riscv.reg
         "test.test"(%l) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()

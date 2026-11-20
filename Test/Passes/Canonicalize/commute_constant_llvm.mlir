@@ -20,8 +20,16 @@
       %ok = "llvm.add"(%x, %c) : (i32, i32) -> i32
       // CHECK-NEXT: "llvm.add"(%[[X]], %[[C]]) : (i32, i32) -> i32
 
+      // The high half of a multiply is commutative, signed and unsigned.
+      %smulh = "llvm.intr.smulh"(%c, %x) : (i32, i32) -> i32
+      // CHECK-NEXT: "llvm.intr.smulh"(%[[X]], %[[C]]) : (i32, i32) -> i32
+      %umulh = "llvm.intr.umulh"(%c, %x) : (i32, i32) -> i32
+      // CHECK-NEXT: "llvm.intr.umulh"(%[[X]], %[[C]]) : (i32, i32) -> i32
+
       "test.test"(%sub) : (i32) -> ()
       "test.test"(%ok) : (i32) -> ()
+      "test.test"(%smulh) : (i32) -> ()
+      "test.test"(%umulh) : (i32) -> ()
       "func.return"(%add) : (i32) -> ()
       // CHECK: "func.return"(%[[ADD]]) : (i32) -> ()
   }) : () -> ()

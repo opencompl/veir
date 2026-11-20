@@ -20,7 +20,7 @@ inductive HW where
 | instance
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def HW.propertiesOf (op : HW) : Type :=
 match op with
 | .constant => HWConstantProperties
@@ -80,8 +80,21 @@ def HW.isIsolatedFromAbove (op : HW) : Bool :=
   | .module => true
   | _ => false
 
-def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
-  true
+/--
+An `hw.module` body is a graph region, as in CIRCT's `HWModuleOp::getRegionKind`. A module is a
+netlist rather than a schedule, and its registers close feedback loops: a `seq.firreg` takes the
+value its own output feeds into, so no ordering of the body satisfies SSA dominance.
+-/
+def HW.getRegionKind (op : HW) (_index : Nat) : RegionKind :=
+  match op with
+  | .module => .Graph
+  | _ => .SSACFG
+
+/-- The dominance counterpart of `HW.getRegionKind`: an `hw.module` body is unordered. -/
+def HW.hasSSADominance (op : HW) (_index : Nat) : Bool :=
+  match op with
+  | .module => false
+  | _ => true
 
 @[is_terminator]
 def HW.isTerminator (op : HW) : Bool :=
@@ -109,19 +122,12 @@ def HW.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .constant => do
     op.verifyPlainOpCounts ctx opIn 0 1
     let value := (op.getProperties! ctx.raw HW.constant).value
-    if ((op.getResult 0).get! ctx.raw).type.val ≠ .integerType value.type then
+    if ((op.getResult 0).getType! ctx.raw).val ≠ .integerType value.type then
       throw s!"hw.constant: attribute bitwidth {value.type.bitwidth} doesn't match return type"
     op.verifyNormalizedIntegerAttr ctx opIn value
     pure ()
   | .module => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     pure ()
   | .output => do
     op.verifyTerminatorCounts ctx opIn 0
@@ -155,12 +161,19 @@ def HW.interpretOp' (opType : Veir.HW) (properties : propertiesOf opType)
       (.val (Veir.Data.HW.constant (BitVec.ofInt bw.bitwidth properties.value.value)).val)], none)
   | _ => none
 
+def HW.symbolInterface? (op : HW) : Option (SymbolOpInterface (HW.propertiesOf op)) :=
+  match op with
+  | .module => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 instance : HasOpInfo HW where
   verifyLocalInvariants := HW.verifyLocalInvariants
   getEffects := HW.getEffects
   isConstantLike := HW.isConstantLike
+  getRegionKind := HW.getRegionKind
   hasSSADominance := HW.hasSSADominance
   isTerminator := HW.isTerminator
+  symbolInterface? := HW.symbolInterface?
   isIsolatedFromAbove := HW.isIsolatedFromAbove
 
 end

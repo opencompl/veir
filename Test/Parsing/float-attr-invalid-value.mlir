@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s --strict-whitespace
-// RUN: MLIR_INVALID
+// RUN: MLIR_UNREGISTERED_INVALID
 
 // Verify that a decimal integer literal is rejected for a float type: only a
 // 0x-prefixed hexadecimal bit pattern or a decimal floating-point literal is

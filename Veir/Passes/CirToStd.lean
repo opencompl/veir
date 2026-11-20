@@ -64,7 +64,7 @@ def castToCir (rewriter : PatternRewriter OpCode) (x : ValuePtr) (ty : TypeAttr)
 def emitStdConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let ty : TypeAttr := IntegerType.signless width
-  let props : ArithConstantProperties := { value := IntegerAttr.ofInt c (IntegerType.signless width) }
+  let props : ArithConstantProperties := .int (IntegerAttr.ofInt c (IntegerType.signless width))
   let (rewriter, c) ← rewriter.createOp! (.arith .constant) #[ty] #[] #[] #[] props (some ip)
   return (rewriter, (c.getResult 0 : ValuePtr))
 
@@ -291,20 +291,21 @@ def lowerUnreachable (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   This mirrors `convertBlock` in the RISC-V branch selection. Entry blocks have no
   predecessors and are left to `coerce-cir-function-boundaries`.
 -/
-def convertCirBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : WfIRContext OpCode := Id.run do
+def convertCirBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
+    : Except String (WfIRContext OpCode) := do
   let mut ctx := ctx
-  if (block.get! ctx.raw).firstUse == none then return ctx
+  if !block.hasPredecessor! ctx.raw then return ctx
   let coercible := (List.range (block.getNumArguments! ctx.raw)).any fun i =>
     (cirTypeToStd ((ValuePtr.blockArgument { block, index := i }).getType! ctx.raw)).isSome
   if !coercible then return ctx
   -- Collect the predecessors first: rewriting them mutates the use chain.
   let mut predOps : Array OperationPtr := #[]
-  let mut currentPredUse := (block.get! ctx.raw).firstUse
+  let mut currentPredUse := block.getFirstUse! ctx.raw
   while let some blockop := currentPredUse do
-    let blockOperand := blockop.get! ctx.raw
-    currentPredUse := blockOperand.nextUse
-    if !predOps.contains blockOperand.owner then
-      predOps := predOps.push blockOperand.owner
+    currentPredUse := blockop.getNextUse! ctx.raw
+    let owner := blockop.getOwner! ctx.raw
+    if !predOps.contains owner then
+      predOps := predOps.push owner
   for predOp in predOps do
     for j in List.range (predOp.getNumOperands! ctx.raw) do
       let opVal := predOp.getOperand! ctx.raw j
@@ -312,7 +313,8 @@ def convertCirBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : WfIRContext 
       | some newType =>
         let some (ctx', cast) := WfRewriter.createOp! ctx
           (OpCode.builtin .unrealized_conversion_cast) #[newType] #[opVal] #[] #[] ()
-          (some (InsertPoint.before predOp)) | return ctx
+          (some (InsertPoint.before predOp))
+          | throw "cir-to-std: cannot cast an operand forwarded to a block"
         ctx := WfRewriter.replaceOperand! ctx' ⟨predOp, j⟩ (cast.getResult 0)
       | none => pure ()
   for i in List.range (block.getNumArguments! ctx.raw) do
@@ -322,7 +324,8 @@ def convertCirBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : WfIRContext 
     ctx := WfRewriter.setType! ctx bap newType
     let ip := InsertPoint.atStart! block ctx.raw
     let some (ctx', cast) := WfRewriter.createOp! ctx (OpCode.builtin .unrealized_conversion_cast)
-      #[origType] #[] #[] #[] () (some ip) | return ctx
+      #[origType] #[] #[] #[] () (some ip)
+      | throw "cir-to-std: cannot cast a block argument back to its type"
     let ctx' := WfRewriter.replaceValue! ctx' bap (cast.getResult 0)
     ctx := WfRewriter.pushOperand! ctx' cast bap
   return ctx
@@ -337,12 +340,14 @@ def CirToStdPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : Operation
     lowerMin, lowerMax, lowerCmp, lowerSelect, lowerCast,
     lowerBr, lowerBrCond, lowerUnreachable
   ]
-  let some lowered := RewritePattern.applyInContext lowering ctx
+  let some lowered := RewritePattern.applyInContext lowering ctx op
     | throw "cir-to-std: internal rewriter failure"
   -- The lowered branches still forward `cir` values: retype the blocks they target.
   let mut converted := lowered
   for block in converted.raw.blocks.keys do
-    converted := convertCirBlock converted block
+    converted ← match convertCirBlock converted block with
+      | .ok ctx => pure ctx
+      | .error message => throw message
   -- In strict mode, nothing but the function shell may remain.
   if strict then
     for o in converted.raw.operations.keys do

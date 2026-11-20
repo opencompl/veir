@@ -4,7 +4,8 @@
 The module is translated to LLVM IR with ``Tools/veir2llvm``, executed by
 Alive2's ``alive-exec``, and the verdict is printed in the shape
 ``veir-interpret`` prints, so a lit test can hold both to the same CHECK
-lines.
+lines. With ``--version`` it prints the Alive2 commit alive-exec was built
+from.
 """
 
 import re
@@ -18,9 +19,27 @@ TOOLS = Path(__file__).resolve().parent
 vsmith = SourceFileLoader("vsmith", str(TOOLS / "vsmith")).load_module()
 
 
+def version() -> int:
+    """Print the Alive2 commit alive-exec was built from, such as `01a5ec4`;
+    fail without alive-exec. The commit is in the help text, as `--version`
+    reports the LLVM it links instead. It is `git describe` output, so the
+    commit is cut to seven characters whether or not a tag precedes it, and
+    a `-dirty` build keeps its mark."""
+    try:
+        result = subprocess.run(["alive-exec", "--help"], capture_output=True, text=True)
+    except FileNotFoundError:
+        return 1
+    match = re.search(r"^version (?:.*-g)?([0-9a-f]{7,40})(-dirty)?$",
+                      result.stdout + result.stderr, re.M)
+    print(match.group(1)[:7] + (match.group(2) or "") if match else "unknown")
+    return 0
+
+
 def main(argv: list[str]) -> int:
+    if argv == ["--version"]:
+        return version()
     if len(argv) != 1:
-        print("usage: alive-interpret <test.mlir>", file=sys.stderr)
+        print("usage: alive-interpret <test.mlir> | --version", file=sys.stderr)
         return 1
     translated = subprocess.run(
         [sys.executable, str(TOOLS / "veir2llvm"), argv[0]],
@@ -41,6 +60,20 @@ def main(argv: list[str]) -> int:
         result = subprocess.run(["alive-exec", "--smt-to=300000", *func, str(ll_path)],
                                 capture_output=True, text=True)
     log = result.stdout + result.stderr
+    # A tool that gives no verdict still gives a stable line to pin: what it
+    # rejected, or that it failed or crashed.
+    if "Severe Z3 error" in log:
+        print("Failed: Severe Z3 error")
+        return 0
+    rejected = re.search(r"^(?:Internal )?ERROR: (?!program returned poison)(.*)$", log, re.M)
+    if rejected:
+        print(f"Rejected: {rejected.group(1).strip()}")
+        return 0
+    if result.returncode < 0 or result.returncode in (134, 139) or "Stack dump:" in log:
+        # A build with assertions names the cause; a test pins only `Crashed`.
+        assertion = re.search(r"^(Assertion failed: .*?), file ", log, re.M)
+        print(f"Crashed: {assertion.group(1)}" if assertion else "Crashed")
+        return 0
     try:
         verdict, _ = vsmith.classify_alive_exec_output(log, return_type)
     except ValueError as e:

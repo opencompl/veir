@@ -37,6 +37,13 @@ inductive IRNode where
   | region (ptr : RegionPtr)
 deriving DecidableEq
 
+instance : Coe OperationPtr IRNode where
+  coe ptr := IRNode.operation ptr
+instance : Coe BlockPtr IRNode where
+  coe ptr := IRNode.block ptr
+instance : Coe RegionPtr IRNode where
+  coe ptr := IRNode.region ptr
+
 namespace IRNode
 
 /-- The kind of an IR node. -/
@@ -66,21 +73,21 @@ theorem inBounds_region : (IRNode.region ptr).InBounds rawCtx ↔ ptr.InBounds r
 @[expose]
 def parent! (ptr : IRNode) (ctx : WfIRContext OpInfo) : Option IRNode :=
   match ptr with
-  | .operation ptr => (ptr.get! ctx.raw).parent.map .block
-  | .block ptr => (ptr.get! ctx.raw).parent.map .region
-  | .region ptr => (ptr.get! ctx.raw).parent.map .operation
+  | .operation ptr => (ptr.getParent! ctx.raw).map .block
+  | .block ptr => (ptr.getParent! ctx.raw).map .region
+  | .region ptr => (ptr.getParent! ctx.raw).map .operation
 
 @[simp, grind =]
 theorem parent!_operation :
-  (IRNode.operation ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .block := by rfl
+  (IRNode.operation ptr).parent! ctx = (ptr.getParent! ctx.raw).map .block := by rfl
 
 @[simp, grind =]
 theorem parent!_block :
-  (IRNode.block ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .region := by rfl
+  (IRNode.block ptr).parent! ctx = (ptr.getParent! ctx.raw).map .region := by rfl
 
 @[simp, grind =]
 theorem parent!_region :
-  (IRNode.region ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .operation := by rfl
+  (IRNode.region ptr).parent! ctx = (ptr.getParent! ctx.raw).map .operation := by rfl
 
 /-- An IR node is different from its immediate parent. -/
 theorem child_ne_parent {child parent : IRNode}
@@ -135,6 +142,15 @@ theorem unique_ancestor_of_eq_length
   induction left generalizing nodes₂ <;>
     grind [ne_nil, cases ParentPath]
 
+/-- Parent paths to a node without a parent are unique. -/
+private theorem unique_of_parent_eq_none
+    (left : ParentPath ctx descendant ancestor nodes₁)
+    (right : ParentPath ctx descendant ancestor nodes₂)
+    (parent : ancestor.parent! ctx = none) : nodes₁ = nodes₂ := by
+  induction left generalizing nodes₂ with
+  | single => cases right <;> grind
+  | cons immediate _ ih => cases right <;> grind
+
 /-- Concatenate two parent paths that meet at `middle`. -/
 theorem trans
     (lower : ParentPath ctx descendant middle lowerNodes)
@@ -144,6 +160,17 @@ theorem trans
   | single => grind [cases ParentPath]
   | cons immediate _ ih => exact ParentPath.cons immediate (ih upper)
 
+/-- Split a parent path at the descendant parent node. -/
+theorem split_of_parent
+    (path : ParentPath ctx descendant ancestor nodes)
+    (hparent : descendant.parent! ctx = some parent)
+    (hne : descendant ≠ ancestor)
+    : ParentPath ctx parent ancestor nodes.tail := by
+  cases path <;> grind
+
+grind_pattern split_of_parent =>
+    ParentPath ctx descendant ancestor nodes, descendant.parent! ctx, some parent where
+  guard descendant.parent! ctx = some parent
 
 end ParentPath
 
@@ -153,6 +180,33 @@ end ParentPath
 def Ancestor (ancestor descendant : IRNode)
     (ctx : WfIRContext OpInfo) : Prop :=
   ∃ nodes, ParentPath ctx descendant ancestor nodes
+
+/-- Non-reflexive, finite ancestry through nesting parent edges. -/
+def ProperAncestor (ancestor descendant : IRNode)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ancestor.Ancestor descendant ctx ∧ ancestor ≠ descendant
+
+/-- Definition of proper ancestry. -/
+theorem properAncestor_def {ancestor descendant : IRNode} :
+    ancestor.ProperAncestor descendant ctx ↔
+      ancestor.Ancestor descendant ctx ∧ ancestor ≠ descendant := by
+  rfl
+
+/-! Conversions between Ancestor and ProperAncestor. -/
+
+/-- A distinct ancestor is a proper ancestor. -/
+theorem Ancestor.toProperAncestor {ancestor : IRNode}
+    (ancestry : ancestor.Ancestor descendant ctx)
+    (ancestorNeDescendant : ancestor ≠ descendant) :
+    ancestor.ProperAncestor descendant ctx :=
+  ⟨ancestry, ancestorNeDescendant⟩
+
+/-- Proper ancestry implies ancestry. -/
+@[grind →]
+theorem ProperAncestor.toAncestor {ancestor : IRNode}
+    (ancestry : ancestor.ProperAncestor descendant ctx) :
+    ancestor.Ancestor descendant ctx :=
+  ancestry.1
 
 namespace Ancestor
 
@@ -216,9 +270,261 @@ theorem of_getParentOp!_eq_some {child parent : OperationPtr}
   apply IRNode.Ancestor.trans_parent_ancestor (middle := .operation child); grind
   grind
 
+/-- An operation's parent region is an ancestor through its parent block. -/
+theorem of_getParentRegion!_eq_some {op : OperationPtr} {region : RegionPtr}
+    (parentRegion : op.getParentRegion! ctx.raw = some region) :
+    IRNode.Ancestor (.region region) (.operation op) ctx := by
+  obtain ⟨block, opParent, blockParent⟩ :=
+    OperationPtr.getParentRegion!_eq_some_iff.mp parentRegion
+  exact Ancestor.trans_parent_ancestor (middle := .block block)
+    (by grind) (.of_parent (by grind))
+
+/-- An ancestry relation is either proper or relates a node to itself. -/
+theorem proper_or_eq
+    (ancestry : ancestor.Ancestor descendant ctx) :
+    ancestor.ProperAncestor descendant ctx ∨ ancestor = descendant := by
+  by_cases ancestorEq : ancestor = descendant
+  · exact Or.inr ancestorEq
+  · exact Or.inl ⟨ancestry, ancestorEq⟩
+
+theorem proper_of_ne
+    (ancestry : ancestor.Ancestor descendant ctx)
+    (ancestorNeDescendant : ancestor ≠ descendant) :
+    ancestor.ProperAncestor descendant ctx :=
+  ⟨ancestry, ancestorNeDescendant⟩
+
 end Ancestor
 
+namespace ProperAncestor
+
+variable {ancestor descendant parent child child₁ child₂ : IRNode}
+
+/-- A proper ancestor is distinct. -/
+@[grind →]
+theorem ne
+    (ancestry : ancestor.ProperAncestor descendant ctx) :
+    ancestor ≠ descendant :=
+  ancestry.2
+
+/-- No IR node is its own proper ancestor. -/
+@[simp, grind .]
+theorem irrefl : ¬ancestor.ProperAncestor ancestor ctx := by
+  simp [ProperAncestor]
+
+/-- An immediate parent is a proper ancestor. -/
+@[grind →]
+theorem of_parent (immediate : child.parent! ctx = some parent) :
+    parent.ProperAncestor child ctx :=
+  ⟨Ancestor.of_parent immediate, (child_ne_parent immediate).symm⟩
+
+theorem ancestor_of_parent_descendant
+    (hAncestor : ancestor.ProperAncestor descendant ctx)
+    (hParent : descendant.parent! ctx = some parent) :
+    ancestor.Ancestor parent ctx := by
+  obtain ⟨nodes, path⟩ := hAncestor.toAncestor.exists_parentPath
+  grind
+
+grind_pattern ancestor_of_parent_descendant =>
+    IRNode.ProperAncestor ancestor descendant ctx, descendant.parent! ctx, some parent where
+  guard descendant.parent! ctx = some parent
+
+/-- A proper operation ancestor also encloses the descendant's parent region. -/
+theorem ancestor_of_parentRegion_descendant {ancestor descendant : OperationPtr} {region : RegionPtr}
+    (ancestry : (ancestor : IRNode).ProperAncestor descendant ctx)
+    (parentRegion : descendant.getParentRegion! ctx.raw = some region) :
+    (ancestor : IRNode).Ancestor region ctx := by
+  obtain ⟨block, opParent, blockParent⟩ :=
+    OperationPtr.getParentRegion!_eq_some_iff.mp parentRegion
+  have ancestorOfBlock := ancestry.ancestor_of_parent_descendant
+    (show (IRNode.operation descendant).parent! ctx = some (.block block) by grind)
+  exact (ancestorOfBlock.toProperAncestor (by simp)).ancestor_of_parent_descendant
+    (show (IRNode.block block).parent! ctx = some (.region region) by grind)
+
+end ProperAncestor
+
+@[grind →]
+theorem Ancestor.of_ancestor_parent_of_parent_descendant {ancestor : IRNode}
+    (hAncestor : ancestor.Ancestor parent ctx)
+    (hParent : descendant.parent! ctx = some parent) :
+    ancestor.Ancestor descendant ctx := by
+  obtain ⟨nodes, path⟩ := hAncestor.exists_parentPath
+  apply Ancestor.of_parentPath (nodes := descendant::nodes)
+  grind [ParentPath.cons]
+
+grind_pattern Ancestor.of_ancestor_parent_of_parent_descendant =>
+    ancestor.Ancestor parent ctx, descendant.parent! ctx, some parent where
+  guard descendant.parent! ctx = some parent
+
+/--
+A proper block ancestor of one block is an ancestor of every block in the same region.
+-/
+theorem Ancestor.of_same_parent_of_properAncestor {ancestor : IRNode}
+    (hAncestor : ancestor.ProperAncestor child₁ ctx)
+    (hParent₁ : child₁.parent! ctx = some parent)
+    (hParent₂ : child₂.parent! ctx = some parent) :
+    ancestor.Ancestor child₂ ctx := by
+  grind
+
+/-- `node` is rooted at `root` if `root` is an ancestor of `node` and `root` has no parent. -/
+def RootedAt (node root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  root.Ancestor node ctx ∧ root.parent! ctx = none
+
+@[grind →]
+theorem RootedAt.ancestor {node root: IRNode} (hRooted : node.RootedAt root ctx) :
+    root.Ancestor node ctx :=
+  hRooted.1
+
+theorem RootedAt.root_parent_eq {node root: IRNode} (hRooted : node.RootedAt root ctx) :
+    root.parent! ctx = none :=
+  hRooted.2
+
+/-- An ancestor of a rooted node is rooted at the same root. -/
+theorem RootedAt.of_ancestor {node ancestor : IRNode}
+    (hRooted : node.RootedAt root ctx) (hAncestor : ancestor.Ancestor node ctx) :
+    ancestor.RootedAt root ctx := by
+  obtain ⟨nodes, path⟩ := hAncestor.exists_parentPath
+  clear hAncestor
+  induction path with
+  | single => exact hRooted
+  | @cons ancestor descendant parent nodes immediate tail ih =>
+    apply ih
+    refine ⟨?_, hRooted.2⟩
+    have hNe : root ≠ descendant := by grind [RootedAt]
+    exact (hRooted.1.toProperAncestor hNe).ancestor_of_parent_descendant immediate
+
+/-- Parent paths to a rooted ancestor are unique. -/
+theorem ParentPath.unique_of_rooted {node ancestor root : IRNode} {nodes₁ nodes₂ : List IRNode}
+    (left : ParentPath ctx node ancestor nodes₁)
+    (right : ParentPath ctx node ancestor nodes₂)
+    (rooted : ancestor.RootedAt root ctx) : nodes₁ = nodes₂ := by
+  obtain ⟨_, upper⟩ := rooted.ancestor.exists_parentPath
+  have same := (left.trans upper).unique_of_parent_eq_none (right.trans upper) rooted.root_parent_eq
+  exact List.append_cancel_right same
+
+/-- Ancestry is antisymmetric when the descendant is rooted. -/
+theorem Ancestor.antisymm_of_rooted {node ancestor root : IRNode}
+    (forward : ancestor.Ancestor node ctx) (reverse : node.Ancestor ancestor ctx)
+    (rooted : node.RootedAt root ctx) : ancestor = node := by
+  obtain ⟨_, lower⟩ := forward.exists_parentPath
+  obtain ⟨_, upper⟩ := reverse.exists_parentPath
+  have cycle := (lower.trans upper).unique_of_rooted .single rooted
+  cases lower with
+  | single => rfl
+  | cons immediate tail =>
+    have empty : _ = [] := (List.append_eq_nil_iff.mp (List.cons.inj cycle).2).1
+    exact False.elim (tail.ne_nil empty)
+
+grind_pattern Ancestor.antisymm_of_rooted =>
+  ancestor.Ancestor node ctx, node.Ancestor ancestor ctx, node.RootedAt root ctx
+
+/-- An ancestor and its descendant share a root. -/
+theorem Ancestor.rootedAt_iff {ancestor node : IRNode}
+    (ancestry : ancestor.Ancestor node ctx) :
+    ancestor.RootedAt root ctx ↔ node.RootedAt root ctx := by
+  constructor
+  · intro rooted
+    exact ⟨rooted.ancestor.trans ancestry, rooted.root_parent_eq⟩
+  · intro rooted
+    exact rooted.of_ancestor ancestry
+
+/-- Nodes with a common ancestor share a root. -/
+theorem Ancestor.rootedAt_iff_of_common_ancestor {ancestor node₁ node₂ : IRNode}
+    (first : ancestor.Ancestor node₁ ctx) (second : ancestor.Ancestor node₂ ctx) :
+    node₁.RootedAt root ctx ↔ node₂.RootedAt root ctx :=
+  first.rootedAt_iff.symm.trans second.rootedAt_iff
+
+/-- Nodes with the same parent share a root. -/
+theorem RootedAt.of_same_parent {node sibling parent : IRNode}
+    (hRooted : node.RootedAt root ctx)
+    (hParent : node.parent! ctx = some parent)
+    (hSiblingParent : sibling.parent! ctx = some parent) :
+    sibling.RootedAt root ctx := by
+  have parentRooted := hRooted.of_ancestor (Ancestor.of_parent hParent)
+  exact ⟨Ancestor.of_ancestor_parent_of_parent_descendant parentRooted.1 hSiblingParent,
+    parentRooted.2⟩
+
+/-- A child of a rooted node is rooted at the same root. -/
+theorem RootedAt.of_parent {node parent : IRNode}
+    (hRooted : parent.RootedAt root ctx) (hParent : node.parent! ctx = some parent) :
+    node.RootedAt root ctx :=
+  ⟨Ancestor.of_ancestor_parent_of_parent_descendant hRooted.1 hParent, hRooted.2⟩
+
+grind_pattern RootedAt.of_parent =>
+    parent.RootedAt root ctx, node.parent! ctx where
+  guard node.parent! ctx = some parent
+
 end IRNode
+
+@[simp, grind]
+abbrev OperationPtr.Ancestor (ancestor : OperationPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.Ancestor (.operation ancestor) descendant ctx
+
+abbrev BlockPtr.Ancestor (ancestor : BlockPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.Ancestor (.block ancestor) descendant ctx
+
+abbrev RegionPtr.Ancestor (ancestor : RegionPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.Ancestor (.region ancestor) descendant ctx
+
+/-- The parent blocks of nested operations are related by ancestry. -/
+@[grind →]
+theorem OperationPtr.Ancestor.parent_ancestor_parent {op₁ op₂ : OperationPtr}
+    {parent₁ parent₂ : BlockPtr}
+    (ancestry : op₁.Ancestor op₂ ctx)
+    (sourceParent : op₁.getParent! ctx.raw = some parent₁)
+    (targetParent : op₂.getParent! ctx.raw = some parent₂) :
+    parent₁.Ancestor parent₂ ctx := by
+  have parentAncestry : parent₁.Ancestor op₂ ctx :=
+    (IRNode.Ancestor.of_parent (by grind)).trans ancestry
+  exact (parentAncestry.toProperAncestor (by simp)).ancestor_of_parent_descendant (by grind)
+
+@[simp, grind]
+abbrev OperationPtr.RootedAt (op : OperationPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.RootedAt (.operation op) root ctx
+
+@[simp, grind]
+abbrev BlockPtr.RootedAt (block : BlockPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.RootedAt (.block block) root ctx
+
+@[simp, grind]
+abbrev RegionPtr.RootedAt (region : RegionPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.RootedAt (.region region) root ctx
+
+/-- A block ancestor in its rooted descendant's region is the descendant itself. -/
+theorem BlockPtr.Ancestor.eq_of_same_parent_region
+    {ancestor descendant : BlockPtr} {region : RegionPtr} {root : IRNode}
+    (ancestry : ancestor.Ancestor descendant ctx)
+    (rooted : descendant.RootedAt root ctx)
+    (ancestorParent : ancestor.getParent! ctx.raw = some region)
+    (descendantParent : descendant.getParent! ctx.raw = some region) : ancestor = descendant := by
+  apply Classical.byContradiction
+  intro distinct
+  have ancestorOfRegion :=
+    (ancestry.toProperAncestor (by simpa using distinct)).ancestor_of_parent_descendant
+      (show (IRNode.block descendant).parent! ctx = some (.region region) by grind)
+  have regionOfAncestor : region.Ancestor ancestor ctx := .of_parent (by grind)
+  cases (regionOfAncestor.antisymm_of_rooted ancestorOfRegion (rooted.of_ancestor ancestry))
+
+grind_pattern BlockPtr.Ancestor.eq_of_same_parent_region =>
+  (IRNode.block ancestor).Ancestor (.block descendant) ctx, descendant.RootedAt root ctx,
+  ancestor.getParent! ctx.raw, descendant.getParent! ctx.raw, some region where
+  guard ancestor.getParent! ctx.raw = some region
+  guard descendant.getParent! ctx.raw = some region
+
+/-- An operation ancestor inside the descendant's immediate parent region is the descendant. -/
+theorem OperationPtr.Ancestor.eq_of_parentRegion_ancestor
+    {ancestor descendant : OperationPtr} {region : RegionPtr} {root : IRNode}
+    (ancestry : ancestor.Ancestor descendant ctx)
+    (rooted : descendant.RootedAt root ctx)
+    (parentRegion : descendant.getParentRegion! ctx.raw = some region)
+    (regionAncestry : region.Ancestor ancestor ctx) : ancestor = descendant := by
+  apply Classical.byContradiction
+  intro distinct
+  have ancestorOfRegion :=
+    (ancestry.toProperAncestor (by simpa using distinct)).ancestor_of_parentRegion_descendant parentRegion
+  have regionRooted := rooted.of_ancestor (IRNode.Ancestor.of_getParentRegion!_eq_some parentRegion)
+  have impossible := ancestorOfRegion.antisymm_of_rooted regionAncestry regionRooted
+  simp at impossible
+
 
 /-! ## Executable nesting queries -/
 
@@ -226,11 +532,12 @@ end IRNode
 Whether `ancestor` is `descendant` or one of its enclosing regions. This is the
 executable counterpart of MLIR's `Region::isAncestor` query.
 -/
-partial def RegionPtr.isAncestorOf
+def RegionPtr.isAncestorOf
     (ancestor descendant : RegionPtr) (ctx : WfIRContext OpInfo) : Bool :=
-  ancestor = descendant ||
-    match (descendant.get! ctx.raw).parent.bind (·.getParentRegion! ctx.raw) with
+  if ancestor = descendant then true else
+    match (descendant.getParent! ctx.raw).bind (·.getParentRegion! ctx.raw) with
     | none => false
     | some parentRegion => ancestor.isAncestorOf parentRegion ctx
+partial_fixpoint
 
 end Veir

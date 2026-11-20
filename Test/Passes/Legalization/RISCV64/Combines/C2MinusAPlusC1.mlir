@@ -1,0 +1,51 @@
+// RUN: veir-opt %s -p=postlegalizer-combiner-riscv64 | filecheck %s
+
+// C2 - (A + C1) → (C2 - C1) - A: the two constants combine into a single
+// constant, leaving one subtract of A.
+
+"builtin.module"() ({
+  "func.func"() <{function_type = (i64) -> i64, sym_name = "foo"}> ({
+  ^bb0(%a: i64):
+    %c1 = "gmir.g_constant"() <{value = 3 : i64}> : () -> i64
+    %c2 = "gmir.g_constant"() <{value = 10 : i64}> : () -> i64
+    %add = "gmir.g_add"(%a, %c1) : (i64, i64) -> i64
+    %r = "gmir.g_sub"(%c2, %add) : (i64, i64) -> i64
+    "func.return"(%r) : (i64) -> ()
+  }) : () -> ()
+
+  // Negative case: the minuend is not a constant, so no fold.
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "bar"}> ({
+  ^bb0(%a: i64, %y: i64):
+    %c1 = "gmir.g_constant"() <{value = 3 : i64}> : () -> i64
+    %add = "gmir.g_add"(%a, %c1) : (i64, i64) -> i64
+    %r = "gmir.g_sub"(%y, %add) : (i64, i64) -> i64
+    "func.return"(%r) : (i64) -> ()
+  }) : () -> ()
+
+  // Negative case: the added operand is not a constant, so no fold.
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "baz"}> ({
+  ^bb0(%a: i64, %x: i64):
+    %c2 = "gmir.g_constant"() <{value = 10 : i64}> : () -> i64
+    %add = "gmir.g_add"(%a, %x) : (i64, i64) -> i64
+    %r = "gmir.g_sub"(%c2, %add) : (i64, i64) -> i64
+    "func.return"(%r) : (i64) -> ()
+  }) : () -> ()
+}) : () -> ()
+
+// Folds to (10 - 3) - A = 7 - A.
+// CHECK:      func.func @foo(%[[A:.*]]: i64) -> i64 {
+// CHECK:      %[[C:.*]] = "gmir.g_constant"(){{.*}}value{{.*}}= 7 : i64{{.*}} : () -> i64
+// CHECK:      %[[R:.*]] = "gmir.g_sub"(%[[C]], %[[A]]) : (i64, i64) -> i64
+// CHECK:      "func.return"(%[[R]]) : (i64) -> ()
+
+// Non-constant minuend: the pattern does not fire.
+// CHECK:      func.func @bar(%[[NA:.*]]: i64, %[[NY:.*]]: i64) -> i64 {
+// CHECK:      %[[NADD:.*]] = "gmir.g_add"(%[[NA]], %{{.*}}) : (i64, i64) -> i64
+// CHECK:      %[[NR:.*]] = "gmir.g_sub"(%[[NY]], %[[NADD]]) : (i64, i64) -> i64
+// CHECK:      "func.return"(%[[NR]]) : (i64) -> ()
+
+// Non-constant addend: the pattern does not fire.
+// CHECK:      func.func @baz(%[[MA:.*]]: i64, %[[MX:.*]]: i64) -> i64 {
+// CHECK:      %[[MADD:.*]] = "gmir.g_add"(%[[MA]], %[[MX]]) : (i64, i64) -> i64
+// CHECK:      %[[MR:.*]] = "gmir.g_sub"(%{{.*}}, %[[MADD]]) : (i64, i64) -> i64
+// CHECK:      "func.return"(%[[MR]]) : (i64) -> ()

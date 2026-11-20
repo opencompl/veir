@@ -27,10 +27,6 @@ def fastToFloat32 {mode : RoundingMode} (x : FastFloat 8 23 mode) : Float32 :=
   PackedFloat.toFloat32 (PackedFloat.ofFloat x.value
     |> PackedFloat.round mode 8 23)
 
-/-- The `Float32` golden value for a pair under `op`. -/
-def goldF32 (op : Float32 → Float32 → Float32) (a b : Float32) : Float32 :=
-  op a b
-
 /-- The simulated value via `FastFloat 8 23 .RNE`. -/
 def simF32
     (op : ∀ {e s : Nat} {m : RoundingMode},

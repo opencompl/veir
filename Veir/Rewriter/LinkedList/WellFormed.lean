@@ -14,19 +14,21 @@ variable {ctx ctx' : IRContext OpInfo}
 /- OpOperandPtr.insertIntoCurrent -/
 
 attribute [local grind ext] OpOperand in
-theorem OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent_of_value_ne
+theorem OpOperandPtr.fields_OpOperandPtr_insertIntoCurrent_of_value_ne
     (ctxInBounds : ctx.FieldsInBounds) {use use' : OpOperandPtr}
     {useInBounds : use.InBounds ctx}
-    (useOfOtherValue : (use.get! ctx).value ≠ (use'.get! ctx).value) array missingUses
-    (hWF : (use.get! ctx).value.DefUse ctx array missingUses) :
-    use'.get! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.get! ctx := by
+    (useOfOtherValue : use.getValue! ctx ≠ use'.getValue! ctx) array missingUses
+    (hWF : (use.getValue! ctx).DefUse ctx array missingUses) :
+    use'.getNextUse! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getNextUse! ctx ∧
+    use'.getBack! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getBack! ctx ∧
+    use'.getValue! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getValue! ctx := by
   grind [ValuePtr.DefUse.ValuePtr_getFirstUse_ne_of_value_ne]
 
 theorem ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self
     {value : ValuePtr} {hvalue : use ∈ missingUses}
     (hWF: value.DefUse ctx array missingUses) :
     value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) (#[use] ++ array) (missingUses.erase use) := by
-  have : (use.get! ctx).value = value := by grind
+  have : use.getValue! ctx = value := by grind
   constructor
   case prevNextUse =>
     intro i hi iInBounds
@@ -45,7 +47,7 @@ theorem ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self
       grind
     · simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
         Nat.le_add_left, Array.getElem_append_right, Nat.add_one_sub_one,
-        OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent, Array.getElem?_append, Nat.lt_one_iff,
+        OpOperandPtr.getNextUse!_OpOperandPtr_insertIntoCurrent, Array.getElem?_append, Nat.lt_one_iff,
         Nat.add_eq_zero_iff, Nat.succ_ne_self, and_false, and_self, ↓reduceIte]
       grind
   all_goals grind
@@ -110,27 +112,27 @@ theorem IRContext.wellFormed_OpOperandPtr_insertIntoCurrent
   · grind
   · intros valuePtr valuePtrInBounds
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
-    by_cases hvalue: (use.get! ctx).value = valuePtr
+    by_cases hvalue: use.getValue! ctx = valuePtr
     · apply Exists.intro _
       simp only [Std.ExtHashSet.filter_erase_eq]
       apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self
       · grind
       · apply cast (a := h); congr
         grind
-    · let valuePtr' := (use.get! ctx).value
+    · let valuePtr' := use.getValue! ctx
       have ⟨array', h'⟩ := hWF.valueDefUseChains valuePtr' (by grind)
       apply Exists.intro _
       simp only [Std.ExtHashSet.filter_erase_eq]
       apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
         (value' := valuePtr') (by grind) (hWF' := h') (hvalue := by grind)
       apply cast (a := h); congr
-      simp only [OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent]
+      simp only [OpOperandPtr.getValue!_OpOperandPtr_insertIntoCurrent]
       ext; grind
   · intros blockPtr blockPtrInBounds
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
     apply Exists.intro _
     apply BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
-    simp only [BlockOperandPtr.get!_OpOperandPtr_insertIntoCurrent]
+    simp only [BlockOperandPtr.getValue!_OpOperandPtr_insertIntoCurrent]
     apply h
   · intros blockPtr blockPtrInBounds
     have ⟨_, h⟩ := hWF.opChain blockPtr (by grind)
@@ -155,17 +157,17 @@ theorem IRContext.wellFormed_OpOperandPtr_insertIntoCurrent
 /- OpOperandPtr.removeFromCurrent -/
 
 theorem OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse
-    (useOfValue : (OpOperandPtr.get! use ctx).value = value)
+    (useOfValue : OpOperandPtr.getValue! use ctx = value)
     (hWF : value.DefUse ctx array missingUses) (useInArray: use ∈ array)
     {i} (iPos : i > 0) (iInBounds : i < (array.erase use).size)
     (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
-    (((array.erase use)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds)).back = OpOperandPtrPtr.operandNextUse (array.erase use)[i - 1] := by
-  simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    ((array.erase use)[i]).getBack! (removeFromCurrent ctx use useInBounds ctxInBounds) = OpOperandPtrPtr.operandNextUse (array.erase use)[i - 1] := by
+  simp only [OpOperandPtr.getBack!_OpOperandPtr_removeFromCurrent]
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
   subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by
         grind [ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx]
-  have hNextUse : (array[useIdx].get! ctx).nextUse = array[useIdx + 1]? := by grind
+  have hNextUse : array[useIdx].getNextUse! ctx = array[useIdx + 1]? := by grind
   simp only [hNextUse]
   by_cases i = useIdx
   · subst useIdx
@@ -174,29 +176,29 @@ theorem OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse
 
 theorem OpOperandPtr.nextUse!_array_getElem_removeFromCurrent_eq_of_DefUse
     (useInBounds : OpOperandPtr.InBounds use ctx)
-    (useOfValue : (use.get! ctx).value = value)
+    (useOfValue : use.getValue! ctx = value)
     (hWF : value.DefUse ctx array missingUses) (useInArray: use ∈ array)
     {i} (iInBounds : i < (array.erase use).size)
     (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
-    (((array.erase use)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds)).nextUse = (array.erase use)[i + 1]? := by
-  simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    ((array.erase use)[i]).getNextUse! (removeFromCurrent ctx use useInBounds ctxInBounds) = (array.erase use)[i + 1]? := by
+  simp only [OpOperandPtr.getNextUse!_OpOperandPtr_removeFromCurrent]
   have useInArray : use ∈ array := by grind
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
   subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by
     grind [ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx]
-  have hNextUse : (array[useIdx].get! ctx).nextUse = array[useIdx + 1]? := by grind
+  have hNextUse : array[useIdx].getNextUse! ctx = array[useIdx + 1]? := by grind
   simp only [hNextUse]
   by_cases hi : i < useIdx <;> grind [ValuePtr.DefUse_array_injective, hWF.back_array_eq]
 
 theorem OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse
     {valuePtr : ValuePtr}
     (valuePtrWF : valuePtr.DefUse ctx array missingUses)
-    (operandValueWF : (operandPtr.get! ctx).value.DefUse ctx array' missingUses')
+    (operandValueWF : (operandPtr.getValue! ctx).DefUse ctx array' missingUses')
     (operandInArray : operandPtr ∈ array') :
     valuePtr.getFirstUse! (OpOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
       if valuePtr.getFirstUse! ctx = some operandPtr then
-        (operandPtr.get! ctx).nextUse
+        operandPtr.getNextUse! ctx
       else
         valuePtr.getFirstUse! ctx := by
   simp only [ValuePtr.getFirstUse!_OpOperandPtr_removeFromCurrent]
@@ -214,7 +216,7 @@ theorem ValuePtr.defUse_removeFromCurrent_self
     {value : ValuePtr} (hvalue : use ∈ array)
     (hWF: value.DefUse ctx array missingUses) :
     value.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds) (array.erase use) (missingUses.insert use) := by
-  have hUseValue : (use.get! ctx).value = value := by grind [ValuePtr.DefUse.useValue]
+  have hUseValue : use.getValue! ctx = value := by grind [ValuePtr.DefUse.useValue]
   constructor
   case prevNextUse =>
     intro i iPos iInBounds
@@ -231,7 +233,7 @@ theorem ValuePtr.defUse_removeFromCurrent_self
     intros firstUse
     split
     · grind
-    · simp [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    · simp [OpOperandPtr.getBack!_OpOperandPtr_removeFromCurrent]
       intros heq
       simp only [ValuePtr.DefUse.nextUse!_ne_of_getFirstUse!_eq hWF hvalue
             (by simp [hUseValue]; exact hWF) heq,
@@ -248,7 +250,7 @@ theorem ValuePtr.defUse_removeFromCurrent_other
   apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> try grind
   · simp [ValuePtr.getFirstUse!_OpOperandPtr_removeFromCurrent]
     intros h
-    have : (use.get! ctx).value = value' := by grind
+    have : use.getValue! ctx = value' := by grind
     grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
 
 theorem BlockPtr.defUse_OpOperandPtr_removeFromCurrent
@@ -296,14 +298,14 @@ theorem IRContext.wellFormed_OpOperandPtr_removeFromCurrent
   · grind
   · intros valuePtr valuePtrInBounds
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
-    by_cases hvalue: (use.get! ctx).value = valuePtr
+    by_cases hvalue: use.getValue! ctx = valuePtr
     · apply Exists.intro _
       simp (disch := grind) only [Std.ExtHashSet.filter_insert_eq_of_true_eq]
       apply ValuePtr.defUse_removeFromCurrent_self (array := array)
       · grind [h.allUsesInChain]
       · apply cast (a := h); congr
         grind
-    · let valuePtr' := (use.get! ctx).value
+    · let valuePtr' := use.getValue! ctx
       have ⟨array', h'⟩ := hWF.valueDefUseChains valuePtr' (by grind)
       apply Exists.intro _
       simp (disch := grind) only [Std.ExtHashSet.filter_insert_eq_of_false_eq]
@@ -316,7 +318,7 @@ theorem IRContext.wellFormed_OpOperandPtr_removeFromCurrent
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
     apply Exists.intro _
     apply BlockPtr.defUse_OpOperandPtr_removeFromCurrent
-    simp only [BlockOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    simp only [BlockOperandPtr.getValue!_OpOperandPtr_removeFromCurrent]
     apply h
   · intros blockPtr blockPtrInBounds
     have ⟨_, h⟩ := hWF.opChain blockPtr (by grind)
@@ -340,13 +342,15 @@ theorem IRContext.wellFormed_OpOperandPtr_removeFromCurrent
 
 section BlockOperandPtr.insertIntoCurrent
 
-theorem BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne
+theorem BlockOperandPtr.fields_BlockOperandPtr_insertIntoCurrent_of_value_ne
     (ctxInBounds : ctx.FieldsInBounds) {use use' : BlockOperandPtr}
     {useInBounds : use.InBounds ctx}
-    (useOfOtherValue : (use.get! ctx).value ≠ (use'.get! ctx).value) array missingUses
-    (hWF : (use.get! ctx).value.DefUse ctx array missingUses) :
-    use'.get! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.get! ctx := by
-  simp only [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
+    (useOfOtherValue : use.getValue! ctx ≠ use'.getValue! ctx) array missingUses
+    (hWF : (use.getValue! ctx).DefUse ctx array missingUses) :
+    use'.getNextUse! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getNextUse! ctx ∧
+    use'.getBack! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getBack! ctx ∧
+    use'.getValue! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getValue! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_BlockOperandPtr_insertIntoCurrent, BlockOperandPtr.getBack!_BlockOperandPtr_insertIntoCurrent, BlockOperandPtr.getValue!_BlockOperandPtr_insertIntoCurrent]
   have := BlockPtr.DefUse.getFirstUse_ne_of_value_ne useOfOtherValue hWF
   simp only [this, ↓reduceIte]
   have : use ≠ use' := by grind
@@ -357,12 +361,12 @@ theorem BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self
     {block : BlockPtr} {hvalue : use ∈ missingUses}
     (hWF: block.DefUse ctx array missingUses) :
     block.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) (#[use] ++ array) (missingUses.erase use) := by
-  have : (use.get! ctx).value = block := by grind [BlockPtr.DefUse.missingUsesValue]
+  have : use.getValue! ctx = block := by grind [BlockPtr.DefUse.missingUsesValue]
   constructor
   case backNextUse =>
     simp only [gt_iff_lt, Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
       Nat.zero_add]
-    simp only [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
+    simp only [BlockOperandPtr.getBack!_BlockOperandPtr_insertIntoCurrent]
     intros i
     cases i <;> grind [BlockPtr.DefUse]
   case nextElems =>
@@ -386,7 +390,7 @@ theorem BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_other
     (hWF' : value'.DefUse ctx array' missingUses') :
     value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) array missingUses := by
   apply BlockPtr.DefUse.unchanged (ctx := ctx)
-    <;> grind [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
+    <;> grind [BlockOperandPtr.fields_BlockOperandPtr_insertIntoCurrent_of_value_ne]
 
 theorem ValuePtr.defUse_BlockOperandPtr_insertIntoCurrent
     {block : ValuePtr} {use : BlockOperandPtr} {useInBounds}
@@ -436,25 +440,25 @@ theorem IRContext.wellFormed_BlockOperandPtr_insertIntoCurrent
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
     apply Exists.intro _
     apply ValuePtr.defUse_BlockOperandPtr_insertIntoCurrent
-    simp only [OpOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
+    simp only [OpOperandPtr.getValue!_BlockOperandPtr_insertIntoCurrent]
     apply h
   · intros blockPtr valuePtrInBounds
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
-    by_cases hvalue: (use.get! ctx).value = blockPtr
+    by_cases hvalue: use.getValue! ctx = blockPtr
     · apply Exists.intro _
       simp only [Std.ExtHashSet.filter_erase_eq]
       apply BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self
       · grind
       · apply cast (a := h); congr
         grind
-    · let blockPtr' := (use.get! ctx).value
+    · let blockPtr' := use.getValue! ctx
       have ⟨array', h'⟩ := hWF.blockDefUseChains blockPtr' (by grind)
       apply Exists.intro _
       simp only [Std.ExtHashSet.filter_erase_eq]
       apply BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_other
         (value' := blockPtr') (by grind) (hWF' := h') (hvalue := by grind)
       apply cast (a := h); congr
-      simp only [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
+      simp only [BlockOperandPtr.getValue!_BlockOperandPtr_insertIntoCurrent]
       ext; grind
   · intros blockPtr blockPtrInBounds
     have ⟨_, h⟩ := hWF.opChain blockPtr (by grind)
@@ -483,16 +487,16 @@ section BlockOperandPtr.removeFromCurrent
 attribute [local grind ext] BlockOperand
 
 theorem BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
-    (useOfBlock : (BlockOperandPtr.get! use ctx).value = block)
+    (useOfBlock : BlockOperandPtr.getValue! use ctx = block)
     (hWF : block.DefUse ctx array missingUses) (useInArray: use ∈ array)
     {i} (iPos : i > 0) (iInBounds : i < (array.erase use).size)
     (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
-    (((array.erase use)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds)).back = BlockOperandPtrPtr.blockOperandNextUse (array.erase use)[i - 1] := by
-  simp only [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
+    ((array.erase use)[i]).getBack! (removeFromCurrent ctx use useInBounds ctxInBounds) = BlockOperandPtrPtr.blockOperandNextUse (array.erase use)[i - 1] := by
+  simp only [BlockOperandPtr.getBack!_BlockOperandPtr_removeFromCurrent]
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
   subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by grind
-  have hNextUse : (array[useIdx].get! ctx).nextUse = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
+  have hNextUse : array[useIdx].getNextUse! ctx = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
   simp only [hNextUse]
   by_cases i = useIdx
   · subst useIdx
@@ -501,31 +505,31 @@ theorem BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurrent_eq
 
 theorem BlockOperandPtr.nextUse!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
     (useInBounds : BlockOperandPtr.InBounds use ctx)
-    (useOfValue : (use.get! ctx).value = value)
+    (useOfValue : use.getValue! ctx = value)
     (hWF : value.DefUse ctx array missingUses) (useInArray: use ∈ array)
     {i} (iInBounds : i < (array.erase use).size)
     (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
-    (((array.erase use)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds)).nextUse = (array.erase use)[i + 1]? := by
-  simp only [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
+    ((array.erase use)[i]).getNextUse! (removeFromCurrent ctx use useInBounds ctxInBounds) = (array.erase use)[i + 1]? := by
+  simp only [BlockOperandPtr.getNextUse!_BlockOperandPtr_removeFromCurrent]
   have useInArray : use ∈ array := by grind
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
   subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by grind
-  have hNextUse : (array[useIdx].get! ctx).nextUse = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
+  have hNextUse : array[useIdx].getNextUse! ctx = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
   simp only [hNextUse]
   by_cases i < useIdx <;> grind [BlockPtr.DefUse_array_injective]
 
 theorem BlockOperandPtr.BlockOperandPtr_removeFromCurrent_BlockPtr_getFirstUse!
     {blockPtr : BlockPtr}
     (valuePtrWF : blockPtr.DefUse ctx array missingUses)
-    (operandValueWF : (operandPtr.get! ctx).value.DefUse ctx array' missingUses')
+    (operandValueWF : (operandPtr.getValue! ctx).DefUse ctx array' missingUses')
     (operandInArray : operandPtr ∈ array') :
-    (blockPtr.get! (BlockOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds)).firstUse =
-      if (blockPtr.get! ctx).firstUse = some operandPtr then
-        (operandPtr.get! ctx).nextUse
+    blockPtr.getFirstUse! (BlockOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
+      if blockPtr.getFirstUse! ctx = some operandPtr then
+        operandPtr.getNextUse! ctx
       else
-        (blockPtr.get! ctx).firstUse := by
-  simp only [BlockPtr.firstUse!_BlockOperandPtr_removeFromCurrent]
+        blockPtr.getFirstUse! ctx := by
+  simp only [BlockPtr.getFirstUse!_BlockOperandPtr_removeFromCurrent]
   congr 1
   simp [BlockPtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse operandValueWF (by grind) valuePtrWF]
 
@@ -533,7 +537,7 @@ theorem BlockPtr.DefUse.getElem?_zero_erase_array_eq
     (useInBounds : BlockOperandPtr.InBounds use ctx)
     (hWF : BlockPtr.DefUse block ctx array missingUses) (useInArray: use ∈ array)
     {i} (iInBounds : i < (array.erase use).size) :
-    (array.erase use)[0]? = (block.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).firstUse := by
+    (array.erase use)[0]? = block.getFirstUse! (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
   grind [Array.getElem_of_mem, BlockPtr.DefUse, BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx,
     BlockPtr.DefUse_array_injective, Array.getElem?_eraseIdx_of_ge]
 
@@ -541,7 +545,7 @@ theorem BlockPtr.defUse_removeFromCurrent_self
     {block : BlockPtr} {hvalue : use ∈ array}
     (hWF: block.DefUse ctx array missingUses) :
     block.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds) (array.erase use) (missingUses.insert use) := by
-  have hUseValue : (use.get! ctx).value = block := by grind [BlockPtr.DefUse.useValue]
+  have hUseValue : use.getValue! ctx = block := by grind [BlockPtr.DefUse.useValue]
   constructor
   case backNextUse =>
     grind [BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse, Array.mem_of_mem_erase, BlockPtr.DefUse]
@@ -554,7 +558,7 @@ theorem BlockPtr.defUse_removeFromCurrent_self
     intros firstUse
     split
     · grind [BlockPtr.DefUse]
-    · simp [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
+    · simp [BlockOperandPtr.getBack!_BlockOperandPtr_removeFromCurrent]
       intros heq
       simp only [BlockPtr.DefUse.nextUse!_ne_of_getFirstUse!_eq hWF hvalue
             (by simp [hUseValue]; exact hWF) heq,
@@ -570,6 +574,7 @@ theorem BlockPtr.defUse_BlockOperandPtr_removeFromCurrent_other
     (hWF : block.DefUse ctx array missingUses)
     (hWF' : block'.DefUse ctx array' missingUses') :
     block.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds) array missingUses := by
+  have : use.getValue! ctx = block' := by grind
   apply BlockPtr.DefUse.unchanged (ctx := ctx)
     <;> grind [BlockPtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
 
@@ -621,16 +626,16 @@ theorem IRContext.wellFormed_BlockOperandPtr_removeFromCurrent
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
     apply Exists.intro _
     apply ValuePtr.defUse_BlockOperandPtr_removeFromCurrent
-    simp only [OpOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
+    simp only [OpOperandPtr.getValue!_BlockOperandPtr_removeFromCurrent]
     apply h
   · intros blockPtr blockPtrInBounds
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
-    by_cases hvalue: (use.get! ctx).value = blockPtr
+    by_cases hvalue: use.getValue! ctx = blockPtr
     · apply Exists.intro _
       simp (disch := grind) only [Std.ExtHashSet.filter_insert_eq_of_true_eq]
       apply BlockPtr.defUse_removeFromCurrent_self (array := array)
         <;> grind [h.allUsesInChain]
-    · let blockPtr' := (use.get! ctx).value
+    · let blockPtr' := use.getValue! ctx
       have ⟨array', h'⟩ := hWF.blockDefUseChains blockPtr' (by grind)
       apply Exists.intro _
       simp (disch := grind) only [Std.ExtHashSet.filter_insert_eq_of_false_eq]
@@ -717,20 +722,20 @@ theorem BlockPtr.opChain_OperationPtr_linkBetweenWithParent_self
     intro i hi₁ hi₂
     simp only [Array.size_insertIdx] at hi₂
     grind only [= Array.getElem_insertIdx, = Array.size_insertIdx, = getElem?_pos,
-      = getElem?_neg, usr Array.getElem_mem, usr OperationPtr.prev!_OperationPtr_linkBetweenWithParent,
+      = getElem?_neg, usr Array.getElem_mem, usr OperationPtr.getPrevOp!_OperationPtr_linkBetweenWithParent,
       usr BlockPtr.OpChain.prev, BlockPtr.OpChain_array_injective]
   case next =>
     intro i hi
     simp only [Array.size_insertIdx] at hi
     grind only [= Array.getElem_insertIdx, = Array.getElem?_insertIdx, = Array.size_insertIdx,
       = getElem?_pos, = getElem?_neg, usr Array.getElem_mem,
-      usr OperationPtr.next!_OperationPtr_linkBetweenWithParent, usr BlockPtr.OpChain.next,
+      usr OperationPtr.getNextOp!_OperationPtr_linkBetweenWithParent, usr BlockPtr.OpChain.next,
       BlockPtr.OpChain_array_injective]
 
 theorem BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp block selfIn prevIn nextIn parentIn = some newCtx)
-    (prevParent : prevOp.maybe₁ (fun prev => (prev.get! ctx).parent = some block) )
-    (nextParent : nextOp.maybe₁ (fun next => (next.get! ctx).parent = some block) )
+    (prevParent : prevOp.maybe₁ (fun prev => prev.getParent! ctx = some block) )
+    (nextParent : nextOp.maybe₁ (fun next => next.getParent! ctx = some block) )
     (hNeBlock : block ≠ block') :
     BlockPtr.OpChain block' ctx array →
     BlockPtr.OpChain block' newCtx array := by
@@ -747,8 +752,8 @@ theorem RegionPtr.blockChain_OperationPtr_linkBetweenWithParent
 
 theorem Operation.wellFormed_OperationPtr_linkBetweenWithParent
     (ctxInBounds: IRContext.FieldsInBounds ctx)
-    (prevOpParent : prevOp.maybe₁ (fun prev => (prev.get! ctx).parent = some parentBlock))
-    (nextOpParent : nextOp.maybe₁ (fun next => (next.get! ctx).parent = some parentBlock))
+    (prevOpParent : prevOp.maybe₁ (fun prev => prev.getParent! ctx = some parentBlock))
+    (nextOpParent : nextOp.maybe₁ (fun next => next.getParent! ctx = some parentBlock))
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
     OperationPtr.WellFormed ctx opPtr opInBounds →
     OperationPtr.WellFormed newCtx opPtr (by grind) := by
@@ -778,8 +783,8 @@ theorem Region.wellFormed_OperationPtr_linkBetweenWithParent
 theorem IRContext.wellFormed_OperationPtr_linkBetweenWithParent
     (hWF : ctx.WellFormed)
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx)
-    (prevOpParent : prevOp.maybe₁ (fun prev => (prev.get! ctx).parent = some parentBlock))
-    (nextOpParent : nextOp.maybe₁ (fun next => (next.get! ctx).parent = some parentBlock))
+    (prevOpParent : prevOp.maybe₁ (fun prev => prev.getParent! ctx = some parentBlock))
+    (nextOpParent : nextOp.maybe₁ (fun next => next.getParent! ctx = some parentBlock))
     {ip : InsertPoint}
     (ipInBounds : ip.InBounds ctx)
     (ipBlock : ip.block! ctx = parentBlock)
@@ -866,8 +871,8 @@ theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
     grind [BlockInsertPoint.next_eq_none_iff_idxIn_eq_size_array]
   case prevFirst =>
     intro bl
-    simp only [RegionPtr.firstBlock!_BlockPtr_linkBetweenWithParent hctx, and_true,
-      BlockPtr.prev!_BlockPtr_linkBetweenWithParent hctx]
+    simp only [RegionPtr.getFirstBlock!_BlockPtr_linkBetweenWithParent hctx, and_true,
+      BlockPtr.getPrevBlock!_BlockPtr_linkBetweenWithParent hctx]
     split
     · grind
     · rename_i hprev
@@ -875,6 +880,8 @@ theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
       · subst nextBlock
         simp only [reduceCtorEq, imp_false]
         have ⟨prevOp, hprevOp⟩ := Option.ne_none_iff_exists.mp hprev
+        have := BlockInsertPoint.prev_next (ctx := ctx) bipInBounds (prevOp := prevOp) (nextOp := bl)
+          (by grind) (by grind)
         grind [RegionPtr.BlockChain.prevFirst]
       · grind [RegionPtr.BlockChain.opParent]
   case prev =>
@@ -882,7 +889,7 @@ theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
     let idx := bip.idxIn ctx parent (by grind) (by grind) ctxWf
     have : nextBlock = array[idx]? := by grind
     by_cases h₁ : i < idx
-    · grind [RegionPtr.BlockChain_array_injective, RegionPtr.BlockChain.prev]
+    · grind [RegionPtr.BlockChain_array_injective, RegionPtr.BlockChain.prev, → BlockInsertPoint.prev!_eq_getElem!_idxIn]
     · by_cases h₂ : i = idx
       · grind [RegionPtr.BlockChain_array_injective,
           BlockInsertPoint.prev!_eq_getElem!_idxIn]
@@ -907,8 +914,8 @@ theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
 
 theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_other
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx)
-    (prevParent : prevBlock.maybe₁ (fun prev => (prev.get! ctx).parent = some parent) )
-    (nextParent : nextBlock.maybe₁ (fun next => (next.get! ctx).parent = some parent) )
+    (prevParent : prevBlock.maybe₁ (fun prev => prev.getParent! ctx = some parent) )
+    (nextParent : nextBlock.maybe₁ (fun next => next.getParent! ctx = some parent) )
     (hNeRegion : parent ≠ region) :
     RegionPtr.BlockChain region ctx array →
     RegionPtr.BlockChain region newCtx array := by
@@ -926,8 +933,8 @@ theorem Operation.wellFormed_BlockPtr_linkBetweenWithParent
 
 theorem Block.wellFormed_BlockPtr_linkBetweenWithParent
     (ctxWf : IRContext.WellFormed ctx)
-    (prevBlockParent : prevBlock.maybe₁ (fun prev => (prev.get! ctx).parent = some parentRegion))
-    (nextBlockParent : nextBlock.maybe₁ (fun next => (next.get! ctx).parent = some parentRegion))
+    (prevBlockParent : prevBlock.maybe₁ (fun prev => prev.getParent! ctx = some parentRegion))
+    (nextBlockParent : nextBlock.maybe₁ (fun next => next.getParent! ctx = some parentRegion))
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
     (hWF : BlockPtr.WellFormed ctx block' blockInBounds) :
     BlockPtr.WellFormed newCtx block' (by grind) := by
@@ -948,8 +955,8 @@ theorem Region.wellFormed_BlockPtr_linkBetweenWithParent
 theorem IRContext.wellFormed_BlockPtr_linkBetweenWithParent
     (hWF : ctx.WellFormed)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
-    (prevBlockParent : prevBlock.maybe₁ (fun prev => (prev.get! ctx).parent = some parentRegion))
-    (nextBlockParent : nextBlock.maybe₁ (fun next => (next.get! ctx).parent = some parentRegion))
+    (prevBlockParent : prevBlock.maybe₁ (fun prev => prev.getParent! ctx = some parentRegion))
+    (nextBlockParent : nextBlock.maybe₁ (fun next => next.getParent! ctx = some parentRegion))
     {ip : BlockInsertPoint}
     (ipInBounds : ip.InBounds ctx)
     (ipBlock : ip.region! ctx = parentRegion)

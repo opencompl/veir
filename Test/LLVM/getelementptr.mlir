@@ -21,7 +21,7 @@
       %g4 = "llvm.getelementptr"(%ptr, %i, %j, %k, %l) <{elem_type = !llvm.array<10 x !llvm.array<10 x !llvm.array<10 x i8>>>, rawConstantIndices = array<i32: -2147483648, -2147483648, -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64, i64, i64) -> !llvm.ptr
 
       // 2 dynamic indices with an interleaved constant index: ptr[i][0][j]
-      %g5 = "llvm.getelementptr"(%ptr, %i, %j) <{elem_type = !llvm.array<10 x i8>, rawConstantIndices = array<i32: -2147483648, 0, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+      %g5 = "llvm.getelementptr"(%ptr, %i, %j) <{elem_type = !llvm.array<10 x array<10 x i8>>, rawConstantIndices = array<i32: -2147483648, 0, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
 
       "llvm.return"() : () -> ()
   }) : () -> ()
@@ -48,7 +48,7 @@
 // CHECK-NEXT:          %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}, %{{.*}}) <{"elem_type" = !llvm.array<10 x i8>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
 // CHECK-NEXT:          %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{"elem_type" = !llvm.array<10 x !llvm.array<10 x i8>>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64, i64) -> !llvm.ptr
 // CHECK-NEXT:          %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{"elem_type" = !llvm.array<10 x !llvm.array<10 x !llvm.array<10 x i8>>>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648, -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:          %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}, %{{.*}}) <{"elem_type" = !llvm.array<10 x i8>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:          %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}, %{{.*}}) <{"elem_type" = !llvm.array<10 x !llvm.array<10 x i8>>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
 // CHECK-NEXT:          "llvm.return"() : () -> ()
 // CHECK-NEXT:      }) : () -> ()
 

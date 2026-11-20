@@ -1,7 +1,9 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: CTREE
 // RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
 
-// ALIVE_EXEC: rejects a struct of `i66` fields as not type-checking.
+// alive-exec rejects a struct of `i66` fields as not type-checking.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i66, i66, i66, i66)}> ({
@@ -15,3 +17,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[poison, poison, poison, poison]
+// ALIVE_EXEC: Rejected: program doesn't type check!

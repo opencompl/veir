@@ -67,6 +67,12 @@ def IntegerType.signed (bitwidth : Nat) : IntegerType :=
 def IntegerType.unsigned (bitwidth : Nat) : IntegerType :=
   { bitwidth, signedness := .unsigned }
 
+@[simp]
+theorem IntegerType.forall_bitwidth_eq_implies_iff (P : IntegerType → Prop) :
+    (∀ (x : IntegerType), x.bitwidth = y → P x) ↔
+      ∀ signedness, P (IntegerType.mk y signedness) := by
+  grind [cases IntegerType]
+
 /--
   A floating point type.
 -/
@@ -109,15 +115,20 @@ end FloatType
 
 
 /--
-  A register type is an integer type with width 64.
+  A register type is an integer type with width 64;
+  Negative indices represent unbounded virtual registers;
+  non-negative indices `0–31` represent the 32 architectural registers.
 -/
 structure RegisterType where
-  index: Option Nat := none
+  index: Option Int := none
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /-- The MLIR builtin `index` type. -/
 structure IndexType
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The bitwidth of `index` values, matching MLIR's 64-bit index attributes. -/
+def IndexType.bitwidth : Nat := 64
 
 /--
   An integer literal with an associated integer type.
@@ -153,6 +164,14 @@ def isNormalized (attr : IntegerAttr) : Bool :=
   attr.value = normalizeValue attr.type attr.value
 
 end IntegerAttr
+
+/--
+  Integer literal of the builtin `index` type. MLIR stores index attributes as
+  `IndexType.bitwidth`-bit integers, so the value cannot be out of range.
+-/
+structure IndexAttr where
+  value : BitVec IndexType.bitwidth
+deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
  Floating point fastmath flags attribute.
@@ -374,6 +393,24 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 public def ModArithType.bitwidth (ty : ModArithType) : Nat :=
   ty.modulus.type.bitwidth
 
+namespace SMT
+
+/--
+  An SMT sort type, i.e. `!smt.bool` or `!smt.bv<width>`. Sorts are the types of
+  the SMT dialect; they mirror MLIR's `!smt.bool` and `!smt.bv<width>`.
+-/
+inductive SortType where
+| bool
+| bv (width : Nat)
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The width of a bit-vector sort, if this sort is one. -/
+def SortType.bvWidth? : SortType → Option Nat
+| .bool => none
+| .bv width => some width
+
+end SMT
+
 namespace PDL
 
 /--
@@ -470,8 +507,16 @@ namespace LLVM
 structure VoidType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-structure PointerType
+structure PointerType where
+  mkImpl ::
+  addressSpace : Nat := 0
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  Construct an LLVM pointer, defaulting to address space zero.
+-/
+def PointerType.mk (addressSpace : Nat := 0) : PointerType :=
+  ⟨addressSpace⟩
 
 /--
  A byte type with a given bitwidth.
@@ -555,6 +600,17 @@ namespace Seq
 structure ClockType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+  The `!seq.firmem` type from CIRCT's seq dialect.
+  This represents a FIRRTL-flavored memory of `depth` words, each `width` bits wide.
+  `maskWidth` is the write mask granularity, and is absent when the memory has no masking.
+-/
+structure FirMemType where
+  depth : Nat
+  width : Nat
+  maskWidth : Option Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 end Seq
 
 mutual
@@ -570,6 +626,23 @@ mutual
   through `VectorElementTypeInterface`.
 -/
 structure VectorType where
+  shape : Array Nat
+  elementType : Attribute
+
+/--
+  A builtin ranked tensor type with a static shape.
+
+  The shape contains one entry per dimension, and `elementType` is the type of
+  the tensor elements. For example, `tensor<2x4xf32>` is represented by shape
+  `#[2, 4]` and element type `f32`.
+
+  Dynamic dimensions (`?`), unranked tensors (`tensor<*xf32>`), and encodings
+  are not yet supported.
+
+  The element-type invariant (`TensorType.isValidElementType`) is not proof-enforced
+  in VeIR; the parser rejects invalid element types, as MLIR does.
+-/
+structure TensorType where
   shape : Array Nat
   elementType : Attribute
 
@@ -617,7 +690,7 @@ structure DictionaryAttr where
     not possible with either a `HashMap` or an `ExtHashMap`.
     Entries are expected to be sorted by key and each key is unique, so that we can use a
     binary search and have O(log(n)) lookup time. This invariant is not enforced proof-wise but
-    is expected to be maintained at all time.
+    is expected to be maintained at all times.
   -/
   entries : Array (ByteArray × Attribute)
   /- TODO: figure out how to maintain a proof of sorted-ness and uniqueness. -/
@@ -629,6 +702,18 @@ deriving Inhabited
 structure LLVM.ArrayType where
   size : Nat
   type : Attribute
+
+/--
+  An LLVM struct type with a known body: either a literal struct
+  (`!llvm.struct<(i8, i32)>`) or an identified struct
+  (`!llvm.struct<"name", (i8, i32)>`). A packed struct has no padding between
+  its fields. Opaque structs and bare references to identified structs are not
+  modelled and stay unregistered.
+-/
+structure LLVM.StructType where
+  name : Option ByteArray
+  packed : Bool
+  body : Array Attribute
 
 /--
   The `!match.optional<...>` type, wrapping a PDL handle type whose value may
@@ -671,8 +756,12 @@ inductive Attribute
 | floatType (type : FloatType)
 /-- Builtin fixed-size vector type -/
 | vectorType (type : VectorType)
+/-- Builtin ranked tensor type -/
+| tensorType (type : TensorType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
+/-- Index attribute -/
+| indexAttr (attr : IndexAttr)
 /-- Float attribute -/
 | floatAttr (attr : FloatAttr)
 /-- Float fast math flags attribute -/
@@ -755,6 +844,8 @@ inductive Attribute
 | llvmPointerType (type : LLVM.PointerType)
 /-- LLVM array type -/
 | llvmArrayType (type : LLVM.ArrayType)
+/-- LLVM struct type -/
+| llvmStructType (type : LLVM.StructType)
 /-- LLVM function type -/
 | llvmFunctionType (type : LLVMFunctionType)
 /-- Cuda Tile pointer type -/
@@ -777,21 +868,28 @@ inductive Attribute
 | matchOptionalType (type : Match.OptionalType)
 /-- CIRCT seq clock type -/
 | seqClockType (type : Seq.ClockType)
+/-- CIRCT seq FIRRTL-flavored memory type -/
+| seqFirMemType (type : Seq.FirMemType)
+/-- SMT sort type (`!smt.bool` or `!smt.bv<width>`) -/
+| smtSortType (type : SMT.SortType)
 deriving Inhabited
 
 end
 
 /- Derive Repr and Hashable instances for the mutual group. -/
 derive_mutual_repr for
-  VectorType, FunctionType, LLVMFunctionType, CirFuncType,
-  ArrayAttr, DictionaryAttr, LLVM.ArrayType, Match.OptionalType,
+  VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
+  ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
   UnregisteredAttr, Attribute
 derive_mutual_hashable for
-  VectorType, FunctionType, LLVMFunctionType, CirFuncType,
-  ArrayAttr, DictionaryAttr, LLVM.ArrayType, Match.OptionalType,
+  VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
+  ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
   UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
+  default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
+
+instance : Inhabited TensorType where
   default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
 
 instance : Coe FunctionType LLVMFunctionType where
@@ -802,6 +900,9 @@ instance : Coe LLVMFunctionType FunctionType where
 
 instance : Inhabited LLVM.ArrayType where
   default := { size := 0, type := .llvmPointerType .mk }
+
+instance : Inhabited LLVM.StructType where
+  default := { name := none, packed := false, body := #[] }
 
 instance : Inhabited Match.OptionalType where
   default := { innerType := .pdlValueType .mk }
@@ -829,6 +930,10 @@ theorem VectorType.sizeOf_elementType {t : VectorType} :
     sizeOf t.elementType < sizeOf t := by
   grind [cases VectorType]
 
+theorem TensorType.sizeOf_elementType {t : TensorType} :
+    sizeOf t.elementType < sizeOf t := by
+  grind [cases TensorType]
+
 theorem LLVMFunctionType.sizeOf_functionType {ft : LLVMFunctionType} :
     sizeOf ft.functionType < sizeOf ft := by
   grind [cases LLVMFunctionType]
@@ -848,6 +953,10 @@ theorem DictionaryAttr.sizeOf_elems_entries {da : DictionaryAttr} (hx : x ∈ da
 theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
     sizeOf t.type < sizeOf t := by
   grind [cases ArrayType]
+
+theorem LLVM.StructType.sizeOf_elems_body {t : StructType} (hx : x ∈ t.body) :
+    sizeOf x < sizeOf t := by
+  grind [Array.sizeOf_lt_of_mem hx, cases StructType]
 
 theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
     sizeOf t.innerType < sizeOf t := by
@@ -940,6 +1049,9 @@ instance : ToString IntegerAttr where
       if attr.value % 2 = 0 then "false" else "true"
     else s!"{attr.value} : {attr.type}"
 
+instance : ToString IndexAttr where
+  toString attr := s!"{attr.value.toInt} : index"
+
 instance : ToString FloatAttr where
   toString attr :=
   -- Of the form 0x<bits>#<bitwidth>, e.g. 0xff#8
@@ -950,8 +1062,10 @@ instance : ToString FloatAttr where
 instance : ToString RegisterType where
   toString type :=
     match type.index with
+    -- unallocated
     | none => s!"!riscv.reg"
-    | some i => s!"!riscv.reg<x{i}>"
+    -- RV64 architectural (x<?>) or virtual register (j<?>)
+    | some i => if i >= 0 then s!"!riscv.reg<x{i}>" else s!"!riscv.reg<j{-(i + 1)}>"
 
 instance : ToString RegisterAttr where
   toString attr := s!"{attr.value} : !riscv.reg"
@@ -1051,7 +1165,9 @@ instance : ToString LLVM.VoidType where
   toString _ := "!llvm.void"
 
 instance : ToString LLVM.PointerType where
-  toString _ := "!llvm.ptr"
+  toString type :=
+    if type.addressSpace == 0 then "!llvm.ptr"
+    else s!"!llvm.ptr<{type.addressSpace}>"
 
 instance : ToString CudaTile.PointerType where
   toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
@@ -1077,12 +1193,31 @@ instance : ToString Seq.ClockType where
   toString _ :=
     s!"!seq.clock"
 
+instance : ToString Seq.FirMemType where
+  toString type :=
+    let mask := match type.maskWidth with
+      | some maskWidth => s!", mask {maskWidth}"
+      | none => ""
+    s!"!seq.firmem<{type.depth} x {type.width}{mask}>"
+
+/-- Print a shaped type such as `vector<2x4xi32>` or `tensor<f32>`. -/
+def shapedTypeToString (keyword : String) (shape : Array Nat) (elementType : String) : String :=
+  let shape := String.intercalate "x" (shape.toList.map ToString.toString)
+  let shape := if shape.isEmpty then "" else shape ++ "x"
+  s!"{keyword}<{shape}{elementType}>"
+
+instance : ToString SMT.SortType where
+  toString type := match type with
+    | .bool => "!smt.bool"
+    | .bv width => s!"!smt.bv<{width}>"
+
 mutual
 
 partial def VectorType.toString (type : VectorType) : String :=
-  let shape := String.intercalate "x" (type.shape.toList.map ToString.toString)
-  let shape := if shape.isEmpty then "" else shape ++ "x"
-  s!"vector<{shape}{Attribute.toString type.elementType}>"
+  shapedTypeToString "vector" type.shape (Attribute.toString type.elementType)
+
+partial def TensorType.toString (type : TensorType) : String :=
+  shapedTypeToString "tensor" type.shape (Attribute.toString type.elementType)
 
 partial def ArrayAttr.toString (attr : ArrayAttr) : String :=
   let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
@@ -1145,6 +1280,14 @@ partial def FunctionType.toString (type : FunctionType) : String :=
 partial def LLVM.ArrayType.toString (type : LLVM.ArrayType) : String :=
   s!"!llvm.array<{type.size} x {Attribute.toString type.type}>"
 
+partial def LLVM.StructType.toString (type : LLVM.StructType) : String :=
+  let name := match type.name with
+    | some name => s!"\"{escapeStringLiteral name}\", "
+    | none => ""
+  let packed := if type.packed then "packed " else ""
+  let body := String.intercalate ", " (type.body.toList.map Attribute.toString)
+  s!"!llvm.struct<{name}{packed}({body})>"
+
 partial def Match.OptionalType.toString (type : Match.OptionalType) : String :=
   s!"!match.optional<{Attribute.toString type.innerType}>"
 
@@ -1161,6 +1304,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .integerType type => ToString.toString type
   | .floatType type => ToString.toString type
   | .vectorType type => type.toString
+  | .tensorType type => type.toString
   | .byteType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
   | .arithIntegerOverflowFlagsAttr attr => ToString.toString attr
@@ -1177,6 +1321,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .targetFeaturesAttr attr => ToString.toString attr
   | .dlSpecAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
+  | .indexAttr attr => ToString.toString attr
   | .floatAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
   | .registerAttr attr => ToString.toString attr
@@ -1203,6 +1348,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
+  | .llvmStructType type => type.toString
   | .llvmFunctionType type => type.toString
   | .cudaTilePointerType type => ToString.toString type
   | .ioAddressType type => ToString.toString type
@@ -1214,6 +1360,8 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .pdlTypeType type => ToString.toString type
   | .matchOptionalType type => type.toString
   | .seqClockType type => ToString.toString type
+  | .seqFirMemType type => ToString.toString type
+  | .smtSortType type => ToString.toString type
 
 end
 
@@ -1222,6 +1370,9 @@ instance : ToString Attribute where
 
 instance : ToString VectorType where
   toString := VectorType.toString
+
+instance : ToString TensorType where
+  toString := TensorType.toString
 
 instance : ToString FunctionType where
   toString := FunctionType.toString
@@ -1240,6 +1391,9 @@ instance : ToString DictionaryAttr where
 
 instance : ToString LLVM.ArrayType where
   toString := LLVM.ArrayType.toString
+
+instance : ToString LLVM.StructType where
+  toString := LLVM.StructType.toString
 
 instance : ToString Match.OptionalType where
   toString := Match.OptionalType.toString
@@ -1513,6 +1667,16 @@ def VectorType.decEq (type1 type2 : VectorType) : Decidable (type1 = type2) :=
 termination_by sizeOf type1
 decreasing_by exact VectorType.sizeOf_elementType
 
+def TensorType.decEq (type1 type2 : TensorType) : Decidable (type1 = type2) :=
+  if hshape : type1.shape = type2.shape then
+    match Attribute.decEq type1.elementType type2.elementType with
+    | isTrue _ => isTrue (by grind [cases TensorType])
+    | isFalse _ => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by exact TensorType.sizeOf_elementType
+
 def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
   let inputs1 := type1.inputs
   let outputs1 := type1.outputs
@@ -1577,6 +1741,20 @@ decreasing_by
   have := @LLVM.ArrayType.sizeOf_elems_type
   grind
 
+def LLVM.StructType.decEq (type1 type2 : LLVM.StructType) : Decidable (type1 = type2) :=
+  let body1 := type1.body
+  let body2 := type2.body
+  if _ : type1.name = type2.name ∧ type1.packed = type2.packed then
+    match Array.instDecidabelEq' body1 body2 (fun x y _ _ => Attribute.decEq x y) with
+    | isTrue _ => isTrue (by grind [cases LLVM.StructType])
+    | isFalse _ => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  have := @LLVM.StructType.sizeOf_elems_body
+  grind
+
 def Match.OptionalType.decEq (opt1 opt2 : Match.OptionalType) : Decidable (opt1 = opt2) :=
   match Attribute.decEq opt1.innerType opt2.innerType with
   | isTrue _ => isTrue (by grind [cases Match.OptionalType])
@@ -1630,7 +1808,11 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case vectorType x =>
     exact IsAttr.decEqAgainst x attr2 (VectorType.decEq x)
+  case tensorType x =>
+    exact IsAttr.decEqAgainst x attr2 (TensorType.decEq x)
   case integerAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case indexAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case floatAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
@@ -1714,6 +1896,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case llvmArrayType x =>
     exact IsAttr.decEqAgainst x attr2 (LLVM.ArrayType.decEq x)
+  case llvmStructType x =>
+    exact IsAttr.decEqAgainst x attr2 (LLVM.StructType.decEq x)
   case llvmFunctionType x =>
     exact IsAttr.decEqAgainst x attr2 (LLVMFunctionType.decEq x)
   case cudaTilePointerType x =>
@@ -1736,6 +1920,10 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (Match.OptionalType.decEq x)
   case seqClockType x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case seqFirMemType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case smtSortType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
 termination_by sizeOf attr1
 decreasing_by
   all_goals exact Nat.lt_add_of_pos_left (by decide)
@@ -1743,6 +1931,7 @@ end
 
 instance : DecidableEq Attribute := Attribute.decEq
 instance : DecidableEq VectorType := VectorType.decEq
+instance : DecidableEq TensorType := TensorType.decEq
 instance : DecidableEq FunctionType := FunctionType.decEq
 instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
 instance : DecidableEq CirFuncType := CirFuncType.decEq
@@ -1768,6 +1957,7 @@ def isType (attr : Attribute) : Bool :=
   | .integerType _ => true
   | .floatType _ => true
   | .vectorType _ => true
+  | .tensorType _ => true
   | .byteType _ => true
   | .fastMathFlagsAttr _ => false
   | .arithIntegerOverflowFlagsAttr _ => false
@@ -1784,6 +1974,7 @@ def isType (attr : Attribute) : Bool :=
   | .targetFeaturesAttr _ => false
   | .dlSpecAttr _ => false
   | .integerAttr _ => false
+  | .indexAttr _ => false
   | .floatAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false
@@ -1810,6 +2001,7 @@ def isType (attr : Attribute) : Bool :=
   | .llvmVoidType _ => true
   | .llvmPointerType _ => true
   | .llvmArrayType _ => true
+  | .llvmStructType _ => true
   | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
   | .ioAddressType _ => true
@@ -1821,6 +2013,8 @@ def isType (attr : Attribute) : Bool :=
   | .pdlTypeType _ => true
   | .matchOptionalType _ => true
   | .seqClockType _ => true
+  | .seqFirMemType _ => true
+  | .smtSortType _ => true
 
 /--
   Returns the size, in bits, that an LLVM type would use if stored to memory.
@@ -1841,6 +2035,8 @@ theorem isType_integerType type : (Attribute.of IntegerType type).isType = true 
 theorem isType_floatType type : (Attribute.of FloatType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_vectorType type : (Attribute.of VectorType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_tensorType type : (Attribute.of TensorType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_byteType type : (Attribute.of LLVM.ByteType type).isType = true := by rfl
 @[simp, grind =]
@@ -1899,6 +2095,8 @@ theorem isType_llvmPointerType type : (Attribute.of LLVM.PointerType type).isTyp
 @[simp, grind =]
 theorem isType_llvmArrayType type : (Attribute.of LLVM.ArrayType type).isType = true := by rfl
 @[simp, grind =]
+theorem isType_llvmStructType type : (Attribute.of LLVM.StructType type).isType = true := by rfl
+@[simp, grind =]
 theorem isType_llvmFunctionType type : (Attribute.of LLVMFunctionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_cudaTilePointerType type : (Attribute.of CudaTile.PointerType type).isType = true := by rfl
@@ -1918,8 +2116,20 @@ theorem isType_pdlValueType type : (Attribute.of PDL.ValueType type).isType = tr
 theorem isType_pdlTypeType type : (Attribute.of PDL.TypeType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_seqClockType type : (Attribute.of Seq.ClockType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_seqFirMemType type : (Attribute.of Seq.FirMemType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_smtSortType type : (Attribute.of SMT.SortType type).isType = true := by rfl
 
 end Attribute
+
+/-- Whether `type` may be a vector element type. Unlike MLIR, only tensors are rejected. -/
+def VectorType.isValidElementType (type : Attribute) : Bool :=
+  !(type matches .tensorType _)
+
+/-- Whether `type` may be a tensor element type. As in MLIR, tensors and functions are not. -/
+def TensorType.isValidElementType (type : Attribute) : Bool :=
+  !(type matches .tensorType _ | .functionType _)
 
 /--
   An attribute that can be used as a type annotation for SSA values.
@@ -2039,6 +2249,12 @@ theorem mk_of {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr)
     (h : (Attribute.of Attr specificAttr).isType) :
     (⟨.of Attr specificAttr, h⟩ : TypeAttr) = TypeAttr.of Attr specificAttr := by rfl
 
+@[simp]
+theorem forall_of_eq_imp_iff {T : Type} [IsTypeAttr T] {P : TypeAttr → T → Prop} :
+    (∀ (type : TypeAttr) (x : T), TypeAttr.of T x = type → P type x) ↔
+      (∀ (x : T), P (TypeAttr.of T x) x) := by
+  grind
+
 end TypeAttr
 
 /-- Normalize conversion of an injected concrete attribute to the canonical constructor. -/
@@ -2118,6 +2334,7 @@ macro_rules
 type_attribute_instance IntegerType => Attribute.integerType
 type_attribute_instance FloatType => Attribute.floatType
 type_attribute_instance VectorType => Attribute.vectorType
+type_attribute_instance TensorType => Attribute.tensorType
 type_attribute_instance LLVM.ByteType => Attribute.byteType
 type_attribute_instance FunctionType => Attribute.functionType
 type_attribute_instance LLVMFunctionType => Attribute.llvmFunctionType
@@ -2131,6 +2348,7 @@ type_attribute_instance RegisterType => Attribute.registerType
 type_attribute_instance LLVM.VoidType => Attribute.llvmVoidType
 type_attribute_instance LLVM.PointerType => Attribute.llvmPointerType
 type_attribute_instance LLVM.ArrayType => Attribute.llvmArrayType
+type_attribute_instance LLVM.StructType => Attribute.llvmStructType
 type_attribute_instance CudaTile.PointerType => Attribute.cudaTilePointerType
 type_attribute_instance Io.AddressType => Attribute.ioAddressType
 type_attribute_instance HW.ModuleType => Attribute.hwModuleType
@@ -2141,8 +2359,10 @@ type_attribute_instance PDL.OperationType => Attribute.pdlOperationType
 type_attribute_instance PDL.ValueType => Attribute.pdlValueType
 type_attribute_instance PDL.TypeType => Attribute.pdlTypeType
 type_attribute_instance Seq.ClockType => Attribute.seqClockType
+type_attribute_instance Seq.FirMemType => Attribute.seqFirMemType
+type_attribute_instance SMT.SortType => Attribute.smtSortType
 
-instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where
+instance : CoeDep (Option Int → RegisterType) RegisterType.mk TypeAttr where
   coe := TypeAttr.of RegisterType (.mk none)
 
 instance : IsTypeAttr TypeAttr where

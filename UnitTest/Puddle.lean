@@ -16,16 +16,17 @@ open Veir.Data
 private theorem constant_iff (ty : IntegerType) (props : propertiesOf (.arith .constant : OpCode))
     (v : RuntimeValue) :
     InterpretsTo (.arith .constant) props #[ty] #[] #[v] ↔
-      v = .int ty.bitwidth (.val (BitVec.ofInt ty.bitwidth props.value.value)) := by
-  simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
+      ∃ attr, props = .int attr ∧ v = .int ty.bitwidth (.val (BitVec.ofInt ty.bitwidth attr.value)) := by
+  cases props <;> simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
     List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
     List.getElem!_eq_getElem?_getD, forall_eq, Nat.lt_add_one, getElem?_pos, List.getElem_cons_zero,
     Option.getD_some, true_and, interpretOp', Arith.interpretOp', List.getElem_toArray,
-    TypeAttr.of_val, Attribute.of, Interp.pure_eq]
-  constructor
-  · rintro ⟨_, h⟩
-    grind [h .empty]
-  · grind
+    TypeAttr.of_val, Attribute.of, Interp.pure_eq, reduceCtorEq, false_and, exists_false]
+  all_goals
+    constructor
+    · rintro ⟨_, h⟩
+      grind [h .empty]
+    · grind
 
 private theorem addi_iff {signedness : IntegerType.Signedness} (w : Nat) (props : propertiesOf (.arith .addi : OpCode))
     (x y : LLVM.Int w) (v : RuntimeValue) :
@@ -46,23 +47,24 @@ private theorem muli_iff {signedness : IntegerType.Signedness} (w : Nat) (props 
     (x y : LLVM.Int w) (v : RuntimeValue) :
     InterpretsTo (.arith .muli) props #[IntegerType.mk w signedness] #[.int w x, .int w y] #[v] ↔
       v = .int w (LLVM.Int.mul x y props.attr.nsw props.attr.nuw) := by
-  simp [InterpretsTo, interpretOp', Arith.interpretOp',
-    RuntimeValue.ArrayConforms, RuntimeValue.Conforms]
-  constructor
-  · rintro ⟨_, h⟩
-    exact (h .empty).symm
-  · grind
+  simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
+    List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
+    List.getElem!_eq_getElem?_getD, forall_eq, Nat.lt_add_one, getElem?_pos, List.getElem_cons_zero,
+    Option.getD_some, true_and, interpretOp', Arith.interpretOp', ne_eq, not_true_eq_false,
+    ↓reduceDIte, LLVM.Int.cast_self, Interp.pure_eq, Interp.bind_ok, Interp.ok.injEq, Prod.mk.injEq,
+    Array.mk.injEq, List.cons.injEq, and_true, forall_const]
+  grind
 
 private theorem add_zero_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
     RuntimeValue.int w (LLVM.Int.add x (.val (BitVec.ofInt w 0)) nsw nuw) ⊒ .int w x := by
-  cases x <;> simp [RuntimeValue.isRefinedBy, LLVM.Int.add, isRefinedBy, Id.run, pure]
+  cases x <;> simp [RuntimeValue.isRefinedBy, LLVM.Int.add, LLVM.Int.isRefinedBy, Id.run, pure]
   grind
 
 private theorem mul_two_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
     RuntimeValue.int w (LLVM.Int.mul x (.val (BitVec.ofInt w 2)) nsw nuw) ⊒
       .int w (LLVM.Int.add x x) := by
   cases x <;> simp [RuntimeValue.isRefinedBy, LLVM.Int.mul, LLVM.Int.add,
-    isRefinedBy, Id.run, pure, BitVec.mul_two]
+    LLVM.Int.isRefinedBy, Id.run, pure, BitVec.mul_two]
   grind
 
 /- ## Example patterns -/
@@ -71,7 +73,7 @@ private theorem mul_two_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
 def matchConstant (returnType : Handle OpCode .type) (constant : Int)
     : MatchProg.Builder (Handle OpCode .value) := do
   let op ← MatchProg.operation (.arith .constant) #[] #[returnType]
-    (fun properties => properties.value.value = constant)
+    (fun properties => properties.intAttr?.any (·.value = constant))
   return op.res[0]!
 
 /-- Rewrite `x + 0` to `x`. -/
@@ -91,9 +93,9 @@ theorem addZero_valid : Pattern.Valid addZero := by
   provePuddleValid
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
-  rintro ⟨w⟩ x cstProp val propzero hinterpCst
-  obtain rfl := (constant_iff _ _ _).mp hinterpCst
-  intro addProp val hinterpAdd
+  rintro ⟨w⟩ x cstProp val propzero _ hinterpCst
+  obtain ⟨_, rfl, rfl⟩ := (constant_iff _ _ _).mp hinterpCst
+  intro addProp val _ hinterpAdd
   obtain rfl := (addi_iff _ _ _ _ _).mp hinterpAdd
   grind [add_zero_refines]
 
@@ -118,9 +120,9 @@ theorem mulTwo_valid : Pattern.Valid mulTwo := by
   provePuddleValid
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
-  rintro ⟨w⟩ x cstProp val proptwo hinterpCst
-  obtain rfl := (constant_iff _ _ _).mp hinterpCst
-  intro mulProp val hinterpMul
+  rintro ⟨w⟩ x cstProp val proptwo _ hinterpCst
+  obtain ⟨_, rfl, rfl⟩ := (constant_iff _ _ _).mp hinterpCst
+  intro mulProp val _ hinterpMul
   obtain rfl := (muli_iff _ _ _ _ _).mp hinterpMul
   exists (.int w (LLVM.Int.add x x))
   constructor; exact (addi_iff _ _ _ _ _).mpr rfl
@@ -135,7 +137,7 @@ private def nativeMatch : Pattern OpCode :=
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
       MatchProg.matchNative (returnType, cst.properties)
         (fun (type, properties) =>
-          type = (IntegerType.signless 32) && properties.value.value = 0)
+          type = (IntegerType.signless 32) && properties.intAttr?.any (·.value = 0))
       let _ ← MatchProg.root (.arith .addi) #[x, cst.res[0]!] #[returnType]
       return x)
     pure
@@ -148,17 +150,15 @@ private def nativeApply : Pattern OpCode :=
       let returnType ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value returnType
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
-        (fun properties => properties.value.value = 2)
+        (fun properties => properties.intAttr?.any (·.value = 2))
       let _ ← MatchProg.root (.arith .muli) #[x, cst.res[0]!] #[returnType]
       return (returnType, x, cst.properties))
     (fun (returnType, x, properties) => do
       let (newType, newProperties) ← CreateProg.applyNative (returnType, properties)
         (fun (type, properties) =>
-          some (type, { properties with
-            value := { properties.value with value := properties.value.value + 1 } }))
-      let constant ← CreateProg.operation (.arith .constant) #[] #[newType] newProperties
-      let addProperties ← CreateProg.property (.arith .addi) default
-      let add ← CreateProg.operation (.arith .addi) #[x, constant.res[0]!] #[newType] addProperties
+          properties.intAttr?.map fun attr => (type, .int { attr with value := attr.value + 1 }))
+      let constant ← CreateProg.operation (.arith .constant) #[] #[newType] (.inr newProperties)
+      let add ← CreateProg.operation (.arith .addi) #[x, constant.res[0]!] #[newType]
       return add)
     (fun result => result)
 
@@ -167,9 +167,9 @@ theorem nativeMatch_valid : Pattern.Valid nativeMatch := by
   provePuddleValid
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
-  rintro ⟨w⟩ x cstProp val hinterpCst
-  obtain rfl := (constant_iff _ _ _).mp hinterpCst
-  intro addProp val hinterpAddi
+  rintro ⟨w⟩ x cstProp val _ hinterpCst
+  obtain ⟨_, rfl, rfl⟩ := (constant_iff _ _ _).mp hinterpCst
+  intro addProp val _ hinterpAddi
   obtain rfl := (addi_iff _ _ _ _ _).mp hinterpAddi
   intro _
   obtain rfl : w = 32 := by grind [IntegerType.signless]
@@ -192,6 +192,29 @@ private def nativeRootGuard (expectNsw : Bool) : Pattern OpCode :=
 example : (nativeRootGuard false).StructurallyWellFormed := by native_decide
 
 example : (nativeRootGuard false).matcher.ConstrainsRoot := by cbv
+
+/-- Only rewrite an addition whose parent operation has the requested opcode. -/
+private def parentOpGuard (parentOpCode : OpCode) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ty ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value ty
+      let zero ← matchConstant ty 0
+      let root ← MatchProg.root (.arith .addi) #[x, zero] #[ty]
+      let () ← MatchProg.inspectOperation (Outputs := Unit) root.op (fun ctx op => do
+        let parent ← op.getParentOp! ctx
+        guard (parent.getOpType! ctx == parentOpCode))
+      return x)
+    pure
+    (fun x => x)
+
+example (parentOpCode : OpCode) : Pattern.Valid (parentOpGuard parentOpCode) := by
+  simp only [parentOpGuard, matchConstant]
+  provePuddleValid
+  simp only [RuntimeValue.Conforms.integerType,
+    forall_exists_index, forall_eq_apply_imp_iff]
+  rintro ⟨w⟩ x cstProp val propzero _ hinterpCst
+  grind [add_zero_refines, constant_iff, addi_iff]
 
 /- ## Test matcher builder validation -/
 
@@ -239,7 +262,7 @@ private def mulTwoProgram := r#""builtin.module"() ({
 private def rewriteAndPrint (source : String) (rule : Pattern OpCode) : IO Unit := do
   let some program := parseBinaryProgram source | IO.println "parse failed"
   let pattern := Pattern.compile rule
-  let some ctx := RewritePattern.applyInContext pattern.run program.ctx | IO.println "rewrite failed"
+  let some ctx := RewritePattern.applyInContext pattern.run program.ctx program.moduleOp | IO.println "rewrite failed"
   Printer.printModule ctx.raw program.moduleOp
 
 /--
@@ -294,6 +317,28 @@ info: "builtin.module"() ({
 -/
 #guard_msgs in
 #eval! rewriteAndPrint addZeroProgram (nativeRootGuard true)
+
+/--
+info: "builtin.module"() ({
+  ^4():
+    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    "test.test"(%5) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! rewriteAndPrint addZeroProgram (parentOpGuard (.builtin .module))
+
+/--
+info: "builtin.module"() ({
+  ^4():
+    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+    %7 = "arith.addi"(%5, %6) : (i32, i32) -> i32
+    "test.test"(%7) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! rewriteAndPrint addZeroProgram (parentOpGuard (.func .func))
 
 /--
 info: "builtin.module"() ({

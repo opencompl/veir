@@ -14,7 +14,12 @@ tests: build ## run all tests
 	uv sync
 	lake test
 	uv run lit Test/ -v
-	. ./.envrc && cd ExArray && lake exe test
+	cd ExArray && lake exe test
+
+.PHONY: ctree-tests
+ctree-tests: build ## also interpret the LLVM tests with the CTree interpreter (slow)
+	uv sync
+	uv run lit Test/ -v -Dctree=1
 
 .PHONY: sqlite
 sqlite: build ## test sqlite3 parsing (expected to fail until fully supported)

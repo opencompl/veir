@@ -1,6 +1,8 @@
 import Veir.Parser.MlirParser
 import Veir.Verifier
 import Veir.Interpreter.Basic
+import Veir.Interpreter.CTreeInterpreter
+import Veir.Interpreter.CTreeRunner
 import Veir.Input
 import Veir.Panic
 
@@ -11,6 +13,7 @@ import Veir.Panic
   program from a file or from standard input, finds a zero-argument
   function-like operation named `main`, and then executes that function
   using the interpreter defined in `Veir.Interpreter`.
+  With `--ctree`, it uses the CTree-based interpreter instead.
  -/
 
 open Veir.Parser
@@ -33,11 +36,11 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
   | some op =>
     if hIsFunc : op.isFunctionLike ctx then
       let entryPoints := if isZeroArgMainFunc ctx op then ⟨op, hIsFunc⟩ :: entryPoints else entryPoints
-      scanEntryPoints ctx (op.get! ctx).next entryPoints
+      scanEntryPoints ctx (op.getNextOp! ctx) entryPoints
     else
       match op.getOpType! ctx with
       | .llvm .module_flags | .llvm .mlir__global =>
-        scanEntryPoints ctx (op.get! ctx).next entryPoints
+        scanEntryPoints ctx (op.getNextOp! ctx) entryPoints
       | _ =>
         IO.eprintln "Error: unsupported top-level operation; expected a function, llvm.mlir.global, or llvm.module_flags"
         IO.Process.exit 1
@@ -47,9 +50,9 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) :
     IO {op : OperationPtr // op.isFunctionLike ctx} := do
   let region := moduleOp.getRegion! ctx 0
   let entryPoints ←
-    match (region.get! ctx).firstBlock with
+    match region.getFirstBlock! ctx with
     | none => pure []
-    | some blockPtr => scanEntryPoints ctx (blockPtr.get! ctx).firstOp
+    | some blockPtr => scanEntryPoints ctx (blockPtr.getFirstOp! ctx)
   match entryPoints with
   | [] =>
     IO.eprintln "Error: No entry point: define a zero-argument function named 'main'"
@@ -86,23 +89,28 @@ partial def allocateGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr
       let name := "@" ++ String.fromUTF8! props.sym_name.value
       let some size := DataLayout.riscv64.getTypeAllocSize props.global_type.val
         | IO.eprintln s!"error: cannot size global {name}"; IO.Process.exit 1
+      -- The new object is the last one.
+      let index := mem.objects.size
       let (mem, ptr) ← expectOk name (mem.alloc size.toUInt64)
-      pure ({ mem with globals := mem.globals.insert name ptr.object }, pending.push (op, ptr))
+      pure ({ mem with globals := mem.globals.insert name index },
+        pending.push (op, ptr))
     | _ =>
       match FunctionOp.of? op raw with
       | some funcOp =>
         let name := "@" ++ String.fromUTF8! funcOp.getSymName.value
-        let (mem, ptr) ← expectOk name (mem.alloc 0)
-        pure ({ mem with globals := mem.globals.insert name ptr.object }, pending)
+        let index := mem.objects.size
+        let (mem, _) ← expectOk name (mem.alloc 0)
+        pure ({ mem with globals := mem.globals.insert name index }, pending)
       | none => pure (mem, pending)
-  allocateGlobals ctx (op.get! raw).next mem pending
+  allocateGlobals ctx (op.getNextOp! raw) mem pending
 
 /--
   Fill the object of a global with its `value`, or with what its initializer
-  region returns. A global with neither stays poison.
+  region returns. A global with neither stays poison. With `useCTree`, the
+  initializer region runs with the CTree-based interpreter.
 -/
 def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.Pointer)
-    (mem : MemoryState) : IO MemoryState := do
+    (mem : MemoryState) (useCTree : Bool) : IO MemoryState := do
   let raw : IRContext OpCode := ctx
   let props : LLVMGlobalProperties := op.getProperties! raw (OpCode.llvm .mlir__global)
   let name := "@" ++ String.fromUTF8! props.sym_name.value
@@ -117,11 +125,12 @@ def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.
     else if h : op.getNumRegions ctx.raw ≠ 1 then pure mem
     else
       let region := op.getRegion ctx.raw 0
-      match (region.get ctx.raw).firstBlock with
+      match region.getFirstBlock ctx.raw with
       | none => pure mem
       | some _ => do
-        let (state, results) ← expectOk name
-          (interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩)
+        let (state, results) ← expectOk name <|
+          if useCTree then (CTree.interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩).run
+          else interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩
         let some value := results[0]? | pure state.memory
         expectOk name (state.memory.llvmStore ptr value)
 
@@ -130,31 +139,57 @@ def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.
   in two passes: first every object, then every initial value.
 -/
 def materializeGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr)
-    (mem : MemoryState) : IO MemoryState := do
+    (mem : MemoryState) (useCTree : Bool) : IO MemoryState := do
   let (mem, pending) ← allocateGlobals ctx op mem
-  pending.foldlM (fun mem (op, ptr) => initializeGlobal ctx op ptr mem) mem
+  pending.foldlM (fun mem (op, ptr) => initializeGlobal ctx op ptr mem useCTree) mem
+
+/--
+  Arguments for the `veir-interpret` command-line tool, parsed from the CLI.
+-/
+structure VeirInterpretArgs where
+  /-- The input filename. -/
+  filename : Option String
+  /-- Whether to run `main` with the CTree-based interpreter. -/
+  useCTree : Bool
+
+/--
+  Parse CLI arguments. Returns an error if the arguments are malformed.
+-/
+def parseArgs (args : List String) : Except String VeirInterpretArgs := do
+  let (flags, positional) := args.partition (·.startsWith "-")
+  -- Consume `--ctree` if present.
+  let useCTree := flags.contains "--ctree"
+  let flags := flags.filter (· != "--ctree")
+  -- If anything survived, it was unrecognized and we error out.
+  if let some flag := flags.head? then
+    throw s!"Unrecognized flag '{flag}'."
+  return { filename := ← inputSourceOfArgs positional, useCTree }
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
   enableExitOnPanic
-  let filename ←
-    match inputSourceOfArgs args with
-    | .ok filename => pure filename
+  let { filename, useCTree } ←
+    match parseArgs args with
+    | .ok args => pure args
     | .error errMsg =>
       IO.eprintln errMsg
-      IO.eprintln "Usage: veir-interpret [filename]"
+      IO.eprintln "Usage: veir-interpret [--ctree] [filename]"
       IO.eprintln "  Reads the program from standard input if no filename is given."
+      IO.eprintln "  --ctree runs `main` and global initializers with the CTree-based interpreter."
       IO.Process.exit 2
   match ← parseSourceFile filename (allowUnregisteredDialect := true) with
   | .ok (ctx, op, source) =>
     let rawCtx : IRContext OpCode := ctx
     let mainOp ← resolveEntryPoint rawCtx op
     let mainFunc := FunctionOp.of mainOp.val rawCtx mainOp.property
-    let firstOp := ((op.getRegion! rawCtx 0).get! rawCtx).firstBlock.bind
-      fun b => (b.get! rawCtx).firstOp
-    let mem ← materializeGlobals ctx firstOp MemoryState.empty
-    let result := bind (interpretFunction (ctx := ctx) mainFunc #[] mem (by sorry))
-                       (fun (_, r) => pure r)
+    let firstOp := ((op.getRegion! rawCtx 0).getFirstBlock! rawCtx).bind
+      fun b => b.getFirstOp! rawCtx
+    let mem ← materializeGlobals ctx firstOp MemoryState.empty useCTree
+    let result :=
+      if useCTree then
+        (CTree.interpretFunction (ctx := ctx) mainOp.val #[] mem (by sorry)).run
+      else
+        bind (interpretFunction (ctx := ctx) mainFunc #[] mem (by sorry)) (fun (_, r) => pure r)
     match result with
     | .ok results => IO.println s!"Program output: {results}"
     | .ub op? =>

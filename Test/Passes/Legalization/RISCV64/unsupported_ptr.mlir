@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: unable to legalize gmir.g_add: unsupported type !llvm.ptr
+// CHECK: unable to legalize gmir.g_add: no legalization rule matches

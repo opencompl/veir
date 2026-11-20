@@ -19,12 +19,30 @@ def OperationPtr.IsVerifiedIntegerBinop
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ integerType,
-    ((op.getResult 0).get! ctx.raw).type =
+    (op.getResult 0).getType! ctx.raw =
       .of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
       .of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) =
       .of IntegerType integerType
+
+/-- A successful `verifyNonOperandCounts` pins the number of results. -/
+theorem OperationPtr.verifyNonOperandCounts_eq_ok {op : OperationPtr}
+    {ctx : WfIRContext OpInfo} {opIn : op.InBounds ctx.raw} {results regions successors : Nat}
+    (h : op.verifyNonOperandCounts ctx opIn results regions successors = .ok ()) :
+    op.getNumResults! ctx.raw = results := by
+  rw [OperationPtr.getNumResults!_eq_getNumResults opIn]
+  simp only [OperationPtr.verifyNonOperandCounts] at h
+  split at h
+  · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
+  · rename_i hne; simpa using hne
+
+/-- A successful `verifyTerminatorCounts` leaves the operation without results. -/
+theorem OperationPtr.verifyTerminatorCounts_eq_ok {op : OperationPtr}
+    {ctx : WfIRContext OpInfo} {opIn : op.InBounds ctx.raw} {successors : Nat}
+    (h : op.verifyTerminatorCounts ctx opIn successors = .ok ()) :
+    op.getNumResults! ctx.raw = 0 :=
+  OperationPtr.verifyNonOperandCounts_eq_ok h
 
 /-- Extract structural facts from a successful `verifyIntegerBinop` check. -/
 theorem OperationPtr.verifyIntegerBinop_eq_ok
@@ -32,9 +50,10 @@ theorem OperationPtr.verifyIntegerBinop_eq_ok
     {opInBounds : op.InBounds ctx.raw}
     (h : op.verifyIntegerBinop ctx opInBounds = .ok ()) :
     op.IsVerifiedIntegerBinop ctx := by
-  simp only [IsVerifiedIntegerBinop, verifyIntegerBinop, verifyPlainOpCounts,
-    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIntegerBinop, verifyIntegerBinop, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, verifyOperandTypesMatch, verifyResultTypeMatches,
+    TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw,
+    pure, Except.pure] at h ⊢
   simp only [TypeAttr.inj]
   grind
 
@@ -48,9 +67,9 @@ def OperationPtr.IsVerifiedSelect
   (∃ it,
     ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = Attribute.of IntegerType it ∧
     it.bitwidth = 1) ∧
-  ((op.getResult 0).get! ctx.raw).type.val =
+  ((op.getResult 0).getType! ctx.raw).val =
     ((op.getOperand! ctx.raw 1).getType! ctx.raw).val ∧
-  ((op.getResult 0).get! ctx.raw).type.val =
+  ((op.getResult 0).getType! ctx.raw).val =
     ((op.getOperand! ctx.raw 2).getType! ctx.raw).val
 
 /-- Extract structural facts from a successful `verifySelectTypes` check. -/
@@ -60,9 +79,9 @@ theorem OperationPtr.verifySelectTypes_eq_ok
     (h : op.verifySelectTypes ctx opInBounds = .ok ()) :
     op.IsVerifiedSelect ctx := by
   simp only [IsVerifiedSelect] at ⊢
-  simp [verifySelectTypes, verifyPlainOpCounts, verifyOperandTypesMatch,
-    verifyResultTypeMatches, TypeAttr.verifyI1, bind, Except.bind, throw, throwThe,
-    MonadExceptOf.throw, pure, Except.pure] at h
+  simp [verifySelectTypes, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
+    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyI1, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at h
   grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
 
 /--
@@ -74,10 +93,10 @@ def OperationPtr.IsVerifiedIntegerUnop
   op.getNumOperands! ctx.raw = 1 ∧
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
-  ((op.getResult 0).get! ctx.raw).type =
+  (op.getResult 0).getType! ctx.raw =
     (op.getOperand! ctx.raw 0).getType! ctx.raw ∧
   ∃ integerType,
-    ((op.getResult 0).get! ctx.raw).type = .of IntegerType integerType
+    (op.getResult 0).getType! ctx.raw = .of IntegerType integerType
 
 /-- Extract structural facts from a successful `verifyIntegerUnop` check. -/
 theorem OperationPtr.verifyIntegerUnop_eq_ok
@@ -85,9 +104,9 @@ theorem OperationPtr.verifyIntegerUnop_eq_ok
     {opInBounds : op.InBounds ctx.raw} {ty}
     (h : op.verifyIntegerUnop ctx opInBounds = .ok ty) :
     op.IsVerifiedIntegerUnop ctx := by
-  simp only [IsVerifiedIntegerUnop, verifyIntegerUnop, verifyPlainOpCounts,
-    verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw,
-    throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIntegerUnop, verifyIntegerUnop, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
   simp only [TypeAttr.inj]
   split at h <;> grind
 
@@ -101,7 +120,7 @@ def OperationPtr.IsVerifiedIntegerTernop
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ integerType,
-    ((op.getResult 0).get! ctx.raw).type =
+    (op.getResult 0).getType! ctx.raw =
       TypeAttr.of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
       TypeAttr.of IntegerType integerType ∧
@@ -116,9 +135,10 @@ theorem OperationPtr.verifyIntegerTernop_eq_ok
     {opInBounds : op.InBounds ctx.raw}
     (h : op.verifyIntegerTernop ctx opInBounds = .ok ()) :
     op.IsVerifiedIntegerTernop ctx := by
-  simp only [IsVerifiedIntegerTernop, verifyIntegerTernop, verifyPlainOpCounts,
-    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIntegerTernop, verifyIntegerTernop, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, verifyOperandTypesMatch, verifyResultTypeMatches,
+    TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw,
+    pure, Except.pure] at h ⊢
   simp only [TypeAttr.inj]
   split at h <;> grind
 
@@ -134,7 +154,7 @@ def OperationPtr.IsVerifiedIntegerExtop
   ∃ operandType resultType,
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
       .of IntegerType operandType ∧
-    ((op.getResult 0).get! ctx.raw).type =
+    (op.getResult 0).getType! ctx.raw =
       .of IntegerType resultType ∧
     operandType.bitwidth < resultType.bitwidth
 
@@ -144,8 +164,9 @@ theorem OperationPtr.verifyIntegerExtTypes_eq_ok
     {opInBounds : op.InBounds ctx.raw}
     (h : op.verifyIntegerExtTypes ctx opInBounds = .ok ()) :
     op.IsVerifiedIntegerExtop ctx := by
-  simp only [IsVerifiedIntegerExtop, verifyIntegerExtTypes, verifyPlainOpCounts, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIntegerExtop, verifyIntegerExtTypes, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
+    Except.pure] at h ⊢
   simp only [TypeAttr.inj]
   split at h <;> grind
 

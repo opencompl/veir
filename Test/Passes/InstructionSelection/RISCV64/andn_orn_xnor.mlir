@@ -1,9 +1,9 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64,isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // LLVM models `not y` as `xor y -1`. The Zbb logic-with-negate forms fuse a
 // `not` feeding an `and`/`or`/`xor` into a single instruction (mirroring LLVM's
-// TableGen patterns `(and X, (not Y)) -> ANDN`, etc.). These run in the SDAG
-// pass, before the bulk per-op lowering would otherwise consume the `not` and
+// TableGen patterns `(and X, (not Y)) -> ANDN`, etc.). These run in the composed
+// phase of `isel-riscv64`, before the bulk per-op lowering would otherwise consume the `not` and
 // the logic op separately. Each function should produce the fused op.
 
 "builtin.module"() ({
@@ -45,6 +45,16 @@
         %r = "llvm.and"(%not, %x) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.andn"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "test.test"(%r) : (i64) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+    // An `i32` `not` is only exposed as an `i64` one after legalization: and x (not y) -> riscv.andn
+    "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "f4"}> ({
+    ^bb0(%x: i32, %y: i32):
+        %ones = "llvm.mlir.constant"() <{ "value" = -1 : i32 }> : () -> i32
+        %not = "llvm.xor"(%y, %ones) : (i32, i32) -> i32
+        %r = "llvm.and"(%x, %not) : (i32, i32) -> i32
+        // CHECK-DAG: %{{.*}} = "riscv.andn"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

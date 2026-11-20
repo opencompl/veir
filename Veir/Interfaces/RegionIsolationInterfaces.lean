@@ -19,13 +19,14 @@ Find the region that establishes the nearest `IsolatedFromAbove` scope around
 region is one of the isolated operation's direct regions; different regions of
 the same isolated operation are separate scopes.
 -/
-partial def RegionPtr.nearestIsolatedScope?
+def RegionPtr.nearestIsolatedScope?
     (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
-  let parentOp ← (region.get! ctx).parent
-  if HasOpInfo.isIsolatedFromAbove (parentOp.get! ctx).opType then
+  let parentOp ← region.getParent! ctx
+  if HasOpInfo.isIsolatedFromAbove (parentOp.getOpType! ctx) then
     return region
   let parentRegion ← parentOp.getParentRegion! ctx
   parentRegion.nearestIsolatedScope? ctx
+partial_fixpoint
 
 /--
 Find the nearest region whose owning operation is known to be isolated from
@@ -39,7 +40,7 @@ instead, so existing captures in unregistered operations remain legal.
 partial def RegionPtr.nearestPossiblyIsolatedScope?
     [HasDialect OpInfo Builtin]
     (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
-  let parentOp ← (region.get! ctx).parent
+  let parentOp ← region.getParent! ctx
   let opType := parentOp.getOpType! ctx
   if HasOpInfo.isIsolatedFromAbove opType ||
       toDialect? Builtin opType == some .unregistered then

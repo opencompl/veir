@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: riscv_cf.func: Entry block argument 0 type does not match function signature
+// CHECK: riscv_cf.func: type of entry block argument #0(!riscv.reg<x11>) must match the type of the corresponding argument in function signature(!riscv.reg<x10>)

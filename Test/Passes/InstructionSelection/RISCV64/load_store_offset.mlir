@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // A `llvm.getelementptr` with a constant index is absorbed into the signed
 // 12-bit offset field of the load or store that uses it, mirroring the
@@ -52,8 +52,8 @@
         %i = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64
         %g = "llvm.getelementptr"(%p, %i) <{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
         "llvm.store"(%x, %g) : (i8, !llvm.ptr) -> ()
-        // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
-        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (i8) -> !riscv.reg
+        // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (i8) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
         // CHECK-NEXT: "riscv.sb"({{.*}}, {{.*}}) <{"value" = 7 : i64}> : (!riscv.reg, !riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -64,12 +64,12 @@
         %hi = "llvm.mlir.constant"() <{value = 2047 : i64}> : () -> i64
         %ghi = "llvm.getelementptr"(%p, %hi) <{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
         %vhi = "llvm.load"(%ghi) : (!llvm.ptr) -> i8
-        // CHECK:      {{.*}} = "riscv.lb"({{.*}}) <{"value" = 2047 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK:      {{.*}} = "riscv.lbu"({{.*}}) <{"value" = 2047 : i64}> : (!riscv.reg) -> !riscv.reg
         "test.test"(%vhi) : (i8) -> ()
         %lo = "llvm.mlir.constant"() <{value = -2048 : i64}> : () -> i64
         %glo = "llvm.getelementptr"(%p, %lo) <{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
         %vlo = "llvm.load"(%glo) : (!llvm.ptr) -> i8
-        // CHECK:      {{.*}} = "riscv.lb"({{.*}}) <{"value" = -2048 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK:      {{.*}} = "riscv.lbu"({{.*}}) <{"value" = -2048 : i64}> : (!riscv.reg) -> !riscv.reg
         "test.test"(%vlo) : (i8) -> ()
         "func.return"() : () -> ()
     }) : () -> ()

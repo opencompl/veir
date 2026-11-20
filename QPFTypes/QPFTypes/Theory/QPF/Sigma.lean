@@ -7,6 +7,7 @@ module
 
 public import QPFTypes.Theory.PFunctor.Multivariate.Basic
 public import QPFTypes.Theory.QPF.Basic
+public import QPFTypes.Theory.QPF.IsPolynomial
 
 /-!
 # Dependent product and sum of QPFs are QPFs
@@ -15,23 +16,27 @@ public import QPFTypes.Theory.QPF.Basic
 @[expose] public section
 
 
-universe u
+universe w u
 
 namespace QPFTypes.QPF
 
 open MvFunctor
 
-variable {n : Nat} {A : Type u}
-variable (F : A → TypeVec.{u} n → Type u)
+/-
+The index type `A` may live in a lower universe `w` than the family `F`;
+the universe `max w u` encodes the constraint that `w ≤ max w u`.
+-/
+variable {n : Nat} {A : Type w}
+variable (F : A → TypeVec.{max w u} n → Type (max w u))
 
 /-- Dependent sum of an `n`-ary functor. The sum can range over
 data types like `Nat` or over `Type.{u-1}` -/
-def Sigma (v : TypeVec.{u} n) : Type u :=
+def Sigma (v : TypeVec.{max w u} n) : Type (max w u) :=
   Σ α : A, F α v
 
 /-- Dependent product of an `n`-ary functor. The sum can range over
 data types like `Nat` or over `Type.{u-1}` -/
-def Pi (v : TypeVec.{u} n) : Type u :=
+def Pi (v : TypeVec.{max w u} n) : Type (max w u) :=
   ∀ α : A, F α v
 
 instance Sigma.inhabited {α} [Inhabited A] [Inhabited (F default α)] : Inhabited (Sigma F α) :=
@@ -48,7 +53,7 @@ instance [∀ α, MvFunctor <| F α] : MvFunctor (Sigma F) where
 variable [∀ α, QPF <| F α]
 
 /-- polynomial functor representation of a dependent sum -/
-protected def P : MvPFunctor n :=
+protected def P : MvPFunctor.{max w u} n :=
   ⟨Σ a, (P (F a)).A, fun x => (P (F x.1)).B x.2⟩
 
 /-- abstraction function for dependent sums -/
@@ -75,6 +80,14 @@ instance qpf : QPF (Sigma F) where
     simp only [Sigma.abs, MvPFunctor.map_eq]
     simp only [(· <$$> ·), ← abs_map, ← MvPFunctor.map_eq]
 
+/-- A dependent sum of polynomial functors is polynomial. -/
+instance instIsPolynomial [p : ∀ a, IsPolynomial (F a)] : IsPolynomial (Sigma F) where
+  repr_abs {β} x := by
+    show Sigma.repr F (Sigma.abs F x) = x
+    obtain ⟨⟨a, x⟩, f⟩ := x
+    simp only [Sigma.repr, Sigma.abs]
+    erw [(p a).repr_abs]
+
 end Sigma
 
 namespace Pi
@@ -84,7 +97,7 @@ instance [∀ α, MvFunctor <| F α] : MvFunctor (Pi F) where map f x a := f <$$
 variable [∀ α, QPF <| F α]
 
 /-- polynomial functor representation of a dependent product -/
-protected def P : MvPFunctor n :=
+protected def P : MvPFunctor.{max w u} n :=
   ⟨∀ a, (P (F a)).A, fun x i => Σ a, (P (F a)).B (x a) i⟩
 
 /-- abstraction function for dependent products -/
@@ -105,6 +118,20 @@ instance qpf : QPF (Pi F) where
     have : ∀ {x}, ⟨(repr (f x)).fst, (repr (f x)).snd⟩ = repr (f x) := by intro; rfl
     simp +instances only [Pi.abs, Pi.repr, this, abs_repr]
   abs_map := by rintro α β f ⟨x, g⟩; simp only [Pi.abs, (· <$$> ·), ← abs_map]; rfl
+
+/-- A dependent product of polynomial functors is polynomial. -/
+instance instIsPolynomial [p : ∀ a, IsPolynomial (F a)] : IsPolynomial (Pi F) where
+  repr_abs {β} := by
+    rintro ⟨a, f⟩
+    show Pi.repr F (Pi.abs F _) = _
+    simp only [Pi.repr, Pi.abs]
+    -- LLM-generated:
+    -- `abs`/`repr` act pointwise, by the `abs`/`repr` of each `F b`.
+    have h : (fun b : A ↦ QPF.repr (QPF.abs (⟨a b, fun i y ↦ f i ⟨b, y⟩⟩ : (QPF.P (F b)) β)))
+        = fun b : A ↦ (⟨a b, fun i y ↦ f i ⟨b, y⟩⟩ : (QPF.P (F b)) β) :=
+      funext fun _ ↦ IsPolynomial.repr_abs _
+    exact congrArg (fun k : ∀ b : A, (QPF.P (F b)) β ↦
+      (⟨fun b ↦ (k b).1, fun i c ↦ (k c.1).2 i c.2⟩ : Pi.P F β)) h
 
 end Pi
 

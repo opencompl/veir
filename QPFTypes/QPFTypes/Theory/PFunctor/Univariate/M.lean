@@ -240,7 +240,6 @@ protected def mk (x : F (M F)) : M F where
 @[simp, grind =]
 theorem dest_mk (x : F (M F)) : dest (M.mk x) = x := rfl
 
-set_option backward.isDefEq.respectTransparency false in
 @[simp, grind =]
 theorem mk_dest (x : M F) : M.mk (dest x) = x := by
   ext n
@@ -250,15 +249,13 @@ theorem mk_dest (x : M F) : M.mk (dest x) = x := by
   | succ n =>
       dsimp only [Approx.sMk, dest, head]
       rcases h : x.approx (succ n) with - | ⟨hd, ch⟩
-      have h' : hd = head' (x.approx 1) := by
+      obtain rfl : hd = head' (x.approx 1) := by
         rw [← head_succ' n, h, head']
         apply x.consistent
-      revert ch
-      rw [h']
-      intro ch h
       congr
       ext a
       dsimp only [children]
+      set_option backward.isDefEq.respectTransparency false in
       generalize hh : cast _ a = a'' at ⊢
       replace hh : a ≍ a'' := by grind
       revert a''

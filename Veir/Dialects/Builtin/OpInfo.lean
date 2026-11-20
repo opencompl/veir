@@ -17,10 +17,11 @@ inductive Builtin where
 | unrealized_conversion_cast
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Builtin.propertiesOf (op : Builtin) : Type :=
 match op with
 | .unregistered => UnregisteredProperties
+| .module => ModuleProperties
 | _ => Unit
 
 def Builtin.fromAttrDict
@@ -28,6 +29,7 @@ def Builtin.fromAttrDict
     Except String (Builtin.propertiesOf op) := by
   cases op
   case unregistered => exact UnregisteredProperties.fromAttrDict attrDict
+  case module => exact ModuleProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
 def Builtin.toAttrDict
@@ -35,6 +37,11 @@ def Builtin.toAttrDict
     Std.HashMap ByteArray Attribute :=
   match op with
   | .unregistered => Std.HashMap.ofList props.properties.entries.toList
+  | .module => Id.run do
+    let mut dict : Std.HashMap ByteArray Attribute := Std.HashMap.emptyWithCapacity 1
+    if let some symName := props.sym_name then
+      dict := dict.insert "sym_name".toUTF8 (.stringAttr symName)
+    dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
@@ -48,6 +55,12 @@ def Builtin.isConstantLike (_op : Builtin) : Bool :=
   false
 
 def Builtin.isIsolatedFromAbove (op : Builtin) : Bool :=
+  match op with
+  | .module => true
+  | _ => false
+
+/-- As in MLIR, `builtin.module` is the only builtin operation with the `SymbolTable` trait. -/
+def Builtin.isSymbolTable (op : Builtin) : Bool :=
   match op with
   | .module => true
   | _ => false
@@ -92,24 +105,26 @@ def Builtin.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .module => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     pure ()
+
+/-- A `builtin.module` is an optional symbol. -/
+def Builtin.symbolInterface? (op : Builtin) :
+    Option (SymbolOpInterface (Builtin.propertiesOf op)) :=
+  match op with
+  | .module => some { getSymName := fun props => props.sym_name }
+  | _ => none
 
 instance : HasOpInfo Builtin where
   verifyLocalInvariants := Builtin.verifyLocalInvariants
   getEffects := Builtin.getEffects
   isConstantLike := Builtin.isConstantLike
+  symbolInterface? := Builtin.symbolInterface?
   getRegionKind := Builtin.getRegionKind
   hasSSADominance := Builtin.hasSSADominance
   hasNoTerminator := Builtin.hasNoTerminator
   isIsolatedFromAbove := Builtin.isIsolatedFromAbove
+  isSymbolTable := Builtin.isSymbolTable
 
 end
 

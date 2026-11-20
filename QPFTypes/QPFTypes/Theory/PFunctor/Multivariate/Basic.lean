@@ -100,4 +100,15 @@ abbrev appendContents {α : TypeVec n} {β : Type _} {a : P.A}
     (f' : P.drop.B a ⟹ α) (f : P.last.B a → β) : P.B a ⟹ (α ::: β) :=
   splitFun f' f
 
+/-- Mapping an `appendFun` over a value given in `appendContents` form. Appears constantly
+once one starts reasoning about `P (α ::: β)` one layer at a time. -/
+@[simp, grind =]
+theorem appendFun_map_splitFun {n : Nat} {Q : MvPFunctor.{u} (n + 1)} {α α' : TypeVec.{u} n}
+    {β β' : Type u} (h₀ : α ⟹ α') (h₁ : β → β') (a : Q.A)
+    (f : Q.drop.B a ⟹ α) (g : Q.last.B a → β) :
+    ((h₀ ::: h₁) <$$> (⟨a, splitFun f g⟩ : Q.Obj (α ::: β)) : Q.Obj (α' ::: β'))
+      = ⟨a, splitFun (h₀ ⊚ f) (h₁ ∘ g)⟩ := by
+  simp only [MvPFunctor.map_eq]
+  erw [appendFun_comp_splitFun]
+
 end MvPFunctor

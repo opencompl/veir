@@ -43,20 +43,46 @@ def unknown : MemoryEffects :=
 
 end MemoryEffects
 
+/-- Information exposed by operations that define a symbol. -/
+structure SymbolOpInterface (Properties : Type) where
+  /-- Return the name of the symbol, or `none` for an optional symbol without a name. -/
+  getSymName : Properties → Option StringAttr
+
 /-- Information exposed by operations that behave like functions. -/
 structure FunctionOpInterface (Properties : Type) where
-  /-- Return the symbol name of the function. -/
-  getSymName : Properties → StringAttr
   /-- Return the type of the function. -/
   getFunctionType : Properties → FunctionType
   /-- Return the properties with the function type replaced. -/
   setFunctionType : Properties → FunctionType → Properties
 
+/-- The callee of a call: a symbol, or one of its operands. -/
+inductive CallInterfaceCallable (α : Type) where
+  | symbol (ref : FlatSymbolRefAttr)
+  | value (value : α)
+deriving Inhabited, Repr, DecidableEq
+
+/--
+Information exposed by call-like operations. It only selects among the operands, so it works for
+any operand type `α`: the IR uses it on SSA values, and the interpreter on runtime values.
+-/
+structure CallOpInterface (Properties : Type) where
+  /-- Return the callee of the call, given its operands. -/
+  getCallableForCallee? : {α : Type} → Properties → Array α → Option (CallInterfaceCallable α)
+  /-- Return the operands passed as arguments to the callee. -/
+  getArgOperands : {α : Type} → Properties → Array α → Array α
+
 /-- The SSA values forwarded from a branch operation to one of its successors. -/
 structure SuccessorOperands where
   /-- The SSA values forwarded to the successor. -/
   forwardedOperands : Array ValuePtr
+  /-- The index of the first forwarded operand in the operands of the branch operation. -/
+  beginOperandIndex : Nat := 0
 deriving Inhabited, Repr, DecidableEq
+
+/-- The index of the branch operand forwarded to block argument `blockArgumentIndex`. -/
+def SuccessorOperands.getOperandIndex (operands : SuccessorOperands) (blockArgumentIndex : Nat) :
+    Nat :=
+  operands.beginOperandIndex + blockArgumentIndex
 
 instance : GetElem SuccessorOperands Nat ValuePtr
     (fun operands blockArgumentIndex => blockArgumentIndex < operands.forwardedOperands.size) where
@@ -71,10 +97,10 @@ structure BranchOpInterface (Properties : Type) where
   /-- Return the operands passed to the indexed successor. -/
   getSuccessorOperandsImpl? :
     Properties → Array ValuePtr → Nat → Option SuccessorOperands
-  /-- Return the successor selected by the known constant operands. -/
-  getSuccessorForOperandsImpl? :
-    Properties → Array (Option RuntimeValue) → Array BlockPtr → Option BlockPtr :=
-      fun _ _ _ => none
+  /-- Return the index of the successor selected by the known constant operands. -/
+  getSuccessorIndexForOperandsImpl? :
+    Properties → Array (Option RuntimeValue) → Option Nat :=
+      fun _ _ => none
 
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
@@ -113,6 +139,13 @@ class HasOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
+  Whether permuting an operation's operands preserves all its results with
+  its properties unchanged. For binary operations this means `op x y` and
+  `op y x` compute the same results, including poison behavior. Defaults to
+  `false` for opcodes whose commutativity has not been declared.
+  -/
+  isCommutative : opCode → Bool := fun _ => false
+  /--
   Whether an operation with this opcode produces a wholly poisoned result
   whenever any one of its operands is wholly poison, mirroring LLVM's
   `propagatesPoison`. Defaults to `false` for every opcode, which
@@ -120,15 +153,50 @@ class HasOpInfo (opCode: Type)
   -/
   propagatesPoison : opCode → Bool := fun _ => false
   /--
+  Information about operations that define a symbol.
+  -/
+  symbolInterface? : (op : opCode) → Option (SymbolOpInterface (propertiesOf op)) :=
+    fun _ => none
+  /--
   Information about operations that act like functions.
   -/
   functionInterface? : (op : opCode) → Option (FunctionOpInterface (propertiesOf op)) :=
+    fun _ => none
+  /--
+  Operations that act like functions must define a symbol.
+  -/
+  functionInterface_requires_symbol :
+      ∀ {op f}, functionInterface? op = some f → (symbolInterface? op).isSome := by
+    intro op f hf
+    cases op <;> cases hf <;> rfl
+  /--
+  Operations that act like functions always have a symbol name: as in MLIR, a function is never
+  an optional symbol.
+  -/
+  functionInterface_getSymName_isSome :
+      ∀ {op f symbolInterface}, functionInterface? op = some f →
+        symbolInterface? op = some symbolInterface →
+        ∀ {props}, (symbolInterface.getSymName props).isSome := by
+    intro op f symbolInterface hf hs props
+    cases op <;> cases hf <;> cases hs <;> rfl
+  /--
+  Information about call-like operations.
+  -/
+  callOpInterface? : (op : opCode) → Option (CallOpInterface (propertiesOf op)) :=
     fun _ => none
   /--
   Information about operations that branch to successor blocks.
   -/
   branchOpInterface? : (op : opCode) → Option (BranchOpInterface (propertiesOf op)) :=
     fun _ => none
+  /--
+  The unconditional branch and properties to use when a branch's selected
+  successor is known. The caller supplies that successor and its forwarded
+  operands. Preserve properties that still apply to the unconditional branch;
+  return `none` for non-branches or unsupported conversions.
+  -/
+  unconditionalBranch? : (op : opCode) → propertiesOf op → Option (OpKind opCode) :=
+    fun _ _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.
   This mirrors MLIR's `RegionKindInterface` default: regions are SSACFG unless
@@ -165,6 +233,11 @@ class HasOpInfo (opCode: Type)
   nested regions.
   -/
   isIsolatedFromAbove : opCode → Bool := fun _ => false
+  /--
+  Whether this operation has MLIR's `SymbolTable` trait: the symbols in its single region can be
+  looked up by name.
+  -/
+  isSymbolTable : opCode → Bool := fun _ => false
 
 attribute [get_effects] HasOpInfo.getEffects
 attribute [is_terminator] HasOpInfo.isTerminator
@@ -183,11 +256,22 @@ abbrev OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext
 -/
 @[expose, inline]
 public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpInfo) : Bool :=
-  match (region.get! ctx.raw).parent with
+  match region.getParent! ctx.raw with
   | some parentOp =>
-    let parent := parentOp.get! ctx.raw
-    HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
+    HasOpInfo.hasNoTerminator (parentOp.getOpType! ctx.raw) ((parentOp.getRegions! ctx.raw).idxOf region)
   | none => false
+
+/--
+  Reject the properties of an operation whose schema has none. `name` prefixes the
+  error message, e.g. `"tensor"` or `"pdl.erase"`.
+-/
+def expectNoProperties (name : String) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String Unit :=
+  if attrDict.size > 0 then
+    let plural := if attrDict.size = 1 then "property" else "properties"
+    .error s!"{name}: expected no properties, but got {attrDict.size} {plural}"
+  else
+    .ok ()
 
 end -- public section
 

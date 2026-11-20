@@ -15,6 +15,8 @@ structure PbvDecideConfig where
   bv_decide : Bool := true
   /-- Whether or not `grind` should be run on the generated side goals. -/
   grind : Bool := true
+  /-- Manually provide a `blastWidth` instead of using the computed one. -/
+  blastWidth : Option Nat := none
 
 declare_config_elab elabPbvDecideConfig PbvDecideConfig
 

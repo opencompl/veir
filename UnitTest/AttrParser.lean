@@ -169,6 +169,27 @@ macro "#assert " e:term : command =>
 #assert expectErrorType "vector<0xi32>" "0 is not a supported dimension" (some 7)
 #assert expectErrorType "vector<0x32xi32>" "0 is not a supported dimension" (some 7)
 
+/-! ## Tensor types -/
+
+#assert expectSuccessType "tensor<4xf32>" (TensorType.mk #[4] FloatType.f32)
+#assert expectSuccessType "tensor<2x4xi32>" (TensorType.mk #[2, 4] (IntegerType.signless 32))
+#assert expectSuccessType "tensor<2 x 4 x i32>" (TensorType.mk #[2, 4] (IntegerType.signless 32))
+#assert expectSuccessType "tensor<f32>" (TensorType.mk #[] FloatType.f32)
+#assert expectSuccessAttr "tensor<4xf32>" (TensorType.mk #[4] FloatType.f32)
+#assert ToString.toString (TensorType.mk #[2, 4] (IntegerType.signless 32) : TensorType) ==
+  "tensor<2x4xi32>"
+#assert ToString.toString (TensorType.mk #[] FloatType.f32 : TensorType) == "tensor<f32>"
+#assert expectSuccessType "tensor<0xf32>" (TensorType.mk #[0] FloatType.f32)
+#assert expectSuccessType "tensor<4x0xi32>" (TensorType.mk #[4, 0] (IntegerType.signless 32))
+#assert expectErrorType "tensor<4x>" "tensor element type expected" (some 9)
+#assert expectErrorType "tensor<?xf32>" "dynamic and unranked tensor types are not supported" (some 7)
+#assert expectErrorType "tensor<4x?xf32>" "dynamic and unranked tensor types are not supported"
+  (some 9)
+#assert expectErrorType "tensor<*xf32>" "dynamic and unranked tensor types are not supported" (some 7)
+#assert expectErrorType "tensor<4xtensor<2xf32>>" "invalid tensor element type" (some 9)
+#assert expectErrorType "tensor<4x() -> ()>" "invalid tensor element type" (some 9)
+#assert expectErrorType "vector<4xtensor<2xf32>>" "invalid vector element type" (some 9)
+
 /-! ## Integer attributes -/
 
 #assert expectErrorAttr "0 : 2" "integer or float type expected after ':' in numeric attribute" (some 4)
@@ -182,6 +203,20 @@ macro "#assert " e:term : command =>
     expectErrorAttr s!"-{zero} : i{width}"
       "integer constant out of range for attribute" (some 1) &&
     expectSuccessAttr s!"{zero} : i{width}" (IntegerAttr.mk 0 (IntegerType.signless width))
+
+/-! ## Index attributes -/
+
+#assert expectSuccessAttr "4 : index" (IndexAttr.mk 4)
+#assert expectRoundTripAttr "-1 : index"
+-- MLIR stores index attributes as 64-bit integers, so only [-2^63, 2^63) fits.
+#assert expectSuccessAttr "9223372036854775807 : index" (IndexAttr.mk (2 ^ 63 - 1))
+#assert expectSuccessAttr "-9223372036854775808 : index" (IndexAttr.mk (-2 ^ 63))
+#assert expectErrorAttr "9223372036854775808 : index"
+  "integer constant out of range for attribute" (some 0)
+#assert expectErrorAttr "-9223372036854775809 : index"
+  "integer constant out of range for attribute" (some 1)
+#assert expectErrorAttr "-0 : index" "integer constant out of range for attribute" (some 1)
+#assert expectErrorAttr "1.5 : index" "integer literal expected in index attribute" (some 11)
 
 /-! ## Integer overflow flags attributes -/
 
@@ -249,7 +284,7 @@ macro "#assert " e:term : command =>
 -- Minimum subnormal number
 #assert expectSuccessAttr "1.0e-45 : f32" (fpAttr FloatType.f32 1)
 #assert expectSuccessAttr "1.0e-100 : f32" (fpAttr FloatType.f32 0)
--- Maximum normal nunmber
+-- Maximum normal number
 #assert expectSuccessAttr "3.4028235e38 : f32" (fpAttr FloatType.f32 0x7f7fffff)
 -- Values in the binade above the largest finite number round to a signed
 -- infinity, not to a NaN.
@@ -424,6 +459,7 @@ macro "#assert " e:term : command =>
 -- Aliases also resolve where a specific builtin type is required.
 #assert (testAttrWithAliases "1 : !int" [("int", (IntegerType.signless 32))]
   = .ok (IntegerAttr.mk 1 (IntegerType.signless 32)))
+#assert (testAttrWithAliases "4 : !idx" [("idx", IndexType.mk)] = .ok (IndexAttr.mk 4))
 #assert (testAttrWithAliases "array<!int: 1, 2>" [("int", (IntegerType.signless 32))]
   = .ok (DenseArrayAttr.mk (IntegerType.signless 32) #[1, 2]))
 #assert (testTypeWithAliases "!cuda_tile.ptr<!int>" [("int", (IntegerType.signless 32))]
@@ -543,6 +579,8 @@ macro "#assert " e:term : command =>
 
 /-! ## LLVM Pointer type -/
 #assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
+#assert expectSuccessType "!llvm.ptr<1>" (LLVM.PointerType.mk 1)
+#assert expectSuccessType "!llvm.ptr<200>" (LLVM.PointerType.mk 200)
 
 /-! ## LLVM Void type -/
 #assert expectSuccessType "!llvm.void" (LLVM.VoidType.mk)
@@ -555,35 +593,60 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!llvm.byte<64>" (LLVM.ByteType.mk 64)
 #assert expectSuccessType "!llvm.array<2 x byte<8>>" (LLVM.ArrayType.mk 2 $ LLVM.ByteType.mk 8)
 
-/-! ## LLVM Struct type (parsed opaquely; see `parseOptionalLLVMStructType`)
+/-! ## LLVM Struct type
 
   The struct type is handled by a dedicated parser that accepts both the
   standalone `!llvm.struct<...>` form and the bare `struct<...>` form used when a
-  struct is nested inside another LLVM type (e.g. an array element). Both forms
-  are normalized to the full `!llvm.struct<...>` spelling, and neither requires
-  `allowUnregisteredDialect` (like `!llvm.array`). The struct name, fields, and
-  packed flag are *not* modeled structurally — they survive only as text. -/
+  struct is nested inside another LLVM type (e.g. an array element). Neither
+  requires `allowUnregisteredDialect` (like `!llvm.array`). A struct with a supported body
+  becomes an `LLVM.StructType`; a bare reference to an identified struct is kept
+  as text, normalized to the `!llvm.struct<...>` form. Opaque structs are
+  rejected for now. -/
 
 -- Standalone struct: both forms parse identically, with or without the flag.
 #assert expectSuccessType "!llvm.struct<(i32, f32)>"
-  ⟨UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none, by grind⟩ false
+  (LLVM.StructType.mk none false #[IntegerType.signless 32, FloatType.f32]) false
 #assert expectSuccessType "!llvm.struct<(i32, f32)>"
-  ⟨UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none, by grind⟩ true
+  (LLVM.StructType.mk none false #[IntegerType.signless 32, FloatType.f32]) true
+#assert expectSuccessType "!llvm.struct<()>" (LLVM.StructType.mk none false #[])
 -- Literal struct nested in an array (original `!llvm.array<N x struct<...>>` bug).
 #assert expectSuccessType "!llvm.array<2 x struct<(i32, f32)>>"
-  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none : Attribute)) true
-#assert expectSuccessType "!llvm.array<2 x struct<(i32, f32)>>"
-  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none : Attribute)) false
+  (LLVM.ArrayType.mk 2 (LLVM.StructType.mk none false #[IntegerType.signless 32, FloatType.f32]))
 -- The bare nested form and the prefixed nested form are equivalent.
 #assert expectSuccessType "!llvm.array<2 x !llvm.struct<(i32, f32)>>"
-  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none : Attribute)) false
--- Identified (named) struct: the name is preserved verbatim inside the text.
+  (LLVM.ArrayType.mk 2 (LLVM.StructType.mk none false #[IntegerType.signless 32, FloatType.f32]))
+-- Identified (named) struct.
 #assert expectSuccessType "!llvm.array<23 x struct<\"struct.et_info\", (i8, i8)>>"
-  (LLVM.ArrayType.mk 23
-    (UnregisteredAttr.mk "!llvm.struct<\"struct.et_info\", (i8, i8)>" true none : Attribute)) true
--- Packed struct nested in an array.
+  (LLVM.ArrayType.mk 23 (LLVM.StructType.mk (some "struct.et_info".toUTF8) false
+    #[IntegerType.signless 8, IntegerType.signless 8]))
+-- Packed structs, literal and identified.
 #assert expectSuccessType "!llvm.array<4 x struct<packed (i8, i32)>>"
-  (LLVM.ArrayType.mk 4 (UnregisteredAttr.mk "!llvm.struct<packed (i8, i32)>" true none : Attribute)) true
+  (LLVM.ArrayType.mk 4 (LLVM.StructType.mk none true
+    #[IntegerType.signless 8, IntegerType.signless 32]))
+#assert expectSuccessType "!llvm.struct<\"s\", packed (i8)>"
+  (LLVM.StructType.mk (some "s".toUTF8) true #[IntegerType.signless 8])
+-- Bare nested types inside a struct body.
+#assert expectSuccessType "!llvm.struct<(ptr, array<3 x i8>, struct<(i64)>)>"
+  (LLVM.StructType.mk none false #[LLVM.PointerType.mk,
+    LLVM.ArrayType.mk 3 (IntegerType.signless 8),
+    LLVM.StructType.mk none false #[IntegerType.signless 64]])
+-- Opaque structs are rejected for now.
+#assert !(testType "!llvm.struct<\"t\", opaque>").isOk
+-- Bare references stay opaque.
+#assert expectSuccessType "!llvm.struct<\"node\", (ptr, struct<\"node\">)>"
+  (LLVM.StructType.mk (some "node".toUTF8) false #[LLVM.PointerType.mk,
+    UnregisteredAttr.mk "!llvm.struct<\"node\">" true none])
+-- Fields unsupported by the type parser retain the entire struct as text.
+#assert expectSuccessType "!llvm.struct<(foo<1>, i32)>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<(foo<1>, i32)>" true none, by grind⟩
+#assert expectSuccessType "!llvm.struct<(vector<[4]xi32>)>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<(vector<[4]xi32>)>" true none, by grind⟩
+#assert expectSuccessType "!llvm.array<2 x struct<\"s\", packed (i8, foo<1>)>>"
+  (LLVM.ArrayType.mk 2
+    (UnregisteredAttr.mk "!llvm.struct<\"s\", packed (i8, foo<1>)>" true none : Attribute))
+-- The opaque fallback still requires balanced delimiters.
+#assert !(testType "!llvm.struct<(foo<1>, i32]>").isOk
+#assert !(testType "!llvm.struct<(foo<1>, i32)").isOk
 
 
 /-! ## LLVM parameterless types -/
@@ -717,6 +780,10 @@ macro "#assert " e:term : command =>
 /-! ## RISCV Register type -/
 #assert expectSuccessType "!riscv.reg" (RegisterType.mk)
 #assert expectSuccessType "!riscv.reg<x13>" (RegisterType.mk (some 13))
+#assert expectSuccessType "!riscv.reg<x0>" (RegisterType.mk (some 0))
+#assert expectErrorType "!riscv.reg<j3>" "expected RV64 register of the form xID" (some 11)
+#assert ToString.toString (RegisterType.mk (some (-1))) = "!riscv.reg<j0>"
+#assert ToString.toString (RegisterType.mk (some (-12))) = "!riscv.reg<j11>"
 
 /-! ## Flat symbol reference attribute -/
 #assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")
@@ -734,3 +801,16 @@ macro "#assert " e:term : command =>
 #assert expectErrorType "!hw.modty<foo>" "module port expected" (some 10)
 #assert expectErrorType "!hw.modty<input : foo>" "identifier expected" (some 16)
 #assert expectErrorType "!hw.modty<input a : foo>" "integer type expected" (some 20)
+
+/-! ## Seq clock and FIRRTL memory types -/
+#assert expectSuccessType "!seq.clock" Seq.ClockType.mk
+#assert expectSuccessType "!seq.firmem<4 x 8>" (Seq.FirMemType.mk 4 8 none)
+/- The lexer fuses `x8` into one identifier, so the separator is re-lexed rather than matched as
+   a keyword; both spellings have to give the same type. -/
+#assert expectSuccessType "!seq.firmem<4x8>" (Seq.FirMemType.mk 4 8 none)
+#assert expectSuccessType "!seq.firmem<16 x 32, mask 8>" (Seq.FirMemType.mk 16 32 (some 8))
+#assert expectSuccessType "!seq.firmem<1 x 1>" (Seq.FirMemType.mk 1 1 none)
+#assert expectErrorType "!seq.firmem<4>" "expected keyword 'x'" (some 13)
+#assert expectErrorType "!seq.firmem<4 y 8>" "expected keyword 'x'" (some 14)
+#assert expectErrorType "!seq.firmem<4 x 8, 2>" "expected keyword 'mask'" (some 19)
+#assert expectErrorType "!seq.firmem<x x 8>" "memory depth expected" (some 12)

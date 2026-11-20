@@ -11,8 +11,8 @@ namespace Veir
   type, inserting`unrealized_conversion_cast`s to bridge to/from the original types.
 
   The coercion applied is selected by a `BoundaryCoercion` flag:
-  - `.riscvReg`: i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
-    `isel-abi-riscv64` applies this only to LLVM functions as its first step.
+  - `.riscvReg`: i1-, i8-, i16-, i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
+    `call-lowering-riscv64` applies this only to LLVM functions as its first step.
   - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
   - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
 -/
@@ -28,7 +28,7 @@ public def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option Ty
   | .riscvReg, t =>
     match t.val with
     | .integerType x =>
-      if x.bitwidth == 64 || x.bitwidth == 32 then some (RegisterType.mk : TypeAttr) else none
+      if x.bitwidth ∈ [1, 8, 16, 32, 64] then some (RegisterType.mk : TypeAttr) else none
     | .llvmPointerType _ => some (RegisterType.mk : TypeAttr)
     | _ => none
   | .modArithToInt legalizeWidth, t =>
@@ -75,16 +75,23 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       let ip := InsertPoint.atStart entry ctx.raw sorry
       let some (ctx', cast) := WfRewriter.createOp ctx
         Builtin.unrealized_conversion_cast #[origType] #[] #[] #[] default (some ip)
-        sorry sorry sorry sorry | return ctx
+        sorry sorry sorry sorry | throw "cannot create a cast for a function argument"
       let ctx' := WfRewriter.replaceValue ctx' bap (cast.getResult 0) sorry sorry sorry
       ctx := WfRewriter.pushOperand ctx' cast bap sorry sorry
       inputs := inputs.push newType.val
     | none =>
       inputs := inputs.push origType.val
   -- (2) Coerce the operands of every return terminator in this function.
-  let returnOps := ctx.raw.operations.keys.filter fun o =>
-    o.getOpType! ctx.raw == returnCode &&
-      o.getParentOp! ctx.raw == some op
+  let mut returnOps : Array OperationPtr := #[]
+  for region in op.getRegions! ctx.raw do
+    let mut block? := region.getFirstBlock! ctx.raw
+    while let some block := block? do
+      let mut inner? := block.getFirstOp! ctx.raw
+      while let some inner := inner? do
+        if inner.getOpType! ctx.raw == returnCode then
+          returnOps := returnOps.push inner
+        inner? := inner.getNextOp! ctx.raw
+      block? := block.getNextBlock! ctx.raw
   for retOp in returnOps do
     for j in List.range (retOp.getNumOperands! ctx.raw) do
       let opVal := retOp.getOperand! ctx.raw j
@@ -93,7 +100,8 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       | some newType =>
         let some (ctx', cast) := WfRewriter.createOp ctx
           Builtin.unrealized_conversion_cast #[newType] #[opVal] #[] #[] default
-          (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return ctx
+          (some (InsertPoint.before retOp)) sorry sorry sorry sorry
+          | throw "cannot create a cast for a return operand"
         ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
         -- The `j`-th operand maps to the `j`-th declared result: the verifier guarantees
         -- a return's operand count equals the function's declared result count.
@@ -120,7 +128,7 @@ public def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRCon
 def CoerceFunctionBoundariesPass.impl (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let ctx ← coerceFunctionBoundaries coercion ctx
-  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
+  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx op with
   | none => throw "Error while applying DCE after function boundary coercion"
   | some ctx => pure ctx
 

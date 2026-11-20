@@ -25,10 +25,7 @@ namespace CSE
 
 /-- Here we package up an opcode with its UB flags; we don't want to
     mix up, e.g., "add" and "add nsw". -/
-abbrev Kind := (op : OpCode) × propertiesOf op
-
-instance : Hashable Kind where
-  hash k := mixHash (hash k.fst) (hash k.snd)
+abbrev Kind := OpKind OpCode
 
 /-- This is the basis for CSE: if two instructions have the same Key,
     then they compute the same ordered sequence of result values. If A
@@ -119,7 +116,7 @@ def icmpKey
 def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   guard (op.isMemoryIndependent ctx)
   guard (op.getNumSuccessors! ctx = 0)
-  guard ((op.get! ctx).attrs.entries.size = 0)
+  guard ((op.getAttributes! ctx).entries.size = 0)
   guard (op.getNumResults! ctx > 0)
   let opType := op.getOpType! ctx
   let properties := op.getProperties! ctx opType
@@ -147,8 +144,7 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
     enclosing possibly isolated scope. -/
 def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     WfIRContext OpCode := Id.run do
-  let some dfCtx := Veir.fixpointSolve top #[Veir.DominanceAnalysis] ctx
-    | panic! "Dominance analysis not expected to fail"
+  let dfCtx := Veir.DominanceAnalysis top .empty ctx
   let ops := top.opsInDominanceOrder dfCtx ctx
   let mut ctx := ctx
   let mut available : Std.HashMap Key (Array OperationPtr) := Std.HashMap.emptyWithCapacity

@@ -27,7 +27,7 @@ inductive PDL where
 | types
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def PDL.propertiesOf (op : PDL) : Type :=
 match op with
 | .attribute => PDLAttributeProperties
@@ -44,26 +44,17 @@ match op with
 | .type => PDLTypeProperties
 | .types => PDLTypesProperties
 
-/-- Reject any property on an operation that carries none. -/
-private def noProperties (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String Unit :=
-  if attrDict.size > 0 then
-    let plural := if attrDict.size = 1 then "property" else "properties"
-    .error s!"{opName}: expected no properties, but got {attrDict.size} {plural}"
-  else
-    .ok ()
-
 def PDL.fromAttrDict
     (op : PDL) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (PDL.propertiesOf op) :=
   match op with
   | .attribute => PDLAttributeProperties.fromAttrDict attrDict
-  | .erase => noProperties "pdl.erase" attrDict
-  | .operand => noProperties "pdl.operand" attrDict
-  | .operands => noProperties "pdl.operands" attrDict
+  | .erase => expectNoProperties "pdl.erase" attrDict
+  | .operand => expectNoProperties "pdl.operand" attrDict
+  | .operands => expectNoProperties "pdl.operands" attrDict
   | .operation => PDLOperationProperties.fromAttrDict attrDict
   | .pattern => PDLPatternProperties.fromAttrDict attrDict
-  | .range => noProperties "pdl.range" attrDict
+  | .range => expectNoProperties "pdl.range" attrDict
   | .replace => PDLReplaceProperties.fromAttrDict attrDict
   | .result => PDLResultProperties.fromAttrDict attrDict
   | .results => PDLResultsProperties.fromAttrDict attrDict
@@ -292,14 +283,7 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
       if pdlElementOrSelf ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ some .type then
         throw s!"Expected operand {i} to be of type '!pdl.type' or '!pdl.range<type>'"
   | .pattern =>
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     let props : PDL.propertiesOf .pattern :=
       HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.pattern
         (op.getProperties! ctx.raw (ofDialect OpInfo PDL.pattern))
@@ -309,12 +293,9 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     if props.benefit.value < 0 then
       throw s!"Expected 'benefit' to be non-negative, but got {props.benefit.value}"
     /- The matcher body is a single block terminated by a `pdl.rewrite`. -/
-    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
-    let some bodyBlock := body.firstBlock
-      | throw "Expected the body to contain exactly 1 block"
-    if body.lastBlock ≠ some bodyBlock then
-      throw "Expected the body to contain exactly 1 block"
-    let some terminator := (bodyBlock.get! ctx.raw).lastOp
+    let bodyBlock ← (op.getRegion! ctx.raw 0).getSingleBlock ctx
+      "Expected the body to contain exactly 1 block"
+    let some terminator := bodyBlock.getLastOp! ctx.raw
       | throw "Expected the body to terminate with a `pdl.rewrite`"
     if toDialect? PDL (terminator.getOpType! ctx.raw) ≠ some PDL.rewrite then
       throw "Expected the body to terminate with a `pdl.rewrite`"
@@ -331,7 +312,7 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
       if toDialect? PDL (parent.getOpType! ctx.raw) ≠ some PDL.rewrite then
         throw "Expected the parent operation to be a `pdl.rewrite`"
     | none => throw "Expected the parent operation to be a `pdl.rewrite`"
-    let .pdlRangeType resultRange := ((op.getResult 0).get! ctx.raw).type.val
+    let .pdlRangeType resultRange := ((op.getResult 0).getType! ctx.raw).val
       | throw "Expected the result to be of type '!pdl.range<...>'"
     /- MLIR builds ranges of types and values only. -/
     match resultRange.element with
@@ -425,16 +406,16 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
         throw "Expected the `root` operand to be of type '!pdl.operation'"
     /- An external rewrite names a native function and leaves its region empty;
        an inline rewrite supplies a body and takes no external arguments. -/
-    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
+    let body := op.getRegion! ctx.raw 0
     /- MLIR gives `pdl.rewrite` `SingleBlock`, so the body holds no more than
        one block. -/
-    if body.firstBlock ≠ body.lastBlock then
+    if body.getFirstBlock! ctx.raw ≠ body.getLastBlock! ctx.raw then
       throw "Expected the rewrite region to contain at most 1 block"
     if props.name.isSome then
-      if body.firstBlock.isSome then
+      if (body.getFirstBlock! ctx.raw).isSome then
         throw "Expected the rewrite region to be empty when the rewrite is external"
     else
-      if body.firstBlock.isNone then
+      if (body.getFirstBlock! ctx.raw).isNone then
         throw "Expected the rewrite region to be non-empty when no external name is specified"
       if segments[1]! ≠ 0 then
         throw "Expected no external arguments when the rewrite is specified inline"
@@ -446,7 +427,7 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     let props : PDL.propertiesOf .results :=
       HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.results
         (op.getProperties! ctx.raw (ofDialect OpInfo PDL.results))
-    let resultType := ((op.getResult 0).get! ctx.raw).type.val
+    let resultType := ((op.getResult 0).getType! ctx.raw).val
     /- A single result group is one value; the whole result range is a range. -/
     match resultType with
     | .pdlValueType _ =>
@@ -469,6 +450,11 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     op.verifyResultTypeMatches ctx (PDL.RangeType.mk .type : TypeAttr)
       "Expected the result to be of type '!pdl.range<type>'"
 
+def PDL.symbolInterface? (op : PDL) : Option (SymbolOpInterface (PDL.propertiesOf op)) :=
+  match op with
+  | .pattern => some { getSymName := fun props => props.sym_name }
+  | _ => none
+
 instance : HasOpInfo PDL where
   verifyLocalInvariants := PDL.verifyLocalInvariants
   getEffects := PDL.getEffects
@@ -476,6 +462,7 @@ instance : HasOpInfo PDL where
   hasSSADominance := PDL.hasSSADominance
   hasNoTerminator := PDL.hasNoTerminator
   isTerminator := PDL.isTerminator
+  symbolInterface? := PDL.symbolInterface?
   isIsolatedFromAbove := PDL.isIsolatedFromAbove
 
 end

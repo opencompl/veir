@@ -3,6 +3,8 @@
 // RUN: LLUBI
 // RUN: ALIVE_EXEC
 
+// NO_CTREE: a negative test of the LLUBI substitution, which does not interpret the program itself
+
 // A negative test of the cross-check itself: the function returns 7 and the
 // CHECK line below asks for 8, so the llubi run must fail rather than pass
 // vacuously. Were the LLUBI substitution broken, this test would pass and

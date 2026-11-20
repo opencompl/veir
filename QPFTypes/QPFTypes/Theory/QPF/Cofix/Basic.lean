@@ -6,6 +6,7 @@ Authors: Jeremy Avigad, Simon Hudon
 module
 
 public import QPFTypes.Theory.QPF.Basic
+public import QPFTypes.Theory.QPF.IsPolynomial
 public import QPFTypes.Theory.PFunctor.Multivariate.M
 
 /-!
@@ -130,7 +131,6 @@ instance Cofix.mvfunctor : MvFunctor (Cofix F) where map := @Cofix.map _ _ _
 def Cofix.corec {α : TypeVec n} {β : Type u} (g : β → F (α ::: β)) : β → Cofix F α := fun x =>
   Quot.mk _ (corecF g x)
 
-set_option backward.isDefEq.respectTransparency false in
 /-- Destructor for `Cofix F α` -/
 def Cofix.dest {α : TypeVec n} : Cofix F α → F (α ::: (Cofix F α)) :=
   Quot.lift ((id ::: (Quot.mk Mcongr)) <$$> abs ·.dest) <| by
@@ -139,7 +139,7 @@ def Cofix.dest {α : TypeVec n} : Cofix F α → F (α ::: (Cofix F α)) :=
       intro x y h
       exact ⟨r, pr, h⟩
     dsimp only [← Quot.factor_mk_eq _ _ this]
-    rw [appendFun_comp_id, comp_map, ← abs_map, pr rxy, abs_map, ← comp_map,
+    erw [appendFun_comp_id, comp_map, ← abs_map, pr rxy, abs_map, ← comp_map,
       ← appendFun_comp_id]
 
 /-- Constructor for `Cofix F` -/
@@ -263,8 +263,8 @@ theorem Cofix.ext_mk {α : TypeVec n} (x y : F (α ::: Cofix F α)) (h : Cofix.m
 ### QPF instance for Cofix
 -/
 
-theorem Cofix.abs_repr {α} (x : Cofix F α) : Quot.mk Mcongr (Cofix.repr x) = x := by
-  let R := fun a b : Cofix F α => Quot.mk Mcongr (Cofix.repr b) = a
+theorem Cofix.abs_repr {α} (x : Cofix F α) : abs (repr x) = x := by
+  let R := fun a b : Cofix F α => Quot.mk Mcongr (repr b) = a
   apply Cofix.bisim_rel R
   · rintro a b rfl
     cases b using Quot.ind with | mk b =>
@@ -286,6 +286,35 @@ instance qpfCofix : QPF (Cofix F) where
   repr     := Cofix.repr
   abs_repr := Cofix.abs_repr
   abs_map  := by intros; rfl
+
+/-!
+### `Cofix` preserves polynomiality
+
+If the quotient of `F` is trivial, then so is the quotient of `Cofix F`: the
+weakest bisimulation `Mcongr` only identifies trees that `abs` already identifies,
+so `Cofix.repr` is a section of `Quot.mk Mcongr` on the nose. We show this by
+checking that `Cofix.repr ∘ Quot.mk Mcongr` commutes with `M.dest`, and appealing
+to finality of the M-type.
+-/
+
+/-- `Cofix.repr ∘ Cofix.abs` is a coalgebra morphism when `F` is polynomial. -/
+theorem Cofix.dest_repr_abs [IsPolynomial F] {α : TypeVec n} (m : q.P.M α) :
+    M.dest q.P (Cofix.repr (Cofix.abs (F := F) m))
+      = (id ::: fun m => Cofix.repr (Cofix.abs (F := F) m)) <$$> M.dest q.P m := by
+  rw [Cofix.repr, M.dest_corec]
+  show (id ::: _) <$$> QPF.repr ((id ::: Quot.mk Mcongr) <$$> QPF.abs (M.dest q.P m)) = _
+  rw [← abs_map, IsPolynomial.repr_abs, MvFunctor.map_map]
+  erw [← appendFun_comp, id_comp]
+  rfl
+
+/-- When `F` is polynomial, `Cofix.repr` picks every tree as its own representative. -/
+theorem Cofix.repr_abs [IsPolynomial F] {α : TypeVec n} (m : q.P.M α) :
+    Cofix.repr (Cofix.abs (F := F) m) = m :=
+  M.eq_id_of_dest_comm q.P _ Cofix.dest_repr_abs m
+
+/-- Taking the greatest fixed point preserves polynomiality. -/
+instance Cofix.instIsPolynomial [IsPolynomial F] : IsPolynomial (Cofix F) where
+  repr_abs p := Cofix.repr_abs p
 
 end QPF
 

@@ -6,7 +6,7 @@ public section
 
 /--
 The `Reg` type is a `BitVec 64` representing the content of a register.
-We design the type following Lean's stle, e.g., with UInt/SInt types.
+We design the type following Lean's style, e.g., with UInt/SInt types.
 -/
 structure Reg where
   val : BitVec 64
@@ -613,6 +613,13 @@ def rev8 (rs1 : Reg) : Reg :=
    BitVec.extractLsb 23 16 rs1.val ++ BitVec.extractLsb 31 24 rs1.val ++
    BitVec.extractLsb 39 32 rs1.val ++ BitVec.extractLsb 47 40 rs1.val ++
    BitVec.extractLsb 55 48 rs1.val ++ BitVec.extractLsb 63 56 rs1.val⟩
+
+/-- Zbkb: reverse the bits within each byte, preserving byte order. -/
+def brev8 (rs1 : Reg) : Reg :=
+  ⟨(BitVec.extractLsb 63 56 rs1.val).reverse ++ (BitVec.extractLsb 55 48 rs1.val).reverse ++
+   (BitVec.extractLsb 47 40 rs1.val).reverse ++ (BitVec.extractLsb 39 32 rs1.val).reverse ++
+   (BitVec.extractLsb 31 24 rs1.val).reverse ++ (BitVec.extractLsb 23 16 rs1.val).reverse ++
+   (BitVec.extractLsb 15 8 rs1.val).reverse ++ (BitVec.extractLsb 7 0 rs1.val).reverse⟩
 
 /-! ## Zbc: Carry-less multiplication -/
 

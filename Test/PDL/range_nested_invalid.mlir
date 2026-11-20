@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: MLIR_INVALID
+// RUN: MLIR_UNREGISTERED_INVALID
 
 // A `!pdl.range` element is one of the four handle types, so ranges never nest.
 "builtin.module"() ({

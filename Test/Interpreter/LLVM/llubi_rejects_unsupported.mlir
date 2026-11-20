@@ -1,6 +1,8 @@
 // REQUIRES: llubi
 // RUN: not %llubi-interpret %s 2>&1 | filecheck %s
 
+// NO_CTREE: a negative test of the llubi translator, which never interprets the program
+
 // A negative test of the translator: an operation it cannot translate, here
 // `llvm.readcyclecounter`, must fail the cross-check loudly instead of passing it
 // silently. If the translator learns it, swap in another

@@ -89,6 +89,14 @@ def splitPipelineElement (s : String) : Except String (String × List String) :=
     return (name, (rest.dropEnd 1).toString.splitOn " " |>.filter (!·.isEmpty))
   | _ => throw s!"unexpected nested opening brace in pipeline element '{s}'"
 
+/--
+  Print to stderr the time elapsed since `startNs`, a reading of `IO.monoNanosNow`, under `label`.
+  Reports are printed as they happen, so that a run that is stuck shows where it is.
+-/
+def reportTime (label : String) (startNs : Nat) : IO Unit := do
+  let elapsedMs := toString (((← IO.monoNanosNow) - startNs) / 1000000)
+  IO.eprintln s!"{"".pushn ' ' (10 - elapsedMs.length)}{elapsedMs} ms  {label}"
+
 /-- An ordered sequence of passes to run in succession. -/
 structure PassPipeline (OpInfo : Type) [HasOpInfo OpInfo] where
   /-- The ordered list of passes to run, each with the options it was given -/
@@ -115,21 +123,27 @@ def ofString? {OpInfo : Type} [HasOpInfo OpInfo]
 
 /--
   Run each pass in the pipeline in order, verifying the IR after each pass.
+  If `timePasses` is set, report the time taken by each pass and verification to stderr.
   Returns the final context on success, or an error message on failure.
 -/
 def run (pipeline : PassPipeline OpCode)
     (ctx : WfIRContext OpCode)
     (moduleOp : OperationPtr)
-    (disableVerifiers : Bool) :
+    (disableVerifiers : Bool)
+    (timePasses : Bool := false) :
     ExceptT String IO (WfIRContext OpCode) := do
   let mut currentCtx := ctx
   for (pass, options) in pipeline.passes do
     if h : moduleOp.InBounds currentCtx.raw then
+      let passStart ← IO.monoNanosNow
       let ctx' ← try pass.run options currentCtx moduleOp h
                  catch errMsg => throw s!"pass '{pass.name}' failed: {errMsg}"
+      if timePasses then reportTime pass.name passStart
       if !disableVerifiers then
+        let verifyStart ← IO.monoNanosNow
         if let .error errMsg := ctx'.verify moduleOp then
           throw s!"verification failed after pass '{pass.name}': {errMsg}"
+        if timePasses then reportTime s!"verify after {pass.name}" verifyStart
       currentCtx := ctx'
     else
       throw s!"module is not in bounds before pass '{pass.name}'"

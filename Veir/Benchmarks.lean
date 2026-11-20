@@ -19,6 +19,10 @@ set_option warn.sorry false
 
 namespace Veir.Benchmarks
 
+/-- The properties of an `i32` `arith.constant` with value `v`. -/
+def i32Const (v : Int) : ArithConstantProperties :=
+  .int (IntegerAttr.mk v (IntegerType.signless 32))
+
 structure Xoshiro256PP where
   s0 : UInt64
   s1 : UInt64
@@ -99,8 +103,8 @@ def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_
   let lhsOp ← match lhsValuePtr with
   | ValuePtr.opResult lhsOpResultPtr => some lhsOpResultPtr.op
   | _ => none
-  let lhsOpStruct := lhsOp.get rewriter.ctx.raw (by sorry)
-  if lhsOpStruct.opType ≠ .arith .constant then
+  let lhsOpType := lhsOp.getOpType! rewriter.ctx.raw
+  if lhsOpType ≠ .arith .constant then
     return rewriter
 
   -- Get the rhs and check that it is a constant
@@ -108,20 +112,20 @@ def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get rewriter.ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  let rhsOpType := rhsOp.getOpType! rewriter.ctx.raw
+  if rhsOpType ≠ .arith .constant then
     return rewriter
 
   -- Sum both constant values
-  let lhsVal := (lhsOp.getProperties! rewriter.ctx.raw Arith.constant).value.value
-  let rhsVal := (rhsOp.getProperties! rewriter.ctx.raw Arith.constant).value.value
-  let newVal := ArithConstantProperties.mk (IntegerAttr.mk (lhsVal + rhsVal) (IntegerType.signless 32))
+  let lhsVal := (lhsOp.getProperties! rewriter.ctx.raw Arith.constant).intAttr?.get!.value
+  let rhsVal := (rhsOp.getProperties! rewriter.ctx.raw Arith.constant).intAttr?.get!.value
+  let newVal := i32Const (lhsVal + rhsVal)
   let (rewriter, newOp) ← rewriter.createOp (.arith .constant) #[IntegerType.signless 32] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-  if (lhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
+  if !lhsValuePtr.hasUses rewriter.ctx.raw (by sorry) then
     rewriter := rewriter.eraseOp lhsOp sorry sorry sorry
-  if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses rewriter.ctx.raw (by sorry) then
     rewriter := rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
@@ -135,8 +139,8 @@ def addIConstantFoldingLocal (ctx: WfIRContext OpCode) (op: OperationPtr) :
   let .opResult lhsOpResultPtr := lhsValuePtr
     | some (ctx, none)
   let lhsOp := lhsOpResultPtr.op
-  let lhsOpStruct := lhsOp.get ctx.raw (by sorry)
-  let .arith .constant := lhsOpStruct.opType
+  let lhsOpType := lhsOp.getOpType! ctx.raw
+  let .arith .constant := lhsOpType
     | some (ctx, none)
 
   -- Get the rhs and check that it is a constant
@@ -144,14 +148,14 @@ def addIConstantFoldingLocal (ctx: WfIRContext OpCode) (op: OperationPtr) :
   let .opResult rhsOpResultPtr := rhsValuePtr
     | some (ctx, none)
   let rhsOp := rhsOpResultPtr.op
-  let rhsOpStruct := rhsOp.get ctx.raw (by sorry)
-  let .arith .constant := rhsOpStruct.opType
+  let rhsOpType := rhsOp.getOpType! ctx.raw
+  let .arith .constant := rhsOpType
     | some (ctx, none)
 
   -- Sum both constant values
-  let lhsVal := (lhsOp.getProperties! ctx.raw Arith.constant).value.value
-  let rhsVal := (rhsOp.getProperties! ctx.raw Arith.constant).value.value
-  let newVal := ArithConstantProperties.mk (IntegerAttr.mk (lhsVal + rhsVal) (IntegerType.signless 32))
+  let lhsVal := (lhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value
+  let rhsVal := (rhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value
+  let newVal := i32Const (lhsVal + rhsVal)
   let (ctx, newOp) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] newVal none sorry sorry sorry sorry
   return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -164,10 +168,10 @@ def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : o
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get rewriter.ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  let rhsOpType := rhsOp.getOpType! rewriter.ctx.raw
+  if rhsOpType ≠ .arith .constant then
     return rewriter
-  if (rhsOp.getProperties! rewriter.ctx.raw Arith.constant).value.value ≠ 0 then
+  if (rhsOp.getProperties! rewriter.ctx.raw Arith.constant).intAttr?.get!.value ≠ 0 then
     return rewriter
 
   -- Get the lhs value
@@ -177,7 +181,7 @@ def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : o
   let mut rewriter ← rewriter.replaceValue opValuePtr lhsValuePtr sorry sorry
   rewriter := rewriter.eraseOp op sorry sorry sorry
 
-  if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses rewriter.ctx.raw (by sorry) then
     rewriter := rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
@@ -190,10 +194,10 @@ def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get rewriter.ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  let rhsOpType := rhsOp.getOpType! rewriter.ctx.raw
+  if rhsOpType ≠ .arith .constant then
     return rewriter
-  if (rhsOp.getProperties! rewriter.ctx.raw Arith.constant).value.value ≠ 2 then
+  if (rhsOp.getProperties! rewriter.ctx.raw Arith.constant).intAttr?.get!.value ≠ 2 then
     return rewriter
 
   -- Get the lhs value
@@ -202,7 +206,7 @@ def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.
   let (rewriter, newOp) ← rewriter.createOp (.arith .addi) #[IntegerType.signless 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-  if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses rewriter.ctx.raw (by sorry) then
     rewriter := rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
@@ -224,8 +228,8 @@ def addIConstantFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (W
   let lhsOp ← match lhsValuePtr with
   | ValuePtr.opResult lhsOpResultPtr => some lhsOpResultPtr.op
   | _ => none
-  let lhsOpStruct := lhsOp.get ctx.raw (by sorry)
-  if lhsOpStruct.opType ≠ .arith .constant then
+  let lhsOpType := lhsOp.getOpType! ctx.raw
+  if lhsOpType ≠ .arith .constant then
     return ctx
 
   -- Get the rhs and check that it is a constant
@@ -233,20 +237,20 @@ def addIConstantFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (W
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  let rhsOpType := rhsOp.getOpType! ctx.raw
+  if rhsOpType ≠ .arith .constant then
     return ctx
 
   -- Sum both constant values
-  let lhsVal := (lhsOp.getProperties! ctx.raw Arith.constant).value.value
-  let rhsVal := (rhsOp.getProperties! ctx.raw Arith.constant).value.value
-  let newVal := ArithConstantProperties.mk (IntegerAttr.mk (lhsVal + rhsVal) (IntegerType.signless 32))
+  let lhsVal := (lhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value
+  let rhsVal := (rhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value
+  let newVal := i32Const (lhsVal + rhsVal)
   let (ctx, newOp) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry
   let mut ctx ← WfRewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
-  if (lhsValuePtr.getFirstUse ctx.raw (by sorry)).isNone then
+  if !lhsValuePtr.hasUses ctx.raw (by sorry) then
     ctx ← WfRewriter.eraseOp ctx lhsOp sorry sorry sorry
-  if (rhsValuePtr.getFirstUse ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses ctx.raw (by sorry) then
     ctx ← WfRewriter.eraseOp ctx rhsOp sorry sorry sorry
   return ctx
 
@@ -259,10 +263,10 @@ def addIZeroFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRC
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  let rhsOpType := rhsOp.getOpType! ctx.raw
+  if rhsOpType ≠ .arith .constant then
     return ctx
-  if (rhsOp.getProperties! ctx.raw Arith.constant).value.value ≠ 0 then
+  if (rhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value ≠ 0 then
     return ctx
 
   -- Get the lhs value
@@ -272,7 +276,7 @@ def addIZeroFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRC
   let mut ctx ← WfRewriter.replaceValue ctx oldVal lhsValuePtr sorry sorry
   ctx ← WfRewriter.eraseOp ctx op sorry sorry sorry
 
-  if (rhsValuePtr.getFirstUse ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses ctx.raw (by sorry) then
     ctx ← WfRewriter.eraseOp ctx rhsOp sorry sorry sorry
   return ctx
 
@@ -285,10 +289,10 @@ def mulITwoReduce (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRCon
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  let rhsOpType := rhsOp.getOpType! ctx.raw
+  if rhsOpType ≠ .arith .constant then
     return ctx
-  if (rhsOp.getProperties! ctx.raw Arith.constant).value.value ≠ 2 then
+  if (rhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value ≠ 2 then
     return ctx
 
   -- Get the lhs value
@@ -297,7 +301,7 @@ def mulITwoReduce (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRCon
   let (ctx, newOp) ← WfRewriter.createOp ctx Arith.addi #[IntegerType.signless 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) (some $ .before op) sorry sorry sorry sorry
   let mut ctx ← WfRewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
-  if (rhsValuePtr.getFirstUse ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses ctx.raw (by sorry) then
     ctx ← WfRewriter.eraseOp ctx rhsOp sorry sorry sorry
   return ctx
 
@@ -306,11 +310,11 @@ def mulITwoReduce (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRCon
 def rewriteFirst (ctx: WfIRContext OpCode) (topOp : OperationPtr) (opcode: OpCode) (rewrite: Pattern)
     : Option (WfIRContext OpCode) := do
   let region := topOp.getRegion! ctx.raw 0
-  let block := (region.get ctx.raw (by sorry)).firstBlock.get!
-  let mut op ← (block.get! ctx.raw).firstOp
+  let block := (region.getFirstBlock ctx.raw (by sorry)).get!
+  let mut op ← block.getFirstOp! ctx.raw
 
   while op.getOpType ctx sorry ≠ opcode do
-    op ← (op.get! ctx.raw).next
+    op ← op.getNextOp! ctx.raw
 
   rewrite ctx op
 
@@ -319,13 +323,13 @@ def rewriteFirstAddI (ctx: WfIRContext OpCode) (topOp : OperationPtr) (rewrite: 
 
 def rewriteForwards (ctx: WfIRContext OpCode) (topOp : OperationPtr) (rewrite: Pattern) : Option (WfIRContext OpCode) := do
   let region := topOp.getRegion! ctx.raw 0
-  let block := (region.get ctx.raw (by sorry)).firstBlock.get!
+  let block := (region.getFirstBlock ctx.raw (by sorry)).get!
 
-  let mut maybeOp := (block.get! ctx.raw).firstOp
+  let mut maybeOp := block.getFirstOp! ctx.raw
   let mut ctx := ctx
   while h : maybeOp.isSome do
     let op := maybeOp.get h
-    let next := (op.get! ctx.raw).next
+    let next := op.getNextOp! ctx.raw
     -- TODO: This should be work but for some reason is not unique
     -- ctx := dbgTraceIfShared "rewriteForwards" ctx
     -- ctx ← rewrite ctx op
@@ -340,7 +344,7 @@ namespace Program
 def empty : Option (WfIRContext OpCode × OperationPtr × InsertPoint) := do
   let (ctx, topLevelOp) ← WfIRContext.create OpCode
   let region := topLevelOp.getRegion! ctx.raw 0
-  let block := (region.get ctx.raw (by sorry)).firstBlock.get!
+  let block := (region.getFirstBlock ctx.raw (by sorry)).get!
   let insertPoint := InsertPoint.atEnd block
   (ctx, topLevelOp, insertPoint)
 
@@ -354,8 +358,8 @@ def empty : Option (WfIRContext OpCode × OperationPtr × InsertPoint) := do
 --   %4 = [opcode] %2, %3 : u64
 --   ...
 def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (WfIRContext OpCode × OperationPtr) := do
-  let root := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.signless 32))
-  let inc := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.signless 32))
+  let root := i32Const root
+  let inc := i32Const inc
   let (gctx, topOp, insertPoint) ← empty
   let mut (gctx, gacc) ← WfRewriter.createOp gctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] root insertPoint sorry sorry sorry sorry
   for i in [0:size] do
@@ -384,8 +388,8 @@ def mulTwoTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
 -- randomly selected previous ops as lhs
 def constFoldTreeSparse (opcode : OpCode) (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (WfIRContext OpCode × OperationPtr) :=
   Xoshiro256PP.run do
-    let rootAttr := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.signless 32))
-    let incAttr := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.signless 32))
+    let rootAttr := i32Const root
+    let incAttr := i32Const inc
     let (gctx, topOp, insertPoint) ← empty
 
     let mut (gctx, root) ← WfRewriter.createOp gctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] rootAttr insertPoint sorry sorry sorry sorry
@@ -430,8 +434,8 @@ def mulTwoTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPt
 --   %3 = [opcode] %2, %reuse : u64
 --   ...
 def constReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (WfIRContext OpCode × OperationPtr) := do
-  let root := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.signless 32))
-  let inc := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.signless 32))
+  let root := i32Const root
+  let inc := i32Const inc
   let (ctx, topOp, insertPoint) ← empty
   let (ctx, acc) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] root insertPoint sorry sorry sorry sorry
   let (ctx, reuse) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] inc insertPoint sorry sorry sorry sorry
@@ -464,8 +468,8 @@ def addZeroReuseTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr
 --   %5 = [opcode] %4, %reuse : u64
 --   ...
 def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (lhs rhs: Int) : Option (WfIRContext OpCode × OperationPtr) := do
-  let lhs := ArithConstantProperties.mk (IntegerAttr.mk lhs (IntegerType.signless 32))
-  let rhs := ArithConstantProperties.mk (IntegerAttr.mk rhs (IntegerType.signless 32))
+  let lhs := i32Const lhs
+  let rhs := i32Const rhs
   let (ctx, topOp, insertPoint) ← empty
   let (ctx, lhsOp) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] lhs insertPoint sorry sorry sorry sorry
   let (ctx, rhsOp) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] rhs insertPoint sorry sorry sorry sorry
@@ -493,8 +497,8 @@ def addZeroLotsOfReuseTree (size pc: Nat) : Option (WfIRContext OpCode × Operat
 
 end Program
 
-def rewriteWorklist (program: WfIRContext OpCode) (_topOp : OperationPtr) (rewriter: RewritePattern OpCode) : Option (WfIRContext OpCode):=
-  RewritePattern.applyInContext rewriter program
+def rewriteWorklist (program: WfIRContext OpCode) (topOp : OperationPtr) (rewriter: RewritePattern OpCode) : Option (WfIRContext OpCode):=
+  RewritePattern.applyInContext rewriter program topOp
 
 def print (program: Option (WfIRContext OpCode × OperationPtr)) : IO Unit := do
   if let some (ctx, topOp) := program then
@@ -649,17 +653,17 @@ info: "builtin.module"() ({
 info: "builtin.module"() ({
   ^2():
     %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %34 = "arith.addi"(%3, %3) : (i32, i32) -> i32
-    %33 = "arith.addi"(%34, %34) : (i32, i32) -> i32
-    %32 = "arith.addi"(%33, %33) : (i32, i32) -> i32
-    %31 = "arith.addi"(%32, %32) : (i32, i32) -> i32
-    %30 = "arith.addi"(%31, %31) : (i32, i32) -> i32
-    %29 = "arith.addi"(%30, %30) : (i32, i32) -> i32
-    %28 = "arith.addi"(%29, %29) : (i32, i32) -> i32
-    %27 = "arith.addi"(%28, %28) : (i32, i32) -> i32
-    %26 = "arith.addi"(%27, %27) : (i32, i32) -> i32
-    %25 = "arith.addi"(%26, %26) : (i32, i32) -> i32
-    "test.test"(%25) : (i32) -> ()
+    %25 = "arith.addi"(%3, %3) : (i32, i32) -> i32
+    %26 = "arith.addi"(%25, %25) : (i32, i32) -> i32
+    %27 = "arith.addi"(%26, %26) : (i32, i32) -> i32
+    %28 = "arith.addi"(%27, %27) : (i32, i32) -> i32
+    %29 = "arith.addi"(%28, %28) : (i32, i32) -> i32
+    %30 = "arith.addi"(%29, %29) : (i32, i32) -> i32
+    %31 = "arith.addi"(%30, %30) : (i32, i32) -> i32
+    %32 = "arith.addi"(%31, %31) : (i32, i32) -> i32
+    %33 = "arith.addi"(%32, %32) : (i32, i32) -> i32
+    %34 = "arith.addi"(%33, %33) : (i32, i32) -> i32
+    "test.test"(%34) : (i32) -> ()
 }) : () -> ()
 -/
 #guard_msgs in

@@ -15,7 +15,7 @@ with "Vis" nodes for various kinds of runtime effects, and "Tau"/"Br"/"Choice" (
 for (demonic) nondeterministic choices happening.
 
 The first implementation of CTrees is in Rocq (https://doi.org/10.1017/S0956796825100105).
-the present implementation makes slightly different design choices in how nondeterminism is handled.
+The present implementation makes slightly different design choices in how nondeterminism is handled.
 -/
 
 /-! Definitions and monotonicity proofs are partly adapted from the ones in Coinductive and EffectSSA. -/
@@ -160,6 +160,22 @@ def CTree.choose {SubCIn : Type u} {SubC : SubCIn → Type u} [SubC -< C] (i : S
 Lemmas used in proofs of monotonicity required to use partial_fixpoint
 -/
 
+theorem CTree.tau_def {i : CIn} (k : C i → CTree E C R) :
+    CTree.tau i k = CTree.tauG (.inr i) k := by rfl
+
+theorem CTree.tau1_def (t : CTree E C R) :
+    CTree.tau1 t = CTree.tauG (.inl .c1) (fun _ => t) := by rfl
+
+theorem CTree.choose_def {SubCIn : Type u} {SubC : SubCIn → Type u} [SubC -< C] (i : SubCIn) :
+    CTree.choose (E := E) i =
+    CTree.tau (Subeffect.mapEff SubC C i) (fun x => CTree.ret (Subeffect.mapCont SubC C i x)) :=
+  by rfl
+
+theorem CTree.trigger_def {SubEIn : Type u} {SubE : SubEIn → Type u} [SubE -< E] (i : SubEIn) :
+    CTree.trigger (C := C) i =
+    CTree.vis (Subeffect.mapEff SubE E i) (fun x => CTree.ret (Subeffect.mapCont SubE E i x)) :=
+  by rfl
+
 @[simp, grind =]
 theorem CTree.fold_unfold (t : CTree E C R) :
   CTree.fold (CTree.unfold t) = t := by simp [CTree.fold, CTree.unfold]
@@ -199,22 +215,22 @@ theorem approx_vis_succ i (k : E i → CTree E C R) n :
 theorem approx_fold_vis_succ i (t : E i → CTree E C R) n :
   (CTree.fold (CTreeF.vis i t)).approx (n + 1) = CTreeF.vis i (λ o => (t o).approx n) := approx_vis_succ i t n
 
-@[simp]
+@[simp, grind =]
 theorem unfold_ret (r : R) :
   CTree.unfold (CTree.ret r) = CTreeF.ret (E := E) (C := C) r := by
     simp [CTree.ret, CTree.fold, CTree.unfold]
 
-@[simp]
+@[simp, grind =]
 theorem unfold_tauG i (k : (C1 ⊕ₑ C) i → CTree E C R) :
   CTree.unfold (CTree.tauG i k) = CTreeF.tau i k := by
     simp [CTree.tauG, CTree.fold, CTree.unfold]
 
-@[simp]
+@[simp, grind =]
 theorem unfold_tau1 (t : CTree E C R) :
     CTree.unfold (CTree.tau1 t) = CTreeF.tau (.inl .c1) (fun _ => t) := by
   apply unfold_tauG
 
-@[simp]
+@[simp, grind =]
 theorem unfold_vis i (k : E i → CTree E C R) :
   CTree.unfold (CTree.vis i k) = CTreeF.vis i k := by
     simp [CTree.vis, CTree.fold, CTree.unfold]
@@ -341,19 +357,19 @@ def bind (t : CTree E C X) (k : X → CTree E C Y) : CTree E C Y :=
   | .vis i k' => .vis i (fun x => CTree.bind (k' x) k)
 partial_fixpoint
 
-@[simp]
+@[simp, grind =]
 theorem CTree.bind_ret {β} r (t : β → CTree E C α) :
   CTree.bind (.ret r) t = t r := by
     rw [CTree.bind]
     simp [CTree.ret, CTree.fold, CTree.unfold]
 
-@[simp]
+@[simp, grind =]
 theorem CTree.bind_vis {β} i k (t : β → CTree E C α) :
   CTree.bind (.vis i k) t = .vis i (λ o => CTree.bind (k o) t) := by
     rw [CTree.bind]
     simp [CTree.vis, CTree.fold, CTree.unfold]
 
-@[simp]
+@[simp, grind =]
 theorem CTree.bind_tau {β} c k (t : β → CTree E C α) :
   CTree.bind (.tauG c k) t = .tauG c (λ o => CTree.bind (k o) t) := by
     rw [CTree.bind]
@@ -362,6 +378,11 @@ theorem CTree.bind_tau {β} c k (t : β → CTree E C α) :
 instance : Monad (CTree E C) where
   pure := CTree.ret
   bind := CTree.bind
+
+@[simp, grind =]
+theorem bind_pure (value : α) (next : α → CTree E C β) :
+    CTree.bind (pure value) next = next value :=
+  CTree.bind_ret value next
 
 @[partial_fixpoint_monotone]
 theorem bind_mono {γ} [PartialOrder γ]
@@ -426,7 +447,7 @@ def CTree.cases {motive : CTree E C X → Sort v}
     · apply tau
     · apply vis
 
-@[simp]
+@[simp, grind =]
 theorem unfold_pure (r : R) :
   CTree.unfold (pure r) = CTreeF.ret (E := E) (C := C) r := by
     simp [pure]
@@ -486,4 +507,3 @@ theorem bind_vis {α β} i k (t : β → CTree E C α) :
   (.vis i k) >>= t = .vis i (λ o => k o >>= t) := by simp [Bind.bind]
 
 end CTree
-

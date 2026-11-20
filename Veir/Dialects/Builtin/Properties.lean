@@ -51,6 +51,25 @@ def getUnitAttr (key : String) (attrDict : Std.HashMap ByteArray Attribute) :
   | some attr => .error s!"expected '{key}' to be an optional unit attribute, but got {attr}"
   | none => .ok false
 
+/--
+  Properties of a `builtin.module` operation. A module has an optional name.
+-/
+structure ModuleProperties where
+  sym_name : Option StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def ModuleProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String ModuleProperties := do
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr attr) => pure (some attr)
+    | some attr =>
+      throw s!"builtin.module: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => pure none
+  if attrDict.size > (if symName.isSome then 1 else 0) then
+    throw s!"builtin.module: expected only the 'sym_name' property, but got \
+      {attrDict.size} properties"
+  return { sym_name := symName }
+
 end
 
 end Veir

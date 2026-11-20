@@ -236,6 +236,16 @@ structure LLVMGlobalProperties where
   extra : DictionaryAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+/-- Recognize both MLIR's legacy TLS flag and its newer TLS mode property. -/
+def LLVMGlobalProperties.isThreadLocal (props : LLVMGlobalProperties) : Bool :=
+  props.extra.entries.any fun (name, attr) =>
+    if name == "thread_local_".toUTF8 then true
+    else if name == "tls_mode".toUTF8 then
+      match attr with
+      | .integerAttr mode => mode.value != 0
+      | _ => true
+    else false
+
 def LLVMGlobalProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMGlobalProperties := do
   let symName ← match attrDict["sym_name".toUTF8]? with
@@ -551,7 +561,11 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | some attr => .error s!"expected 'noWrapFlag' to be an optional integer attribute, but got {attr}"
     | none => .ok { value := 0, type := { bitwidth := 32 } }
   let rawConstantIndices ← match attrDict["rawConstantIndices".toUTF8]? with
-    | some (.denseArrayAttr arr) => .ok arr
+    | some (.denseArrayAttr arr) =>
+      if let some value := arr.values.find? fun v => v < -2^31 || v ≥ 2^32 then
+        .error s!"getelementptr: raw constant index {value} does not fit in i32"
+      else
+        .ok { arr with values := arr.values.map fun value => (BitVec.ofInt 32 value).toInt }
     | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute,
         but got {attr}"
     | none => .error "getelementptr: missing 'rawConstantIndices' property"
@@ -657,19 +671,71 @@ def LLVMCondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
            operandSegmentSizes := sizesAttr }
 
 /--
+  The case values of an `llvm.switch`, read once from its `case_values` attribute. `values` are
+  the values as written; `bits` are the same values as unsigned `width`-bit patterns, which is
+  how the verifier, the interpreter, and the folder compare them.
+-/
+structure LLVMSwitchCaseValues where
+  width : Nat
+  values : Array Int
+  bits : Array Nat
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+/--
+  The element count and integer width of a `case_values` type, `vector<NxiW>` or
+  `tensor<NxiW>`.
+-/
+private def caseValuesShape? (type : String) : Option (Nat × Nat) := do
+  let t := String.ofList (type.toList.filter (!·.isWhitespace))
+  let [kind, rest] := t.splitOn "<" | none
+  guard (kind == "vector" || kind == "tensor")
+  let [count, elem] := rest.splitOn "x" | none
+  let [elem, ""] := elem.splitOn ">" | none
+  let ["", width] := elem.splitOn "i" | none
+  return (← count.toNat?, ← width.toNat?)
+
+/--
+  Reads a `case_values` attribute: a one-dimensional tensor or vector of `W`-bit integers, each in
+  MLIR's range for `W`, from the signed minimum to the unsigned maximum. `none` otherwise.
+
+  `case_values` is a dense elements attribute VeIR keeps as text, so its body -- `5` for one
+  case, `[13, 35]` for several -- is read back here. MLIR prints `i1` elements as `true` and
+  `false`, which are read as 1 and 0. Other encodings, such as raw hex data, are not read.
+-/
+def LLVMSwitchCaseValues.parse? (attr : DenseElementsAttr) : Option LLVMSwitchCaseValues := do
+  let (count, width) ← caseValuesShape? attr.type
+  let body := String.ofList (attr.value.toList.filter fun c =>
+    !c.isWhitespace && c != '[' && c != ']')
+  let element (s : String) : Option Int :=
+    if width == 1 && s == "true" then some 1
+    else if width == 1 && s == "false" then some 0
+    else s.toInt?
+  let values ← if body.isEmpty then pure #[] else (body.splitOn ",").toArray.mapM element
+  guard (values.size == count)
+  let modulus : Int := 2 ^ width
+  let signedMin : Int := -(2 ^ (width - 1) : Int)
+  guard (values.all fun v => signedMin ≤ v && v < modulus)
+  /- `BitVec.ofInt width v`, without recomputing `2 ^ width` per value. -/
+  let bits := values.map fun v => (v.emod modulus).toNat
+  return { width, values, bits }
+
+/--
   Properties of `llvm.switch`. `case_operand_segments` splits the trailing case
   operands one group per case; `operandSegmentSizes` splits the operands into
   the value, the default destination's operands, and all case operands. The
   optional `case_values` and `branch_weights` are omitted again when absent.
 
-  `case_values` is a dense elements attribute VeIR keeps as text, so the number
-  of case values is not checked against the number of cases here.
+  `case_values` is a dense elements attribute VeIR keeps as text; `parsedCaseValues` is that
+  attribute read once by `LLVMSwitchCaseValues.parse?` when the properties are built, and is
+  `none` when it is absent or cannot be read. The verifier checks it against the condition and
+  the cases, see `caseValues?`.
 -/
 structure LLVMSwitchProperties where
   case_values : Option DenseElementsAttr
   case_operand_segments : DenseArrayAttr
   branch_weights : Option DenseArrayAttr
   operandSegmentSizes : DenseArrayAttr
+  parsedCaseValues : Option LLVMSwitchCaseValues := case_values.bind LLVMSwitchCaseValues.parse?
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def LLVMSwitchProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
@@ -697,27 +763,23 @@ def LLVMSwitchProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
   let .denseArrayAttr sizesAttr := sizesAttr
     | throw s!"llvm.switch: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
   return { case_values := caseValues, case_operand_segments := segmentsAttr,
-           branch_weights := weights, operandSegmentSizes := sizesAttr }
+           branch_weights := weights, operandSegmentSizes := sizesAttr,
+           parsedCaseValues := caseValues.bind LLVMSwitchCaseValues.parse? }
 
 /--
-  The case values as integers, `#[]` when the attribute is absent.
-
-  `case_values` is a dense elements attribute VeIR keeps as text, so its body --
-  `5` for one case, `[13, 35]` for several -- is read back here. `none` if the
-  body is not a list of integer literals.
+  The case values for a `width`-bit condition, one per case operand segment. An empty set when
+  `case_values` is absent and there are no cases. `none` when `case_values` is absent although
+  there are cases, cannot be read (see `LLVMSwitchCaseValues.parse?`), is not of `width`-bit
+  integers, or does not hold one value per case.
 -/
-def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) : Option (Array Int) := do
-  let some attr := props.case_values | return #[]
-  /- Strip the brackets a multi-element body carries, and all whitespace. -/
-  let body := attr.value.foldl (init := "") fun acc c =>
-    if c = '[' || c = ']' || c = ' ' || c = '\t' || c = '\n' then acc else acc.push c
-  if body.isEmpty then
-    return #[]
-  let mut values : Array Int := #[]
-  for piece in body.splitOn "," do
-    let some value := piece.toInt? | none
-    values := values.push value
-  return values
+def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) (width : Nat) :
+    Option LLVMSwitchCaseValues :=
+  let count := props.case_operand_segments.values.size
+  match props.case_values, props.parsedCaseValues with
+  | none, _ => if count = 0 then some { width, values := #[], bits := #[] } else none
+  | some _, some parsed =>
+    if parsed.width == width && parsed.values.size == count then some parsed else none
+  | some _, none => none
 
 /--
   An optional array-valued property, absent when the attribute is not there.

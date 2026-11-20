@@ -1,0 +1,33 @@
+// RUN: veir-opt %s -p=postlegalizer-combiner-riscv64 | filecheck %s
+
+// `(sub X, Y) ne X` is equivalent to `Y ne 0`: the shared `X`
+// cancels out of the comparison.
+
+"builtin.module"() ({
+  "func.func"() <{function_type = (i64, i64) -> i1, sym_name = "foo"}> ({
+  ^bb0(%x: i64, %y: i64):
+    %op = "gmir.g_sub"(%x, %y) : (i64, i64) -> i64
+    %r = "gmir.g_icmp"(%op, %x) <{predicate = 1 : i64}> : (i64, i64) -> i1
+    "func.return"(%r) : (i1) -> ()
+  }) : () -> ()
+
+  // Negative case: the comparison's RHS is not the shared operand of the binop.
+  "func.func"() <{function_type = (i64, i64, i64) -> i1, sym_name = "bar"}> ({
+  ^bb0(%x: i64, %y: i64, %w: i64):
+    %op = "gmir.g_sub"(%x, %y) : (i64, i64) -> i64
+    %r = "gmir.g_icmp"(%op, %w) <{predicate = 1 : i64}> : (i64, i64) -> i1
+    "func.return"(%r) : (i1) -> ()
+  }) : () -> ()
+}) : () -> ()
+
+// Rewritten to `Y ne 0`.
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i1 {
+// CHECK:      %[[Z:.*]] = "gmir.g_constant"() <{"value" = 0 : i64}> : () -> i64
+// CHECK:      %[[R:.*]] = "gmir.g_icmp"(%[[Y]], %[[Z]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
+// CHECK:      "func.return"(%[[R]]) : (i1) -> ()
+
+// Unshared operand: the comparison is left intact.
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64, %[[NW:.*]]: i64) -> i1 {
+// CHECK:      %[[NOP:.*]] = "gmir.g_sub"(%[[NX]], %[[NY]]) : (i64, i64) -> i64
+// CHECK:      %[[NR:.*]] = "gmir.g_icmp"(%[[NOP]], %[[NW]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
+// CHECK:      "func.return"(%[[NR]]) : (i1) -> ()

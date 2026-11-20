@@ -2,8 +2,9 @@ module
 
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.Ptr.Basic
 public import Veir.Data.Casting
-public import Veir.Data.Refinement
+public import Veir.Dialects.GMIR.Semantics
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
@@ -15,10 +16,16 @@ import all Veir.Data.RISCV.Reg.Lemmas
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Lemmas
 import all Veir.Data.LLVM.Int.Bitblast
+import all Veir.Dialects.GMIR.Semantics
 import all Veir.Data.Casting
-import all Veir.Data.Refinement
 
 public section
+
+/-
+  Elaborate the proofs one at a time: each `bv_decide` forks a SAT solver, and
+  several forks from one large process fail with `ENOMEM` on a GitHub runner.
+-/
+set_option Elab.async false
 
 /-!
   In this file we prove the correctness of the lowering patterns used in the
@@ -38,11 +45,26 @@ theorem constant_refinement {v : Int}:
   veir_bv_decide
 
 /--
-  Prove the correctness of the `poisonConst` lowering pattern.
+  Prove the correctness of the `gmirPoison` lowering pattern.
 -/
-theorem poisonConst_refinement :
+theorem gmirPoison_refinement :
     (LLVM.Int.poison (w := _)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) 64) := by
   veir_bv_decide
+
+/--
+  Prove the correctness of the `gmirPoison` lowering pattern at every width `w`, as for a
+  `g_poison` selected before legalization: the low `w` bits of `li 0` refine poison.
+-/
+theorem gmirPoison_refinement_any_width {w : Nat} :
+    (LLVM.Int.poison (w := w)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) w) :=
+  LLVM.Int.poison_isRefinedBy _
+
+/--
+  Prove the correctness of the `gmirPoison` lowering pattern for a pointer: the pointer that
+  `li 0` is cast to, like any other, refines a poison pointer.
+-/
+theorem gmirPoison_ptr_refinement (p : LLVM.Ptr) : LLVM.Ptr.poison ⊒ p := by
+  simp [LLVM.Ptr.isRefinedBy]
 
 /--
   Prove the correctness of the `constant` lowering pattern at every width `w ≤ 64`: the
@@ -52,7 +74,7 @@ theorem poisonConst_refinement :
 theorem constant_refinement_le64 {w : Nat} (h : w ≤ 64) {v : Int} :
     (LLVM.Int.constant w v) ⊒
       (RISCV.Reg.toInt (Data.RISCV.li ((BitVec.ofInt w v).signExtend 64)) w) := by
-  simp only [isRefinedBy, LLVM.Int.constant, RISCV.Reg.toInt, RISCV.li]
+  simp only [LLVM.Int.isRefinedBy, LLVM.Int.constant, RISCV.Reg.toInt, RISCV.li]
   generalize BitVec.ofInt w v = x
   pbv_decide 64
 
@@ -62,15 +84,6 @@ theorem constant_refinement_le64 {w : Nat} (h : w ≤ 64) {v : Int} :
 theorem add_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.add x y) ⊒
       (RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `add` lowering pattern at i32, which selects the
-  32-bit `addw`.
--/
-theorem addw_refinement {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.add x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.addw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
 /--
@@ -130,21 +143,7 @@ theorem bswap_refinement {x : LLVM.Int 64} :
 -/
 theorem bitreverse_refinement {x : LLVM.Int 64} :
     (Data.LLVM.Int.bitreverse x) ⊒
-      (RISCV.Reg.toInt
-        (let x0 := LLVM.Int.toReg x
-         let m1 := Data.RISCV.li 0x5555555555555555#64
-         let x1 := Data.RISCV.or
-           (Data.RISCV.slli 1#6 (Data.RISCV.and m1 x0))
-           (Data.RISCV.and m1 (Data.RISCV.srli 1#6 x0))
-         let m2 := Data.RISCV.li 0x3333333333333333#64
-         let x2 := Data.RISCV.or
-           (Data.RISCV.slli 2#6 (Data.RISCV.and m2 x1))
-           (Data.RISCV.and m2 (Data.RISCV.srli 2#6 x1))
-         let m4 := Data.RISCV.li 0x0f0f0f0f0f0f0f0f#64
-         let x3 := Data.RISCV.or
-           (Data.RISCV.slli 4#6 (Data.RISCV.and m4 x2))
-           (Data.RISCV.and m4 (Data.RISCV.srli 4#6 x2))
-         Data.RISCV.rev8 x3) 64) := by
+      (RISCV.Reg.toInt (Data.RISCV.rev8 (Data.RISCV.brev8 (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
 /--
@@ -271,37 +270,55 @@ theorem icmp_refinement_uge {x y : LLVM.Int 64} :
 
 /-! ### Immediate-constant refinements for ordered comparisons
 
-  Each theorem justifies one arm of the `slti` immediate-form selection in
-  `isel-sdag-riscv64`, comparing `x` against a constant that equals the
+  Each theorem justifies one arm of the `slti` immediate-form selection of `g_icmp` in
+  `isel-riscv64`, comparing `x` against a constant that equals the
   sign-extension of the 12-bit immediate `imm` actually encoded in the emitted
   instruction. For the `≤` predicates the constant is `sext(imm) - 1`, capturing
   the `x ≤ C == x < C+1` rewrite (the code stores `C+1` as the immediate). The
   unsigned off-by-one form carries the `imm ≠ 0` hypothesis that the code
   enforces by rejecting `C = -1` (else `C+1` wraps past `UINT_MAX`). -/
 
+/-- `icmp slt x C` with `C = sext(imm)` -> `slti x imm`. -/
+theorem icmp_refinement_slt_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.slt) 64
+        false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slti imm (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/-- `icmp ult x C` with `C = sext(imm)` -> `sltiu x imm`. -/
+theorem icmp_refinement_ult_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.ult) 64
+        false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
 /-- `icmp sge x C` with `C = sext(imm)` -> `xori (slti x imm) 1`. -/
 theorem icmp_refinement_sge_imm {x : LLVM.Int 64} (imm : BitVec 12) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.sge) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.slti imm (LLVM.Int.toReg x))) 1) := by
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.sge) 64
+        false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.slti imm (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
 /-- `icmp uge x C` with `C = sext(imm)` -> `xori (sltiu x imm) 1`. -/
 theorem icmp_refinement_uge_imm {x : LLVM.Int 64} (imm : BitVec 12) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.uge) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltiu imm (LLVM.Int.toReg x))) 1) := by
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.uge) 64
+        false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltiu imm (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
 /-- `icmp sle x C` with `C = sext(imm) - 1` -> `slti x imm` (i.e. `x < C+1`). -/
 theorem icmp_refinement_sle_imm {x : LLVM.Int 64} (imm : BitVec 12) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.sle) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.slti imm (LLVM.Int.toReg x)) 1) := by
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.sle)
+        64 false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slti imm (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
 /-- `icmp ule x C` with `C = sext(imm) - 1` -> `sltiu x imm`; needs `imm ≠ 0`
     (else `C = UINT_MAX` and `C+1` wraps to `0`). -/
 theorem icmp_refinement_ule_imm {x : LLVM.Int 64} (imm : BitVec 12) (h : imm ≠ 0) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.ule) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 1) := by
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.ule)
+        64 false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
 /--
@@ -361,68 +378,6 @@ theorem udiv_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.udiv x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.divu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
-/-! ### `sdiv`/`udiv` by a constant power of two -/
-
-/--
-  `udiv x, 2^k` -> `riscv.srli x, k` (`udivPow2`). Mirrors `DAGCombiner::visitUDIVLike`'s
-  `fold (udiv x, (1 << c)) -> x >>u c` (via `BuildLogBase2`).
-  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5430-L5440
--/
-theorem udivPow2_refinement {x : LLVM.Int 64} (k : BitVec 6) :
-    (Data.LLVM.Int.udiv x (LLVM.Int.val ((1#64) <<< k))) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.srli k (LLVM.Int.toReg x)) 64) := by
-  veir_bv_decide
-
-/--
-  `sdiv exact x, 2^k` -> `riscv.srai x, k` (`sdivPow2Exact`, positive divisor).
-  Since `exact` makes the source poison whenever `x` isn't a multiple of `2^k`, this
-  only has to hold when the arithmetic right shift and the truncating division
-  agree, i.e. when there is no fractional part to round differently.
--/
-theorem sdivPow2Exact_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk : k < 63) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#64) <<< k)) true) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.srai k (LLVM.Int.toReg x)) 64) := by
-  veir_bv_decide
-
-/--
-  `sdiv exact x, -2^k` -> `riscv.sub 0, (riscv.srai x, k)` (`sdivPow2Exact`, negative
-  divisor). No upper bound on `k` is needed here: `-2^63` (`k = 63`) is itself a
-  valid `i64` divisor.
--/
-theorem sdivPow2Exact_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#64) <<< k))) true) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.neg (Data.RISCV.srai k (LLVM.Int.toReg x))) 64) := by
-  veir_bv_decide
-
-/--
-  General (non-`exact`) `sdiv x, 2^k` -> the Hacker's-Delight bias/shift sequence
-  (`sdivPow2`, positive divisor): bias a negative dividend by `2^k - 1` before the
-  arithmetic shift, so truncation rounds toward zero. `k = 0` is excluded because the
-  correction shift `64 - k` would then need a full 64-bit shift, which has no legal
-  RISC-V immediate encoding (`sdiv x, ±1` never reaches instruction selection as
-  such: it is always simplified away first).
--/
-theorem sdivPow2_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) (hk63 : k < 63) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#64) <<< k)) false) ⊒
-      (RISCV.Reg.toInt
-        (let sign := Data.RISCV.srai 63 (LLVM.Int.toReg x)
-         let corr := Data.RISCV.srli (64 - k) sign
-         let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
-         Data.RISCV.srai k biased) 64) := by
-  veir_bv_decide
-
-/--
-  Negative-divisor case of `sdivPow2_pos_refinement`: negate the biased-shift result.
--/
-theorem sdivPow2_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#64) <<< k))) false) ⊒
-      (RISCV.Reg.toInt
-        (let sign := Data.RISCV.srai 63 (LLVM.Int.toReg x)
-         let corr := Data.RISCV.srli (64 - k) sign
-         let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
-         Data.RISCV.neg (Data.RISCV.srai k biased)) 64) := by
-  veir_bv_decide
-
 /--
   Prove the correctness of the `udiv` lowering pattern.
 -/
@@ -442,27 +397,6 @@ theorem urem_refinement {x y : LLVM.Int 64} :
 -/
 theorem sub_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.sub x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.sub (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `sub` lowering pattern at i32.
--/
-theorem subw_refinement {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.sub x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.subw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `shl` lowering pattern.
--/
-theorem sllw_refinement {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.shl x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.sllw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `lshr` lowering pattern.
--/
-theorem srlw_refinement {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.lshr x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.srlw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
 /--
@@ -490,29 +424,49 @@ theorem xnor_refinement {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
-  Prove the correctness of the `select c t 0` -> `czero.eqz t c` lowering pattern.
+  Prove the correctness of the `g_select c t 0` -> `czero.eqz t c` lowering pattern. The `i64`
+  condition is true when it is nonzero, as `czero.eqz` tests it.
 -/
-theorem select_czeroeqz_refinement {c : LLVM.Int 1} {t : LLVM.Int 64} :
-    (Data.LLVM.Int.select c t (LLVM.Int.constant 64 0)) ⊒
+theorem gmir_select_czeroeqz_refinement {c t : LLVM.Int 64} :
+    (GMIR.selectNonzero c t (LLVM.Int.constant 64 0)) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t)) 64) := by
   veir_bv_decide
 
 /--
-  Prove the correctness of the `select c 0 f` -> `czero.nez f c` lowering pattern.
+  Prove the correctness of the `g_select c 0 f` -> `czero.nez f c` lowering pattern.
 -/
-theorem select_czeronez_refinement {c : LLVM.Int 1} {f : LLVM.Int 64} :
-    (Data.LLVM.Int.select c (LLVM.Int.constant 64 0) f) ⊒
+theorem gmir_select_czeronez_refinement {c f : LLVM.Int 64} :
+    (GMIR.selectNonzero c (LLVM.Int.constant 64 0) f) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f)) 64) := by
   veir_bv_decide
 
 /--
-  Prove the correctness of the general `select c t f` ->
+Prove all eight `gmirSelectZeroOfSetcc_pattern` cases, including poison inputs: `isNe` chooses
+`ne` or `eq`, `zeroFalse` chooses the zero arm, and `zeroRhs` omits the XOR for a zero RHS.
+The `g_icmp` result is zero-extended to its legal `i64` type before `g_select` reads it.
+-/
+theorem gmir_select_zero_of_setcc_refinement (zeroFalse isNe zeroRhs : Bool)
+    (x y v : LLVM.Int 64) :
+    GMIR.selectNonzero
+      (LLVM.Int.zext (LLVM.Int.icmp x (if zeroRhs then LLVM.Int.constant 64 0 else y)
+        (if isNe then .ne else .eq)) 64 false (by decide))
+      (if zeroFalse then v else LLVM.Int.constant 64 0)
+      (if zeroFalse then LLVM.Int.constant 64 0 else v) ⊒
+      RISCV.Reg.toInt
+        ((if zeroFalse == isNe then Data.RISCV.czeroeqz else Data.RISCV.czeronez)
+          (if zeroRhs then LLVM.Int.toReg x
+            else Data.RISCV.xor (LLVM.Int.toReg x) (LLVM.Int.toReg y))
+          (LLVM.Int.toReg v)) 64 := by
+  cases zeroFalse <;> cases isNe <;> cases zeroRhs <;> dsimp <;> veir_bv_decide
+
+/--
+  Prove the correctness of the general `g_select c t f` ->
   `or (czero.eqz t c) (czero.nez f c)` lowering pattern.
 -/
-theorem select_refinement {c : LLVM.Int 1} {t f : LLVM.Int 64} :
-    (Data.LLVM.Int.select c t f) ⊒
+theorem gmir_select_refinement {c t f : LLVM.Int 64} :
+    (GMIR.selectNonzero c t f) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.or
           (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))
@@ -670,6 +624,22 @@ theorem zext_refinement_32_64 {x : LLVM.Int 32} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `and` lowering pattern with the mask `0xFFFF`
+-/
+theorem and_mask_zexth {x : LLVM.Int 64} :
+    (Data.LLVM.Int.and x (LLVM.Int.constant 64 0xFFFF)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zexth (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `and` lowering pattern with the mask `0xFFFFFFFF`
+-/
+theorem and_mask_zextw {x : LLVM.Int 64} :
+    (Data.LLVM.Int.and x (LLVM.Int.constant 64 0xFFFFFFFF)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zextw (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `zext` lowering pattern `i1` -> `i64`
 -/
 theorem zext_refinement_1_64 {x : LLVM.Int 1} :
@@ -783,41 +753,39 @@ theorem umin_refinement {x y : LLVM.Int 64} :
 
 /-! ### Saturating integer intrinsic lowerings
 
-  Each theorem below matches the RV64+Zbb+Zicond sequence emitted by the
-  corresponding pattern in `Veir/Passes/InstructionSelection/RISCV64.lean`,
-  which in turn mirrors LLVM's generic expansions
-  (`llvm/lib/CodeGen/SelectionDAG/TargetLowering.cpp`). Operand order follows
-  the `riscv.OP #[a, b]` ↦ `Data.RISCV.OP b a` convention (second operand is
-  `rs2`). For the shift variants, a shift amount ≥ 64 makes the LLVM operation
-  poison, which refines any register value, so the RV64 low-6-bit masking is
+  Each theorem below matches the RV64+Zbb+Zicond sequence that the `riscv` pipeline emits for the
+  `i64` intrinsic: `llvm-to-gmir` translates it to `g_*sat`, `legalize-riscv64` lowers that as
+  LLVM's GlobalISel does (`lowerAddSubSatToMinMax` and `lowerShlSat` in
+  `Veir/Passes/Legalization/LegalizerHelper.lean`), and `isel-riscv64` selects the result, with
+  each `g_select` becoming the Zicond select `or (czero.eqz t c) (czero.nez f c)`. Operand order
+  follows the `riscv.OP #[a, b]` ↦ `Data.RISCV.OP b a` convention (second operand is `rs2`), and
+  the zero register `x0` is `Data.RISCV.li 0#64`. For the shift variants, a shift amount ≥ 64 makes
+  the LLVM operation poison, which refines any register value, so the RV64 low-6-bit masking is
   sound.
 -/
 
 /--
   Prove the correctness of the `sadd.sat` lowering (`llvm.intr.sadd.sat` ->
-  signed saturating-add with Zicond select).
+  `x + smin(smax(INT_MIN - smin(x, 0), y), INT_MAX - smax(x, 0))`).
 -/
 theorem saddSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.saddSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
-         let m1 := Data.RISCV.li (BitVec.ofInt 64 (-1))
-         let sum := Data.RISCV.add y0 x0
-         let rhsSign := Data.RISCV.srli 63#6 y0
-         let carryLike := Data.RISCV.slt x0 sum
-         let sumSign := Data.RISCV.srai 63#6 sum
-         let intMin := Data.RISCV.slli 63#6 m1
-         let overflow := Data.RISCV.xor carryLike rhsSign
-         let sat := Data.RISCV.xor intMin sumSign
-         Data.RISCV.or
-           (Data.RISCV.czeronez overflow sum)
-           (Data.RISCV.czeroeqz overflow sat)) 64) := by
+         let zero := Data.RISCV.li 0#64
+         let intMax := Data.RISCV.li (BitVec.ofInt 64 (2 ^ 63 - 1))
+         let intMin := Data.RISCV.li (BitVec.ofInt 64 (-2 ^ 63))
+         let hi := Data.RISCV.sub (Data.RISCV.max zero x0) intMax
+         let lo := Data.RISCV.sub (Data.RISCV.min zero x0) intMin
+         let clamped := Data.RISCV.min hi (Data.RISCV.max y0 lo)
+         Data.RISCV.add clamped x0) 64) := by
   veir_bv_decide
 
 /--
   Prove the correctness of the `ssub.sat` lowering (`llvm.intr.ssub.sat` ->
-  signed saturating-sub with Zicond select).
+  `x - smin(smax(smax(x, -1) - INT_MAX, y), smin(x, -1) - INT_MIN)`). The post-legalizer
+  combiner turns the subtractions of constants into additions of their negations.
 -/
 theorem ssubSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.ssubSat x y) ⊒
@@ -825,59 +793,58 @@ theorem ssubSat_refinement {x y : LLVM.Int 64} :
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
          let m1 := Data.RISCV.li (BitVec.ofInt 64 (-1))
-         let diff := Data.RISCV.sub y0 x0
-         let cmp := Data.RISCV.slt y0 x0
-         let diffSignBit := Data.RISCV.srli 63#6 diff
-         let diffSign := Data.RISCV.srai 63#6 diff
-         let intMin := Data.RISCV.slli 63#6 m1
-         let overflow := Data.RISCV.xor diffSignBit cmp
-         let sat := Data.RISCV.xor intMin diffSign
-         Data.RISCV.or
-           (Data.RISCV.czeronez overflow diff)
-           (Data.RISCV.czeroeqz overflow sat)) 64) := by
+         let negIntMax := Data.RISCV.li (BitVec.ofInt 64 (-(2 ^ 63 - 1)))
+         let intMin := Data.RISCV.li (BitVec.ofInt 64 (-2 ^ 63))
+         let lo := Data.RISCV.add negIntMax (Data.RISCV.max m1 x0)
+         let hi := Data.RISCV.add intMin (Data.RISCV.min m1 x0)
+         let clamped := Data.RISCV.min hi (Data.RISCV.max y0 lo)
+         Data.RISCV.sub clamped x0) 64) := by
   veir_bv_decide
 
 /--
   Prove the correctness of the `uadd.sat` lowering
-  (`llvm.intr.uadd.sat` -> `umin(a, ~b) + b`).
+  (`llvm.intr.uadd.sat` -> `x + umin(~x, y)`).
 -/
 theorem uaddSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.uaddSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
-         let notRhs := Data.RISCV.xori (BitVec.ofInt 12 (-1)) y0
-         Data.RISCV.add y0 (Data.RISCV.minu notRhs x0)) 64) := by
+         let notLhs := Data.RISCV.xori (BitVec.ofInt 12 (-1)) x0
+         Data.RISCV.add (Data.RISCV.minu y0 notLhs) x0) 64) := by
   veir_bv_decide
 
 /--
   Prove the correctness of the `usub.sat` lowering
-  (`llvm.intr.usub.sat` -> `umax(a, b) - b`).
+  (`llvm.intr.usub.sat` -> `x - umin(x, y)`).
 -/
 theorem usubSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.usubSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
-         Data.RISCV.sub y0 (Data.RISCV.maxu y0 x0)) 64) := by
+         Data.RISCV.sub (Data.RISCV.minu y0 x0) x0) 64) := by
   veir_bv_decide
 
 /--
   Prove the correctness of the `sshl.sat` lowering (`llvm.intr.sshl.sat` ->
-  signed saturating-shl with Zicond select).
+  `x != (x << y) >>s y ? (x <s 0 ? INT_MIN : INT_MAX) : x << y`, with Zicond selects).
 -/
 theorem sshlSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.sshlSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
-         let m1 := Data.RISCV.li (BitVec.ofInt 64 (-1))
+         let zero := Data.RISCV.li 0#64
          let shifted := Data.RISCV.sll y0 x0
          let unshifted := Data.RISCV.sra y0 shifted
-         let sign := Data.RISCV.srai 63#6 x0
-         let intMax := Data.RISCV.srli 1#6 m1
-         let overflow := Data.RISCV.xor unshifted x0
-         let sat := Data.RISCV.xor intMax sign
+         let intMin := Data.RISCV.li (BitVec.ofInt 64 (-2 ^ 63))
+         let intMax := Data.RISCV.li (BitVec.ofInt 64 (2 ^ 63 - 1))
+         let negative := Data.RISCV.slt zero x0
+         let sat := Data.RISCV.or
+           (Data.RISCV.czeronez negative intMax)
+           (Data.RISCV.czeroeqz negative intMin)
+         let overflow := Data.RISCV.sltu (Data.RISCV.xor x0 unshifted) zero
          Data.RISCV.or
            (Data.RISCV.czeronez overflow shifted)
            (Data.RISCV.czeroeqz overflow sat)) 64) := by
@@ -885,19 +852,21 @@ theorem sshlSat_refinement {x y : LLVM.Int 64} :
 
 /--
   Prove the correctness of the `ushl.sat` lowering (`llvm.intr.ushl.sat` ->
-  unsigned saturating-shl with the `sltiu`/`addi`/`or` mask idiom).
+  `x != (x << y) >>u y ? -1 : x << y`, with a Zicond select).
 -/
 theorem ushlSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.ushlSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
+         let zero := Data.RISCV.li 0#64
          let shifted := Data.RISCV.sll y0 x0
          let unshifted := Data.RISCV.srl y0 shifted
-         let lostBits := Data.RISCV.xor unshifted x0
-         let noOverflow := Data.RISCV.sltiu 1#12 lostBits
-         let overflowMask := Data.RISCV.addi (BitVec.ofInt 12 (-1)) noOverflow
-         Data.RISCV.or shifted overflowMask) 64) := by
+         let m1 := Data.RISCV.li (BitVec.ofInt 64 (-1))
+         let overflow := Data.RISCV.sltu (Data.RISCV.xor x0 unshifted) zero
+         Data.RISCV.or
+           (Data.RISCV.czeronez overflow shifted)
+           (Data.RISCV.czeroeqz overflow m1)) 64) := by
   veir_bv_decide
 
 /--
@@ -1094,7 +1063,7 @@ theorem fold_sltu_li_to_sltiu_sound (rs1 : Reg) (imm : BitVec 12) :
 /-! ### Immediate-selection folds
 
   Each lemma below states that the immediate-form RISC-V instruction selected by
-  `isel-sdag-riscv64` computes the same value as materializing the constant with
+  `isel-riscv64` computes the same value as materializing the constant with
   `li` and using the reg-reg form. Composed with the reg-reg lowering refinements
   above (and `constant_refinement`), this is the soundness obligation for selecting
   the immediate form directly from the LLVM op, mirroring LLVM's `PatGprImm` family.
@@ -1175,348 +1144,32 @@ theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
   veir_bv_decide
 
-theorem freeze_refinement {a : LLVM.Int 64} :
+/-- Prove `gmirFreeze`: freezing an integer that fits in a register is refined by its register
+  round trip. -/
+theorem freeze_refinement {w : Nat} (hw : w ≤ 64) {a : LLVM.Int w} :
     (Data.LLVM.Int.freeze a) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg a) 64) := by
-  veir_bv_decide
+      (RISCV.Reg.toInt (LLVM.Int.toReg a) w) := by
+  cases a <;> simp [LLVM.Int.freeze, LLVM.Int.toReg, RISCV.Reg.toInt, LLVM.Int.isRefinedBy, Id.run,
+    BitVec.setWidth_setWidth_of_le _ hw]
 
-/-! ## i32 lowering refinement proofs
-
-  These proofs cover all operations added to the i32 isel path.
-  The semantic model zero-extends i32 values when loading into a 64-bit
-  register (`LLVM.Int.toReg`), so signed operations that inspect the sign
-  bit must first `sextw`-extend the low 32 bits.
+/--
+  Prove the correctness of the `gmirAnyextOfReg` lowering pattern, at every width: the high bits of
+  `g_anyext` may be chosen as those of the register, so it is refined by a single cast from it.
 -/
+theorem anyext_of_reg_refinement (n m : Nat) (h : n < m) (r : Reg) :
+    ∃ ext : BitVec (m - n),
+      LLVM.Int.ext (RISCV.Reg.toInt r n) m ext h ⊒ RISCV.Reg.toInt r m :=
+  ⟨(r.val.zeroExtend m).extractLsb' n (m - n), by
+    veir_bv_normalize
+    simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
+    grind⟩
 
-theorem ashr_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.ashr x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sraw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem mul_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.mul x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.mulw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem sdiv_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.sdiv x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.divw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem udiv_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.udiv x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.divuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-/-- `i32` analogue of `udivPow2_refinement` (`udivwPow2`). -/
-theorem udivwPow2_refinement {x : LLVM.Int 32} (k : BitVec 5) :
-    (Data.LLVM.Int.udiv x (LLVM.Int.val ((1#32) <<< k))) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.srliw k (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-/-- `i32` analogue of `sdivPow2Exact_pos_refinement` (`sdivwPow2Exact`, positive
-    divisor): a genuine positive `i32` divisor `2^k` needs `k < 31`. -/
-theorem sdivwPow2Exact_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk : k < 31) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#32) <<< k)) true) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sraiw k (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-/-- `i32` analogue of `sdivPow2Exact_neg_refinement` (`sdivwPow2Exact`, negative
-    divisor): `-2^31` (`k = 31`) is itself a valid `i32` divisor, so no upper bound
-    on `k` is needed. -/
-theorem sdivwPow2Exact_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#32) <<< k))) true) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.negw (Data.RISCV.sraiw k (LLVM.Int.toReg x))) 32) := by
-  veir_bv_decide
-
-/-- `i32` analogue of `sdivPow2_pos_refinement` (`sdivwPow2`, positive divisor). -/
-theorem sdivwPow2_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) (hk31 : k < 31) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#32) <<< k)) false) ⊒
-      (RISCV.Reg.toInt
-        (let sign := Data.RISCV.sraiw 31 (LLVM.Int.toReg x)
-         let corr := Data.RISCV.srliw (32 - k) sign
-         let biased := Data.RISCV.addw corr (LLVM.Int.toReg x)
-         Data.RISCV.sraiw k biased) 32) := by
-  veir_bv_decide
-
-/-- `i32` analogue of `sdivPow2_neg_refinement` (`sdivwPow2`, negative divisor). -/
-theorem sdivwPow2_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#32) <<< k))) false) ⊒
-      (RISCV.Reg.toInt
-        (let sign := Data.RISCV.sraiw 31 (LLVM.Int.toReg x)
-         let corr := Data.RISCV.srliw (32 - k) sign
-         let biased := Data.RISCV.addw corr (LLVM.Int.toReg x)
-         Data.RISCV.negw (Data.RISCV.sraiw k biased)) 32) := by
-  veir_bv_decide
-
-theorem srem_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.srem x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.remw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem urem_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.urem x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.remuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem ctlz_refinement_32 {x : LLVM.Int 32} {is_zero_poison : Bool} :
-    (Data.LLVM.Int.ctlz x is_zero_poison) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.clzw (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem cttz_refinement_32 {x : LLVM.Int 32} {is_zero_poison : Bool} :
-    (Data.LLVM.Int.cttz x is_zero_poison) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.ctzw (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem ctpop_refinement_32 {x : LLVM.Int 32} :
-    (Data.LLVM.Int.ctpop x) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.cpopw (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem bswap_refinement_32 {x : LLVM.Int 32} :
-    (Data.LLVM.Int.bswap x) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.srli 32#6 (Data.RISCV.rev8 (LLVM.Int.toReg x))) 32) := by
-  veir_bv_decide
-
-theorem bitreverse_refinement_32 {x : LLVM.Int 32} :
-    (Data.LLVM.Int.bitreverse x) ⊒
-      (RISCV.Reg.toInt
-        (let x0 := LLVM.Int.toReg x
-         let m1 := Data.RISCV.li 0x55555555#64
-         let x1 := Data.RISCV.or
-           (Data.RISCV.slli 1#6 (Data.RISCV.and m1 x0))
-           (Data.RISCV.and m1 (Data.RISCV.srli 1#6 x0))
-         let m2 := Data.RISCV.li 0x33333333#64
-         let x2 := Data.RISCV.or
-           (Data.RISCV.slli 2#6 (Data.RISCV.and m2 x1))
-           (Data.RISCV.and m2 (Data.RISCV.srli 2#6 x1))
-         let m4 := Data.RISCV.li 0x0f0f0f0f#64
-         let x3 := Data.RISCV.or
-           (Data.RISCV.slli 4#6 (Data.RISCV.and m4 x2))
-           (Data.RISCV.and m4 (Data.RISCV.srli 4#6 x2))
-         Data.RISCV.srli 32#6 (Data.RISCV.rev8 x3)) 32) := by
-  veir_bv_decide
-
-theorem icmp_refinement_eq_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.eq) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltiu 1#12
-        (Data.RISCV.xor
-          (Data.RISCV.sextw (LLVM.Int.toReg y))
-          (Data.RISCV.sextw (LLVM.Int.toReg x)))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_ne_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.ne) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltu
-        (Data.RISCV.xor
-          (Data.RISCV.sextw (LLVM.Int.toReg y))
-          (Data.RISCV.sextw (LLVM.Int.toReg x)))
-        (Data.RISCV.li 0#64)) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_slt_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.slt) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.slt
-        (Data.RISCV.sextw (LLVM.Int.toReg y))
-        (Data.RISCV.sextw (LLVM.Int.toReg x))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_sle_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.sle) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
-        (Data.RISCV.slt
-          (Data.RISCV.sextw (LLVM.Int.toReg x))
-          (Data.RISCV.sextw (LLVM.Int.toReg y)))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_sgt_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.sgt) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.slt
-        (Data.RISCV.sextw (LLVM.Int.toReg x))
-        (Data.RISCV.sextw (LLVM.Int.toReg y))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_sge_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.sge) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
-        (Data.RISCV.slt
-          (Data.RISCV.sextw (LLVM.Int.toReg y))
-          (Data.RISCV.sextw (LLVM.Int.toReg x)))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_ult_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.ult) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltu
-        (Data.RISCV.sextw (LLVM.Int.toReg y))
-        (Data.RISCV.sextw (LLVM.Int.toReg x))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_ule_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.ule) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
-        (Data.RISCV.sltu
-          (Data.RISCV.sextw (LLVM.Int.toReg x))
-          (Data.RISCV.sextw (LLVM.Int.toReg y)))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_ugt_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.ugt) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltu
-        (Data.RISCV.sextw (LLVM.Int.toReg x))
-        (Data.RISCV.sextw (LLVM.Int.toReg y))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_uge_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.uge) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
-        (Data.RISCV.sltu
-          (Data.RISCV.sextw (LLVM.Int.toReg y))
-          (Data.RISCV.sextw (LLVM.Int.toReg x)))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_eq_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.eq) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltiu 1#12
-        (Data.RISCV.xor
-          (Data.RISCV.sextb (LLVM.Int.toReg y))
-          (Data.RISCV.sextb (LLVM.Int.toReg x)))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_ne_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.ne) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltu
-        (Data.RISCV.xor
-          (Data.RISCV.sextb (LLVM.Int.toReg y))
-          (Data.RISCV.sextb (LLVM.Int.toReg x)))
-        (Data.RISCV.li 0#64)) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_slt_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.slt) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.slt
-        (Data.RISCV.sextb (LLVM.Int.toReg y))
-        (Data.RISCV.sextb (LLVM.Int.toReg x))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_sle_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.sle) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
-        (Data.RISCV.slt
-          (Data.RISCV.sextb (LLVM.Int.toReg x))
-          (Data.RISCV.sextb (LLVM.Int.toReg y)))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_sgt_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.sgt) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.slt
-        (Data.RISCV.sextb (LLVM.Int.toReg x))
-        (Data.RISCV.sextb (LLVM.Int.toReg y))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_sge_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.sge) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
-        (Data.RISCV.slt
-          (Data.RISCV.sextb (LLVM.Int.toReg y))
-          (Data.RISCV.sextb (LLVM.Int.toReg x)))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_ult_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.ult) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltu
-        (Data.RISCV.sextb (LLVM.Int.toReg y))
-        (Data.RISCV.sextb (LLVM.Int.toReg x))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_ule_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.ule) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
-        (Data.RISCV.sltu
-          (Data.RISCV.sextb (LLVM.Int.toReg x))
-          (Data.RISCV.sextb (LLVM.Int.toReg y)))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_ugt_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.ugt) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltu
-        (Data.RISCV.sextb (LLVM.Int.toReg x))
-        (Data.RISCV.sextb (LLVM.Int.toReg y))) 1) := by
-  veir_bv_decide
-
-theorem icmp_refinement_uge_8 {x y : LLVM.Int 8} :
-    (Data.LLVM.Int.icmp x y LLVM.IntPred.uge) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
-        (Data.RISCV.sltu
-          (Data.RISCV.sextb (LLVM.Int.toReg y))
-          (Data.RISCV.sextb (LLVM.Int.toReg x)))) 1) := by
-  veir_bv_decide
-
-theorem smax_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.smax x y) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.max
-          (Data.RISCV.sextw (LLVM.Int.toReg y))
-          (Data.RISCV.sextw (LLVM.Int.toReg x))) 32) := by
-  veir_bv_decide
-
-theorem smin_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.smin x y) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.min
-          (Data.RISCV.sextw (LLVM.Int.toReg y))
-          (Data.RISCV.sextw (LLVM.Int.toReg x))) 32) := by
-  veir_bv_decide
-
-theorem umax_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.umax x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.maxu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem umin_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.umin x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.minu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem fshl_rol_refinement_32 {a c : LLVM.Int 32} :
-    (Data.LLVM.Int.fshl a a c) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.rolw (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 32) := by
-  veir_bv_decide
-
-theorem fshr_ror_refinement_32 {a c : LLVM.Int 32} :
-    (Data.LLVM.Int.fshr a a c) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.rorw (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 32) := by
-  veir_bv_decide
-
-theorem select_czeroeqz_refinement_32 {c : LLVM.Int 1} {t : LLVM.Int 32} :
-    (Data.LLVM.Int.select c t (LLVM.Int.constant 32 0)) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t)) 32) := by
-  veir_bv_decide
-
-theorem select_czeronez_refinement_32 {c : LLVM.Int 1} {f : LLVM.Int 32} :
-    (Data.LLVM.Int.select c (LLVM.Int.constant 32 0) f) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f)) 32) := by
-  veir_bv_decide
-
-theorem select_refinement_32 {c : LLVM.Int 1} {t f : LLVM.Int 32} :
-    (Data.LLVM.Int.select c t f) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.or
-          (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))
-          (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t))) 32) := by
-  veir_bv_decide
-
-theorem select_refinement_1 {c : LLVM.Int 1} {t f : LLVM.Int 1} :
-    (Data.LLVM.Int.select c t f) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.or
-          (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))
-          (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t))) 1) := by
-  veir_bv_decide
-
-theorem freeze_refinement_32 {a : LLVM.Int 32} :
-    (Data.LLVM.Int.freeze a) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg a) 32) := by
-  veir_bv_decide
+/--
+  A `g_load` of `n` bits `v` into an `i64` is refined by any register whose low `n` bits are `v`,
+  such as the result of `lbu`, `lh` or `lw` (see `gmirLoad_pattern`).
+-/
+theorem gmir_load_refinement {n : Nat} (h : n < 64) (v : BitVec n) (r : Reg)
+    (hlow : r.val.setWidth n = v) :
+    ∃ ext : BitVec (64 - n), LLVM.Int.ext (.val v) 64 ext h ⊒ RISCV.Reg.toInt r 64 := by
+  have hv : RISCV.Reg.toInt r n = .val v := by simp [RISCV.Reg.toInt, ← hlow]
+  simpa [hv] using anyext_of_reg_refinement n 64 h r

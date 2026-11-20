@@ -17,7 +17,7 @@ inductive Func where
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Func.propertiesOf (op : Func) : Type :=
 match op with
 | .func => FuncFuncProperties
@@ -80,14 +80,28 @@ instance : IsOpCode Func where
   fromAttrDict := Func.fromAttrDict
   toAttrDict := Func.toAttrDict
 
+def Func.symbolInterface? (op : Func) : Option (SymbolOpInterface (Func.propertiesOf op)) :=
+  match op with
+  | .func => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def Func.functionInterface? (op : Func) : Option (FunctionOpInterface (Func.propertiesOf op)) :=
   match op with
   | .func =>
     some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type
+      { getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType =>
           { props with function_type := functionType } }
+  | _ => none
+
+/-- `func.call` calls the function it names on all its operands. -/
+def Func.callInterface : CallOpInterface FuncCallProperties where
+  getCallableForCallee? props _ := some (.symbol props.callee)
+  getArgOperands _ operands := operands
+
+def Func.callOpInterface? (op : Func) : Option (CallOpInterface (Func.propertiesOf op)) :=
+  match op with
+  | .call => some Func.callInterface
   | _ => none
 
 /--
@@ -120,14 +134,7 @@ def Func.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .func => do
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
   | .call => do
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
@@ -142,7 +149,9 @@ instance : HasOpInfo Func where
   verifyLocalInvariants := Func.verifyLocalInvariants
   getEffects := Func.getEffects
   isConstantLike := Func.isConstantLike
+  symbolInterface? := Func.symbolInterface?
   functionInterface? := Func.functionInterface?
+  callOpInterface? := Func.callOpInterface?
   hasSSADominance := Func.hasSSADominance
   isTerminator := Func.isTerminator
   isIsolatedFromAbove := Func.isIsolatedFromAbove

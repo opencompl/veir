@@ -45,7 +45,7 @@ inductive Cir where
 | unreachable
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Cir.propertiesOf (op : Cir) : Type :=
 match op with
 | .func => CirFuncProperties
@@ -69,7 +69,7 @@ def Cir.fromAttrDict
   | .cast => CirCastProperties.fromAttrDict attrDict
   | .brcond => CirBrCondProperties.fromAttrDict attrDict
   | .return | .mul | .div | .rem | .and | .or | .xor | .not | .min | .max
-  | .select | .br | .unreachable => Cir.noProperties attrDict
+  | .select | .br | .unreachable => expectNoProperties "cir" attrDict
 
 def Cir.toAttrDict
     (op : Cir) (props : Cir.propertiesOf op) :
@@ -88,6 +88,10 @@ def Cir.toAttrDict
 def Cir.getEffects
     (_op : Cir) (_props : Cir.propertiesOf _op) : MemoryEffects :=
   .none
+
+def Cir.isCommutative : Cir → Bool
+  | .add | .mul | .and | .or | .xor | .min | .max => true
+  | _ => false
 
 def Cir.isConstantLike (op : Cir) : Bool :=
   match op with
@@ -117,14 +121,23 @@ instance : IsOpCode Cir where
   fromAttrDict := Cir.fromAttrDict
   toAttrDict := Cir.toAttrDict
 
+def Cir.symbolInterface? (op : Cir) : Option (SymbolOpInterface (Cir.propertiesOf op)) :=
+  match op with
+  | .func => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def Cir.functionInterface? (op : Cir) : Option (FunctionOpInterface (Cir.propertiesOf op)) :=
   match op with
   | .func =>
     some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type.functionType
+      { getFunctionType := fun props => props.function_type.functionType
         setFunctionType := fun props functionType =>
           { props with function_type := { functionType } } }
+  | _ => none
+
+def Cir.unconditionalBranch? (op : Cir) (_props : Cir.propertiesOf op) : Option (OpKind Cir) :=
+  match op with
+  | .br | .brcond => some ⟨.br, ()⟩
   | _ => none
 
 def Cir.branchOpInterface? (op : Cir) : Option (BranchOpInterface (Cir.propertiesOf op)) :=
@@ -134,16 +147,16 @@ def Cir.branchOpInterface? (op : Cir) : Option (BranchOpInterface (Cir.propertie
       getSuccessorOperandsImpl? := fun _ operands successorIndex => do
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
-      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorIndexForOperandsImpl? := fun _ _ => some 0
     }
   | .brcond =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.int _ (.val condition)) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition ≠ 0))
     }
   | _ => none
 
@@ -227,7 +240,7 @@ def OperationPtr.verifyCirCmpOp {OpInfo : Type} [IsOpCode OpInfo]
     s!"{instrName}: Expected operands to have the same type"
   operandType.verifyCirComparableType
     s!"{instrName}: Expected operands to have a comparable type"
-  ((op.getResult 0).get! ctx.raw).type.verifyCirBoolType
+  ((op.getResult 0).getType! ctx.raw).verifyCirBoolType
     s!"{instrName}: Expected result to have !cir.bool type"
 
 /-- Verify `cir.select`: a `!cir.bool` condition and two values of one type. -/
@@ -251,7 +264,7 @@ def OperationPtr.verifyCirCastOp {OpInfo : Type} [IsOpCode OpInfo]
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let props := op.getProperties! ctx.raw Cir.cast
   let srcType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   match props.kind with
   | .integral =>
     let _ ← srcType.verifyCirIntType
@@ -277,7 +290,7 @@ def OperationPtr.verifyCirConstOp {OpInfo : Type} [IsOpCode OpInfo]
   op.verifyPlainOpCounts ctx opIn 0 1
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let props := op.getProperties! ctx.raw Cir.const
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   if let some type := props.value.type then
     if type ≠ resultType.val then
       throw s!"{instrName}: Expected result type to match the constant's type"
@@ -325,14 +338,7 @@ def Cir.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .func => do
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "cir.func: Expected 1 region"
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "cir.func: Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "cir.func: Expected 0 results"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "cir.func: Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
   | .return => do
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyCirReturnTypes ctx opIn
@@ -353,8 +359,11 @@ instance : HasOpInfo Cir where
   verifyLocalInvariants := Cir.verifyLocalInvariants
   getEffects := Cir.getEffects
   isConstantLike := Cir.isConstantLike
+  isCommutative := Cir.isCommutative
+  symbolInterface? := Cir.symbolInterface?
   functionInterface? := Cir.functionInterface?
   branchOpInterface? := Cir.branchOpInterface?
+  unconditionalBranch? := Cir.unconditionalBranch?
   hasSSADominance := Cir.hasSSADominance
   isTerminator := Cir.isTerminator
   isIsolatedFromAbove := Cir.isIsolatedFromAbove

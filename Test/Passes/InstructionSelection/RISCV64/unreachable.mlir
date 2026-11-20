@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-br-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,isel-br-riscv64 | filecheck %s
 
 "builtin.module"() ({
     "func.func"() <{"function_type" = (i64, i1) -> (i64), "sym_name" = "a"}> ({

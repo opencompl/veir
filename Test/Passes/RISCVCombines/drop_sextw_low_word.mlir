@@ -41,6 +41,37 @@
     %y = "riscv.zextw"(%sx) : (!riscv.reg) -> !riscv.reg
     "func.return"(%y) : (!riscv.reg) -> ()
   }) : () -> ()
+
+// Binary word instructions.
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg), sym_name = "binary"}> ({
+  ^bb0(%x: !riscv.reg, %y: !riscv.reg):
+    %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
+    %sy = "riscv.sextw"(%y) : (!riscv.reg) -> !riscv.reg
+    %0 = "riscv.subw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %1 = "riscv.mulw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %2 = "riscv.divw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %3 = "riscv.divuw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %4 = "riscv.remw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %5 = "riscv.remuw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %6 = "riscv.sllw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %7 = "riscv.srlw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %8 = "riscv.sraw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %9 = "riscv.rolw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %10 = "riscv.rorw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    "func.return"(%0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10) : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
+  }) : () -> ()
+
+// Unary word instructions.
+  "func.func"() <{function_type = (!riscv.reg) -> (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg), sym_name = "unary"}> ({
+  ^bb0(%x: !riscv.reg):
+    %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
+    %0 = "riscv.sraiw"(%sx) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
+    %1 = "riscv.slliuw"(%sx) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
+    %2 = "riscv.clzw"(%sx) : (!riscv.reg) -> !riscv.reg
+    %3 = "riscv.ctzw"(%sx) : (!riscv.reg) -> !riscv.reg
+    %4 = "riscv.cpopw"(%sx) : (!riscv.reg) -> !riscv.reg
+    "func.return"(%0, %1, %2, %3, %4) : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK:      func.func @f0(%[[ADDW_X:.*]]: !riscv.reg, %[[ADDW_Y:.*]]: !riscv.reg) -> !riscv.reg {
@@ -62,3 +93,9 @@
 // CHECK:      func.func @f4(%[[ZEXTW_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[ZEXTW:.*]] = "riscv.zextw"(%[[ZEXTW_X]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[ZEXTW]]) : (!riscv.reg) -> ()
+
+// CHECK-LABEL: func.func @binary(
+// CHECK-NOT:   "riscv.sextw"
+
+// CHECK-LABEL: func.func @unary(
+// CHECK-NOT:   "riscv.sextw"

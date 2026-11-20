@@ -1,0 +1,34 @@
+// RUN: veir-opt %s -p=postlegalizer-combiner-riscv64 | filecheck %s
+
+// `sub a, (mul x, C)` is `add a, (mul x, -C)` when C is a constant.
+
+"builtin.module"() ({
+  "func.func"() <{function_type = (i32, i32) -> i32, sym_name = "foo"}> ({
+  ^bb0(%a: i32, %x: i32):
+    %c = "gmir.g_constant"() <{value = 3 : i32}> : () -> i32
+    %m = "gmir.g_mul"(%x, %c) : (i32, i32) -> i32
+    %r = "gmir.g_sub"(%a, %m) : (i32, i32) -> i32
+    "func.return"(%r) : (i32) -> ()
+  }) : () -> ()
+
+  // Negative case: the mul's second operand is not a constant, so the pattern does not fire.
+  "func.func"() <{function_type = (i32, i32, i32) -> i32, sym_name = "bar"}> ({
+  ^bb0(%a: i32, %x: i32, %y: i32):
+    %m = "gmir.g_mul"(%x, %y) : (i32, i32) -> i32
+    %r = "gmir.g_sub"(%a, %m) : (i32, i32) -> i32
+    "func.return"(%r) : (i32) -> ()
+  }) : () -> ()
+}) : () -> ()
+
+// The sub becomes add a, (mul x, -C).
+// CHECK:      func.func @foo(%[[A:.*]]: i32, %[[X:.*]]: i32) -> i32 {
+// CHECK:      %[[NC:.*]] = "gmir.g_constant"() <{"value" = -3 : i32}> : () -> i32
+// CHECK:      %[[NM:.*]] = "gmir.g_mul"(%[[X]], %[[NC]]) : (i32, i32) -> i32
+// CHECK:      %[[R:.*]] = "gmir.g_add"(%[[A]], %[[NM]]) : (i32, i32) -> i32
+// CHECK:      "func.return"(%[[R]]) : (i32) -> ()
+
+// Non-constant mul operand: the sub remains.
+// CHECK:      func.func @bar(%[[NA:.*]]: i32, %[[NX:.*]]: i32, %[[NY:.*]]: i32) -> i32 {
+// CHECK:      %[[NMM:.*]] = "gmir.g_mul"(%[[NX]], %[[NY]]) : (i32, i32) -> i32
+// CHECK:      %[[NR:.*]] = "gmir.g_sub"(%[[NA]], %[[NMM]]) : (i32, i32) -> i32
+// CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

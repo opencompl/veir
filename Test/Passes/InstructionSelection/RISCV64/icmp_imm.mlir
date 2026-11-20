@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // Immediate-form comparison selection: when the rhs is a constant fitting a
 // signed 12-bit immediate, `icmp` lowers directly to `slti`/`sltiu` (with an
@@ -57,16 +57,15 @@
     }) : () -> ()
 
     // Bail: sle against 2047 would need immediate 2048, which does not fit a
-    // signed 12-bit field, so the peephole defers to the reg-reg lowering and
-    // the `llvm.icmp` is left for `isel-riscv64` (not run here).
+    // signed 12-bit field, so the constant is kept in a register.
     "func.func"() <{function_type = (i64) -> (i1), sym_name = "f4"}> ({
     ^bb0(%a: i64):
         %z = "llvm.mlir.constant"() <{value = 2047 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 3 : i64}> : (i64, i64) -> i1
         "func.return"(%r) : (i1) -> ()
         // CHECK-LABEL: func.func @f4(%{{.*}}: i64) -> i1 {
-        // CHECK: "llvm.icmp"
         // CHECK-NOT: "riscv.slti"
+        // CHECK: "riscv.slt"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     }) : () -> ()
 
     // Bail: ule against -1 (unsigned UINT_MAX) is excluded, since C+1 wraps to 0.
@@ -76,7 +75,7 @@
         %r = "llvm.icmp"(%a, %z) <{predicate = 7 : i64}> : (i64, i64) -> i1
         "func.return"(%r) : (i1) -> ()
         // CHECK-LABEL: func.func @f5(%{{.*}}: i64) -> i1 {
-        // CHECK: "llvm.icmp"
         // CHECK-NOT: "riscv.sltiu"
+        // CHECK: "riscv.sltu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     }) : () -> ()
 }) : () -> ()

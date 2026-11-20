@@ -1,6 +1,6 @@
 // RUN: veir-opt %s --allow-unregistered-dialect --disable-verifiers | filecheck %s
 // RUN: not veir-opt %s --allow-unregistered-dialect 2>&1 | filecheck %s --check-prefix=VERIFY
-// RUN: MLIR_INVALID
+// RUN: MLIR_UNREGISTERED_INVALID
 
 // A value name forward-referenced before its definition resolves to the FIRST textual
 // definition of that name, wherever it appears -- following MLIR's generic-form parser,

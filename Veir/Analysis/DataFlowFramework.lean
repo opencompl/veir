@@ -172,10 +172,11 @@ TODO: Eventually prove via monotonicity that this is in fact impossible.
 -/
 partial def run (analysesMap : AnalysesMap) (ctx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Option DataFlowContext :=
-  match ctx.workList.dequeue? with
+  let (workItem?, workList) := ctx.workList.dequeue?
+  let ctx := { ctx with workList }
+  match workItem? with
   | none => some ctx
-  | some ((point, analysisKind), workList) =>
-    let ctx := { ctx with workList := workList }
+  | some (point, analysisKind) =>
     match analysesMap.get? analysisKind with
     | some analysis =>
       let ctx := analysis.visit point ctx irCtx

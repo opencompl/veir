@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s --print-op-generic -p='canonicalize{sccp=false},instcombine,canonicalize{sccp=false},cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize{sccp=false},riscv-combine,isel-abi-riscv64,reconcile-cast,dce' > %t
+// RUN: veir-opt %s --print-op-generic -p='canonicalize{sccp=false},instcombine,canonicalize{sccp=false},cse,dce,riscv' > %t
 // RUN: veir-interpret %t >> %t
 // RUN: filecheck %s < %t
 
@@ -23,8 +23,7 @@
 // CHECK:    "riscv.ctz"
 // CHECK:    "riscv.cpop"
 // CHECK:    "riscv.rev8"
-// CHECK:    "riscv.slli"
-// CHECK:    "riscv.srli"
+// CHECK:    "riscv.brev8"
 // CHECK:    "riscv.rev8"
 
 // CHECK:    Program output: #[0x0000000000000007#64, 0x0000000000000007#64, 0x0000000000000000#64, 0x0000000000000000#64, 0x0000000000000020#64, 0xefcdab8967452301#64, 0xf7b3d591e6a2c480#64]

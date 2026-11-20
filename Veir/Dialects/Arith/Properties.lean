@@ -8,11 +8,17 @@ namespace Veir
 public section
 
 /--
-  Properties of the `arith.constant` operation.
+  Properties of the `arith.constant` operation: an integer or an index value.
 -/
-structure ArithConstantProperties where
-  value : IntegerAttr
+inductive ArithConstantProperties where
+  | int (value : IntegerAttr)
+  | index (value : IndexAttr)
 deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[simp, grind]
+def ArithConstantProperties.intAttr? : ArithConstantProperties → Option IntegerAttr
+  | .int value => some value
+  | .index _ => none
 
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
@@ -20,9 +26,10 @@ def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     throw s!"arith.constant: expected only 'value' property, but got {attrDict.size} properties"
   let some attr := attrDict["value".toUTF8]?
     | throw "arith.constant: missing 'value' property"
-  let .integerAttr intAttr := attr
-    | throw s!"arith.constant: expected 'value' to be an integer attribute, but got {attr}"
-  return { value := intAttr }
+  match attr with
+  | .integerAttr intAttr => return .int intAttr
+  | .indexAttr indexAttr => return .index indexAttr
+  | _ => throw s!"arith.constant: expected 'value' to be an integer or index attribute, but got {attr}"
 
 /-- Properties of arith operations that can have `nsw` and `nuw` flags, such as `arith.addi` or `arith.muli`. -/
 structure ArithIntegerOverflowFlagsProperties where

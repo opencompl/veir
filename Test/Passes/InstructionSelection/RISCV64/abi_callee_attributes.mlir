@@ -8,10 +8,10 @@
   ^bb0(%p: !llvm.ptr):
     "llvm.call"(%p) <{callee = @byval}> : (!llvm.ptr) -> ()
     "llvm.call"(%p) <{callee = @"byv\61l"}> : (!llvm.ptr) -> ()
-    "llvm.call"() <{callee = @fast}> : () -> ()
+    "llvm.call"() <{callee = @ghc}> : () -> ()
     "llvm.call"(%p) <{callee = @discardable}> : (!llvm.ptr) -> ()
     "llvm.call"(%p) <{callee = @"nonutf8\FF"}> : (!llvm.ptr) -> ()
-    // Supported declarations, unresolved external symbols, and indirect calls
+    // Supported declarations, including external ones, and indirect calls
     // remain eligible. An unsupported symbol in a nested module is unrelated.
     "llvm.call"(%p) <{callee = @ordinary}> : (!llvm.ptr) -> ()
     "llvm.call"() <{callee = @external}> : () -> ()
@@ -22,7 +22,7 @@
   // CHECK-LABEL: "sym_name" = "caller"
   // CHECK: "llvm.call"(%{{.*}}) <{"callee" = @byval}> : (!llvm.ptr) -> ()
   // CHECK-NEXT: "llvm.call"(%{{.*}}) <{"callee" = @"byv\61l"}> : (!llvm.ptr) -> ()
-  // CHECK-NEXT: "llvm.call"() <{"callee" = @fast}> : () -> ()
+  // CHECK-NEXT: "llvm.call"() <{"callee" = @ghc}> : () -> ()
   // CHECK-NEXT: "llvm.call"(%{{.*}}) <{"callee" = @discardable}> : (!llvm.ptr) -> ()
   // CHECK-NEXT: "llvm.call"(%{{.*}}) <{"callee" = @"nonutf8\FF"}> : (!llvm.ptr) -> ()
   // CHECK: "riscv_cf.call"(%{{.*}}) <{"callee" = @ordinary}> : (!riscv.reg) -> ()
@@ -32,11 +32,12 @@
   // CHECK-NEXT: "riscv_cf.return"() : () -> ()
 
   "llvm.func"() <{sym_name = "byval", function_type = !llvm.func<void (ptr)>, arg_attrs = [{llvm.byval = i64}], sym_visibility = "private"}> ({}) : () -> ()
-  "llvm.func"() <{sym_name = "fast", function_type = !llvm.func<void ()>, CConv = #llvm.cconv<fastcc>}> ({}) : () -> ()
+  "llvm.func"() <{sym_name = "ghc", function_type = !llvm.func<void ()>, CConv = #llvm.cconv<cc_10>}> ({}) : () -> ()
   "llvm.func"() <{sym_name = "discardable", function_type = !llvm.func<void (ptr)>, sym_visibility = "private"}> ({}) {arg_attrs = [{llvm.byval = i64}]} : () -> ()
   "llvm.func"() <{sym_name = "nonutf8\FF", function_type = !llvm.func<void (ptr)>, arg_attrs = [{llvm.byval = i64}], sym_visibility = "private"}> ({}) : () -> ()
   "llvm.func"() <{sym_name = "ordinary", function_type = !llvm.func<void (ptr)>, arg_attrs = [{llvm.noundef}], sym_visibility = "private"}> ({}) : () -> ()
   "llvm.func"() <{sym_name = "shadow", function_type = !llvm.func<void (ptr)>, sym_visibility = "private"}> ({}) : () -> ()
+  "llvm.func"() <{sym_name = "external", function_type = !llvm.func<void ()>}> ({}) : () -> ()
 
   "builtin.module"() ({
     "llvm.func"() <{sym_name = "nested_caller", function_type = !llvm.func<void (ptr)>}> ({

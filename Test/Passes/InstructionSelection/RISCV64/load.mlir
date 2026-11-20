@@ -22,12 +22,12 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-    // i8 load lowers to `riscv.lb`.
+    // i8 load lowers to `riscv.lbu`, as in LLVM (`LdPat<extloadi8, LBU>`).
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "baz"}> ({
     ^bb0(%a: !llvm.ptr):
         %val = "llvm.load"(%a) : (!llvm.ptr) -> i8
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
-        // CHECK-NEXT: {{.*}} = "riscv.lb"({{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "riscv.lbu"({{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!riscv.reg) -> i8
         "test.test"(%val) : (i8) -> ()
         "func.return"() : () -> ()
@@ -41,6 +41,17 @@
         // CHECK-NEXT: {{.*}} = "riscv.lh"({{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!riscv.reg) -> i16
         "test.test"(%val) : (i16) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
+    // !llvm.ptr load lowers to `riscv.ld`.
+    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "quux"}> ({
+    ^bb0(%a: !llvm.ptr):
+        %val = "llvm.load"(%a) : (!llvm.ptr) -> !llvm.ptr
+        // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "riscv.ld"({{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!riscv.reg) -> !llvm.ptr
+        "test.test"(%val) : (!llvm.ptr) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 

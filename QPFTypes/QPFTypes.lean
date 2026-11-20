@@ -7,5 +7,8 @@ public import QPFTypes.Theory.MvFunctor
 public import QPFTypes.Theory.TypeFun
 public import QPFTypes.Theory.PFunctor
 public import QPFTypes.Theory.QPF
+public import QPFTypes.Instances.Prod
+public import QPFTypes.Instances.Sum
 
 public import QPFTypes.Meta.QPFExpr
+public import QPFTypes.Meta.QPFAttr

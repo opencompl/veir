@@ -65,7 +65,7 @@ section detachOp
 theorem BlockPtr.opChain_detachOp_other
     (hWf : BlockPtr.OpChain block ctx array)
     (hWf' : BlockPtr.OpChain block' ctx array') :
-    (op.get! ctx).parent = some block' →
+    op.getParent! ctx = some block' →
     block ≠ block' →
     BlockPtr.OpChain block (Rewriter.detachOp ctx op hctx hIn hasParent) array := by
   intro hParent hNe
@@ -74,7 +74,7 @@ theorem BlockPtr.opChain_detachOp_other
 set_option maxHeartbeats 400000 in
 theorem BlockPtr.opChain_detachOp_self
     (hWf : BlockPtr.OpChain block ctx array) :
-    (op.get! ctx).parent = some block →
+    op.getParent! ctx = some block →
     BlockPtr.OpChain block (Rewriter.detachOp ctx op hctx hIn hasParent) (array.erase op) := by
   intro hParent
   have opInArray : op ∈ array := by grind [OpChain]
@@ -86,7 +86,7 @@ theorem BlockPtr.opChain_detachOp_self
     simp only [BlockPtr.OpChain.erase_getElem_array_eq_eraseIdx hWf]
     by_cases i' < i
     · simp (disch := grind) only [Array.getElem_eraseIdx_of_lt]
-      simp only [OperationPtr.prev!_detachOp]
+      simp only [OperationPtr.getPrevOp!_detachOp]
       grind (instances := 2000) [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
     · by_cases i' = i
       · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
@@ -97,7 +97,7 @@ theorem BlockPtr.opChain_detachOp_self
     simp only [BlockPtr.OpChain.erase_getElem_array_eq_eraseIdx hWf]
     by_cases i' > i
     · simp (disch := grind) only [Array.getElem_eraseIdx_of_ge, Array.getElem?_eraseIdx_of_ge]
-      simp only [OperationPtr.next!_detachOp]
+      simp only [OperationPtr.getNextOp!_detachOp]
       grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
     · by_cases i' = i
       · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
@@ -122,7 +122,7 @@ theorem RegionPtr.blockChain_detachOp
 theorem Rewriter.detachOp_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
     (hIn : op.InBounds ctx)
-    (hasParent : (op.get ctx hIn).parent.isSome) :
+    (hasParent : (op.getParent ctx hIn).isSome) :
     (Rewriter.detachOp ctx op hctx hIn hasParent).WellFormed := by
   have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := wf
   constructor
@@ -161,7 +161,7 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellForm
       intro region regionInBounds
       apply OperationPtr.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind
     case opChain_of_parent_none =>
-      cases hParent: (op.get! ctx).parent
+      cases hParent: op.getParent! ctx
         <;> grind [BlockPtr.OpChain_next_ne, BlockPtr.OpChain_prev_ne]
     all_goals grind
   case blocks =>
@@ -178,7 +178,7 @@ section detachOpIfAttached
 theorem BlockPtr.opChain_detachOpIfAttached_other
     (hWf : BlockPtr.OpChain block ctx array)
     (hWf' : BlockPtr.OpChain block' ctx array') :
-    (op.get! ctx).parent = some block' →
+    op.getParent! ctx = some block' →
     block ≠ block' →
     BlockPtr.OpChain block (Rewriter.detachOpIfAttached ctx op hctx hIn) array := by
   simp only [Rewriter.detachOpIfAttached]
@@ -186,14 +186,14 @@ theorem BlockPtr.opChain_detachOpIfAttached_other
 
 theorem BlockPtr.opChain_detachOpIfAttached_self
     (hWf : BlockPtr.OpChain block ctx array) :
-    (op.get! ctx).parent = some block →
+    op.getParent! ctx = some block →
     BlockPtr.OpChain block (Rewriter.detachOpIfAttached ctx op hctx hIn) (array.erase op) := by
   simp only [Rewriter.detachOpIfAttached]
   grind [BlockPtr.opChain_detachOp_self]
 
 theorem BlockPtr.opChain_detachOpIfAttached_none
     (hWf : BlockPtr.OpChain block ctx array) :
-    (op.get! ctx).parent = none →
+    op.getParent! ctx = none →
     BlockPtr.OpChain block (Rewriter.detachOpIfAttached ctx op hctx hIn) array := by
   simp only [Rewriter.detachOpIfAttached]
   grind
@@ -226,12 +226,12 @@ theorem Rewriter.detachOpIfAttached_WellFormed (ctx : IRContext OpInfo) (wf : ct
 theorem BlockPtr.operationList_rewriter_detachOpIfAttached (ctxWf : ctx.WellFormed) :
     BlockPtr.operationList block (Rewriter.detachOpIfAttached ctx op hctx hIn)
       (by grind [Rewriter.detachOpIfAttached_WellFormed]) (by grind) =
-    if (op.get! ctx).parent = block then
+    if op.getParent! ctx = block then
       (BlockPtr.operationList block ctx ctxWf blockIn).erase op
     else
       BlockPtr.operationList block ctx ctxWf blockIn := by
   have ⟨array, hArray⟩ := ctxWf.opChain block (by grind)
-  cases hparent : (op.get! ctx).parent with
+  cases hparent : op.getParent! ctx with
   | none =>
     simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp
         (BlockPtr.opChain_detachOpIfAttached_none hArray hparent),
@@ -540,12 +540,12 @@ theorem OpResultPtr.firstUse!_OpOperandPtr_removeFromCurrent_eq_none_of_firstUse
     (hctx : ctx.WellFormed missingUses missingSuccessors) :
     operand ∉ missingUses →
     result.InBounds ctx →
-    (OpResultPtr.get! result ctx).firstUse = none →
-    (OpResultPtr.get! result (OpOperandPtr.removeFromCurrent ctx operand operandIn ctxIn)).firstUse = none := by
+    OpResultPtr.getFirstUse! result ctx = none →
+    OpResultPtr.getFirstUse! result (OpOperandPtr.removeFromCurrent ctx operand operandIn ctxIn) = none := by
   intro hmissing resultIn h
   have ⟨useArray, hUseArray⟩ := hctx.valueDefUseChains result (by grind)
-  have ⟨useArray', hUseArray'⟩ := hctx.valueDefUseChains (operand.get! ctx).value (by grind)
-  have hne : result ≠ (operand.get! ctx).value := by grind [ValuePtr.DefUse]
+  have ⟨useArray', hUseArray'⟩ := hctx.valueDefUseChains (operand.getValue! ctx) (by grind)
+  have hne : result ≠ operand.getValue! ctx := by grind [ValuePtr.DefUse]
   have : useArray = #[] := by grind [ValuePtr.DefUse.getFirstUse!_none_iff hUseArray]
   have operandInArray : operand ∈ useArray' := by grind [ValuePtr.DefUse]
   have := ValuePtr.defUse_removeFromCurrent_other hne hUseArray hUseArray' (hvalue := operandInArray) (ctxInBounds := by grind)
@@ -555,8 +555,8 @@ theorem OpResultPtr.firstUse!_detachOperands_loop_eq_none_of_firstUse!_eq_none
     (hctx : ctx.WellFormed missingUses missingSuccessors)
     (hMissingUses : ∀ i, i <= idx → (OpOperandPtr.mk operation i) ∉ missingUses)
     (resIn : result.InBounds ctx) :
-    (OpResultPtr.get! result ctx).firstUse = none →
-    (OpResultPtr.get! result (Rewriter.detachOperands.loop ctx operation idx hctxin hop hidx)).firstUse = none := by
+    OpResultPtr.getFirstUse! result ctx = none →
+    OpResultPtr.getFirstUse! result (Rewriter.detachOperands.loop ctx operation idx hctxin hop hidx) = none := by
   intro h
   induction idx generalizing ctx missingUses
   case zero =>
@@ -574,8 +574,8 @@ theorem OpResultPtr.firstUse!_detachOperands_eq_none_of_firstUse!_eq_none
     (hctx : ctx.WellFormed missingUses missingSuccessors)
     (hMissingUses : ∀ i, (OpOperandPtr.mk operation i) ∉ missingUses)
     (resIn : result.InBounds ctx) :
-    (OpResultPtr.get! result ctx).firstUse = none →
-    (OpResultPtr.get! result (Rewriter.detachOperands ctx operation hctxin hop)).firstUse = none := by
+    OpResultPtr.getFirstUse! result ctx = none →
+    OpResultPtr.getFirstUse! result (Rewriter.detachOperands ctx operation hctxin hop) = none := by
   intro h
   simp only [Rewriter.detachOperands]
   split; grind
@@ -618,7 +618,7 @@ theorem Rewriter.eraseOp_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellForme
 theorem BlockPtr.operationList_rewriter_eraseOp
     (ctxWf : ctx.WellFormed) :
     BlockPtr.operationList block (Rewriter.eraseOp ctx op hctx hop) hctx' hblock =
-    if (op.get! ctx).parent = block then
+    if op.getParent! ctx = block then
       (BlockPtr.operationList block ctx ctxWf).erase op
     else
       BlockPtr.operationList block ctx ctxWf := by
@@ -768,10 +768,10 @@ theorem BlockPtr.operationList_rewriter_createOp
     rw [BlockPtr.operationList_rewriter_insertOp hctx₄ (by grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed])]
     cases ip
     case before op =>
-      simp only [InsertPoint.block!_before_eq, OperationPtr.parent!_initBlockOperands,
-        OperationPtr.parent!_initOpOperands, InsertPoint.idxIn_before_eq]
-      simp only [OperationPtr.parent!_initOpRegions hctx₃, OperationPtr.parent!_initOpResults,
-        OperationPtr.parent!_createEmptyOp hctx₂, show op ≠ newOp by grind, ↓reduceIte]
+      simp only [InsertPoint.block!_before_eq, OperationPtr.getParent!_initBlockOperands,
+        OperationPtr.getParent!_initOpOperands, InsertPoint.idxIn_before_eq]
+      simp only [OperationPtr.getParent!_initOpRegions hctx₃, OperationPtr.getParent!_initOpResults,
+        OperationPtr.getParent!_createEmptyOp hctx₂, show op ≠ newOp by grind, ↓reduceIte]
       split <;>
         grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed,
           Rewriter.insertOp_WellFormed, IRContext.wellFormed_rewriter_initOpResults]

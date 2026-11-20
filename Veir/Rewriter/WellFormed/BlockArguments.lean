@@ -135,7 +135,7 @@ theorem IRContext.fieldsInBounds_Rewriter_setBlockArguments (ctxWf : ctx.WellFor
         grind (gen := 20) [BlockArgumentPtr.inBounds_def, ValuePtr.hasUses!_def, Option.maybe_def,
           BlockArgumentPtr.block_of_mem_getArguments!]
     all_goals try grind [Option.maybe_def]
-  · intros; constructor <;> grind [BlockArgument.FieldsInBounds, Option.maybe_def]
+  · intros; constructor <;> grind [BlockArgumentPtr.FieldsInBounds, Option.maybe_def]
   · intros; constructor <;> grind [Option.maybe_def]
 
 theorem BlockPtr.opChain_Rewriter_setBlockArguments

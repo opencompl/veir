@@ -1,21 +1,21 @@
 ; End-to-end: LLVM IR using the intrinsics the Veir LLVM dialect supports,
-; lowered all the way to RISC-V via isel-riscv64.
+; lowered all the way to RISC-V via the riscv pipeline.
 ;
 ;   smax/smin/umax/umin  -> max/min/maxu/minu   (Zbb)
 ;   fshl/fshr (rotate form, identical data ops) -> rol/ror   (Zbb)
 ;   fshl/fshr (rotate form, constant amount)    -> rori      (Zbb)
 ;   ctlz/cttz/ctpop      -> clz/ctz/cpop         (Zbb)
 ;   bswap                -> rev8                  (Zbb)
-;   bitreverse           -> SWAR stages + rev8    (Zbb)
-;   sadd/ssub/sshl.sat   -> overflow test + czero select (Zicond)
-;   uadd/usub/ushl.sat   -> Zbb/minmax and bit-test idioms
-;   abs                  -> neg + max                (Zbb)
+;   bitreverse           -> brev8 + rev8          (Zbkb)
+;   sadd/ssub/uadd/usub.sat -> clamping with min/max (Zbb), via gMIR
+;   sshl/ushl.sat        -> shift back and compare + czero select (Zicond), via gMIR
+;   abs                  -> sub from x0 + max        (Zbb)
 ;
 ; Import the IR to the MLIR LLVM dialect with mlir-translate, lower to generic
 ; form with mlir-opt, then run the RISC-V instruction selector with veir-opt.
 
 ; REQUIRES: mlir-translate, mlir-opt
-; RUN: mlir-translate --import-llvm %s | mlir-opt --mlir-print-op-generic --mlir-print-local-scope | veir-opt -p=isel-riscv64 | filecheck %s
+; RUN: mlir-translate --import-llvm %s | mlir-opt --mlir-print-op-generic --mlir-print-local-scope | veir-opt -p=riscv | filecheck %s
 
 declare i64 @llvm.fshl.i64(i64, i64, i64)
 declare i64 @llvm.fshr.i64(i64, i64, i64)
@@ -93,26 +93,26 @@ define i64 @test_umin(i64 %a, i64 %b) {
 }
 
 ; CHECK-LABEL: "sym_name" = "test_sadd_sat"
+; CHECK: "riscv.max"(
+; CHECK: "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.min"(
+; CHECK: "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.max"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.min"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.srli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.slt"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.slli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_sadd_sat(i64 %a, i64 %b) {
   %r = call i64 @llvm.sadd.sat.i64(i64 %a, i64 %b)
   ret i64 %r
 }
 
 ; CHECK-LABEL: "sym_name" = "test_ssub_sat"
+; CHECK: "riscv.max"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.min"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.max"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.min"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.slt"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.srli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.slli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_ssub_sat(i64 %a, i64 %b) {
   %r = call i64 @llvm.ssub.sat.i64(i64 %a, i64 %b)
   ret i64 %r
@@ -128,7 +128,7 @@ define i64 @test_uadd_sat(i64 %a, i64 %b) {
 }
 
 ; CHECK-LABEL: "sym_name" = "test_usub_sat"
-; CHECK: "riscv.maxu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.minu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_usub_sat(i64 %a, i64 %b) {
   %r = call i64 @llvm.usub.sat.i64(i64 %a, i64 %b)
@@ -138,10 +138,15 @@ define i64 @test_usub_sat(i64 %a, i64 %b) {
 ; CHECK-LABEL: "sym_name" = "test_sshl_sat"
 ; CHECK: "riscv.sll"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.sra"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.srli"(%{{.*}}) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.slti"(
 ; CHECK: "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.xor"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.sltu"(
+; CHECK: "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_sshl_sat(i64 %a, i64 %b) {
   %r = call i64 @llvm.sshl.sat.i64(i64 %a, i64 %b)
   ret i64 %r
@@ -150,9 +155,11 @@ define i64 @test_sshl_sat(i64 %a, i64 %b) {
 ; CHECK-LABEL: "sym_name" = "test_ushl_sat"
 ; CHECK: "riscv.sll"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.srl"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
 ; CHECK: "riscv.xor"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.sltiu"(%{{.*}}) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.addi"(%{{.*}}) <{"value" = -1 : i64}> : (!riscv.reg) -> !riscv.reg
+; CHECK: "riscv.sltu"(
+; CHECK: "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_ushl_sat(i64 %a, i64 %b) {
   %r = call i64 @llvm.ushl.sat.i64(i64 %a, i64 %b)
@@ -160,7 +167,7 @@ define i64 @test_ushl_sat(i64 %a, i64 %b) {
 }
 
 ; CHECK-LABEL: "sym_name" = "test_abs"
-; CHECK: "riscv.neg"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+; CHECK: "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg<x0>, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.max"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_abs(i64 %a) {
   %r = call i64 @llvm.abs.i64(i64 %a, i1 false)
@@ -196,10 +203,7 @@ define i64 @test_bswap(i64 %a) {
 }
 
 ; CHECK-LABEL: "sym_name" = "test_bitreverse"
-; CHECK: "riscv.and"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.slli"(%{{.*}}) <{{.*}}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.srli"(%{{.*}}) <{{.*}}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.brev8"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.rev8"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
 define i64 @test_bitreverse(i64 %a) {
   %r = call i64 @llvm.bitreverse.i64(i64 %a)

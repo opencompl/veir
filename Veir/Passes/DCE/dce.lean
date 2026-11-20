@@ -17,11 +17,11 @@ public def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 def DCEPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[eliminateDeadOp]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying DCE"
   | some ctx => pure ctx
 
 public def DCEPass : Pass OpCode :=
   { name := "dce"
-    description := "Eliminate dead code by removing operations whose results are unused."
+    description := "Eliminate trivially dead operations: no regions, no used results, no memory writes, and not a block terminator."
     run := fun _ => DCEPass.impl }

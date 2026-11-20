@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // Zbs single-bit immediate selection. `or`/`xor`/`and` against a constant whose
 // (complemented, for bclri) value is a single set bit selects to bseti/binvi/bclri,
@@ -45,7 +45,7 @@
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 
-    // Single-bit mask that DOES fit imm12: handled by ori, not bseti.
+    // Single-bit mask that DOES fit imm12: not bseti (left for isel-riscv64's ori).
     "func.func"() <{function_type = (i64) -> i64, sym_name = "f4"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 1024 : i64}> : () -> i64

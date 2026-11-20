@@ -5,6 +5,7 @@ import all Veir.Interpreter.VariableState
 import all Veir.Interpreter.Basic
 public import Veir.Interpreter.Refinement.Basic
 public import Veir.Interpreter.Refinement.Lemmas
+import Veir.Dominance.Lemmas
 
 
 namespace Veir
@@ -260,13 +261,15 @@ theorem VariableState.setArgumentValues?_loop_isSome_iff {block : BlockPtr}
       · grind
       · grind [ih varState']
 
-/-- `setArgumentValues?` succeeds iff every argument value conforms to its argument type. -/
+/-- Given one value per argument, `setArgumentValues?` succeeds iff every argument value conforms
+to its argument type. -/
 theorem VariableState.setArgumentValues?_isSome_iff_conforms (varState : VariableState ctx)
-    {block : BlockPtr} {values : Array RuntimeValue} {blockInBounds} :
+    {block : BlockPtr} {values : Array RuntimeValue} {blockInBounds}
+    (hsize : values.size = block.getNumArguments! ctx.raw) :
     (∀ j, j < block.getNumArguments! ctx.raw →
       (values[j]!).Conforms ((block.getArgument j : ValuePtr).getType! ctx.raw)) ↔
     (∃ v, varState.setArgumentValues? block values blockInBounds = some v) := by
-  simp only [VariableState.setArgumentValues?]
+  simp only [VariableState.setArgumentValues?, hsize, ↓reduceIte]
   exact VariableState.setArgumentValues?_loop_isSome_iff
 
 /--
@@ -378,8 +381,10 @@ theorem VariableState.setArgumentValues?_eq_some_of_varState
     varState.setArgumentValues? block values blockInBounds = some varState' →
     ∃ varState₂', varState₂.setArgumentValues? block values blockInBounds = some varState₂' := by
   intro h
-  simp only [← VariableState.setArgumentValues?_isSome_iff_conforms]
-  grind [(VariableState.setArgumentValues?_isSome_iff_conforms varState).mpr ⟨_, h⟩]
+  have hsize : values.size = block.getNumArguments! ctx.raw := by
+    grind [VariableState.setArgumentValues?]
+  simp only [← VariableState.setArgumentValues?_isSome_iff_conforms _ hsize]
+  grind [(VariableState.setArgumentValues?_isSome_iff_conforms varState hsize).mpr ⟨_, h⟩]
 
 /-- Setting block arguments and operation results commute: block arguments and operation results
 are distinct `ValuePtr`s, so they never alias. -/
@@ -414,14 +419,19 @@ theorem VariableState.setResultValues?_setArgumentValues?_comm :
   grind [getVar?_setResultValues?, getVar?_setArgumentValues?]
 
 theorem VariableState.getVar?_setResultValues?_operand_of_dominates
-    (ctxDom : ctx.Dom) (hdom : op'.Dominates op ctx) :
+    (ctxDom : ctx.Dom root) (op'Rooted : op'.RootedAt root ctx) (hdom : op'.Dominates op ctx false)
+    (opRegion : op.getParentRegion! ctx.raw = some region)
+    (opRegionSSA : region.hasSSADominance ctx)
+    (opReachable : op.HierarchicallyReachable ctx) :
     value ∈ op'.getOperands! ctx.raw →
     varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getVar? value =
     varState.getVar? value := by
   intro valueInOperands h
   simp only [VariableState.getVar?_setResultValues? h]
-  have := IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom hdom value valueInOperands
+  have : value ∉ op.getResults! ctx.raw := by
+    obtain ⟨region', op'Region⟩ := hdom.exists_parentRegion opRegion
+    grind [WfIRContext.Dom.not_mem_results_of_mem_operands]
   cases value
   case blockArgument blockArg => grind
   case opResult opRes =>
@@ -432,7 +442,10 @@ theorem VariableState.getVar?_setResultValues?_operand_of_dominates
 
 @[grind =>]
 theorem VariableState.getOperandValues_setResultValues?_of_dominates
-    (ctxDom : ctx.Dom) (hdom : op'.Dominates op ctx) :
+    (ctxDom : ctx.Dom root) (op'Rooted : op'.RootedAt root ctx) (hdom : op'.Dominates op ctx false)
+    (opRegion : op.getParentRegion! ctx.raw = some region)
+    (opRegionSSA : region.hasSSADominance ctx)
+    (opReachable : op.HierarchicallyReachable ctx) :
     varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getOperandValues op' = varState.getOperandValues op' := by
   intro h
@@ -441,10 +454,17 @@ theorem VariableState.getOperandValues_setResultValues?_of_dominates
 
 @[grind =>]
 theorem VariableState.getOperandValues_setResultValues?_self
-    (ctxDom : ctx.Dom) :
+    (ctxDom : ctx.Dom root) (opRooted : op.RootedAt root ctx)
+    (opRegion : op.getParentRegion! ctx.raw = some region)
+    (opReachable : op.LocallyReachable region ctx)
+    (opRegionSSA : region.hasSSADominance ctx) :
     (varState.setResultValues? op resValues inBounds) = varState' →
     varState'.getOperandValues op = varState.getOperandValues op := by
-  exact getOperandValues_setResultValues?_of_dominates ctxDom OperationPtr.dominates_refl
+  intro h
+  have hNotDom := OperationPtr.not_properlyDominates_self opRooted opRegion opRegionSSA
+  apply VariableState.getOperandValues_eq_of_getVar?_eq
+  grind [WfIRContext.Dom.not_mem_results_of_mem_operands,
+    VariableState.getVar?_setResultValues?_of_notMem_getResults!]
 
 @[grind =>]
 theorem VariableState.setResultValues?_setResultValues?_self :
@@ -583,7 +603,7 @@ theorem interpretTerminatedOpList_append :
   grind
 
 theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
-    (hnext : (op.get! ctx.raw).next = some op') :
+    (hnext : op.getNextOp! ctx.raw = some op') :
     interpretOpChain op state' inBounds =
     match interpretOp op state' (by grind) with
     | .fail o => .fail o
@@ -595,7 +615,7 @@ theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
   grind
 
 theorem interpretOpChain_of_next!_eq_none {state' : InterpreterState ctx}
-    (hnext : (op.get! ctx.raw).next = none) :
+    (hnext : op.getNextOp! ctx.raw = none) :
     interpretOpChain op state' inBounds =
     match interpretOp op state' (by grind) with
     | .fail o => .fail o
@@ -626,7 +646,7 @@ theorem interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain
 
 theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
     {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw) :
-    (block.get! ctx.raw).firstOp = some op →
+    block.getFirstOp! ctx.raw = some op →
     interpretOpChain op state opInBounds =
     interpretTerminatedOpList (block.operationList ctx.raw).toList state
       (by grind [BlockPtr.operationListWF, BlockPtr.OpChain]) := by
@@ -647,30 +667,31 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
   (op.interpret ctx.raw operands mem).isFail = false
 
 /--
-Monotonicity of `interpretOp'` in its operands, as a class so that a dialect can discharge it for
-its own opcodes without this file knowing about the dialect.
+Monotonicity of `interpretOp'` in its operands and its memory: refined operands and refined
+memory give a refined result. A class, so that a dialect can discharge it for its own opcodes
+without this file knowing about the dialect.
 -/
 class InterpretOp'Monotone (opType : OpCode) : Prop where
   monotone (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    (mem : MemoryState) :
-    operands ⊒ operands' →
+    (mem mem' : MemoryState) :
+    operands ⊒ operands' → mem ⊒ mem' →
     Interp.isRefinedBy OperationResult.isRefinedBy
       (interpretOp' opType properties resultTypes operands blockOperands mem)
-      (interpretOp' opType properties resultTypes operands' blockOperands mem)
+      (interpretOp' opType properties resultTypes operands' blockOperands mem')
 
-/-- Assumed for an opcode whose dialect has no proof yet. -/
+/-- Assumed for an opcode that has no proof yet. -/
 axiom interpretOp'_monotone_assumed (opType : OpCode) : InterpretOp'Monotone opType
 
 theorem interpretOp'_monotone
     (opType : OpCode) [inst : InterpretOp'Monotone opType] (properties : propertiesOf opType)
-    (resultTypes : Array TypeAttr)
-    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
-    operands ⊒ operands' →
+    (resultTypes : Array TypeAttr) (operands operands' : Array RuntimeValue)
+    (blockOperands : Array BlockPtr) (mem mem' : MemoryState) :
+    operands ⊒ operands' → mem ⊒ mem' →
     Interp.isRefinedBy OperationResult.isRefinedBy
       (interpretOp' opType properties resultTypes operands blockOperands mem)
-      (interpretOp' opType properties resultTypes operands' blockOperands mem) :=
-  inst.monotone properties resultTypes operands operands' blockOperands mem
+      (interpretOp' opType properties resultTypes operands' blockOperands mem') :=
+  inst.monotone properties resultTypes operands operands' blockOperands mem mem'
 
 /--
 A successful operation interpretation returns result values that conform to the declared

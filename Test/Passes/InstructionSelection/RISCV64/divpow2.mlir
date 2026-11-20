@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 "builtin.module"() ({
     // llvm.udiv x, 8 -> riscv.srli x, 3
@@ -33,22 +33,21 @@
     // Regression: 0xC000000000000000 (decimal -4611686018427387904) has *two* bits
     // set, so it is not a power of two -- even though its magnitude as a signed
     // `Int` (2^62) would incorrectly look like one under a naive sign/magnitude
-    // check that didn't first reduce it mod 2^64. Must stay unselected.
+    // check that didn't first reduce it mod 2^64. Must stay a division.
     "func.func"() <{function_type = (i64) -> i64, sym_name = "f3"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = -4611686018427387904 : i64}> : () -> i64
         %r = "llvm.udiv"(%a, %c) : (i64, i64) -> i64
-        // CHECK: %{{.*}} = "llvm.udiv"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
+        // CHECK: %{{.*}} = "riscv.divu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 
-    // Not a power of two: left unselected here (the generic isel-riscv64 pass
-    // picks it up as a plain `riscv.divu`).
+    // Not a power of two: a plain `riscv.divu`.
     "func.func"() <{function_type = (i64) -> i64, sym_name = "f4"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 6 : i64}> : () -> i64
         %r = "llvm.udiv"(%a, %c) : (i64, i64) -> i64
-        // CHECK: %{{.*}} = "llvm.udiv"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
+        // CHECK: %{{.*}} = "riscv.divu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 
@@ -62,14 +61,14 @@
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 
-    // llvm.sdiv exact x, -8 -> riscv.srai x, 3, then negate via `sub 0, _`.
+    // llvm.sdiv exact x, -8 -> riscv.srai x, 3, then negate via `sub x0, _`.
     "func.func"() <{function_type = (i64) -> i64, sym_name = "f6"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = -8 : i64}> : () -> i64
         %r = "llvm.sdiv"(%a, %c) <{isExact}> : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %[[ZERO:.*]] = "rv64.get_register"() : () -> !riscv.reg<x0>
+        // CHECK-NEXT: %{{.*}} = "riscv.sub"(%[[ZERO]], %{{.*}}) : (!riscv.reg<x0>, !riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 
@@ -89,7 +88,7 @@
         %r = "llvm.sdiv"(%a, %c) : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.srli"(%{{.*}}) <{"value" = 61 : i64}> : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK:      %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
@@ -101,10 +100,10 @@
         %r = "llvm.sdiv"(%a, %c) : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.srli"(%{{.*}}) <{"value" = 61 : i64}> : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK:      %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %[[ZERO:.*]] = "rv64.get_register"() : () -> !riscv.reg<x0>
+        // CHECK-NEXT: %{{.*}} = "riscv.sub"(%[[ZERO]], %{{.*}}) : (!riscv.reg<x0>, !riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 
@@ -115,7 +114,7 @@
         %r = "llvm.sdiv"(%a, %c) : (i32, i32) -> i32
         // CHECK:      %{{.*}} = "riscv.sraiw"(%{{.*}}) <{"value" = 31 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.srliw"(%{{.*}}) <{"value" = 29 : i64}> : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.addw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK:      %{{.*}} = "riscv.addw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.sraiw"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i32) -> ()
     }) : () -> ()

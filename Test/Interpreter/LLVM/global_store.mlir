@@ -1,9 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: CTREE
 // RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
 
 // A store through the address of a global is seen by a later load.
 
-// ALIVE_EXEC: crashes on a writable global.
+// alive-exec crashes on a writable global.
 
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, global_type = i32, linkage = #llvm.linkage<external>, sym_name = "g", value = 41 : i32}> ({
@@ -18,3 +20,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x00000001#32]
+// ALIVE_EXEC: Crashed

@@ -3,6 +3,7 @@ module
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 import Veir.IR.SymbolRef
+import Std.Data.TreeMap.Raw.Basic
 
 
 open Veir
@@ -17,14 +18,25 @@ public section
   output of the `isel-*` pipeline) and emits textual MIR with virtual
   registers, suitable for `llc -run-pass=none` / `-start-before=...`.
 
+  The target is riscv64 Linux with the lp64d ABI on rv64g (no C), plus the extensions
+  used by instruction selection. Keep it in sync with `Tools/riscv_target.py`.
+
+  Anything that is not fully lowered is rejected with an error rather than
+  printed (see `checkFunction`): every function body must consist of `riscv`,
+  `riscv_cf`, `rv64` and `riscv_stack` operations on `!riscv.reg` values, inside
+  an `llvm.func` or `riscv_cf.func`. Global initializer regions are exempt; they
+  are LLVM operations by design. An operation the printer cannot translate is
+  likewise an error.
+
   Four structural translations happen here:
-  * VeIR block arguments become MIR `PHI`s at join blocks (or a `COPY` when a
-    block has a single predecessor).
-  * `builtin.unrealized_conversion_cast` (reg ↔ i64/i1) becomes a `COPY`.
+  * VeIR block arguments become MIR `PHI`s, including for blocks with a single
+    predecessor.
   * `riscv_stack.alloca` becomes a `stack` object, leaving the frame layout,
     prologue, epilogue and CFI to `llc` (see `Frame`).
   * `riscv_cf.call` expands to LLVM's call sequence, passing arguments and
     results in the standard calling convention's registers (see `emitCall`).
+  * `llvm.mlir.global` becomes a global in the stub IR module, where the MIR
+    parser resolves the `PseudoLLA @sym` of each `riscv.la` (see `printGlobal`).
 -/
 
 namespace Veir.MIRPrinter
@@ -36,12 +48,11 @@ private def isBareName (name : String) : Bool :=
   !name.isEmpty && isInitial name.front &&
     name.all (fun c => isInitial c || c.isDigit || c == '.' || c == '$' || c == '-')
 
-/-- An LLVM global identifier, also usable as a MIR global operand. LLVM uses
-    byte escapes (`\HH`), including for quotes, backslashes and UTF-8 bytes. -/
-private def llvmSymbol (name : String) : String := Id.run do
-  if isBareName name then return "@" ++ name
-  let mut result := "@\""
-  for byte in name.toUTF8 do
+/-- A double-quoted LLVM string. LLVM uses byte escapes (`\HH`), including for
+    quotes, backslashes and UTF-8 bytes. -/
+private def llvmQuoted (bytes : ByteArray) : String := Id.run do
+  let mut result := "\""
+  for byte in bytes do
     if byte >= 0x20 && byte < 0x7F && byte != 0x22 && byte != 0x5C then
       result := result.push (Char.ofNat byte.toNat)
     else
@@ -49,6 +60,10 @@ private def llvmSymbol (name : String) : String := Id.run do
       result := result.push (byte >>> 4).toHexDigit
       result := result.push (byte &&& 0x0F).toHexDigit
   return result.push '"'
+
+/-- An LLVM global identifier, also usable as a MIR global operand. -/
+private def llvmSymbol (name : String) : String :=
+  if isBareName name then "@" ++ name else "@" ++ llvmQuoted name.toUTF8
 
 /-- A YAML scalar for the MIR function name. YAML's escapes differ from LLVM's;
     quote punctuation and escape controls so the name stays on one line. -/
@@ -75,7 +90,7 @@ private def symbolName (ref : FlatSymbolRefAttr) : String :=
 /-- The physical-register MIR name (e.g. `$x0`) named by a register type
     carrying an index, if any. -/
 def physRegName? : Attribute → Option String
-  | .registerType { index := some n } => some s!"$x{n}"
+  | .registerType { index := some n } => if n >= 0 then some s!"$x{n}" else none
   | _ => none
 
 /-- Virtual-register name for an op's `i`-th result: `%v<opId>`, with a
@@ -88,11 +103,9 @@ def resultVreg (opId i : Nat) : String :=
 def vreg (ctx : IRContext OpCode) (v : ValuePtr) : String :=
   match v with
   | .opResult rp =>
-    let r := rp.get! ctx
-    resultVreg r.owner.id r.index
+    resultVreg (rp.getOwner! ctx).id (rp.getIndex! ctx)
   | .blockArgument bp =>
-    let a := bp.get! ctx
-    s!"%arg{a.owner.id}_{a.index}"
+    s!"%arg{(bp.getOwner! ctx).id}_{bp.getIndex! ctx}"
 
 /-- The integer `value` property of an op (immediate operations), if present. -/
 def immValue? (ctx : IRContext OpCode) (op : OperationPtr) : Option Int :=
@@ -135,7 +148,7 @@ def getOperands (ctx : IRContext OpCode) (op : OperationPtr) : Array ValuePtr :=
 
 /-- The terminator (last op) of a block, given its first op. -/
 partial def lastOp (ctx : IRContext OpCode) (op : OperationPtr) : OperationPtr :=
-  match (op.get! ctx).next with
+  match op.getNextOp! ctx with
   | some n => lastOp ctx n
   | none => op
 
@@ -144,14 +157,14 @@ partial def collectBlocks (ctx : IRContext OpCode) (b : Option BlockPtr)
     (acc : Array BlockPtr := #[]) : Array BlockPtr :=
   match b with
   | none => acc
-  | some bp => collectBlocks ctx (bp.get! ctx).next (acc.push bp)
+  | some bp => collectBlocks ctx (bp.getNextBlock! ctx) (acc.push bp)
 
 /-- Operations of a block, in order. -/
 partial def collectOps (ctx : IRContext OpCode) (op : Option OperationPtr)
     (acc : Array OperationPtr := #[]) : Array OperationPtr :=
   match op with
   | none => acc
-  | some o => collectOps ctx (o.get! ctx).next (acc.push o)
+  | some o => collectOps ctx (o.getNextOp! ctx) (acc.push o)
 
 /-- The `(size, alignment)` in bytes of a `riscv_stack.alloca`, if `op` is one. -/
 def allocaShape? (ctx : IRContext OpCode) (op : OperationPtr) : Option (Int × Int) :=
@@ -199,7 +212,7 @@ def planFrame (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Frame := Id.r
   let mut objects : Array (Int × Int) := #[]
   let mut escaped : List Nat := []
   for b in blocks do
-    for op in collectOps ctx (b.get! ctx).firstOp do
+    for op in collectOps ctx (b.getFirstOp! ctx) do
       match allocaShape? ctx op with
       | some shape =>
         fi := fi.insert op.id objects.size
@@ -209,7 +222,7 @@ def planFrame (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Frame := Id.r
       for i in 0...(op.getNumOperands! ctx) do
         match op.getOperand! ctx i with
         | .opResult rp =>
-          let owner := (rp.get! ctx).owner
+          let owner := rp.getOwner! ctx
           if !isFrameBaseOperand opType i && (allocaShape? ctx owner).isSome then
             escaped := owner.id :: escaped
         | _ => pure ()
@@ -224,7 +237,7 @@ def planFrame (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Frame := Id.r
 def operandOf (ctx : IRContext OpCode) (fr : Frame) (v : ValuePtr) : String :=
   match v with
   | .opResult rp =>
-    let owner := (rp.get! ctx).owner
+    let owner := rp.getOwner! ctx
     if fr.folded.contains owner.id then s!"%stack.{fr.fi[owner.id]!}" else vreg ctx v
   | _ => vreg ctx v
 
@@ -236,7 +249,7 @@ def bbOf (blocks : Array BlockPtr) (id : Nat) : Nat := Id.run do
 
 /-- Successor block ids of a block (via its terminator). -/
 def succIds (ctx : IRContext OpCode) (b : BlockPtr) : List Nat :=
-  match (b.get! ctx).firstOp with
+  match b.getFirstOp! ctx with
   | none => []
   | some f =>
     let term := lastOp ctx f
@@ -287,7 +300,7 @@ def regImmMnem : Riscv → Option String
 def unaryMnem : Riscv → Option String
   | .clz => "CLZ"   | .ctz => "CTZ"   | .cpop => "CPOP"
   | .clzw => "CLZW" | .ctzw => "CTZW" | .cpopw => "CPOPW"
-  | .orcb => "ORC_B" | .rev8 => "REV8_RV64"
+  | .orcb => "ORC_B" | .rev8 => "REV8_RV64" | .brev8 => "BREV8"
   | .sextb => "SEXT_B" | .sexth => "SEXT_H" | .zexth => "ZEXT_H_RV64"
   | _ => none
 
@@ -296,11 +309,14 @@ def succArgs (ctx : IRContext OpCode) (term : OperationPtr) : Array (Array Value
   let nsucc := term.getNumSuccessors! ctx
   let ops := getOperands ctx term
   let segs := segments? ctx term
-  -- first segment (if any) is the comparison operands, not block args
-  let mut off := match segs with | some s => (s[0]!).toNat | none => 0
+  -- leading segments (one per comparison operand) are not block args
+  let ncmp := match segs with | some s => s.size - nsucc | none => 0
+  let mut off := match segs with
+    | some s => (s.extract 0 ncmp).foldl (fun acc n => acc + n.toNat) 0
+    | none => 0
   let mut res := #[]
   for k in 0...nsucc do
-    let nk := match segs with | some s => (s[k+1]!).toNat | none => ops.size
+    let nk := match segs with | some s => (s[ncmp + k]!).toNat | none => ops.size
     res := res.push (ops.extract off (off + nk))
     off := off + nk
   return res
@@ -313,7 +329,8 @@ def succArgs (ctx : IRContext OpCode) (term : OperationPtr) : Array (Array Value
     block listing S twice or a PHI taking two values from the same predecessor, so
     we split the edge: route the two sides through fresh single-jump trampoline
     blocks t0/t1, each forwarding to S, so S's PHI gets one entry per trampoline.
-    Equal-argument degenerate branches need no split (collapsed to one edge). -/
+    Equal-argument degenerate branches need no split: both branch instructions
+    target S, with one successor-list entry and one PHI input per predecessor. -/
 structure EdgePlan where
   /-- preds[i] = predecessors of block i as (predBlockIndex, argValues). -/
   preds : Array (Array (Nat × Array ValuePtr))
@@ -332,7 +349,7 @@ def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := I
   let mut trampEdges : Array (Nat × Nat × Array ValuePtr) := #[]
   let mut nextIdx := n
   for bi in 0...n do
-    match (blocks[bi]!).get! ctx |>.firstOp with
+    match blocks[bi]!.getFirstOp! ctx with
     | none => pure ()
     | some f =>
       let term := lastOp ctx f
@@ -353,7 +370,7 @@ def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := I
   for _ in 0...total do
     preds := preds.push #[]
   for bi in 0...n do
-    match (blocks[bi]!).get! ctx |>.firstOp with
+    match blocks[bi]!.getFirstOp! ctx with
     | none => pure ()
     | some f =>
       match split[bi]! with
@@ -361,7 +378,7 @@ def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := I
       | none =>
         let term := lastOp ctx f
         let args := succArgs ctx term
-        -- record each distinct target at most once (collapses equal-arg degenerates)
+        -- Each target's PHIs need only one input from this predecessor.
         let mut seenTargets : List Nat := []
         for k in 0...term.getNumSuccessors! ctx do
           let tid := (term.getSuccessor! ctx k).id
@@ -384,13 +401,32 @@ def callee? (ctx : IRContext OpCode) (op : OperationPtr) : Option String :=
 
 /-- Register-passed argument and result capacity of the standard calling
     convention: arguments in a0-a7 (x10-x17), results in a0-a1 (x10-x11).
-    Anything beyond these goes on the stack, which we don't lower. -/
+    Further arguments go on the stack, which we lower only for incoming
+    arguments, not at call sites. -/
 def maxRegArgs : Nat := 8
 def maxRegResults : Nat := 2
 
+/-- The MLIR name of `op`'s operation, such as `llvm.call`. -/
+def opName (ctx : IRContext OpCode) (op : OperationPtr) : String :=
+  String.fromUTF8! (IsOpCode.name (op.getOpType! ctx))
+
+/-- The error for an operation the printer has no translation for. -/
+def unhandled (op : OperationPtr) (ctx : IRContext OpCode) : IO.Error :=
+  IO.userError s!"'{opName ctx op}' cannot be printed as MIR"
+
+/-- The alignment of the incoming stack argument slot `k`, at offset `8 * k`
+    from the 16-byte aligned incoming `sp`. -/
+def stackArgAlign (k : Nat) : Nat :=
+  if k % 2 == 0 then 16 else 8
+
+/-- The alignment suffix of the memory operand of a load from stack argument
+    slot `k`, which LLVM omits when it equals the access size. -/
+def stackArgAlignSuffix (k : Nat) : String :=
+  if stackArgAlign k == 8 then "" else s!", align {stackArgAlign k}"
+
 /-- Emit a `riscv_cf.call` the way LLVM's selector does: bracket the call with
     `ADJCALLSTACKDOWN`/`ADJCALLSTACKUP` (no stack arguments, so both are 0),
-    copy arguments into a0.., call with the lp64 callee-saved mask, and copy
+    copy arguments into a0.., call with the lp64d callee-saved mask, and copy
     results out of a0... Direct targets carry the call relocation flag needed
     by LLVM's object emitter. An indirect target goes through a `gprjalrnonx7`
     copy -- the register class `PseudoCALLIndirect` requires. -/
@@ -401,8 +437,8 @@ def emitCall (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit
   let args := if callee.isSome then ops else ops.extract 1 ops.size
   let nres := op.getNumResults! ctx
   if args.size > maxRegArgs || nres > maxRegResults then
-    IO.println s!"    ; UNHANDLED riscv_cf.call with {args.size} args and {nres} results"
-    return
+    throw (IO.userError
+      s!"riscv_cf.call with {args.size} arguments and {nres} results is not supported")
   let target := s!"%t{op.id}"
   if callee.isNone then
     IO.println s!"    {target}:gprjalrnonx7 = COPY {operandOf ctx fr (ops[0]!)}"
@@ -414,7 +450,7 @@ def emitCall (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit
   let call := match callee with
     | some c => s!"PseudoCALL target-flags(riscv-call) {llvmSymbol c}"
     | none => s!"PseudoCALLIndirect {target}"
-  IO.println (s!"    {call}, csr_ilp32_lp64, implicit-def dead $x1" ++
+  IO.println (s!"    {call}, csr_ilp32d_lp64d, implicit-def dead $x1" ++
     String.join uses ++ ", implicit-def $x2" ++ String.join defs)
   IO.println "    ADJCALLSTACKUP 0, 0, implicit-def dead $x2, implicit $x2"
   for i in 0...nres do
@@ -423,8 +459,7 @@ def emitCall (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit
 /-- Emit a return: copy the returned values into a0.. and `PseudoRET`. -/
 def emitReturn (ctx : IRContext OpCode) (fr : Frame) (ops : Array ValuePtr) : IO Unit := do
   if ops.size > maxRegResults then
-    IO.println s!"    ; UNHANDLED return of {ops.size} values"
-    return
+    throw (IO.userError s!"returning {ops.size} values is not supported")
   for i in 0...ops.size do
     IO.println s!"    $x{10 + i} = COPY {operandOf ctx fr (ops[i]!)}"
   let uses := (List.range ops.size).map (fun i => s!" implicit $x{10 + i}")
@@ -439,12 +474,6 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
   let imm := (immValue? ctx op).getD 0
   let volatile_ := isVolatile ctx op
   match opType with
-  | .builtin .unrealized_conversion_cast =>
-    let operandAttr := (op.getOperandTypes! ctx)[0]?.map (·.val)
-    match operandAttr with
-    | some (Attribute.integerType { bitwidth := 32, .. }) =>
-      IO.println s!"    {res} = PseudoZEXT_W {v 0}"
-    | _ => IO.println s!"    {res} = COPY {v 0}"
   | .riscv rop =>
     match rop with
     | .li => IO.println s!"    {res} = PseudoLI {imm}"
@@ -460,6 +489,9 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
     | .sextw => IO.println s!"    {res} = ADDIW {v 0}, 0"
     | .zextw => IO.println s!"    {res} = ADD_UW {v 0}, $x0"
     | .zextb => IO.println s!"    {res} = ANDI {v 0}, 255"
+    | .la =>
+      let props := op.getProperties! ctx Riscv.la
+      IO.println s!"    {res} = PseudoLLA {llvmSymbol (symbolName props.symbol)}"
     -- memory: loads (result ← mem[base + imm])
     | .ld  => IO.println s!"    {res} = LD {v 0}, {imm}{volatileMemOperandSuffix true 64 volatile_}"
     | .lw  => IO.println s!"    {res} = LW {v 0}, {imm}{volatileMemOperandSuffix true 32 volatile_}"
@@ -482,7 +514,7 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
         | none =>
           match regRegMnem rop with
           | some m => IO.println s!"    {res} = {m} {v 0}, {v 1}"
-          | none => IO.println s!"    ; UNHANDLED {reprStr rop}"
+          | none => throw (unhandled op ctx)
   -- `rv64.get_register` references a physical register (e.g. the zero register
   -- `$x0`). Copy it into a virtual register so every use -- including PHI
   -- operands, which may not be physical registers -- is valid MIR; the register
@@ -490,7 +522,7 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
   | .rv64 .get_register =>
     match (op.getResultTypes! ctx)[0]?.bind (physRegName? ·.val) with
     | some name => IO.println s!"    {res} = COPY {name}"
-    | none => IO.println s!"    ; UNHANDLED op"
+    | none => throw (unhandled op ctx)
   -- A stack object is declared in the `stack` section, not by an instruction.
   -- When it folds, its accesses name it and nothing is emitted here; otherwise
   -- its address has to reach a register.
@@ -498,7 +530,7 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
     if fr.folded.contains op.id then pure ()
     else IO.println s!"    {res} = ADDI %stack.{fr.fi[op.id]!}, 0"
   | .riscv_cf .call => emitCall ctx fr op
-  | _ => IO.println s!"    ; UNHANDLED op"
+  | _ => throw (unhandled op ctx)
 
 /-- Emit a terminator operation (branch / return).  `lsuccs` gives the lowered
     successor block index for each successor position (trampolines when split). -/
@@ -508,11 +540,6 @@ def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
   let ops := getOperands ctx op
   let v := fun (i : Nat) => operandOf ctx fr (ops[i]!)
   let succ := fun (k : Nat) => lsuccs[k]!
-  -- Degenerate conditional branch with both edges collapsed to the same block
-  -- (equal arguments) → unconditional jump.  Split edges have distinct lsuccs.
-  if lsuccs.size == 2 && succ 0 == succ 1 then
-    IO.println s!"    PseudoBR %bb.{succ 0}"
-    return
   match opType with
   | .riscv_cf .branch =>
     IO.println s!"    PseudoBR %bb.{succ 0}"
@@ -544,14 +571,14 @@ def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
   -- for `llvm.trap`.
   | .riscv_cf .unreachable =>
     IO.println "    UNIMP"
-  | .llvm .return | .func .return | .riscv_cf .return =>
+  | .riscv_cf .return =>
     emitReturn ctx fr ops
-  | _ => IO.println s!"    ; UNHANDLED terminator"
+  | _ => throw (unhandled op ctx)
 
 /-- Emit the op list of a block, treating the last op as the terminator. -/
 partial def emitOps (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
     (lsuccs : Array Nat) : IO Unit := do
-  match (op.get! ctx).next with
+  match op.getNextOp! ctx with
   | some n =>
     emitRegular ctx fr op
     emitOps ctx fr n lsuccs
@@ -576,7 +603,7 @@ def emitBlock (ctx : IRContext OpCode) (fr : Frame) (blocks : Array BlockPtr)
     (preds : Array (Array (Nat × Array ValuePtr))) (bi : Nat) : IO Unit := do
   let b := blocks[bi]!
   IO.println s!"  bb.{bi}:"
-  match (b.get! ctx).firstOp with
+  match b.getFirstOp! ctx with
   | none => pure ()
   | some f =>
     let term := lastOp ctx f
@@ -590,24 +617,26 @@ def emitBlock (ctx : IRContext OpCode) (fr : Frame) (blocks : Array BlockPtr)
         if !sis.contains si then sis := sis ++ [si]
       let parts := sis.map (fun si => s!"%bb.{si}")
       IO.println s!"    successors: {String.intercalate ", " parts}"
-    -- block arguments → PHI (or COPY for a single predecessor)
+    -- Non-entry block arguments become PHIs.
     let np := b.getNumArguments! ctx
     if np != 0 then
       let plist := preds[bi]!
       -- A block with no predecessors is the entry block, so its arguments are
-      -- the function arguments: bind them to the RISC-V integer argument
-      -- registers (a0-a7 = x10-x17) per the standard calling convention, so
-      -- the allocated code is actually callable from ABI-conforming code.
+      -- the function arguments: per the standard calling convention, the first
+      -- `maxRegArgs` arrive in the integer argument registers (a0-a7 =
+      -- x10-x17) and the rest in the caller's outgoing argument area, so the
+      -- allocated code is actually callable from ABI-conforming code.
       if plist.size == 0 then
-        let regs := (List.range np).map (fun i => s!"$x{10 + i}")
+        let regs := (List.range (min np maxRegArgs)).map (fun i => s!"$x{10 + i}")
         IO.println s!"    liveins: {String.intercalate ", " regs}"
       for ai in 0...np do
         let name := s!"%arg{b.id}_{ai}"
         if plist.size == 0 then
-          IO.println s!"    {name}:gpr = COPY $x{10 + ai}"
-        else if plist.size == 1 then
-          let (_, vals) := plist[0]!
-          IO.println s!"    {name}:gpr = COPY {operandOf ctx fr (vals[ai]!)}"
+          if ai < maxRegArgs then
+            IO.println s!"    {name}:gpr = COPY $x{10 + ai}"
+          else
+            let k := ai - maxRegArgs
+            IO.println s!"    {name}:gpr = LD %fixed-stack.{k}, 0 :: (load (s64) from %fixed-stack.{k}{stackArgAlignSuffix k})"
         else
           let parts := plist.toList.map
             (fun (pbi, vals) => s!"{operandOf ctx fr (vals[ai]!)}, %bb.{pbi}")
@@ -641,7 +670,16 @@ def hasBody (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
 /-- The `riscv_cf.call` ops in `blocks`. -/
 def calls (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Array OperationPtr :=
   blocks.flatMap fun b =>
-    (collectOps ctx (b.get! ctx).firstOp).filter (·.getOpType! ctx == .riscv_cf .call)
+    (collectOps ctx (b.getFirstOp! ctx)).filter (·.getOpType! ctx == .riscv_cf .call)
+
+/-- The decoded symbols named by the `riscv.la` ops in `blocks`. -/
+def laSymbols (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Array String :=
+  blocks.flatMap fun b =>
+    (collectOps ctx (b.getFirstOp! ctx)).filterMap fun op =>
+      if op.getOpType! ctx == .riscv .la then
+        some (symbolName (op.getProperties! ctx Riscv.la).symbol)
+      else
+        none
 
 /-- The number of arguments of the function whose reachable blocks are `blocks`:
     its entry block's arguments. -/
@@ -650,21 +688,50 @@ def numArgs (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Nat :=
   | some b => b.getNumArguments! ctx
   | none => 0
 
+/-- Whether a value of type `t` lives in a RISC-V register, as every lowered value does. -/
+def isRegType (t : Attribute) : Bool :=
+  t matches .registerType _
+
+/--
+  Check that the function `op`, whose reachable blocks are `blocks`, is fully lowered:
+  it is an `llvm.func` or `riscv_cf.func`, every argument and result is a register, and
+  every operation is from `riscv`, `riscv_cf`, `rv64` or `riscv_stack`. Block arguments
+  then are registers too, since the verifier matches them to those operations' results.
+  Only reachable blocks are checked, since only they are printed. A declaration has no
+  blocks, so only its kind is checked: its LLVM types merely name an external symbol.
+-/
+def checkFunction (ctx : IRContext OpCode) {op : OperationPtr} (funcOp : FunctionOp ctx op)
+    (blocks : Array BlockPtr) : Except String Unit := do
+  let opType := op.getOpType! ctx
+  if opType != .llvm .func && opType != .riscv_cf .func then
+    throw s!"'{opName ctx op}' is not supported; functions must be llvm.func or riscv_cf.func"
+  if funcOp.isExternal then return
+  for t in funcOp.getArgumentTypes do
+    if !isRegType t then throw s!"argument of unlowered type {t}"
+  for t in funcOp.getResultTypes do
+    if !isRegType t && !(t matches .llvmVoidType _) then
+      throw s!"result of unlowered type {t}"
+  for b in blocks do
+    for o in collectOps ctx (b.getFirstOp! ctx) do
+      match o.getOpType! ctx with
+      | .riscv _ | .riscv_cf _ | .rv64 _ | .riscv_stack _ => pure ()
+      | _ => throw s!"unlowered operation '{opName ctx o}'"
+
 /-- Print the MIR document for one function. -/
 def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array BlockPtr) :
     IO Unit := do
   let plan := planEdges ctx blocks
   let frame := planFrame ctx blocks
-  -- Entry-block arguments are the function arguments; they live in the RISC-V
-  -- integer argument registers a0-a7 (x10-x17). Declare them as MIR liveins so
-  -- the register allocator keeps them there.
+  -- Entry-block arguments are the function arguments; the first `maxRegArgs`
+  -- live in the RISC-V integer argument registers a0-a7 (x10-x17). Declare
+  -- them as MIR liveins so the register allocator keeps them there.
   let nargs := numArgs ctx blocks
   IO.println "---"
   IO.println s!"name:            {yamlName name}"
   IO.println "tracksRegLiveness: true"
   if nargs != 0 then
     IO.println "liveins:"
-    for i in 0...nargs do
+    for i in 0...min nargs maxRegArgs do
       IO.println s!"  - \{ reg: '$x{10 + i}' }"
   -- A call's `ADJCALLSTACKDOWN`/`ADJCALLSTACKUP` must be announced here: the
   -- machine verifier rejects them otherwise, and prologue/epilogue insertion
@@ -673,6 +740,13 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
     IO.println "frameInfo:"
     IO.println "  adjustsStack:    true"
     IO.println "  hasCalls:        true"
+  -- The remaining arguments are passed on the stack: argument `maxRegArgs + k`
+  -- is the 8-byte slot at offset `8 * k` from the incoming `sp`, which LLVM
+  -- models as the immutable `fixedStack` object `k`.
+  if nargs > maxRegArgs then
+    IO.println "fixedStack:"
+    for k in 0...nargs - maxRegArgs do
+      IO.println s!"  - \{ id: {k}, offset: {8 * k}, size: 8, alignment: {stackArgAlign k}, isImmutable: true }"
   -- One `stack` object per alloca.  `llc` derives the frame's size and maximum
   -- alignment from these.
   if !frame.objects.isEmpty then
@@ -689,24 +763,362 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
     emitTrampoline tr.1 tr.2
   IO.println "..."
 
-/-- Print a full MIR module for the given function-like ops: a stub IR module,
-    then one MIR document per function with a body.  The stub defines those
-    functions and declares every direct callee defined nowhere else, since the
-    MIR parser resolves each `@callee` against the IR module. -/
-def printMIR (ctx : IRContext OpCode) (funcOps : Array OperationPtr) : IO Unit := do
+/-- The LLVM IR spelling of a first-class type, for the types we print.
+    Structs with known bodies, including identified structs, are printed inline:
+    the stub IR only needs their layout, and machine operands use opaque pointers. -/
+partial def llvmType? : Attribute → Option String
+  | .integerType t => some s!"i{t.bitwidth}"
+  | .llvmPointerType _ => some "ptr"
+  | .llvmArrayType t => do return s!"[{t.size} x {← llvmType? t.type}]"
+  | .llvmStructType t => do
+    let fields ← t.body.mapM llvmType?
+    let body := "{ " ++ String.intercalate ", " fields.toList ++ " }"
+    return if t.packed then "<" ++ body ++ ">" else body
+  | _ => none
+
+/-- Dimensions and leaf width of an LLVM integer array (possibly nested). -/
+private partial def integerArrayShape? : Attribute → Option (List Nat × Nat)
+  | .integerType t => do
+    guard (t.bitwidth > 0)
+    return ([], t.bitwidth)
+  | .llvmArrayType t => do
+    let (dims, width) ← integerArrayShape? t.type
+    return (t.size :: dims, width)
+  | _ => none
+
+private def hexDigit? (c : Char) : Option Nat :=
+  if '0' ≤ c && c ≤ '9' then some (c.toNat - '0'.toNat)
+  else if 'a' ≤ c && c ≤ 'f' then some (c.toNat - 'a'.toNat + 10)
+  else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 'A'.toNat + 10)
+  else none
+
+private def denseInteger? (text : String) : Option Int := do
+  if text == "true" then return 1
+  if text == "false" then return 0
+  if text.startsWith "0x" then
+    let digits := text.toList.drop 2
+    guard (!digits.isEmpty)
+    let n ← digits.foldlM (fun n c => do return n * 16 + (← hexDigit? c)) 0
+    return Int.ofNat n
+  text.toInt?
+
+/-- Decode the byte-aligned integer form of MLIR's little-endian raw dense data.
+    A single element's bytes can encode a splat. Other raw encodings stay unhandled. -/
+private def denseRawIntegers? (text : String) (width count : Nat) : Option (Array Int) := do
+  guard (width > 0 && width % 8 == 0 && text.startsWith "\"0x" && text.endsWith "\"")
+  let chars := (text.toList.drop 3).dropLast.toArray
+  let bytesPerElement := width / 8
+  guard (chars.size == 2 * bytesPerElement * count || chars.size == 2 * bytesPerElement)
+  let mut values := #[]
+  for i in 0...chars.size / (2 * bytesPerElement) do
+    let mut value := 0
+    for j in 0...bytesPerElement do
+      let k := 2 * (i * bytesPerElement + j)
+      let hi ← hexDigit? chars[k]!
+      let lo ← hexDigit? chars[k + 1]!
+      value := value + (hi * 16 + lo) * 2 ^ (8 * j)
+    values := values.push (Int.ofNat value)
+  return if values.size == 1 then Array.replicate count values[0]! else values
+
+/-- Dense elements are stored as text in VeIR. Check the shape and width before
+    reading integer lists, splats, or byte-aligned raw data. -/
+private def denseIntegers? (attr : DenseElementsAttr) (type : Attribute) : Option (Array Int) := do
+  let (dims, width) ← integerArrayShape? type
+  guard (!dims.isEmpty)
+  let shape := String.intercalate "x" (dims.map toString ++ [s!"i{width}"])
+  let attrType := String.ofList (attr.type.toList.filter (!·.isWhitespace))
+  guard (attrType == s!"tensor<{shape}>" || attrType == s!"vector<{shape}>")
+  let count := dims.foldl (· * ·) 1
+  let text := String.ofList (attr.value.toList.filter (!·.isWhitespace))
+  if text.isEmpty then
+    guard (count == 0)
+    return #[]
+  if text.startsWith "\"" then return ← denseRawIntegers? text width count
+  let values ← if text.startsWith "[" then do
+      let flat := String.ofList (text.toList.filter fun c => c != '[' && c != ']')
+      if flat.isEmpty then pure #[]
+      else (flat.splitOn ",").toArray.mapM denseInteger?
+    else do
+      let value ← denseInteger? text
+      pure (Array.replicate count value)
+  guard (values.size == count)
+  guard (values.all fun v => -(2 ^ (width - 1) : Int) ≤ v && v < (2 ^ width : Int))
+  return values
+
+/-- Aggregate updates stay structured until emission. A persistent map shares unchanged
+    fields between SSA values; the base supplies untouched zero/undef/poison elements. -/
+private inductive InitializerValue where
+  | atom (text : String)
+  | bytes (value : ByteArray)
+  | aggregate (base : InitializerValue) (fields : Std.TreeMap.Raw Nat InitializerValue)
+  deriving Inhabited
+
+private def initializerElementType? (type : Attribute) (index : Nat) : Option Attribute :=
+  match type with
+  | .llvmArrayType t => if index < t.size then some t.type else none
+  | .llvmStructType t => t.body[index]?
+  | _ => none
+
+private partial def InitializerValue.element? (value : InitializerValue) (index : Nat) :
+    Option InitializerValue :=
+  match value with
+  | .atom text =>
+    if ["zeroinitializer", "undef", "poison"].contains text then some value else none
+  | .bytes data => do return .atom (toString (← data[index]?).toNat)
+  | .aggregate base fields => fields.get? index |>.orElse fun _ => base.element? index
+
+private partial def InitializerValue.render? (value : InitializerValue) (type : Attribute) :
+    Option String := do
+  match value with
+  | .atom text => return text
+  | .bytes data => return "c" ++ llvmQuoted data
+  | .aggregate .. =>
+    let (count, left, right) ← match type with
+      | .llvmArrayType t => some (t.size, "[", "]")
+      | .llvmStructType t =>
+        some (t.body.size, if t.packed then "<{ " else "{ ", if t.packed then " }>" else " }")
+      | _ => none
+    let mut elements := #[]
+    for i in 0...count do
+      let elemType ← initializerElementType? type i
+      let elem ← value.element? i
+      elements := elements.push ((← llvmType? elemType) ++ " " ++ (← elem.render? elemType))
+    return left ++ String.intercalate ", " elements.toList ++ right
+
+private structure InitializerConstant where
+  type : Attribute
+  value : InitializerValue
+
+private def InitializerConstant.typed (c : InitializerConstant) : Except String String := do
+  let some type := llvmType? c.type | throw s!"unsupported initializer type {c.type}"
+  let some value := c.value.render? c.type | throw "cannot print initializer constant"
+  return type ++ " " ++ value
+
+/-- Rebuild nested integer arrays once, keeping their elements available for aggregate ops. -/
+private partial def integerArrayInitializer? (type : Attribute) (values : Array Int)
+    (index : Nat := 0) : Option (InitializerValue × Nat) := do
+  match type with
+  | .integerType _ => return (.atom (toString (← values[index]?)), index + 1)
+  | .llvmArrayType t =>
+    let mut index := index
+    let mut fields := {}
+    for i in 0...t.size do
+      let (value, next) ← integerArrayInitializer? t.type values index
+      fields := fields.insert i value
+      index := next
+    return (.aggregate (.atom "undef") fields, index)
+  | _ => none
+
+/-- Attribute constants use the same representation in globals and initializer regions. -/
+private def attributeInitializer? (value type : Attribute) : Option InitializerValue := do
+  match value, type with
+  | .integerAttr a, .integerType t =>
+    guard (a.type == t)
+    return .atom (toString a.value)
+  | .stringAttr str, .llvmArrayType { type := .integerType { bitwidth := 8, .. }, size } =>
+    guard (str.value.size == size)
+    return .bytes str.value
+  | .denseElementsAttr attr, type =>
+    let values ← denseIntegers? attr type
+    if values.all (· == 0) then return .atom "zeroinitializer"
+    let (init, _) ← integerArrayInitializer? type values
+    return init
+  | _, _ => none
+
+/-- LLVM no longer has insertvalue/extractvalue constant expressions. Resolve their
+    index paths here, preserving all fields not overwritten by an insertion. -/
+private def InitializerConstant.extract (c : InitializerConstant) :
+    List Int → Except String InitializerConstant
+  | [] => pure c
+  | index :: rest => do
+    if index < 0 then throw s!"negative aggregate index {index}"
+    let some type := initializerElementType? c.type index.toNat
+      | throw s!"aggregate index {index} out of bounds for {c.type}"
+    let some value := c.value.element? index.toNat | throw "expected aggregate constant"
+    extract { type, value } rest
+
+private def InitializerConstant.insert (c replacement : InitializerConstant) :
+    List Int → Except String InitializerConstant
+  | [] => do
+    if c.type != replacement.type then throw "insertvalue element type mismatch"
+    return replacement
+  | index :: rest => do
+    let child ← c.extract [index]
+    let updated ← child.insert replacement rest
+    let (base, fields) := match c.value with
+      | .aggregate base fields => (base, fields)
+      | value => (value, {})
+    return { c with value := .aggregate base (fields.insert index.toNat updated.value) }
+
+/-- Emit LLVM constant expressions where they exist; only aggregate operations need
+    evaluation here. LLVM's parser and data emitter handle folding, layout and relocations. -/
+private def initializerOperation (ctx : IRContext OpCode) (op : OperationPtr)
+    (args : Array InitializerConstant) (resultType : Attribute) (symbols : Array String) :
+    Except String InitializerValue := do
+  match op.getOpType! ctx, args.toList with
+  | .llvm .mlir__constant, [] =>
+    let attrs := Llvm.toAttrDict .mlir__constant (op.getProperties! ctx Llvm.mlir__constant)
+    let some value := attributeInitializer? attrs["value".toUTF8]! resultType
+      | throw s!"unsupported initializer value for type {resultType}"
+    return value
+  | .llvm .mlir__zero, [] => return .atom "zeroinitializer"
+  | .llvm .mlir__undef, [] => return .atom "undef"
+  | .llvm .mlir__poison, [] => return .atom "poison"
+  | .llvm .mlir__addressof, [] =>
+    let .llvmPointerType _ := resultType | throw "expected pointer type"
+    let name := symbolName (op.getProperties! ctx Llvm.mlir__addressof).global_name
+    if !symbols.contains name then throw s!"unknown symbol {llvmSymbol name}"
+    return .atom (llvmSymbol name)
+  | .llvm .getelementptr, base :: _ =>
+    let props := op.getProperties! ctx Llvm.getelementptr
+    let some elemType := llvmType? props.elem_type.val
+      | throw s!"unsupported GEP element type {props.elem_type.val}"
+    let mut operands := #[← base.typed]
+    let mut next := 1
+    for index in props.rawConstantIndices.values do
+      if index == -2147483648 then
+        let some arg := args[next]? | throw "missing GEP index operand"
+        operands := operands.push (← arg.typed)
+        next := next + 1
+      else
+        operands := operands.push s!"i32 {index}"
+    if next != args.size then throw "unexpected GEP index operand"
+    let flags := props.noWrapFlags.value.toNat
+    if props.noWrapFlags.value < 0 || flags > 7 then throw "unsupported GEP flags"
+    let nowrap := (if flags &&& 1 != 0 then " inbounds"
+      else if flags &&& 2 != 0 then " nusw" else "") ++
+      (if flags &&& 4 != 0 then " nuw" else "")
+    return .atom s!"getelementptr{nowrap} ({elemType}, {String.intercalate ", " operands.toList})"
+  | .llvm .ptrtoint, [arg] | .llvm .inttoptr, [arg] | .llvm .bitcast, [arg]
+  | .llvm .trunc, [arg] =>
+    if op.getOpType! ctx == .llvm .trunc then
+      let flags := op.getProperties! ctx Llvm.trunc
+      if flags.nsw || flags.nuw then throw "trunc constant expressions cannot carry overflow flags"
+    let some type := llvmType? resultType | throw s!"unsupported cast type {resultType}"
+    let name := ((opName ctx op).drop 5).toString
+    return .atom s!"{name} ({← arg.typed} to {type})"
+  | .llvm .add, [lhs, rhs] | .llvm .sub, [lhs, rhs] | .llvm .xor, [lhs, rhs] =>
+    let flags := match op.getOpType! ctx with
+      | .llvm .add => some (op.getProperties! ctx Llvm.add)
+      | .llvm .sub => some (op.getProperties! ctx Llvm.sub)
+      | _ => none
+    let nowrap := match flags with
+      | some f => (if f.nuw then " nuw" else "") ++ (if f.nsw then " nsw" else "")
+      | none => ""
+    let name := ((opName ctx op).drop 5).toString
+    return .atom s!"{name}{nowrap} ({← lhs.typed}, {← rhs.typed})"
+  | .llvm .insertvalue, [container, value] =>
+    let position := (op.getProperties! ctx Llvm.insertvalue).position.values.toList
+    return (← container.insert value position).value
+  | .llvm .extractvalue, [container] =>
+    let position := (op.getProperties! ctx Llvm.extractvalue).position.values.toList
+    let result ← container.extract position
+    if result.type != resultType then throw "extractvalue result type mismatch"
+    return result.value
+  | _, _ => throw "unsupported initializer operation or operands"
+
+/-- Translate a single-block initializer to a constant. Symbol addresses refer to the
+    module inventory, never to the referenced global's initializer. -/
+private def regionInitializer (ctx : IRContext OpCode) (global : OperationPtr)
+    (type : Attribute) (symbols : Array String) : Except String (Option String) := do
+  let some block := (global.getRegion! ctx 0).getFirstBlock! ctx | return none
+  if (block.getNextBlock! ctx).isSome || block.getNumArguments! ctx != 0 then
+    throw "initializer must have one block with no arguments"
+  let mut values : Std.HashMap ValuePtr InitializerConstant := {}
+  for op in collectOps ctx (block.getFirstOp! ctx) do
+    let opcode := op.getOpType! ctx
+    if opcode == .llvm .return then
+      if (op.getNextOp! ctx).isSome || op.getNumOperands! ctx != 1 then
+        throw "initializer must end with llvm.return of one constant"
+      let some value := values[op.getOperand! ctx 0]?
+        | throw "llvm.return: expected an initializer constant"
+      if value.type != type then
+        throw s!"llvm.return: initializer type {value.type} does not match global type {type}"
+      let some text := value.value.render? type | throw "cannot print initializer constant"
+      return some text
+    if op.getNumResults! ctx != 1 then
+      throw s!"{opName ctx op}: expected one initializer result"
+    let resultType := ((op.getResultTypes! ctx)[0]!).val
+    if (llvmType? resultType).isNone then
+      throw s!"{opName ctx op}: unsupported initializer type {resultType}"
+    let args ← (op.getOperands! ctx).mapM fun operand =>
+      match values[operand]? with
+      | some value => pure value
+      | none => throw s!"{opName ctx op}: expected an initializer constant operand"
+    let value ← (initializerOperation ctx op args resultType symbols).mapError
+      (fun e => s!"{opName ctx op}: {e}")
+    values := values.insert (.opResult (op.getResult 0)) { type := resultType, value }
+  throw "initializer must end with llvm.return of one constant"
+
+/-- Print a global in the embedded IR module, leaving data emission to LLVM.
+    Unsupported initializers are errors, so definitions cannot silently disappear. -/
+def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) (symbols : Array String) :
+    IO Unit := do
+  let props := op.getProperties! ctx Llvm.mlir__global
+  let name := llvmSymbol (String.fromUTF8! props.sym_name.value)
+  if props.isThreadLocal then
+    throw (IO.userError s!"global {name}: thread-local globals are unsupported")
+  if props.linkage.value == "extern_weak" then
+    throw (IO.userError s!"global {name}: extern_weak globals are unsupported")
+  let some type := llvmType? props.global_type.val
+    | throw (IO.userError s!"global {name}: unsupported type {props.global_type.val}")
+  let init? ← match props.value with
+    | some value => do
+      let some init := attributeInitializer? value props.global_type.val
+        | throw (IO.userError s!"global {name}: unsupported initializer value for type {type}")
+      let some text := init.render? props.global_type.val
+        | throw (IO.userError s!"global {name}: cannot print initializer constant")
+      pure (some text)
+    | none =>
+      match regionInitializer ctx op props.global_type.val symbols with
+      | .ok init => pure init
+      | .error e => throw (IO.userError s!"global {name}: {e}")
+  let kind := if props.constant then "constant" else "global"
+  let align := match props.alignment with
+    | some a => s!", align {a.value}"
+    | none => ""
+  match init? with
+  | some init =>
+    let linkage := if props.linkage.value == "external" then ""
+      else props.linkage.value ++ " "
+    IO.println s!"  {name} = {linkage}{kind} {type} {init}{align}"
+  | none => IO.println s!"  {name} = external {kind} {type}{align}"
+
+/-- Print a full MIR module for the given function-like and global ops: a stub
+    IR module, then one MIR document per function with a body.  The stub defines
+    those functions and globals and declares every direct callee or `riscv.la`
+    target defined nowhere else, since the MIR parser resolves each `@sym`
+    against the IR module. Every function is checked with `checkFunction` before
+    anything is printed; a failed check or an untranslatable operation throws. -/
+def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
+    IO Unit := do
+  for op in funcOps do
+    let some funcOp := FunctionOp.of? op ctx | continue
+    if let .error e := checkFunction ctx funcOp (reachableBlocks ctx funcOp) then
+      throw (IO.userError s!"function {llvmSymbol (String.fromUTF8! funcOp.getSymName.value)}: {e}")
   let funcs := funcOps.filterMap fun op => do
     let funcOp ← FunctionOp.of? op ctx
     if funcOp.isExternal then
       none
     else
       pure (String.fromUTF8! funcOp.getSymName.value, reachableBlocks ctx funcOp)
-  let defined := funcs.map (·.1)
-  let mut externs : Array String := #[]
+  let globals := globalOps.map fun op =>
+    String.fromUTF8! (op.getProperties! ctx Llvm.mlir__global).sym_name.value
+  let defined := funcs.map (·.1) ++ globals
+  -- Keep declarations even when their only use is in an initializer. As with
+  -- direct callees, these need only a stub signature: references are opaque pointers.
+  let mut externs := funcOps.filterMap fun op => do
+    let funcOp ← FunctionOp.of? op ctx
+    if funcOp.isExternal then some (String.fromUTF8! funcOp.getSymName.value) else none
+  let symbols := defined ++ externs
   for (_, blocks) in funcs do
-    for c in (calls ctx blocks).filterMap (callee? ctx) do
+    for c in (calls ctx blocks).filterMap (callee? ctx) ++ laSymbols ctx blocks do
       if !defined.contains c && !externs.contains c then
         externs := externs.push c
   IO.println "--- |"
+  IO.println "  target triple = \"riscv64-unknown-linux-gnu\""
+  for op in globalOps do
+    printGlobal ctx op symbols
   for (name, blocks) in funcs do
     let params := String.intercalate ", "
       ((List.range (numArgs ctx blocks)).map (fun i => s!"i64 %a{i}"))
@@ -715,9 +1127,12 @@ def printMIR (ctx : IRContext OpCode) (funcOps : Array OperationPtr) : IO Unit :
     IO.println "  }"
   for name in externs do
     IO.println s!"  declare void {llvmSymbol name}()"
-  IO.println "  attributes #0 = { \"target-features\"=\"+m,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond\" }"
+  IO.println "  attributes #0 = { \"target-features\"=\"+m,+a,+f,+d,+zicsr,+zifencei,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond,-c\" }"
+  IO.println "  !llvm.module.flags = !{!0}"
+  IO.println "  !0 = !{i32 1, !\"target-abi\", !\"lp64d\"}"
   IO.println "..."
   for (name, blocks) in funcs do
-    printFunction ctx name blocks
+    try printFunction ctx name blocks
+    catch e => throw (IO.userError s!"function {llvmSymbol name}: {e}")
 
 end Veir.MIRPrinter

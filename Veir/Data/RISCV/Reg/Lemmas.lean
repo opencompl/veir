@@ -8,6 +8,11 @@ public section
 
 namespace Veir.Data.RISCV
 
+@[simp]
+theorem forall_val_eq {P : Reg → Prop} :
+    (∀ (r : Reg), r.val = v → P r) ↔ P ⟨v⟩ := by
+  grind [cases Reg]
+
 theorem Reg.val.inj : {x y : Reg} → x.val = y.val → x = y
   | ⟨⟨_⟩⟩, ⟨⟨_⟩⟩, rfl => rfl
 
@@ -335,6 +340,14 @@ theorem val_rev8 :
     r1.val.extractLsb 23 16 ++ r1.val.extractLsb 31 24 ++
     r1.val.extractLsb 39 32 ++ r1.val.extractLsb 47 40 ++
     r1.val.extractLsb 55 48 ++ r1.val.extractLsb 63 56 := (rfl)
+
+@[veir_bv_normalize]
+theorem val_brev8 :
+  (brev8 r1).val =
+    (r1.val.extractLsb 63 56).reverse ++ (r1.val.extractLsb 55 48).reverse ++
+    (r1.val.extractLsb 47 40).reverse ++ (r1.val.extractLsb 39 32).reverse ++
+    (r1.val.extractLsb 31 24).reverse ++ (r1.val.extractLsb 23 16).reverse ++
+    (r1.val.extractLsb 15 8).reverse ++ (r1.val.extractLsb 7 0).reverse := (rfl)
 
 @[veir_bv_normalize]
 theorem val_bclr :

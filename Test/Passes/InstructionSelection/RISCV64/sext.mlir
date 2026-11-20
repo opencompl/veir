@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64,isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 "builtin.module"() ({
     "func.func"()  <{function_type = (i1, i16, i32, i42, i8) -> (), sym_name = "foo"}> ({

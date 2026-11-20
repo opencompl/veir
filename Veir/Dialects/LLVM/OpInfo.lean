@@ -106,6 +106,8 @@ inductive Llvm where
 | intr__smin
 | intr__umax
 | intr__umin
+| intr__scmp
+| intr__ucmp
 | intr__abs
 | intr__sadd__sat
 | intr__uadd__sat
@@ -113,9 +115,17 @@ inductive Llvm where
 | intr__usub__sat
 | intr__sshl__sat
 | intr__ushl__sat
+| intr__smulh
+| intr__umulh
+| intr__sadd__with__overflow
+| intr__uadd__with__overflow
+| intr__ssub__with__overflow
+| intr__usub__with__overflow
+| intr__smul__with__overflow
+| intr__umul__with__overflow
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Llvm.propertiesOf (op : Llvm) : Type :=
 match op with
 | .mlir__constant => LLVMConstantProperties
@@ -204,6 +214,11 @@ def Llvm.fromAttrDict
   case module_flags => exact LLVMModuleFlagsProperties.fromAttrDict attrDict
   case call => exact LLVMCallProperties.fromAttrDict attrDict
   case call_intrinsic => exact LLVMCallIntrinsicProperties.fromAttrDict attrDict
+  case intr__sadd__with__overflow | intr__uadd__with__overflow
+      | intr__ssub__with__overflow | intr__usub__with__overflow
+      | intr__smul__with__overflow | intr__umul__with__overflow =>
+    exact if attrDict.isEmpty then .ok ()
+      else .error "LLVM overflow intrinsics have empty properties"
   all_goals exact .ok ()
 
 def Llvm.toAttrDict
@@ -474,16 +489,29 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .freeze, _ | .bitcast, _
   | .inttoptr, _ | .ptrtoint, _
   | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
+  | .intr__scmp, _ | .intr__ucmp, _
   | .intr__abs, _
   | .intr__vector__reduce__or, _
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
   | .intr__ssub__sat, _ | .intr__usub__sat, _
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
+  | .intr__smulh, _ | .intr__umulh, _
+  | .intr__sadd__with__overflow, _ | .intr__uadd__with__overflow, _
+  | .intr__ssub__with__overflow, _ | .intr__usub__with__overflow, _
+  | .intr__smul__with__overflow, _ | .intr__umul__with__overflow, _
   | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _
   | .fneg, _ | .fcmp, _ | .sitofp, _ | .uitofp, _ | .fptosi, _ | .fptoui, _
   | .fpext, _ | .intr__fmuladd, _ | .intr__fabs, _ => .none
   -- For everything else: be conservative!
   | _, _ => .unknown
+
+def Llvm.isCommutative : Llvm → Bool
+  | .add | .mul | .and | .or | .xor
+  | .intr__smax | .intr__smin | .intr__umax | .intr__umin
+  | .intr__sadd__sat | .intr__uadd__sat
+  | .intr__smulh | .intr__umulh
+  | .fadd | .fmul => true
+  | _ => false
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
@@ -493,6 +521,12 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
 def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
   match op with
   | .mlir__global | .mlir__alias | .func | .comdat => true
+  | _ => false
+
+/-- As in MLIR, a `llvm.comdat` is a symbol table for the selectors it lists. -/
+def Llvm.isSymbolTable (op : Llvm) : Bool :=
+  match op with
+  | .comdat => true
   | _ => false
 
 /-- A `llvm.comdat` body only lists selectors, so it ends without a terminator. -/
@@ -520,15 +554,21 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__ctlz | .intr__cttz | .intr__ctpop | .intr__bswap
   | .intr__bitreverse | .intr__fshl | .intr__fshr
   | .intr__smax | .intr__smin | .intr__umax | .intr__umin | .intr__abs
+  | .intr__scmp | .intr__ucmp
   | .intr__vector__reduce__or
   | .intr__sadd__sat | .intr__uadd__sat | .intr__ssub__sat | .intr__usub__sat
-  | .intr__sshl__sat | .intr__ushl__sat => true
+  | .intr__sshl__sat | .intr__ushl__sat
+  | .intr__smulh | .intr__umulh => true
   -- The floating-point arithmetic operations propagate poison too, but no
   -- `RuntimeValue` represents a poisoned float yet, so listing them here would
   -- claim a fold that cannot be materialized.
   | .fadd | .fsub | .fmul | .fdiv | .frem
   | .fneg | .fcmp | .sitofp | .uitofp | .fptosi | .fptoui | .fpext
   | .intr__fmuladd | .intr__fabs
+  -- Aggregate poison cannot yet be represented by `RuntimeValue` either.
+  | .intr__sadd__with__overflow | .intr__uadd__with__overflow
+  | .intr__ssub__with__overflow | .intr__usub__with__overflow
+  | .intr__smul__with__overflow | .intr__umul__with__overflow
   | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__global | .mlir__alias
   | .mlir__addressof
   | .select | .br | .cond_br | .switch | .unreachable | .fence | .alloca | .load | .store
@@ -557,44 +597,73 @@ instance : IsOpCode Llvm where
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict
 
+def Llvm.symbolInterface? (op : Llvm) : Option (SymbolOpInterface (Llvm.propertiesOf op)) :=
+  match op with
+  | .func | .mlir__global | .mlir__alias | .comdat | .comdat_selector =>
+    some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def Llvm.functionInterface? (op : Llvm) : Option (FunctionOpInterface (Llvm.propertiesOf op)) :=
   match op with
   | .func =>
     some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type
+      { getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType =>
           { props with function_type := functionType } }
   | _ => none
 
+/--
+`llvm.call` calls the function it names, or else the one its first operand points to. The arguments
+are the first operand segment, without the callee pointer of an indirect call; the rest are operand
+bundle operands.
+-/
+def Llvm.callInterface : CallOpInterface LLVMCallProperties where
+  getCallableForCallee? props operands :=
+    match props.callee with
+    | some callee => some (.symbol callee)
+    | none => operands[0]?.map .value
+  getArgOperands props operands :=
+    let numOperands :=
+      match props.extra.entries.find? (fun (k, _) => k == "operandSegmentSizes".toUTF8) with
+      | some (_, .denseArrayAttr sizes) => sizes.values[0]?.map Int.toNat
+      | _ => none
+    let operands := operands.extract 0 (numOperands.getD operands.size)
+    if props.callee.isSome then operands else operands.extract 1
+
+def Llvm.callOpInterface? (op : Llvm) : Option (CallOpInterface (Llvm.propertiesOf op)) :=
+  match op with
+  | .call => some Llvm.callInterface
+  | _ => none
+
+/--
+A switch forwards its operands as a segmented branch whose segments are its key, the operands of its
+default destination, and the operands of each case.
+-/
 private def Llvm.getSwitchSuccessorOperands?
     (props : LLVMSwitchProperties) (operands : Array ValuePtr)
     (successorIndex : Nat) : Option SuccessorOperands := do
-  let defaultCountRaw ← props.operandSegmentSizes.values[1]?
-  let defaultCount := defaultCountRaw.toNat
-  if successorIndex = 0 then
-    return { forwardedOperands := operands.extract 1 (1 + defaultCount) }
-  let caseIndex := successorIndex - 1
-  let caseCountRaw ← props.case_operand_segments.values[caseIndex]?
-  let caseCount := caseCountRaw.toNat
-  let caseStart := 1 + defaultCount +
-    (props.case_operand_segments.values.extract 0 caseIndex).foldl
-      (init := 0) fun acc value => acc + value.toNat
-  return { forwardedOperands := operands.extract caseStart (caseStart + caseCount) }
+  let defaultCount ← props.operandSegmentSizes.values[1]?
+  BranchOpInterface.getSegmentedSuccessorOperands? 1
+    (#[1, defaultCount] ++ props.case_operand_segments.values) operands successorIndex
 
-private def Llvm.getSwitchSuccessorForOperands?
-    (props : LLVMSwitchProperties) (operands : Array (Option RuntimeValue))
-    (successors : Array BlockPtr) : Option BlockPtr := do
-  let caseValues ← props.caseValues?
-  if caseValues.size ≠ props.case_operand_segments.values.size then
-    none
-  else
-    let some (.int bitwidth (.val value)) ← operands[0]? | none
-    for i in [0:caseValues.size] do
-      if value = BitVec.ofInt bitwidth caseValues[i]! then
-        let some successor := successors[i + 1]? | none
-        return successor
-    successors[0]?
+private def Llvm.getSwitchSuccessorIndexForOperands?
+    (props : LLVMSwitchProperties) (operands : Array (Option RuntimeValue)) :
+    Option Nat := do
+  let some (.int bitwidth (.val value)) ← operands[0]? | none
+  let caseValues ← props.caseValues? bitwidth
+  let key := value.toNat
+  for i in [0:caseValues.bits.size] do
+    if key = caseValues.bits[i]! then
+      return i + 1
+  some 0
+
+def Llvm.unconditionalBranch? (op : Llvm) (props : Llvm.propertiesOf op) :
+    Option (OpKind Llvm) :=
+  match op with
+  | .br => some ⟨.br, props⟩
+  -- Removing a successor can change loop structure; conservatively drop loop annotations.
+  | .cond_br | .switch => some ⟨.br, { loop_annotation := none }⟩
+  | _ => none
 
 def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.propertiesOf op)) :=
   match op with
@@ -603,27 +672,47 @@ def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.proper
       getSuccessorOperandsImpl? := fun _ operands successorIndex => do
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
-      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorIndexForOperandsImpl? := fun _ _ => some 0
     }
   | .cond_br =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.int _ (.val condition)) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition ≠ 0))
     }
   | .switch =>
     some {
       getSuccessorOperandsImpl? := Llvm.getSwitchSuccessorOperands?
-      getSuccessorForOperandsImpl? := Llvm.getSwitchSuccessorForOperands?
+      getSuccessorIndexForOperandsImpl? := Llvm.getSwitchSuccessorIndexForOperands?
     }
+  | _ => none
+
+/--
+  The alignment an `llvm.load` or `llvm.store` of a value of `type` requires:
+  its `alignment` attribute, or, when the attribute is absent, which the parser
+  records as `0`, the ABI alignment of `type` under `layout`, as in LLVM. A
+  type the layout does not know requires none.
+-/
+def Llvm.accessAlignment (layout : DataLayout) (alignment : IntegerAttr) (type : Attribute) : Nat :=
+  if alignment.value ≠ 0 then alignment.value.toNat
+  else (layout.getTypeABIAlignment type).getD 1
+
+/-- The type of a value an `llvm.store` can store, for the data layout. -/
+def RuntimeValue.storedType : RuntimeValue → Option Attribute
+  | .int bw _ => some (.integerType (IntegerType.signless bw))
+  | .byte bw _ => some (.byteType ⟨bw⟩)
+  | .addr _ => some (.llvmPointerType .mk)
   | _ => none
 
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/
 def isValidLLVMAlignment (n : Int) : Bool :=
   decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
+
+/-- The largest alignment LLVM accepts, its `Value::MaximumAlignment`. -/
+def maximumLLVMAlignment : Int := 2 ^ 32
 
 /-- Check an `llvm.return` against its enclosing `llvm.func`'s declared results. -/
 def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
@@ -702,7 +791,27 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [IsOpCode OpInfo]
     s!"{instrName}: Expected operand 1 to have integer or pointer type"
   let _ ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
-  ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
+  ((op.getResult 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 result"
+
+/--
+`llvm.intr.scmp` and `llvm.intr.ucmp` compare two integers of the same type. The result is an
+integer of any width that can hold `-1`, `0`, and `1`, so at least `i2`.
+-/
+def OperationPtr.verifyLLVMThreeWayCmp {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 0 to have integer type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 1 to have integer type"
+  let _ ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  let .integerType resultType := ((op.getResult 0).getType! ctx.raw).val
+    | throw s!"{instrName}: Expected integer result type"
+  if resultType.bitwidth < 2 then
+    throw s!"{instrName}: Expected result type to be at least i2"
 
 /-- The properties of a memory intrinsic, whichever of the three it is. -/
 private def memIntrinsicProperties {OpInfo : Type} [IsOpCode OpInfo]
@@ -728,36 +837,123 @@ def TypeAttr.verifyLLVMVectorType (ty : TypeAttr) (errMsg : String) :
     throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
   return vectorType
 
+def OperationPtr.verifyLLVMArithWithOverflow {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  for i in [0:2] do
+    let type := ((op.getOperand! ctx.raw i).getType! ctx.raw).val
+    let typeError := s!"operand #{i} must be a signless integer or a one-dimensional vector of signless integers"
+    let elementType ← match type with
+      | .vectorType vec => do
+        let #[size] := vec.shape | throw typeError
+        if size = 0 then
+          throw s!"operand #{i} vector must have at least one element"
+        pure vec.elementType
+      | _ => pure type
+    let .integerType intType := elementType
+      | throw typeError
+    if intType.signedness != .signless then
+      throw typeError
+    -- LangRef's integer type range also applies to vector elements.
+    if intType.bitwidth = 0 ∨ intType.bitwidth > 2 ^ 23 then
+      throw s!"operand #{i} integer bit width must be between 1 and 8388608"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    "requires the same type for both operands"
+  let i1 := Attribute.integerType (IntegerType.signless 1)
+  let overflowType := match operandType.val with
+    | .vectorType vec => Attribute.vectorType { vec with elementType := i1 }
+    | _ => i1
+  let resultType := Attribute.llvmStructType ⟨none, false, #[operandType.val, overflowType]⟩
+  if ((op.getResult 0).getType! ctx.raw).val != resultType then
+    throw s!"result #0 must be {resultType}"
+
+/-- Whether the attribute represents an LLVM struct as text rather than parsed fields. -/
+private def isOpaqueLLVMStruct : Attribute → Bool
+  | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
+  | _ => false
+
+/--
+  Compare aggregate element types using their known structure. An opaque struct
+  or unresolved reference may match another struct, but cannot match a scalar
+  or array.
+-/
+private partial def aggregateElementTypesMatch : Attribute → Attribute → Bool
+  | .llvmArrayType lhs, .llvmArrayType rhs =>
+    lhs.size = rhs.size && aggregateElementTypesMatch lhs.type rhs.type
+  | .llvmStructType lhs, .llvmStructType rhs =>
+    lhs.name = rhs.name && lhs.packed = rhs.packed && lhs.body.size = rhs.body.size &&
+      (lhs.body.zip rhs.body).all (fun (l, r) => aggregateElementTypesMatch l r)
+  | lhs, rhs =>
+    if isOpaqueLLVMStruct lhs then
+      isOpaqueLLVMStruct rhs || (rhs matches .llvmStructType _)
+    else if isOpaqueLLVMStruct rhs then
+      lhs matches .llvmStructType _
+    else
+      lhs = rhs
+
 /--
   Walk `position` through an aggregate type, as MLIR does for `insertvalue` and
-  `extractvalue`, and return the element type it reaches. Arrays are modelled,
-  so their indices and element types are checked. Struct bodies are opaque, so
-  the walk stops at a struct with indices left and returns `none`.
+  `extractvalue`, and return the element type it reaches. Arrays and structs with
+  a body are modelled, so their indices and element types are checked. Opaque
+  structs and references to identified structs are kept unregistered, so the walk
+  stops at one with indices left and returns `none`. When the position is fully
+  resolved, return the reached type even if it contains unresolved references;
+  `aggregateElementTypesMatch` checks its known structure.
 -/
 def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArrayAttr) :
     Except String (Option Attribute) := do
-  let isStruct : Attribute → Bool
-    | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
-    | _ => false
-  let isArray : Attribute → Bool
-    | .llvmArrayType _ => true
-    | _ => false
+  let isAggregate : Attribute → Bool
+    | .llvmArrayType _ | .llvmStructType _ => true
+    | attr => isOpaqueLLVMStruct attr
   if position.elementType.bitwidth ≠ 64 then
     throw "Expected 'position' to be an i64 dense array attribute"
-  if !(isArray containerType.val || isStruct containerType.val) then
+  if !isAggregate containerType.val then
     throw s!"Expected an aggregate container, but got {containerType}"
   for index in position.values do
     if index < 0 then
       throw s!"position out of bounds: {index}"
   let mut current := containerType.val
   for index in position.values do
-    let .llvmArrayType arrType := current
-      | if isStruct current then return none
-        throw s!"Expected LLVM IR structure/array type, got: {current}"
-    if index ≥ arrType.size then
-      throw s!"position out of bounds: {index}"
-    current := arrType.type
+    match current with
+    | .llvmArrayType arrType =>
+      if index ≥ arrType.size then
+        throw s!"position out of bounds: {index}"
+      current := arrType.type
+    | .llvmStructType structType =>
+      let some field := structType.body[index.toNat]?
+        | throw s!"position out of bounds: {index}"
+      current := field
+    | _ =>
+      if isOpaqueLLVMStruct current then return none
+      throw s!"Expected LLVM IR structure/array type, got: {current}"
   return some current
+
+/--
+  Check the type path of a GEP, requiring every struct index to be a constant
+  within the field list. The first index steps over whole objects, and array
+  and vector indices need not be in bounds. As with `verifyAggregatePosition`,
+  stop when an opaque struct or unresolved reference hides the remaining path.
+-/
+private def Llvm.verifyGEPIndices (elemType : TypeAttr) (indices : DenseArrayAttr) :
+    Except String PUnit := do
+  let mut current := elemType.val
+  for pos in [1:indices.values.size] do
+    let index := indices.values[pos]!
+    match current with
+    | .llvmStructType structType =>
+      if index = -2147483648 then
+        throw s!"expected index {pos} indexing a struct to be constant"
+      if index < 0 then
+        throw s!"index {pos} indexing a struct is out of bounds"
+      let some field := structType.body[index.toNat]?
+        | throw s!"index {pos} indexing a struct is out of bounds"
+      current := field
+    | .llvmArrayType arrayType => current := arrayType.type
+    | .vectorType vectorType => current := vectorType.elementType
+    | _ =>
+      if isOpaqueLLVMStruct current then return ()
+      throw s!"type {current} cannot be indexed (index #{pos})"
 
 /--
 Verify the local invariants of an `llvm` operation in any operation-info type
@@ -770,7 +966,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .mlir__constant => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
-    let resultType := ((op.getResult 0).get! ctx.raw).type.val
+    let resultType := ((op.getResult 0).getType! ctx.raw).val
     match (op.getProperties! ctx.raw Llvm.mlir__constant).value with
     | .integer intAttr =>
       match resultType with
@@ -784,6 +980,9 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       | .floatType floatType =>
         if floatType.bitwidth ≠ floatAttr.type.bitwidth then
           throw s!"llvm.mlir.constant: Expected float result type with bitwidth {floatAttr.type.bitwidth}"
+        /- MLIR checks only the width, but a constant of one type cannot be read as another. -/
+        if floatType ≠ floatAttr.type then
+          throw s!"llvm.mlir.constant: Expected float result type {floatAttr.type}"
       | .integerType intType =>
         if intType.bitwidth ≠ floatAttr.type.bitwidth then
           throw s!"llvm.mlir.constant: Expected integer result type with bitwidth {floatAttr.type.bitwidth}"
@@ -821,38 +1020,26 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
   | .mlir__global => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     let properties := op.getProperties! ctx.raw Llvm.mlir__global
     if let some alignment := properties.alignment then
       if alignment.type.bitwidth ≠ 64 then
         throw "'alignment' must be a 64-bit integer attribute"
       if !isValidLLVMAlignment alignment.value then
         throw "alignment attribute is not a power of 2"
+      if alignment.value > maximumLLVMAlignment then
+        throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     if properties.addr_space.type.bitwidth ≠ 32 then
       throw "'addr_space' must be a 32-bit signless integer attribute"
     if let some value := properties.value then
-      let body := (op.getRegion! ctx.raw 0).get! ctx.raw
-      if body.firstBlock.isSome then
+      let body := op.getRegion! ctx.raw 0
+      if (body.getFirstBlock! ctx.raw).isSome then
         throw "cannot have both initializer value and region"
       if properties.linkage.value == "common" && value.isKnownNonZero then
         throw "expected zero value for 'common' linkage"
     pure ()
   | .mlir__alias => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     let properties := op.getProperties! ctx.raw Llvm.mlir__alias
     let isStorageType : Attribute → Bool
       | .llvmVoidType _ => false
@@ -861,15 +1048,9 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       | _ => true
     if !properties.alias_type.val.isLLVMCompatibleType || !isStorageType properties.alias_type.val then
       throw "expects type to be a valid element type for an LLVM global alias"
-    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
-    let some block := body.firstBlock
-      | throw "initializer region must have exactly one block"
-    if body.lastBlock ≠ some block then
-      throw "initializer region must have exactly one block"
-    if let some lastOp := (block.get! ctx.raw).lastOp then
-      let lastType := lastOp.getOpType! ctx.raw
-      if toDialect? Llvm lastType ≠ some .return then
-        throw s!"expects regions to end with 'llvm.return', found '{String.fromUTF8! (IsOpCode.name lastType)}'"
+    let block ← (op.getRegion! ctx.raw 0).getSingleBlock ctx
+      "initializer region must have exactly one block"
+    block.verifyImplicitTerminator ctx Llvm.return
     let allowed := ["private", "internal", "linkonce", "weak", "linkonce_odr", "weak_odr",
       "external", "available_externally"]
     if !allowed.contains properties.linkage.value then
@@ -878,7 +1059,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .mlir__zero => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     match resultType.val with
     | .llvmVoidType _ | .llvmFunctionType _ =>
       throw "llvm.mlir.zero: Expected result to have a type with a zero value"
@@ -941,7 +1122,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
     let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     let (fromType, toType) := if opType = .ptrtoint then
       (operandType, resultType)
     else
@@ -955,17 +1136,25 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .mlir__addressof => do
     op.verifyPlainOpCounts ctx opIn 0 1
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     let .llvmPointerType _ := resultType.val
       | throw "Expected result to have !llvm.ptr type"
     pure ()
   | .and | .or | .xor | .intr__smax | .intr__smin
   | .intr__umax | .intr__umin | .add | .sub | .ashr | .mul | .sdiv | .udiv
   | .srem | .urem | .intr__sadd__sat | .intr__uadd__sat
-  | .intr__ssub__sat | .intr__usub__sat | .intr__sshl__sat | .intr__ushl__sat => do
+  | .intr__ssub__sat | .intr__usub__sat | .intr__sshl__sat | .intr__ushl__sat
+  | .intr__smulh | .intr__umulh => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerBinop ctx opIn
     pure ()
+  | .intr__sadd__with__overflow | .intr__uadd__with__overflow
+  | .intr__ssub__with__overflow | .intr__usub__with__overflow
+  | .intr__smul__with__overflow | .intr__umul__with__overflow =>
+    op.verifyLLVMArithWithOverflow ctx opIn
+  | .intr__scmp | .intr__ucmp => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyLLVMThreeWayCmp ctx opIn
   | .lshr | .shl => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyLLVMShift ctx opIn
@@ -1046,9 +1235,35 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if base ≠ 1 + sizes[1]! + sizes[2]! then
       throw s!"llvm.switch: case_operand_segments describes {base - 1 - sizes[1]!} case \
         operands, but operandSegmentSizes reserves {sizes[2]!}"
+    let conditionType := (op.getOperandTypes! ctx.raw)[0]!
+    let .integerType intType := conditionType.val
+      | throw s!"llvm.switch: condition must be a signless integer, but got {conditionType}"
+    /- One value per case, of the condition's type. -/
+    let some caseValues := props.caseValues? intType.bitwidth
+      | match props.case_values with
+        | none => throw s!"llvm.switch: missing case_values for {caseSegments.size} case(s)"
+        | some attr => throw s!"llvm.switch: expected case_values to be a tensor or vector of \
+            {caseSegments.size} {intType} value(s), but got {attr}"
+    /- Case values must be distinct at the condition's width, as in LLVM IR. Upstream MLIR
+       accepts duplicates, but such a switch cannot be translated to LLVM IR. -/
+    let mut seen : Std.HashSet Nat := {}
+    for v in caseValues.values, key in caseValues.bits do
+      if seen.contains key then
+        throw s!"llvm.switch: duplicate case value {v}"
+      seen := seen.insert key
+    if let some weights := props.branch_weights then
+      if weights.values.size ≠ caseSegments.size + 1 then
+        throw s!"llvm.switch: expected {caseSegments.size + 1} branch weight(s), one per \
+          successor, but got {weights.values.size}"
   | .cond_br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 2
+    let condType := (op.getOperandTypes! ctx.raw)[0]!
+    if let .integerType intType := condType.val then
+      if intType.bitwidth ≠ 1 then
+        throw s!"'llvm.cond_br' op operand #0 must be of type i1, but got '{intType}'"
+    else
+      throw "'llvm.cond_br' op operand #0 must be of type i1"
     let weights := (op.getProperties! ctx.raw Llvm.cond_br).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
@@ -1057,6 +1272,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .alloca => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
+    ((op.getResult 0).getType! ctx.raw).verifyLlvmPointerType
+      "Expected the result to have !llvm.ptr type"
     let properties := op.getProperties! ctx.raw Llvm.alloca
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.alloca' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
@@ -1064,16 +1281,28 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .load => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
+      "llvm.load: Expected operand 0 to have !llvm.ptr type"
     let properties := op.getProperties! ctx.raw Llvm.load
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
+    if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
+      throw "alignment attribute is not a power of 2"
+    if properties.alignment.value > maximumLLVMAlignment then
+      throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     pure ()
   | .store => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 0
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyLlvmPointerType
+      "llvm.store: Expected operand 1 to have !llvm.ptr type"
     let properties := op.getProperties! ctx.raw Llvm.store
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
+    if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
+      throw "alignment attribute is not a power of 2"
+    if properties.alignment.value > maximumLLVMAlignment then
+      throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     pure ()
   | .insertelement => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1096,33 +1325,23 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyResultTypeMatches ctx containerType "Expected the result to have the container type"
     let elementType? ← Llvm.verifyAggregatePosition containerType props.position
     if let some elementType := elementType? then
-      if elementType ≠ valueType.val then
+      if !aggregateElementTypesMatch elementType valueType.val then
         throw s!"Type mismatch: cannot insert {valueType} into {containerType}"
   | .extractvalue => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
     let props := op.getProperties! ctx.raw Llvm.extractvalue
     let containerType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     let elementType? ← Llvm.verifyAggregatePosition containerType props.position
     if let some elementType := elementType? then
-      if elementType ≠ resultType.val then
+      if !aggregateElementTypesMatch elementType resultType.val then
         throw s!"Type mismatch: extracting from {containerType} should produce {elementType} \
           but this op returns {resultType}"
   | .comdat => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
-    let some block := body.firstBlock
-      | throw "region should have exactly one block"
-    if body.lastBlock ≠ some block then
-      throw "region should have exactly one block"
+    op.verifyOpCounts ctx opIn 0 0 1 0
+    let block ← (op.getRegion! ctx.raw 0).getSingleBlock ctx
+      "region should have exactly one block"
     if block.getNumArguments! ctx.raw ≠ 0 then
       throw "region should have no arguments"
   | .comdat_selector => do
@@ -1144,7 +1363,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected a nonempty one-dimensional vector"
     let .integerType _ := vecType.elementType
       | throw "Expected vector elements to have integer type"
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     if resultType.val ≠ vecType.elementType then
       throw "Expected result type to match vector element type"
     pure ()
@@ -1160,7 +1379,14 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    pure ()
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
+      "llvm.getelementptr: Expected operand 0 to have !llvm.ptr type"
+    for i in [1:op.getNumOperands ctx.raw opIn] do
+      ((op.getOperand! ctx.raw i).getType! ctx.raw).verifyIntegerType
+        s!"llvm.getelementptr: Expected operand {i} to have integer type"
+    (op.getResult 0).getType! ctx.raw |>.verifyLlvmPointerType
+      "llvm.getelementptr: Expected result to have !llvm.ptr type"
+    Llvm.verifyGEPIndices props.elem_type props.rawConstantIndices
   | .call_intrinsic => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyLLVMCompatibleTypes ctx opIn
@@ -1188,14 +1414,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .func => do
     op.checkIsNonNullIntegerType ctx opIn
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyOpCounts ctx opIn 0 0 1 0
   | .fadd | .fsub | .fmul | .fdiv | .frem => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyFloatBinop ctx opIn
@@ -1230,6 +1449,13 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .bitcast => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
+    match ((op.getOperand! ctx.raw 0).getType! ctx.raw).val,
+        ((op.getResultTypes! ctx.raw)[0]!).val with
+    | .llvmPointerType _, .llvmPointerType _
+    | .llvmPointerType _, .byteType _ | .byteType _, .llvmPointerType _ => pure ()
+    | .llvmPointerType _, _ | _, .llvmPointerType _ =>
+      throw "llvm.bitcast: Expected a pointer to bitcast to a pointer or a byte"
+    | _, _ => pure ()
     if Attribute.bitwidthOfType ((op.getOperand! ctx.raw 0).getType! ctx.raw) ≠
         Attribute.bitwidthOfType (op.getResultTypes! ctx.raw)[0]! then
       throw "llvm.bitcast: Expected types of the same bitwidth"
@@ -1246,6 +1472,10 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
+  | .addr (.val pointer), .llvmPointerType _ =>
+    if pointer = Pointer.null then some (.of Llvm.mlir__zero ()) else none
+  | .addr .poison, .llvmPointerType _ =>
+    some (.of Llvm.mlir__poison ())
   | .float type value, .floatType floatType =>
     -- Materialize the constant as long as the runtime float type matches the result type.
     if type = floatType then
@@ -1254,6 +1484,47 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | _, _ => none
 
+/-- `llvm.bitcast` of `val` to `type`, which reinterprets its bits. -/
+def Llvm.bitcastValue (mem : MemoryState) (val : RuntimeValue) (type : Attribute) :
+    Interp RuntimeValue :=
+  match val, type with
+  | .int bw1 _, .integerType ⟨bw2, _⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok (val)
+  | .int bw1 val', .byteType ⟨bw2⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
+  | .byte bw1 _, .byteType ⟨bw2⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok (val)
+  | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
+  | .byte bw val', .llvmPointerType _ =>
+      if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
+  | .addr _, .llvmPointerType _ => .ok (val)
+  | .addr val', .byteType ⟨bw⟩ =>
+      if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
+  | _, _ => none
+
+/--
+  The operand of `llvm.getelementptr` at `position` among its dynamic indices, or `none` if the
+  operation has no operand there. `GEPIndex.decode` marks a position it has no operand for with
+  `none`, which a `getelementptr` with fewer operands than dynamic indices reaches.
+-/
+def Llvm.gepOperand (operands : Array RuntimeValue) : Option Nat → Option RuntimeValue
+  | some i => (operands.extract 1)[i]?
+  | none => none
+
+/--
+  A dynamic index of `llvm.getelementptr`, at its position, with its stride: its signed value,
+  sign-extended to the pointer width, or `none` if it is poison. An index that is missing or is
+  not an integer cannot be read.
+-/
+def Llvm.gepIndex (operands : Array RuntimeValue) (entry : Option Nat × Nat) :
+    Option (Option Int × Nat) :=
+  match Llvm.gepOperand operands entry.1 with
+  | some (.int _ (.val idx)) => some (some idx.toInt, entry.2)
+  | some (.int _ .poison) => some (none, entry.2)
+  | _ => none
+
+@[expose]
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout)
@@ -1280,6 +1551,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     match resType.val with
     | .integerType bw => return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
     | .llvmPointerType _ => return (#[.addr .poison], mem, none)
+    | .byteType bw => return (#[.byte bw.bitwidth LLVM.Byte.allPoison], mem, none)
     | _ => none
   | .mlir__zero => do
     let some resType := resultTypes[0]? | none
@@ -1421,6 +1693,20 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.umin lhs rhs)], mem, none)
+  | .intr__scmp => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let [type] := resultTypes.toList | none
+    let .integerType resType := type.val | none
+    return (#[.int resType.bitwidth (LLVM.Int.scmp lhs rhs resType.bitwidth)], mem, none)
+  | .intr__ucmp => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let [type] := resultTypes.toList | none
+    let .integerType resType := type.val | none
+    return (#[.int resType.bitwidth (LLVM.Int.ucmp lhs rhs resType.bitwidth)], mem, none)
   | .intr__abs => do
     let [.int bw x] := operands.toList | none
     return (#[.int bw (LLVM.Int.abs x properties.is_int_min_poison)], mem, none)
@@ -1454,6 +1740,16 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.ushlSat lhs rhs)], mem, none)
+  | .intr__smulh => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smulHigh lhs rhs)], mem, none)
+  | .intr__umulh => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umulHigh lhs rhs)], mem, none)
   | .trunc => do
     let [val] := operands.toList | none
     let some resType := resultTypes[0]? | none
@@ -1515,16 +1811,16 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let some (defaultSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
     let defaultSize := defaultSizeInt.toNat
     let caseSegments := properties.case_operand_segments.values
-    let some caseValues := properties.caseValues? | none
-    /- A case value per case, or the switch cannot be read. -/
-    if caseValues.size ≠ caseSegments.size then none else
     match value with
     | .int bw (.val v) =>
+      /- A case value per case, or the switch cannot be read. -/
+      let some caseValues := properties.caseValues? bw | none
+      let key := v.toNat
       let mut base := 1 + defaultSize
       for i in [0:caseSegments.size] do
         let some (countInt : Int) := caseSegments[i]? | none
         let count := countInt.toNat
-        if v = BitVec.ofInt bw caseValues[i]! then
+        if key = caseValues.bits[i]! then
           let some dest := blockOperands[i + 1]? | none
           return (#[], mem, some (.branch (operands.extract base (base + count)) dest))
         base := base + count
@@ -1532,8 +1828,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .int _ .poison => Interp.ub none
     | _ => none
   | .mlir__addressof => do
-    let some object := mem.globals[properties.global_name.value]? | none
-    return (#[.addr (.val ⟨object, 0⟩)], mem, none)
+    let some p := mem.pointerToGlobal properties.global_name.value | none
+    return (#[.addr (.val p)], mem, none)
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
@@ -1544,11 +1840,14 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub none
     let [type] := resultTypes.toList | none
+    addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type.val)
     let val ← mem.llvmLoad addr type
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub none
+    if let some type := val.storedType then
+      addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type)
     let mem ← mem.llvmStore addr val
     return (#[], mem, none)
   | .intr__memset => do
@@ -1568,14 +1867,17 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       else mem.memmove dst src len.toNat
     return (#[], mem, none)
   | .getelementptr => do
-    /- only supports exactly one dynamic index for now -/
-    let [.addr ptr, .int _ idx] := operands.toList | none
-    /- The index scales by the element's stride, matching the `getTypeAllocSize`
-       that `isel-riscv64` uses to lower this operation. -/
-    let size ← layout.getTypeAllocSize properties.elem_type.val
-    match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
-    | _, _ => return (#[.addr .poison], mem, none)
+    let .addr ptr :: _ := operands.toList | none
+    /- Decompose the address into a constant offset and scaled dynamic indices. -/
+    let positions := GEPIndex.decode properties.rawConstantIndices.values
+      ((Array.range (operands.size - 1)).map some)
+    let (offset, dynamic) ← layout.gepOffsets properties.elem_type.val positions
+    let some indices := dynamic.mapM (Llvm.gepIndex operands) | none
+    let .val ptr := ptr | return (#[.addr .poison], mem, none)
+    let some scaled := indices.mapM (fun (idx, stride) => idx.map (· * (stride : Int)))
+      | return (#[.addr .poison], mem, none)
+    let addr := (ptr.address.toNat : Int) + offset + scaled.foldl (· + ·) 0
+    return (#[.addr (.val ⟨UInt64.ofInt addr⟩)], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
     match val with
@@ -1589,23 +1891,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .bitcast => do
     let [val] := operands.toList | none
     let [⟨type, _⟩] := resultTypes.toList | none
-    let result ← do match val, type with
-      | .int bw1 val', .integerType ⟨bw2, _⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok (val)
-      | .int bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
-      | .byte bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok (val)
-      | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
-      | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
-      | .addr val', .llvmPointerType _ => .ok (val)
-      | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
-      | .addr val', .integerType ⟨bw, _⟩ =>
-          if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail none
-      | _, _ => none
+    let result ← Llvm.bitcastValue mem val type
     return (#[result], mem, none)
   | .inttoptr => do
     let [.int bw val] := operands.toList | none
@@ -1616,7 +1902,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.addr val] := operands.toList | none
     let [type] := resultTypes.toList | none
     let .integerType bw := type.val | none
-    if bw.bitwidth = 64 then return (#[.int 64 (mem.intFromPtr val)], mem, none) else .fail none
+    if bw.bitwidth = 64 then return (#[.int 64 val.toInt], mem, none) else .fail none
   | _ => none
 
 instance : HasOpInfo Llvm where
@@ -1625,11 +1911,16 @@ instance : HasOpInfo Llvm where
   propagatesPoison := Llvm.propagatesPoison
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
+  isCommutative := Llvm.isCommutative
+  symbolInterface? := Llvm.symbolInterface?
   functionInterface? := Llvm.functionInterface?
+  callOpInterface? := Llvm.callOpInterface?
   branchOpInterface? := Llvm.branchOpInterface?
+  unconditionalBranch? := Llvm.unconditionalBranch?
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove
+  isSymbolTable := Llvm.isSymbolTable
   hasNoTerminator := Llvm.hasNoTerminator
 
 end

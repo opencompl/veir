@@ -1,6 +1,8 @@
 module
 
 public import Veir.Pass
+public import Veir.PatternRewriter.Puddle.Builders
+import Veir.DataLayout.RISCV64
 
 public section
 
@@ -30,8 +32,113 @@ def castToRegLocal (ctx : WfIRContext OpCode) (v : ValuePtr) :
 -/
 def replaceWithRegLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (reg : ValuePtr) :
     Option (WfIRContext OpCode × OperationPtr) :=
-  let type := ((op.getResult 0).get! ctx.raw).type
+  let type := (op.getResult 0).getType! ctx.raw
   WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast
       #[type] #[reg] #[] #[] () none
+
+/-- Immediate properties holding `value` as a 64-bit immediate. -/
+def mkRISCVImm (value : Int) : RISCVImmediateProperties :=
+  RISCVImmediateProperties.mk (BitVec.ofInt 64 value)
+
+/-- Create a detached register-result `dst` op with immediate `value`. -/
+def createRISCVImmLocal (ctx : WfIRContext OpCode)
+    (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
+    (operands : Array ValuePtr) (value : Int) :
+    Option (WfIRContext OpCode × OperationPtr) :=
+  WfRewriter.createOp! ctx dst #[RegisterType.mk] operands #[] #[]
+      (cast h.symm (mkRISCVImm value)) none
+
+/-- Create a detached register-result `dst` op without properties. -/
+def createRISCVUnitLocal (ctx : WfIRContext OpCode)
+    (dst : Riscv) (h : Riscv.propertiesOf dst = Unit) (operands : Array ValuePtr) :
+    Option (WfIRContext OpCode × OperationPtr) :=
+  WfRewriter.createOp! ctx dst #[RegisterType.mk] operands #[] #[]
+      (cast h.symm ()) none
+
+/-! ## Puddle lowering patterns -/
+
+section
+open Puddle
+
+/--
+  RISC-V lowerings with Puddle for unary operations.
+  `guard` adds conditions on the matched operand and result types and on the properties of the
+  `srcOp` operation.
+-/
+def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp))
+    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop srcOp) →
+      MatchProg.Builder Unit := fun _ _ _ => pure ()) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = bw)
+      let resType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value opType
+      let root ← MatchProg.root srcOp #[x] #[resType]
+      guard opType resType root.properties
+      return (resType, x))
+    (fun (resType, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType]
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
+          #[castOp.res[0]!] #[regType] riscvProps
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[resType]
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/--
+  RISC-V for binary operations that share a single integer type between both operands and the
+  result: cast both operands to registers, optionally apply `extend` to each register first (e.g.
+  `riscv.sextw` for the signed min/max `i32` arms, since `castToRegLocal`'s zero-extension does not
+  preserve signed order), apply `riscvOp`, and cast the result back to the source type.
+  `guard` adds conditions on the matched type and on the properties of the `srcOp` operation.
+-/
+def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp))
+    (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none)
+    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
+      fun _ _ => pure ()) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType) typeMatcher
+      let lhs ← MatchProg.value opType
+      let rhs ← MatchProg.value opType
+      let root ← MatchProg.root srcOp #[lhs, rhs] #[opType]
+      guard opType root.properties
+      return (opType, lhs, rhs))
+    (fun (opType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType]
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType]
+      let (lval, rval) ← match extend with
+        | some ⟨extOp, extProps⟩ => do
+          let lextOp ← CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
+          let rextOp ← CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
+          pure (lextOp.res[0]!, rextOp.res[0]!)
+        | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
+          #[lval, rval] #[regType] riscvProps
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[opType]
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- The width in bytes of a load or store of a value of `type`, for the integers
+  and pointers whose data-layout size fits one `l*`/`s*` instruction. An integer
+  must fill its bytes exactly, since `getTypeSize` rounds an odd width up. -/
+def memAccessWidth? (type : TypeAttr) : Option Nat := do
+  match type.val with
+  | .integerType t => guard (t.bitwidth % 8 = 0)
+  | .llvmPointerType _ => pure ()
+  | _ => none
+  let width ← DataLayout.riscv64.getTypeSize type.val
+  guard (width ∈ [1, 2, 4, 8])
+  return width
+
+end
 
 end Veir

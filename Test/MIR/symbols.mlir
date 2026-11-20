@@ -4,7 +4,7 @@
 // Quoted and escaped references must resolve to the same function, and LLVM
 // identifiers and YAML scalars need their own escaping.
 "builtin.module"() ({
-  "func.func"() <{sym_name = "caller", function_type = () -> ()}> ({
+  "riscv_cf.func"() <{sym_name = "caller", function_type = () -> ()}> ({
     "riscv_cf.call"() <{callee = @"leaf"}> : () -> ()
     "riscv_cf.call"() <{callee = @"le\61f"}> : () -> ()
     "riscv_cf.call"() <{callee = @"name with spaces"}> : () -> ()
@@ -16,22 +16,22 @@
     "riscv_cf.call"() <{callee = @"external\20name"}> : () -> ()
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
-  "func.func"() <{sym_name = "leaf", function_type = () -> ()}> ({
+  "riscv_cf.func"() <{sym_name = "leaf", function_type = () -> ()}> ({
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
-  "func.func"() <{sym_name = "name with spaces", function_type = () -> ()}> ({
+  "riscv_cf.func"() <{sym_name = "name with spaces", function_type = () -> ()}> ({
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
-  "func.func"() <{sym_name = "name: # 'quoted'", function_type = () -> ()}> ({
+  "riscv_cf.func"() <{sym_name = "name: # 'quoted'", function_type = () -> ()}> ({
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
-  "func.func"() <{sym_name = "quote\"slash\\line\n\t\01", function_type = () -> ()}> ({
+  "riscv_cf.func"() <{sym_name = "quote\"slash\\line\n\t\01", function_type = () -> ()}> ({
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
-  "func.func"() <{sym_name = "123", function_type = () -> ()}> ({
+  "riscv_cf.func"() <{sym_name = "123", function_type = () -> ()}> ({
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
-  "func.func"() <{sym_name = "café", function_type = () -> ()}> ({
+  "riscv_cf.func"() <{sym_name = "café", function_type = () -> ()}> ({
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

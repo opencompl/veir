@@ -10,7 +10,9 @@ meta import Veir.Meta.OpCode
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
+public import Veir.Data.Casting
 import Veir.Data.RISCV.Reg.Basic
+import Veir.Data.Casting
 
 open Veir.Data
 
@@ -94,6 +96,7 @@ inductive Riscv where
 | cpopw
 | orcb
 | rev8
+| brev8
 | roriw
 | rori
 | bclr
@@ -134,9 +137,10 @@ inductive Riscv where
 | snez
 | sltz
 | sgtz
+| la
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Riscv.propertiesOf (op : Riscv) : Type :=
 match op with
 | .li => RISCVImmediateProperties
@@ -174,6 +178,7 @@ match op with
 | .sw => RISCVMemProperties
 | .sh => RISCVMemProperties
 | .sb => RISCVMemProperties
+| .la => RISCVSymbolProperties
 | _ => Unit
 
 def Riscv.fromAttrDict
@@ -186,6 +191,7 @@ def Riscv.fromAttrDict
     exact RISCVImmediateProperties.fromAttrDict attrDict
   case ld | lw | lwu | lh | lhu | lb | lbu | sd | sw | sh | sb =>
     exact RISCVMemProperties.fromAttrDict attrDict
+  case la => exact RISCVSymbolProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
 def Riscv.toAttrDict
@@ -206,6 +212,8 @@ def Riscv.toAttrDict
     if props.volatile_ then
       dict := dict.insert "volatile_".toUTF8 (.unitAttr UnitAttr.mk)
     dict
+  | .la => (Std.HashMap.emptyWithCapacity 1).insert
+      "symbol".toUTF8 (.flatSymbolRefAttr props.symbol)
   | _ => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
@@ -236,7 +244,7 @@ def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffect
   | .rol, _ | .ror, _ | .rolw, _ | .rorw, _
   | .sextb, _ | .sexth, _ | .zexth, _
   | .clz, _ | .clzw, _ | .ctz, _ | .ctzw, _
-  | .cpop, _ | .cpopw, _ | .orcb, _ | .rev8, _
+  | .cpop, _ | .cpopw, _ | .orcb, _ | .rev8, _ | .brev8, _
   | .rori, _ | .roriw, _
   | .bclr, _ | .bext, _ | .binv, _ | .bset, _
   | .bclri, _ | .bexti, _ | .binvi, _ | .bseti, _
@@ -244,7 +252,15 @@ def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffect
   | .czeroeqz, _ | .czeronez, _
   | .mv, _ | .not, _ | .neg, _ | .negw, _
   | .sextw, _ | .zextb, _ | .zextw, _
-  | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _ => .none
+  | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _
+  | .la, _ => .none
+
+def Riscv.isCommutative : Riscv → Bool
+  | .add | .and | .or | .xor | .xnor
+  | .mul | .mulh | .mulhu
+  | .max | .maxu | .min | .minu
+  | .addw | .mulw => true
+  | _ => false
 
 def Riscv.isConstantLike (op : Riscv) : Bool :=
   match op with
@@ -342,7 +358,7 @@ def OperationPtr.verifyRISCVRegisterTypes {OpInfo : Type} [IsOpCode OpInfo]
     | .registerType _ => pure ()
     | _ => throw s!"{instrName}: Expected operand {i} to have !riscv.reg type"
   for i in [0:op.getNumResults ctx.raw opIn] do
-    match ((op.getResult i).get! ctx.raw).type.val with
+    match ((op.getResult i).getType! ctx.raw).val with
     | .registerType _ => pure ()
     | _ => throw s!"{instrName}: Expected result {i} to have !riscv.reg type"
 
@@ -425,7 +441,7 @@ def Riscv.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .sextb | .sexth | .zexth
   | .clz | .clzw | .ctz | .ctzw
-  | .cpop | .cpopw | .orcb | .rev8 => do
+  | .cpop | .cpopw | .orcb | .rev8 | .brev8 => do
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .roriw => do
@@ -491,6 +507,9 @@ def Riscv.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .sltz | .sgtz => do
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
+  | .la => do
+    op.verifyPlainOpCounts ctx opIn 0 1
+    pure ()
 
 /-- Effective address of a RISC-V load/store: the base register value plus the
     sign-extended 12-bit immediate offset. -/
@@ -504,17 +523,18 @@ inductive LoadExtension
 
 /-- Read `bytes` of little-endian data from memory starting at
     `eaddr` and extend it to 64 bits according to `ext`. The access is
-    checked against the object `eaddr` decodes to, like an LLVM access. -/
+    checked like an LLVM access through the pointer `eaddr` decodes to. -/
 def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension) :
     Interp (BitVec 64 × MemoryState) := do
   let p := mem.decode (UInt64.ofBitVec eaddr)
   let ba ← mem.load p bytes.toUInt64
-  let val := ba.toBitVecLE bytes
+  let val := ba.toBitVecLE (8 * bytes)
   let extended := match ext with
     | .signExt => val.signExtend 64
     | .zeroExt => val.setWidth 64
   return (extended, mem)
 
+@[expose]
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     (mem : MemoryState)
@@ -757,6 +777,9 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
   | .rev8 => do
     let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.rev8 op)], mem, none)
+  | .brev8 => do
+    let [.reg op] := operands.toList | none
+    return (#[.reg (RISCV.brev8 op)], mem, none)
   | .roriw => do
     let [.reg op1] := operands.toList | none
     let imm := properties.immField 5
@@ -903,12 +926,16 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     -- store only the low byte of the register
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
+  | .la => do
+    let some p := mem.pointerToGlobal properties.symbol.value | none
+    return (#[.reg (LLVM.Int.toReg (Data.LLVM.Ptr.toInt (.val p)))], mem, none)
 
 instance : HasOpInfo Riscv where
   verifyLocalInvariants := Riscv.verifyLocalInvariants
   tryFold := Riscv.tryFold
   getEffects := Riscv.getEffects
   isConstantLike := Riscv.isConstantLike
+  isCommutative := Riscv.isCommutative
   hasSSADominance := Riscv.hasSSADominance
 
 end
