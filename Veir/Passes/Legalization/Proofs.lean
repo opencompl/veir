@@ -146,8 +146,52 @@ theorem zext_and_anyext (n m : Nat) (h : n < m) (x : LLVM.Int n) (nneg : Bool)
     LLVM.Int.zext x m nneg h ⊒
       LLVM.Int.and (LLVM.Int.ext x m ext h) (LLVM.Int.constant m (2 ^ n - 1)) := by
   veir_bv_normalize
-  simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append, getElem_ofInt_two_pow_sub_one]
+  simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
   grind
+
+/--
+Prove `combineSExtOfTrunc false` at every width: `g_sext (g_trunc x)` is refined by the
+`g_sext_inreg` of `x`, whatever the flags of the `g_trunc`.
+-/
+theorem sext_trunc_sext_inreg {w n : Nat} (h : n < w) (x : LLVM.Int w) (nsw nuw : Bool) :
+    LLVM.Int.sext (LLVM.Int.trunc x n nsw nuw h) w h ⊒
+      LLVM.Int.sext (LLVM.Int.trunc x n false false h) w h := by
+  veir_bv_normalize
+  simp
+
+/--
+Prove `combineZExtOfTrunc false` at every width: `g_zext (g_trunc x)` is refined by the `g_and` of
+`x` with the mask of the truncated width, whatever the flags of the `g_trunc` and the `g_zext`.
+-/
+theorem zext_trunc_and {w n : Nat} (h : n < w) (x : LLVM.Int w) (nsw nuw nneg : Bool) :
+    LLVM.Int.zext (LLVM.Int.trunc x n nsw nuw h) w nneg h ⊒
+      LLVM.Int.and x (LLVM.Int.constant w (2 ^ n - 1)) :=
+  have ⟨ext, hext⟩ := anyext_trunc_same w n h x nsw nuw
+  LLVM.Int.isRefinedBy_trans (zext_and_anyext n w h _ nneg ext)
+    (LLVM.Int.and_mono _ _ _ _ hext (LLVM.Int.isRefinedBy_refl _))
+
+/--
+Prove `combineSExtOfTrunc true` at every width: when `x` is wider than the `g_sext`, it is truncated
+to its type first.
+-/
+theorem sext_trunc_sext_inreg_of_trunc {w m n : Nat} (hn : n < m) (hm : m < w) (x : LLVM.Int w)
+    (nsw nuw : Bool) :
+    LLVM.Int.sext (LLVM.Int.trunc x n nsw nuw (by omega)) m hn ⊒
+      LLVM.Int.sext (LLVM.Int.trunc (LLVM.Int.trunc x m false false hm) n false false hn) m hn := by
+  veir_bv_normalize
+  simp [BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hn)]
+
+/--
+Prove `combineZExtOfTrunc true` at every width: when `x` is wider than the `g_zext`, it is truncated
+to its type first.
+-/
+theorem zext_trunc_and_of_trunc {w m n : Nat} (hn : n < m) (hm : m < w) (x : LLVM.Int w)
+    (nsw nuw nneg : Bool) :
+    LLVM.Int.zext (LLVM.Int.trunc x n nsw nuw (by omega)) m nneg hn ⊒
+      LLVM.Int.and (LLVM.Int.trunc x m false false hm) (LLVM.Int.constant m (2 ^ n - 1)) :=
+  have ⟨ext, hext⟩ := anyext_trunc_narrower w n m hn hm x nsw nuw
+  LLVM.Int.isRefinedBy_trans (zext_and_anyext n m hn _ nneg ext)
+    (LLVM.Int.and_mono _ _ _ _ hext (LLVM.Int.isRefinedBy_refl _))
 
 /-- `x` is refined by its low bits after any extension. -/
 private theorem trunc_ext_self {n m : Nat} (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :

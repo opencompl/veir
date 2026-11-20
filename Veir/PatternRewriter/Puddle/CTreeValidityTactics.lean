@@ -1,7 +1,32 @@
 module
 
 public meta import Lean
+public import Veir.Dialects.Builtin.InterpreterLemmas
 public import Veir.PatternRewriter.Puddle.CTreeValidity
+public import Veir.PatternRewriter.Puddle.Simp
+
+/-!
+# The `puddle` simp set
+
+The `puddle` simp set contains simplifications of terms created by the Puddle matchers,
+CTree-based interpreters, and simulation relations that typically arise in puddle pattern proofs.
+-/
+
+namespace Veir
+
+open _root_.CTree
+
+public section
+
+/- Simplifications of `forall` quantifiers introduced by matchers. -/
+attribute [puddle] TypeAttr.forall_of_eq_imp_iff IntegerType.forall_bitwidth_eq_implies_iff
+/- Simplifications of `Sim` relations. -/
+attribute [puddle] Sim.bind_monadLift_left_iff Sim.monadLift_right_iff
+  CTree.Sim.pure_bind_choose_iff
+
+end
+
+end Veir
 
 namespace Veir.Puddle.CTree
 
@@ -35,7 +60,8 @@ elab "simpPuddleValid" : tactic => withMainContext do
   unless (← getMainTarget).isAppOf ``Pattern.Valid do
     throwError "expected a CTree pattern validity goal"
   evalTactic (← `(tactic| (
-    unfoldPuddleBuilder
+    /- The pattern may already be normalized, e.g. by `cbv`. -/
+    try unfoldPuddleBuilder
     constructor
     · conv => arg 1; cbv
       /- Eliminate empty-list quantifiers before unfolding opcode metadata. -/
@@ -69,6 +95,8 @@ elab "simpPuddleValid" : tactic => withMainContext do
       List.size_toArray, List.length_cons, List.length_nil,
       List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ,
       Array.toList_push, Array.emptyWithCapacity, Array.size_map, Array.size_range,
+      /- Resolve builders that replace one handle of a concrete handle array. -/
+      Array.toList_set!, Array.toList_setIfInBounds, List.set_cons_zero, List.set_cons_succ, List.set_nil,
       getElem!_pos, Array.getElem_map, Array.getElem_range,
       List.mapM_cons, List.mapM_nil, Option.pure_def, Option.bind_eq_bind, Option.bind_some,
       Option.bind_fun_some, Nat.add_zero, Nat.reduceAdd, Nat.reduceEqDiff, Nat.reduceLT,

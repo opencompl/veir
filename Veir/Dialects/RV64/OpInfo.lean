@@ -4,6 +4,7 @@ public import Veir.IR.OpInfo
 public import Veir.IR.Simp
 public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
+import all Veir.IR.Attribute
 
 namespace Veir
 
