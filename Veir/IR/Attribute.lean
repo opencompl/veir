@@ -120,7 +120,8 @@ end FloatType
   stack: virtual type of register that represents a slot on the stack, eventually lowered to actual memory operations
 -/
 inductive RegisterClass where
-  | int | stack
+  | int
+  | stack
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /-- Registers hold 64 bit values.
@@ -128,9 +129,10 @@ deriving Inhabited, Repr, DecidableEq, Hashable
   Non-negative indices represent the architectural registers.
 -/
 structure RegisterType where
-  /-- Future work: Currently, VeIR riscv backend only supports integer registers.
-  Therefore, we chose int as default RegisterType.
-  If float support is added later, we might want to make cls optional and default to None. -/
+  /--
+  Currently, we chose int as default RegisterType, since VeIR only supports integer registers.
+  TODO: update when more registers are available.
+ -/
   cls   : RegisterClass := .int
   index : Option Int := none
 deriving Inhabited, Repr, DecidableEq, Hashable
