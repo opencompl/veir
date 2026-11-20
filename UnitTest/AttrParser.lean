@@ -779,11 +779,20 @@ macro "#assert " e:term : command =>
 
 /-! ## RISCV Register type -/
 #assert expectSuccessType "!riscv.reg" (RegisterType.mk)
-#assert expectSuccessType "!riscv.reg<x13>" (RegisterType.mk (some 13))
-#assert expectSuccessType "!riscv.reg<x0>" (RegisterType.mk (some 0))
+#assert expectSuccessType "!riscv.reg<x13>" (RegisterType.mk .int (some 13))
+#assert expectSuccessType "!riscv.reg<x0>" (RegisterType.mk .int (some 0))
 #assert expectErrorType "!riscv.reg<j3>" "expected RV64 register of the form xID" (some 11)
-#assert ToString.toString (RegisterType.mk (some (-1))) = "!riscv.reg<j0>"
-#assert ToString.toString (RegisterType.mk (some (-12))) = "!riscv.reg<j11>"
+#assert ToString.toString (RegisterType.mk .int (some (-1))) = "!riscv.reg<j0>"
+#assert ToString.toString (RegisterType.mk .int (some (-12))) = "!riscv.reg<j11>"
+
+/-! ### Stack slots -/
+#assert expectErrorType "!riscv.stack" "currently only integer registers can be parsed" (some 0)
+#assert expectErrorType "!riscv.stack<x3>" "currently only integer registers can be parsed" (some 0)
+#assert expectErrorType "!riscv.stack<j3>" "currently only integer registers can be parsed" (some 0)
+#assert ToString.toString (RegisterType.mk .stack (some (-1))) = "!riscv.stack<j0>"
+
+/-! ### The register class is part of the type -/
+#assert (RegisterType.mk .int none : TypeAttr) ≠ (RegisterType.mk .stack none : TypeAttr)
 
 /-! ## Flat symbol reference attribute -/
 #assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")
