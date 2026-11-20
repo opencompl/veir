@@ -24,6 +24,7 @@ import Veir.Passes.RISCVCombines.Proofs
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter
+import Veir.Dialects.Builtin.InterpreterLemmas
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.InstructionSelection.Proofs.I32
@@ -40,3 +41,4 @@ import Veir.Data.FP.ExtRat
 import Veir.Data.FP.FP
 import Veir.Interfaces
 import Veir.Dialects.LLVM.Interpreter
+import Veir.Dialects.ResultsConform

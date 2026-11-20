@@ -128,10 +128,14 @@ def fromBitVec {w : Nat} (x : BitVec w) : Byte w :=
 def fromUInt64 (x : UInt64) : Byte 64 :=
   fromBitVec x.toBitVec
 
+/-- Fill all poison bits with bits from `chosen`. -/
+def fillPoison {w : Nat} (b : Byte w) (chosen : BitVec w) : BitVec w :=
+  b.val ||| (b.poison &&& chosen)
+
 /--
   i is refined by i' if for each bit, either i is poison, or the bits are the same and i' is not poison.
 -/
-@[simp, grind ., veir_bv_normalize]
+@[grind ., veir_bv_normalize]
 def isRefinedBy {w : Nat} (i i' : Veir.Data.LLVM.Byte w) : Prop :=
   (i.poison ||| ((i.val ^^^ ~~~i'.val) &&& ~~~i'.poison)) = BitVec.allOnes w
 
@@ -148,7 +152,7 @@ theorem isRefinedBy_trans {w : Nat} {i j k : Byte w}
 /-- The all-poison byte is refined by any byte. -/
 @[simp, grind .]
 theorem allPoison_isRefinedBy {w : Nat} (b : Byte w) : (allPoison : Byte w) ⊒ b := by
-  simp [allPoison]
+  simp [isRefinedBy, allPoison]
 
 /-! ## Greatest lower bound under refinement -/
 
