@@ -2,6 +2,7 @@ module
 
 public import Veir.PatternRewriter.Puddle.Definitions
 import Veir.PatternRewriter.Puddle.Builders
+import Veir.Passes.Legalization.LegalizerHelper
 
 /-!
 # Legalization Artifact Combiner
@@ -18,11 +19,11 @@ namespace Veir
 open Puddle
 
 /--
-Matches `g_anyext (g_trunc x)` where the type of `x` and the result type satisfy `relation`.
-Returns `x` and the result type.
+Matches `extOpcode (g_trunc x)` where the type of `x` and the result type satisfy `relation`.
+Returns `x`, the truncated type and the result type.
 -/
-def matchAnyExtOfTrunc (relation : IntegerType → IntegerType → Bool) :
-    MatchProg.Builder (Handle OpCode .value × Handle OpCode .type) := do
+def matchExtOfTrunc (extOpcode : GMIR) (relation : IntegerType → IntegerType → Bool) :
+    MatchProg.Builder (Handle OpCode .value × Handle OpCode .type × Handle OpCode .type) := do
   let srcType ← MatchProg.type (Attr := IntegerType)
   let x ← MatchProg.value srcType
   let narrowType ← MatchProg.type (Attr := IntegerType)
@@ -32,12 +33,12 @@ def matchAnyExtOfTrunc (relation : IntegerType → IntegerType → Bool) :
     match srcType.val, type.val with
     | .integerType srcType, .integerType type => relation srcType type
     | _, _ => false
-  let _ ← MatchProg.root (.gmir .g_anyext) #[trunc.res[0]!] #[type]
-  return (x, type)
+  let _ ← MatchProg.root (.gmir extOpcode) #[trunc.res[0]!] #[type]
+  return (x, narrowType, type)
 
 /-- Combines `g_anyext (g_trunc x)` to `x` when both have the same type. -/
 def combineAnyExtOfTruncSame : Pattern OpCode :=
-  Pattern.Builder (matchAnyExtOfTrunc (· = ·)) pure (fun (x, _) => x)
+  Pattern.Builder (matchExtOfTrunc .g_anyext (· = ·)) pure (fun (x, _, _) => x)
 
 /--
 Combines `g_anyext (g_trunc x)` to `castOpcode x` when the type of `x` and the result type satisfy
@@ -45,11 +46,53 @@ Combines `g_anyext (g_trunc x)` to `castOpcode x` when the type of `x` and the r
 -/
 def combineAnyExtOfTruncToCast (castOpcode : GMIR) (relation : IntegerType → IntegerType → Bool) :
     Pattern OpCode :=
-  Pattern.Builder (matchAnyExtOfTrunc relation)
-    (fun (x, type) => do
+  Pattern.Builder (matchExtOfTrunc .g_anyext relation)
+    (fun (x, _, type) => do
       let props ← CreateProg.property (.gmir castOpcode) default
       CreateProg.operation (.gmir castOpcode) #[x] #[type] props)
     (fun cast => cast)
+
+/--
+Matches `extOpcode (g_trunc x)` where `x` has the result type, or a wider one when `trunc` is set.
+Returns `x`, the truncated type and the result type.
+-/
+def extOfTruncSource (extOpcode : GMIR) (trunc : Bool) :
+    MatchProg.Builder (Handle OpCode .value × Handle OpCode .type × Handle OpCode .type) :=
+  matchExtOfTrunc extOpcode (if trunc then (·.bitwidth > ·.bitwidth) else (· = ·))
+
+/--
+`x` as a value of `type`: itself, or its `g_trunc` when `trunc` is set, as LLVM's
+`buildAnyExtOrTrunc`.
+-/
+def truncSource (trunc : Bool) (x : Handle OpCode .value) (type : Handle OpCode .type) :
+    CreateProg.Builder (Handle OpCode .value) := do
+  if !trunc then return x
+  let op ← CreateProg.operation (.gmir .g_trunc) #[x] #[type]
+  return op.res[0]!
+
+/--
+Combines `g_sext (g_trunc x)` to a `g_sext_inreg` of `x` with the width of the `g_trunc`, as LLVM's
+`tryCombineSExt`. When `trunc` is set, `x` is wider than the `g_sext` and is truncated to its type.
+-/
+def combineSExtOfTrunc (trunc : Bool) : Pattern OpCode :=
+  Pattern.Builder (extOfTruncSource .g_sext trunc)
+    (fun (x, narrowType, type) => do
+      let x ← truncSource trunc x type
+      createSextInReg x narrowType type)
+    (fun op => op)
+
+/--
+Combines `g_zext (g_trunc x)` to a `g_and` of `x` with the mask of the width of the `g_trunc`, as
+LLVM's `tryCombineZExt`. When `trunc` is set, `x` is wider than the `g_zext` and is truncated to its
+type.
+-/
+def combineZExtOfTrunc (trunc : Bool) : Pattern OpCode :=
+  Pattern.Builder (extOfTruncSource .g_zext trunc)
+    (fun (x, narrowType, type) => do
+      let x ← truncSource trunc x type
+      let mask ← widthConstant narrowType type (2 ^ · - 1)
+      CreateProg.operation (.gmir .g_and) #[x, mask.res[0]!] #[type])
+    (fun op => op)
 
 /-- Combines `g_anyext (g_anyext x)` to `g_anyext x`, as LLVM's `tryCombineAnyExt` does. -/
 def combineAnyExtOfAnyExt : Pattern OpCode :=
@@ -163,8 +206,12 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
       combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
       combineAnyExtOfAnyExt]
-  | .g_zext => [combineZExtOfTruncOfICmp, combineExtOfTruncOfConstant false]
-  | .g_sext => [combineExtOfTruncOfConstant true]
+  | .g_zext => [
+      combineZExtOfTruncOfICmp,
+      combineExtOfTruncOfConstant false,
+      combineZExtOfTrunc false,
+      combineZExtOfTrunc true]
+  | .g_sext => [combineExtOfTruncOfConstant true, combineSExtOfTrunc false, combineSExtOfTrunc true]
   | .g_trunc => [combineTruncOfTrunc]
   | .g_unmerge_values => [combineUnmergeOfMerge]
   | _ => []

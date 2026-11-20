@@ -89,7 +89,6 @@ renaming `mapping` (for the unchanged majority, `mapping` is the identity-on-`Va
 
 The conclusion relates the two `interpretOp` results: their interpreter states are again related by
 `InterpreterState.isRefinedBy mapping`, and their control flow actions by `ControlFlowAction`-refinement.
-The explicit equal-memory premise retains the legacy deterministic contract.
 Because the variable relation constrains only values defined in *both* states, `op`'s freshly-set
 results are added on both sides and re-established by `interpretOp'_monotone`, while pre-existing
 values stay defined and refined.
@@ -100,19 +99,18 @@ theorem interpretOp_monotone
     {mapping : ValueMapping ctx ctx'}
     (opIn : op.InBounds ctx.raw) (opIn' : op'.InBounds ctx'.raw)
     (hState : state.isRefinedBy state' mapping)
-    (hMem : state.memory = state'.memory)
     (hPreserves : mapping.PreservesOperation op op')
     (opVerif' : op'.Verified ctx' opIn') :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.1.memory = r₂.1.memory ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+        r₁.1.isRefinedBy r₂.1 mapping ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
       (interpretOp op state opIn)
       (interpretOp op' state' opIn') := by
   -- If the source interpretation fails, then the refinement is trivial
   by_cases hsource : (interpretOp op state opIn).isFail
   · rcases h : interpretOp op state opIn with _ | _ | _ <;> simp_all [Interp.isRefinedBy]
-  -- Source/target operands are defined, and memory is equal.
+  -- Source/target operands are defined.
   have ⟨operands, hSrcOps⟩ : ∃ operands, state.variables.getOperandValues op = some operands := by
     grind [interpretOp]
   obtain ⟨operands', hTgtOps, hOpsRef⟩ :=
@@ -120,10 +118,10 @@ theorem interpretOp_monotone
   -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`
   have hPR1 := interpretOp'_monotone (op.getOpType! ctx.raw)
     (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) (op.getResultTypes! ctx.raw)
-    operands operands' (op.getSuccessors! ctx.raw) state.memory hOpsRef
+    operands operands' (op.getSuccessors! ctx.raw) state.memory state'.memory hOpsRef hState.1
   -- Add the equality between `interpretOp'` on `operands'`
   have hInterp'Eq : op'.interpret ctx'.raw operands' state'.memory =
-                    op.interpret ctx.raw operands' state.memory := by
+                    op.interpret ctx.raw operands' state'.memory := by
      grind [interpretOp'_opType_cast, cases ValueMapping.PreservesOperation]
   /- Do a case analysis on the source interpretation -/
   rcases hsrc : interpretOp op state opIn with _ | _ | ⟨state₂, act⟩
@@ -138,8 +136,7 @@ theorem interpretOp_monotone
       (interpretOp_ok_iff_of_getOperandValues_eq_some hSrcOps).mp hsrc
     simp only [hinterp', Interp.isRefinedBy_ok_target_iff, OperationResult.isRefinedBy,
       Prod.exists] at hPR1
-    have ⟨resValues', memory'₂, act', hinterp'Tgt, ⟨resValuesRef, memoryRef, actRef⟩, memoryEq⟩ := hPR1
-    subst memory'₂
+    have ⟨resValues', memory'₂, act', hinterp'Tgt, ⟨resValuesRef, memoryRef, actRef⟩⟩ := hPR1
     simp only [← hInterp'Eq] at hinterp'Tgt
     simp only [interpretOp, hTgtOps, bind, hinterp'Tgt, liftM, monadLift, MonadLift.monadLift]
     have := interpretOp'_results_conform (opInBounds := opIn') opVerif' (VariableState.getOperandValues_conforms hTgtOps) hinterp'Tgt
@@ -168,19 +165,18 @@ theorem interpretOpList_mono
     {mapping : ValueMapping ctx ctx'}
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     (hState : state.isRefinedBy state' mapping)
-    (hMem : state.memory = state'.memory)
     (hPreserves : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.1.memory = r₂.1.memory ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+        r₁.1.isRefinedBy r₂.1 mapping ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
       (interpretOpList ops state) (interpretOpList ops state') := by
   induction ops generalizing state state' with
-  | nil => simpa using And.intro hState hMem
+  | nil => simpa using hState
   | cons a l ih =>
     /- Refinement of the state after interpreting the head operation `a`. -/
     have refinesHead := interpretOp_monotone (opsInBounds a (by grind)) (opsInBounds' a (by grind))
-      hState hMem (hPreserves a (by grind)) (by grind)
+      hState (hPreserves a (by grind)) (by grind)
     simp only [interpretOpList_cons]
     /- Case analysis on the interpretation of the head operation `a` in the source. -/
     rcases hsrc : interpretOp a state (opsInBounds a (by grind)) with _ | _ | ⟨s, act⟩
@@ -191,7 +187,7 @@ theorem interpretOpList_mono
     · /- Source operation succeeds with new state `s` and action `act`. This means that the target
       operation also succeeds with a refined state `s'` and action `act'`. -/
       simp only [hsrc, Interp.isRefinedBy_ok_target_iff] at refinesHead
-      obtain ⟨⟨s', act'⟩, htgt, hsRef, hMemNext, hactRef⟩ := refinesHead
+      obtain ⟨⟨s', act'⟩, htgt, hsRef, hactRef⟩ := refinesHead
       simp only [htgt]
       /- Case analysis on the action. -/
       cases act
@@ -201,13 +197,13 @@ theorem interpretOpList_mono
         have hact' : act' = none := by grind [ControlFlowAction.optionIsRefinedBy]
         subst hact'
         simp only
-        apply ih (by grind) (by grind) hsRef hMemNext (by grind)
+        apply ih (by grind) (by grind) hsRef (by grind)
       case some cf =>
         simp [ControlFlowAction.optionIsRefinedBy] at hactRef
         /- A control-flow action: the list stops here for both the source and the target. -/
         have ⟨cf', hact', hcfRef⟩ : ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' := by grind
         subst hact'
-        simp [hsRef, hMemNext, ControlFlowAction.optionIsRefinedBy, hcfRef]
+        simp [hsRef, ControlFlowAction.optionIsRefinedBy, hcfRef]
 
 /-- `interpretTerminatedOpList` is monotone under a *cross-context* interpreter-state refinement,
 over an *identical* list of operations. The proof is derived from `interpretOpList_monotone`, as
@@ -220,20 +216,19 @@ theorem interpretTerminatedOpList_mono
     (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)
     (opsInBounds' : ∀ op, op ∈ ops → op.InBounds ctx'.raw)
     (hState : state.isRefinedBy state' mapping)
-    (hMem : state.memory = state'.memory)
     (hFrame : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × ControlFlowAction)
            (r₂ : InterpreterState ctx' × ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.1.memory = r₂.1.memory ∧ r₁.2.isRefinedBy r₂.2)
+        r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.2.isRefinedBy r₂.2)
       (interpretTerminatedOpList ops state) (interpretTerminatedOpList ops state') := by
-  have hList := interpretOpList_mono ctx'Verif opsInBounds opsInBounds' hState hMem hFrame
+  have hList := interpretOpList_mono ctx'Verif opsInBounds opsInBounds' hState hFrame
   simp only [interpretTerminatedOpList, bind]
   rcases hsrc : interpretOpList ops state (by grind) with _ | _ | ⟨s, act⟩
   · simp [Interp.isRefinedBy]
   · exact Interp.isRefinedBy_ub_target
   · simp only [hsrc, Interp.isRefinedBy_ok_target_iff] at hList
-    obtain ⟨⟨s', act'⟩, htgt, hsRef, hMemNext, hactRef⟩ := hList
+    obtain ⟨⟨s', act'⟩, htgt, hsRef, hactRef⟩ := hList
     simp only [htgt]
     /- Case analysis on the action returned by `interpretOpList`. If no action is returned at the
     source, then the refinement is trivial (as interpretation failed in the input). If an action
@@ -245,6 +240,6 @@ theorem interpretTerminatedOpList_mono
       have ⟨cf', hact', hcfRef⟩ : ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' := by
         cases act' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
       subst hact'
-      exact ⟨hsRef, hMemNext, hcfRef⟩
+      exact ⟨hsRef, hcfRef⟩
 
 end Veir

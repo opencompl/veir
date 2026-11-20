@@ -442,8 +442,12 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     return (#[.int w (Data.LLVM.Int.sext low w (by omega))], mem, none)
   | .g_constant => do
     let some resType := resultTypes[0]? | none
-    let .integerType bw := resType.val | none
-    return (#[.int bw.bitwidth (.val (BitVec.ofInt bw.bitwidth properties.value.value))], mem, none)
+    match resType.val with
+    | .integerType bw =>
+      return (#[.int bw.bitwidth (.val (BitVec.ofInt bw.bitwidth properties.value.value))], mem, none)
+    | .llvmPointerType _ =>
+      return (#[.addr (mem.ptrFromInt (.val (BitVec.ofInt 64 properties.value.value)))], mem, none)
+    | _ => none
   | .g_poison => do
     let some resType := resultTypes[0]? | none
     match resType.val with
@@ -884,9 +888,14 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     opPtr.verifyGMIRSextInReg ctx opIn
   | .g_constant =>
     opPtr.checkIsNonNullIntegerType ctx opIn
-    opPtr.verifyGMIRIntegerTypes ctx opIn
+    let resultType := (opPtr.getResult 0).getType! ctx.raw
+    resultType.verifyIntegerOrPointerType
+      "gmir.g_constant: Expected result to have integer or !llvm.ptr type"
     let props := opPtr.getProperties! ctx.raw GMIR.g_constant
-    if props.value.type ≠ ((opPtr.getResult 0).getType! ctx.raw).val then
+    if resultType.val matches .llvmPointerType _ then
+      if props.value.type ≠ IntegerType.signless 64 then
+        throw "gmir.g_constant: Expected an i64 value for a !llvm.ptr result"
+    else if props.value.type ≠ resultType.val then
       throw "gmir.g_constant: Expected result type to be equal to the constant's type"
     opPtr.verifyNormalizedIntegerAttr ctx opIn props.value
   | .g_load =>
