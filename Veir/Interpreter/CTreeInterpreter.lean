@@ -35,9 +35,11 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     Riscv.interpretOpCTree opType properties resultTypes operands blockOperands mem
   | .builtin opType =>
     Builtin.interpretOpCTree opType properties resultTypes operands blockOperands mem
-  /- Other dialects rely on lifting the `Interp`-based interpreter. -/
+  /- Other dialects rely on lifting the `Interp`-based interpreter, which runs on an
+  `EffectState`. Its entropy and network components start empty and are dropped afterwards. -/
   | opType =>
-    monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
+    monadLift <| (Veir.interpretOp' opType properties resultTypes operands blockOperands
+      ⟨mem, .empty, .empty⟩).map fun (vals, es, act) => (vals, es.memory, act)
 
 end CTree
 
@@ -85,13 +87,13 @@ def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
   let (resultValues, mem, action) ← CTree.interp (fun
     | .inl ⟨region, values, memoryState, inBounds⟩ => do
       let (state, results) ← runRegion region values
-        ({ variables := state.variables, memory := memoryState } : InterpreterState ctx) inBounds
+        ({ state with memory := memoryState } : InterpreterState ctx) inBounds
       return (state.memory, results)
     | .inr e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
     opCTreeWithRegion
   let some variables := state.variables.setResultValues? op resultValues inBounds
     | fail
-  return (⟨variables, mem⟩, action)
+  return ({ state with variables, memory := mem }, action)
 
 /--
 A location where interpretation occurs during `interpretCFG`.
@@ -115,7 +117,7 @@ def interpretCFG.iter {ctx : WfIRContext OpCode} (location : interpretCFG.StateL
       return ← fail
     let some variables := state.variables.setArgumentValues? block values | fail
     rlet some firstOp := block.getFirstOp ctx.raw | fail
-    return .inl (.inr ⟨firstOp, by grind⟩, ⟨variables, state.memory⟩)
+    return .inl (.inr ⟨firstOp, by grind⟩, { state with variables })
   | .inr ⟨op, opInBounds⟩ =>
     let (state, action) ← interpretOp op state opInBounds
     match action with
@@ -156,7 +158,7 @@ def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) (mem : M
     fail
   else
     let (_, results) ← interpretRegion funcOp.getFunctionBody
-      values ⟨.empty ctx, mem⟩
+      values ⟨{ EffectState.empty with memory := mem }, .empty ctx⟩
     return results
 
 end CTree
