@@ -777,18 +777,24 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "(!io.address) -> ()"
   (FunctionType.mk #[(Io.AddressType.mk : Attribute)] #[] (isVarArg := false))
 
-/-! ## RISCV Register type -/
+/-! ## RISCV Integer Register type -/
 #assert expectSuccessType "!riscv.reg" (RegisterType.mk)
 #assert expectSuccessType "!riscv.reg<x13>" (RegisterType.mk .int (some 13))
 #assert expectSuccessType "!riscv.reg<x0>" (RegisterType.mk .int (some 0))
-#assert expectErrorType "!riscv.reg<j3>" "expected RV64 register of the form xID" (some 11)
+#assert expectSuccessType "!riscv.reg<j0>" (RegisterType.mk .int (some (-1)))
+#assert expectSuccessType "!riscv.reg<j3>" (RegisterType.mk .int (some (-4)))
+#assert expectErrorType "!riscv.reg<x32>" "RV64 registers range from x0 to x31" (some 11)
+#assert expectErrorType "!riscv.reg<y3>" "expected RV64 register of the form xID or jID" (some 11)
 #assert ToString.toString (RegisterType.mk .int (some (-1))) = "!riscv.reg<j0>"
 #assert ToString.toString (RegisterType.mk .int (some (-12))) = "!riscv.reg<j11>"
 
-/-! ### Stack slots -/
-#assert expectErrorType "!riscv.stack" "currently only integer registers can be parsed" (some 0)
-#assert expectErrorType "!riscv.stack<x3>" "currently only integer registers can be parsed" (some 0)
-#assert expectErrorType "!riscv.stack<j3>" "currently only integer registers can be parsed" (some 0)
+/-! ### RISCV Stack Register type -/
+#assert expectSuccessType "!riscv.stack" (RegisterType.mk .stack none)
+#assert expectSuccessType "!riscv.stack<j0>" (RegisterType.mk .stack (some (-1)))
+#assert expectSuccessType "!riscv.stack<j3>" (RegisterType.mk .stack (some (-4)))
+#assert expectSuccessType "!riscv.stack<j40>" (RegisterType.mk .stack (some (-41)))
+#assert expectErrorType "!riscv.stack<x3>" "expected stack register of the form jID" (some 13)
+#assert expectErrorType "!riscv.stack<y3>" "expected stack register of the form jID" (some 13)
 #assert ToString.toString (RegisterType.mk .stack (some (-1))) = "!riscv.stack<j0>"
 
 /-! ### The register class is part of the type -/
