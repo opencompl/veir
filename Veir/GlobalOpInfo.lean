@@ -24,6 +24,7 @@ match opCode with
 | .riscv_cf op => Riscv_Cf.propertiesOf op
 | .riscv_stack op => Riscv_Stack.propertiesOf op
 | .rv64 op => Rv64.propertiesOf op
+| .riscv_regalloc op => Riscv_RegAlloc.propertiesOf op
 | .mod_arith op => Mod_Arith.propertiesOf op
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
@@ -58,6 +59,7 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .riscv_cf op, props => Riscv_Cf.getEffects op props
   | .riscv_stack op, props => Riscv_Stack.getEffects op props
   | .rv64 op, props => Rv64.getEffects op props
+  | .riscv_regalloc op, props => Riscv_RegAlloc.getEffects op props
   | .mod_arith op, props => Mod_Arith.getEffects op props
   | .cf op, props => Cf.getEffects op props
   | .comb op, props => Comb.getEffects op props
@@ -90,6 +92,7 @@ def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
   | .riscv_cf op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .riscv_stack op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .rv64 op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .riscv_regalloc op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .mod_arith op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .cf op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .comb op, props => HasOpInfo.tryFold op props resultTypes constantOperands
@@ -122,6 +125,7 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .riscv_cf op => HasOpInfo.getRegionKind op index
   | .riscv_stack op => HasOpInfo.getRegionKind op index
   | .rv64 op => HasOpInfo.getRegionKind op index
+  | .riscv_regalloc op => HasOpInfo.getRegionKind op index
   | .mod_arith op => HasOpInfo.getRegionKind op index
   | .cf op => HasOpInfo.getRegionKind op index
   | .comb op => HasOpInfo.getRegionKind op index
@@ -155,6 +159,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .riscv_cf op => Riscv_Cf.hasSSADominance op index
   | .riscv_stack op => Riscv_Stack.hasSSADominance op index
   | .rv64 op => Rv64.hasSSADominance op index
+  | .riscv_regalloc op => Riscv_RegAlloc.hasSSADominance op index
   | .mod_arith op => Mod_Arith.hasSSADominance op index
   | .cf op => Cf.hasSSADominance op index
   | .comb op => Comb.hasSSADominance op index
@@ -189,6 +194,7 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .riscv_cf op => HasOpInfo.hasNoTerminator op index
   | .riscv_stack op => HasOpInfo.hasNoTerminator op index
   | .rv64 op => HasOpInfo.hasNoTerminator op index
+  | .riscv_regalloc op => HasOpInfo.hasNoTerminator op index
   | .mod_arith op => HasOpInfo.hasNoTerminator op index
   | .cf op => HasOpInfo.hasNoTerminator op index
   | .comb op => HasOpInfo.hasNoTerminator op index
@@ -219,6 +225,7 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .riscv_cf op => HasOpInfo.isIsolatedFromAbove op
   | .riscv_stack op => HasOpInfo.isIsolatedFromAbove op
   | .rv64 op => HasOpInfo.isIsolatedFromAbove op
+  | .riscv_regalloc op => HasOpInfo.isIsolatedFromAbove op
   | .mod_arith op => HasOpInfo.isIsolatedFromAbove op
   | .cf op => HasOpInfo.isIsolatedFromAbove op
   | .comb op => HasOpInfo.isIsolatedFromAbove op
@@ -249,6 +256,7 @@ def OpCode.isSymbolTable (opCode : OpCode) : Bool :=
   | .riscv_cf op => HasOpInfo.isSymbolTable op
   | .riscv_stack op => HasOpInfo.isSymbolTable op
   | .rv64 op => HasOpInfo.isSymbolTable op
+  | .riscv_regalloc op => HasOpInfo.isSymbolTable op
   | .mod_arith op => HasOpInfo.isSymbolTable op
   | .cf op => HasOpInfo.isSymbolTable op
   | .comb op => HasOpInfo.isSymbolTable op
@@ -283,6 +291,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .riscv_cf op => HasOpInfo.isTerminator op
   | .riscv_stack op => HasOpInfo.isTerminator op
   | .rv64 op => HasOpInfo.isTerminator op
+  | .riscv_regalloc op => HasOpInfo.isTerminator op
   | .mod_arith op => HasOpInfo.isTerminator op
   | .cf op => HasOpInfo.isTerminator op
   | .comb op => HasOpInfo.isTerminator op
@@ -320,6 +329,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .riscv_cf op => Riscv_Cf.isConstantLike op
   | .riscv_stack op => Riscv_Stack.isConstantLike op
   | .rv64 op => Rv64.isConstantLike op
+  | .riscv_regalloc op => Riscv_RegAlloc.isConstantLike op
   | .mod_arith op => Mod_Arith.isConstantLike op
   | .cf op => Cf.isConstantLike op
   | .comb op => Comb.isConstantLike op
@@ -353,6 +363,7 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .riscv_cf op => HasOpInfo.propagatesPoison op
   | .riscv_stack op => HasOpInfo.propagatesPoison op
   | .rv64 op => HasOpInfo.propagatesPoison op
+  | .riscv_regalloc op => HasOpInfo.propagatesPoison op
   | .mod_arith op => HasOpInfo.propagatesPoison op
   | .cf op => HasOpInfo.propagatesPoison op
   | .comb op => HasOpInfo.propagatesPoison op
@@ -383,6 +394,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .riscv_cf op => Riscv_Cf.fromAttrDict op attrDict
   | .riscv_stack op => Riscv_Stack.fromAttrDict op attrDict
   | .rv64 op => Rv64.fromAttrDict op attrDict
+  | .riscv_regalloc op => Riscv_RegAlloc.fromAttrDict op attrDict
   | .mod_arith op => Mod_Arith.fromAttrDict op attrDict
   | .cf op => Cf.fromAttrDict op attrDict
   | .comb op => Comb.fromAttrDict op attrDict
@@ -417,6 +429,7 @@ def Properties.toAttrDict
   | .riscv_cf op, props => Riscv_Cf.toAttrDict op props
   | .riscv_stack op, props => Riscv_Stack.toAttrDict op props
   | .rv64 op, props => Rv64.toAttrDict op props
+  | .riscv_regalloc op, props => Riscv_RegAlloc.toAttrDict op props
   | .mod_arith op, props => Mod_Arith.toAttrDict op props
   | .cf op, props => Cf.toAttrDict op props
   | .comb op, props => Comb.toAttrDict op props
@@ -454,6 +467,7 @@ def OpCode.symbolInterface? (opCode : OpCode) : Option (SymbolOpInterface (_prop
   | .riscv_cf op => HasOpInfo.symbolInterface? op
   | .riscv_stack op => HasOpInfo.symbolInterface? op
   | .rv64 op => HasOpInfo.symbolInterface? op
+  | .riscv_regalloc op => HasOpInfo.symbolInterface? op
   | .mod_arith op => HasOpInfo.symbolInterface? op
   | .cf op => HasOpInfo.symbolInterface? op
   | .comb op => HasOpInfo.symbolInterface? op
@@ -484,6 +498,7 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .riscv_cf op => HasOpInfo.functionInterface? op
   | .riscv_stack op => HasOpInfo.functionInterface? op
   | .rv64 op => HasOpInfo.functionInterface? op
+  | .riscv_regalloc op => HasOpInfo.functionInterface? op
   | .mod_arith op => HasOpInfo.functionInterface? op
   | .cf op => HasOpInfo.functionInterface? op
   | .comb op => HasOpInfo.functionInterface? op
@@ -529,6 +544,7 @@ def OpCode.branchOpInterface?
   | .riscv_cf op => HasOpInfo.branchOpInterface? op
   | .riscv_stack op => HasOpInfo.branchOpInterface? op
   | .rv64 op => HasOpInfo.branchOpInterface? op
+  | .riscv_regalloc op => HasOpInfo.branchOpInterface? op
   | .mod_arith op => HasOpInfo.branchOpInterface? op
   | .cf op => HasOpInfo.branchOpInterface? op
   | .comb op => HasOpInfo.branchOpInterface? op
@@ -560,6 +576,7 @@ def OpCode.callOpInterface?
   | .riscv_cf op => HasOpInfo.callOpInterface? op
   | .riscv_stack op => HasOpInfo.callOpInterface? op
   | .rv64 op => HasOpInfo.callOpInterface? op
+  | .riscv_regalloc op => HasOpInfo.callOpInterface? op
   | .mod_arith op => HasOpInfo.callOpInterface? op
   | .cf op => HasOpInfo.callOpInterface? op
   | .comb op => HasOpInfo.callOpInterface? op
@@ -593,6 +610,7 @@ def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) 
   | .riscv_cf op, props => lift op props
   | .riscv_stack op, props => lift op props
   | .rv64 op, props => lift op props
+  | .riscv_regalloc op, props => lift op props
   | .mod_arith op, props => lift op props
   | .cf op, props => lift op props
   | .comb op, props => lift op props
@@ -639,6 +657,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .gmir opType => GMIR.verifyLocalInvariants opType op ctx opIn
   | .gmir_riscv opType => GMIR_RISCV.verifyLocalInvariants opType op ctx opIn
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
+  | .riscv_regalloc opType => Riscv_RegAlloc.verifyLocalInvariants opType op ctx opIn
   | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
   | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
   | .verif opType => Verif.verifyLocalInvariants opType op ctx opIn
@@ -660,6 +679,7 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .riscv_cf op => HasOpInfo.isCommutative op
   | .riscv_stack op => HasOpInfo.isCommutative op
   | .rv64 op => HasOpInfo.isCommutative op
+  | .riscv_regalloc op => HasOpInfo.isCommutative op
   | .mod_arith op => HasOpInfo.isCommutative op
   | .cf op => HasOpInfo.isCommutative op
   | .comb op => HasOpInfo.isCommutative op
@@ -721,7 +741,8 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .gmir op => GMIR.materializeConstant op value type
     -- Listed rather than folded into a catch-all so that adding a dialect
     -- fails to compile until it decides how, or whether, to materialize.
-    | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .gmir_riscv _ | .cf _ | .builtin _
+    | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .riscv_regalloc _ | .gmir_riscv _ | .cf _
+    | .builtin _
     | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .include _
     | .function _ | .seq _ | .tensor _ | .smt _ => none
