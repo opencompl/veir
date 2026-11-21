@@ -32,4 +32,13 @@ info: 'Veir.Llvm.interpretCTree_results_conform' depends on axioms: [propext, Cl
 #guard_msgs in
 #print axioms Llvm.interpretCTree_results_conform
 
+theorem gmir_resultsConform_not_assumed (op : GMIR) : ResultsConform (.gmir op) :=
+  inferInstance
+
+/--
+info: 'Veir.gmir_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms gmir_resultsConform_not_assumed
+
 end Veir
