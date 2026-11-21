@@ -32,6 +32,62 @@ theorem CTree.interpretOp'_regions {opType : OpCode} (properties : propertiesOf 
       CTree.interpretOp' opType properties resultTypes operands blockOperands mem := by
   cases opType <;> rfl
 
+theorem CTree.tree_bind_eq (t : Tree α) (k : α → Tree β) : t >>= k = CTree.bind t k := by
+  simp only [Bind.bind]
+
+/-! ## Choices on either side of a simulation -/
+
+theorem CTree.choose_freeze (i : FreezeCIn) :
+    (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i : Tree (FreezeC i)) =
+      CTree.tauG (.inr i) (fun x => pure x) := by
+  rw [CTree.choose_def, CTree.tau_def]
+  rfl
+
+/-- The target chooses: every choice must be simulated. -/
+theorem CTree.sim_choose_left {RR : α → β → Prop} (i : FreezeCIn) {k : FreezeC i → Tree α}
+    {s : Tree β} (h : ∀ x, Sim RR (k x) s) :
+    Sim RR (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i >>= k) s := by
+  rw [CTree.choose_freeze, bind_tau]
+  exact (Sim.tau_l _ _ _ _).mpr fun x => by simpa using h x
+
+/-- The source chooses: one choice suffices. -/
+theorem CTree.sim_choose_right {RR : α → β → Prop} (i : FreezeCIn) {k : FreezeC i → Tree β}
+    {t : Tree α} (x : FreezeC i) (h : Sim RR t (k x)) :
+    Sim RR t (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i >>= k) := by
+  rw [CTree.choose_freeze, bind_tau]
+  exact Sim.tau_r _ _ _ _ x (by simpa using h)
+
+/-- A tree that chooses `x` and goes on may return what it then returns. -/
+theorem CTree.mayReturn_choose_bind {i : FreezeCIn} {k : FreezeC i → Tree α} (x : FreezeC i)
+    {r : α} (h : CTree.MayReturn (k x) r) :
+    CTree.MayReturn (CTree.choose (E := ErrorE ⊕ₑ UBE) (SubC := FreezeC) i >>= k) r := by
+  rw [CTree.tree_bind_eq]
+  exact (CTree.MayReturn.bind_iff _ _ _).mpr ⟨x, (CTree.MayReturn.choose_iff _ _).mpr trivial, h⟩
+
+/-! ## Operands and results -/
+
+/-- The operands that refine a single operand are a single operand. -/
+theorem CTree.toList_eq_singleton_of_isRefinedBy {operands operands' : Array RuntimeValue}
+    (h : operands ⊒ operands') {v : RuntimeValue} (hv : operands.toList = [v]) :
+    ∃ v', operands'.toList = [v'] ∧ v ⊒ v' := by
+  obtain rfl : operands = #[v] := by
+    rcases operands with ⟨l⟩; simp only [List.toArray] at hv ⊢; simp [hv]
+  obtain ⟨v', rfl, hv'⟩ := RuntimeValue.singleton_isRefinedBy_iff.mp h
+  exact ⟨v', rfl, hv'⟩
+
+/-- A single refined result of the given types, with refined memory, simulates. -/
+theorem CTree.sim_result {v v' : RuntimeValue} (h : v ⊒ v') {mem mem' : MemoryState}
+    (hMem : mem ⊒ mem') {types : Array TypeAttr} (hT : RuntimeValue.ArrayConforms #[v'] types) :
+    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 types)
+      (pure (#[v'], mem', none) :
+        Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction))
+      (pure (#[v], mem, none) :
+        Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :=
+  (Sim.pure _ _ _).mpr ⟨OperationResult.isRefinedBy_def.mpr
+    ⟨by simp [h], hMem, ControlFlowAction.optionIsRefinedBy_refl _⟩, hT⟩
+
+/-! ## Monotonicity -/
+
 /-- The lift of a refinement in `Interp` is a simulation. -/
 theorem CTree.sim_monadLift_of_isRefinedBy {R : α → β → Prop} {source : Interp α}
     {target : Interp β} (h : Interp.isRefinedBy R source target) :
