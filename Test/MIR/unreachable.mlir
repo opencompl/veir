@@ -2,7 +2,6 @@
 
 // A `main` lowered to the riscv / riscv_cf dialects whose block ^9 ends in
 // `riscv_cf.unreachable`, which becomes a trapping UNIMP with no successors.
-// Produced from `llvm.unreachable` by `veir-opt -p=riscv`.
 
 "builtin.module"() ({
   ^4():
