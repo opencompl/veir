@@ -135,6 +135,11 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : 
 def Data.Pointer.checkAlignment (p : Pointer) (alignment : Nat) : Interp Unit :=
   if alignment = 0 ∨ p.address.toNat % alignment = 0 then return () else Interp.ub none
 
+/-- The alignment of a refinement of a pointer is that of the pointer. -/
+theorem Data.Pointer.checkAlignment_of_isRefinedBy {p p' : Data.Pointer} (h : p ⊒ p')
+    (alignment : Nat) : p'.checkAlignment alignment = p.checkAlignment alignment := by
+  simp only [Data.Pointer.checkAlignment, h.address_eq]
+
 /--
   Store raw bytes to the given address in memory,
   and set the corresponding poison bits as requested (by default, unset).

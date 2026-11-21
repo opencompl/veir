@@ -1,6 +1,7 @@
 module
 
-public import Veir.Interpreter.Lemmas
+public import Veir.Dialects.LLVM.CTreeMonotonicity
+public import Veir.Dialects.ResultsConform
 public import Veir.Interpreter.CTreePrimitiveRefinement
 
 public section
@@ -9,7 +10,8 @@ public section
 # Monotonicity of the dialects
 
 Every opcode is monotone in its operands and its memory, in `Interp` and in CTrees: the
-opcodes that have a proof through their own instance, the rest by assumption. The split is per
+opcodes that have a proof through their own instance, in CTrees on top of the conformance of
+their results (`Veir.Dialects.ResultsConform`), the rest by assumption. The split is per
 opcode, so a dialect can prove the ones it can and leave the rest. Importing this module is what
 gives `interpretOp'_monotone` and `OpCode.interpretCTree_monotone_of_opCode` an opcode they know
 nothing about.
@@ -35,15 +37,5 @@ theorem OpCode.interpretCTree_monotone_of_opCode (opType : OpCode) :
   InterpretCTreeMonotone.monotone
 
 end Veir
-
-/--
-info: 'Veir.OpCode.interpretCTree_monotone_of_opCode' depends on axioms: [propext,
- CTree.Sim,
- Classical.choice,
- Quot.sound,
- Veir.OpCode.interpretCTree_monotone_assumed]
--/
-#guard_msgs in
-#print axioms Veir.OpCode.interpretCTree_monotone_of_opCode
 
 end

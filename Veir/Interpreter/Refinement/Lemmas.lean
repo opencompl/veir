@@ -440,3 +440,96 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
     subst_vars; rfl
 
 end GreatestLowerBound
+
+/-! ## Operands, results and binds under refinement -/
+
+theorem OperationResult.isRefinedBy_def
+    {source target : Array RuntimeValue × MemoryState × Option ControlFlowAction} :
+    OperationResult.isRefinedBy source target ↔
+      source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
+        ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2 := Iff.rfl
+
+/-- A refinement of an array of values conforms to the types the array conforms to. -/
+theorem RuntimeValue.ArrayConforms.of_isRefinedBy
+    {source target : Array RuntimeValue} {types : Array TypeAttr}
+    (hConforms : RuntimeValue.ArrayConforms source types)
+    (hRefined : source ⊒ target) : RuntimeValue.ArrayConforms target types := by
+  refine ⟨by grind [RuntimeValue.arrayIsRefinedBy, RuntimeValue.ArrayConforms], fun i hi => ?_⟩
+  have hi' : i < source.size := by grind [RuntimeValue.arrayIsRefinedBy]
+  exact (hConforms.2 i hi').of_isRefinedBy (hRefined.2 i hi')
+
+/-- A refinement in `Interp` together with what holds of every result of the target. -/
+theorem Interp.isRefinedBy_and {R : α → β → Prop} {P : β → Prop} {s : Interp α}
+    {t : Interp β} (h : Interp.isRefinedBy R s t) (hP : ∀ b, t = .ok b → P b) :
+    Interp.isRefinedBy (fun a b => R a b ∧ P b) s t := by
+  cases s <;> cases t <;> simp_all [Interp.isRefinedBy]
+
+/-! ## Values under refinement -/
+
+/-- An integer is refined by an integer of its width that is the same, unless it is poison. -/
+theorem RuntimeValue.int_isRefinedBy_iff {w : Nat} {x : Data.LLVM.Int w} {t : RuntimeValue} :
+    .int w x ⊒ t ↔
+      ∃ x', t = .int w x' ∧ (x = .poison ∨ ∃ c, x = .val c ∧ x' = .val c) := by
+  constructor
+  · intro h
+    obtain ⟨x', rfl, hx⟩ := int_of_isRefinedBy h
+    refine ⟨x', rfl, ?_⟩
+    rw [LLVM.Int.isRefinedBy_eq] at hx
+    cases x <;> cases x' <;> simp_all
+  · rintro ⟨x', rfl, rfl | ⟨_, rfl, rfl⟩⟩
+    · simp [RuntimeValue.isRefinedBy]
+    · exact isRefinedBy_refl _
+
+/-- A pointer is refined only by itself, unless it is poison. -/
+theorem RuntimeValue.addr_isRefinedBy_iff {x : Ptr} {t : RuntimeValue} :
+    .addr x ⊒ t ↔ ∃ x', t = .addr x' ∧
+      (x = .poison ∨ ∃ c, x = .val c ∧ x' = .val c) := by
+  cases t <;> simp [RuntimeValue.isRefinedBy] <;> rename_i y <;>
+    cases x <;> cases y <;> simp [eq_comm]
+
+theorem RuntimeValue.nil_isRefinedBy_iff {b : List RuntimeValue} :
+    ([] : List RuntimeValue).toArray ⊒ b.toArray ↔ b = [] := by
+  cases b <;> simp [arrayIsRefinedBy]
+
+theorem RuntimeValue.cons_isRefinedBy_iff {x : RuntimeValue} {xs b : List RuntimeValue} :
+    (x :: xs).toArray ⊒ b.toArray ↔ ∃ y ys, b = y :: ys ∧ x ⊒ y ∧ xs.toArray ⊒ ys.toArray := by
+  cases b with
+  | nil => simp [arrayIsRefinedBy]
+  | cons y ys =>
+    rw [arrayIsRefinedBy_cons]
+    exact ⟨fun h => ⟨y, ys, rfl, h⟩, by rintro ⟨_, _, he, h⟩; cases he; exact h⟩
+
+/-! ## Operand lists -/
+
+theorem RuntimeValue.toList_addr1_of_isRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {x : Ptr} (ha : a.toList = [.addr x]) :
+    ∃ x', b.toList = [.addr x'] ∧
+      (x = .poison ∨ ∃ c, x = .val c ∧ x' = .val c) := by
+  rw [← Array.toArray_toList (xs := a), ← Array.toArray_toList (xs := b), ha] at h
+  simp only [cons_isRefinedBy_iff, nil_isRefinedBy_iff, addr_isRefinedBy_iff] at h
+  grind [cases Ptr]
+
+/-! ## Binds -/
+
+/-- Binding refined computations to continuations that preserve refinement. -/
+theorem Interp.isRefinedBy_bind {α α' β β' : Type} {R : α → α' → Prop}
+    {S : β → β' → Prop}
+    {x : Interp α} {y : Interp α'} {f : α → Interp β} {g : α' → Interp β'}
+    (hxy : Interp.isRefinedBy R x y) (hfg : ∀ a b, R a b → Interp.isRefinedBy S (f a) (g b)) :
+    Interp.isRefinedBy S (x >>= f) (y >>= g) := by
+  cases x <;> cases y <;> simp_all [Interp.isRefinedBy]
+
+/-- Binding the same computation to continuations that refine. -/
+theorem Interp.isRefinedBy_bind_same {α β β' : Type} {R : β → β' → Prop} {x : Interp α}
+    {f : α → Interp β} {g : α → Interp β'} (h : ∀ a, Interp.isRefinedBy R (f a) (g a)) :
+    Interp.isRefinedBy R (x >>= f) (x >>= g) := by
+  cases x <;> simp [h]
+
+/-! ## Results -/
+
+/-- A result of one value and refined memory. -/
+theorem result_single {v v' : RuntimeValue} {m m' : MemoryState} (hv : v ⊒ v')
+    (hm : m ⊒ m') :
+    OperationResult.isRefinedBy (#[v], m, none) (#[v'], m', none) :=
+  OperationResult.isRefinedBy_def.mpr
+    ⟨RuntimeValue.singleton_isRefinedBy_iff.mpr ⟨_, rfl, hv⟩, hm, trivial⟩
