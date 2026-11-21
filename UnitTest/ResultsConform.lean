@@ -13,4 +13,23 @@ info: 'Veir.cf_resultsConform_not_assumed' depends on axioms: [propext, Classica
 #guard_msgs in
 #print axioms cf_resultsConform_not_assumed
 
+/--
+Instance resolution proves, rather than assumes, the conformance of the results of the CTree of
+every LLVM opcode: the proof of each opcode wins over the assumption.
+-/
+theorem llvm_resultsConform_not_assumed (op : Llvm) : ResultsConform (.llvm op) := by
+  cases op <;> exact inferInstance
+
+/--
+info: 'Veir.llvm_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms llvm_resultsConform_not_assumed
+
+/--
+info: 'Veir.Llvm.interpretCTree_results_conform' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Llvm.interpretCTree_results_conform
+
 end Veir
