@@ -171,38 +171,45 @@ def parseOptionalByteType (short := false) : AttrParserM (Option LLVM.ByteType) 
 
 /--
   Parse an optional register type, which is fundamentally a wrapper for `i64`.
-  An unallocated register type is represented as `!riscv.reg`.
-  Allocated register types should be of the form xID, i.e. only architectural,
-  and range from `!riscv.reg<x0>` to `!riscv.reg<x31>`.
-  Virtually allocated register of the form jID and `!riscv.stack` are rejected.
-  TODO: correctly parse virtual registers
+  An unallocated register type is represented as `!riscv.reg` or `!riscv.stack`.
+  Allocated registers can have the form:
+  !riscv.reg<xID> (with 0 <= ID <= 31) for architectural integer registers,
+  !riscv.reg<jID> (with 0 <= ID) for virtual integer registers,
+  !riscv.stack<jID> (with 0 <= ID ) for virtual stack registers.
+  As stack registers are inherently virtual, parsing !riscv.stack<xID> throws an error.
 -/
 def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
   let token ← peekToken
   let .exclamationIdent := token.kind | return none
   let input := (← getThe ParserState).input
   let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName = "riscv.stack".toByteArray then
-    throwAtCurrentPos "currently only integer registers can be parsed"
-  if typeName ≠ "riscv.reg".toByteArray then return none
+  let (cls, expectedForm) ←
+    if typeName = "riscv.reg".toByteArray then
+      pure (RegisterClass.int, "expected RV64 register of the form xID or jID")
+    else if typeName = "riscv.stack".toByteArray then
+      pure (RegisterClass.stack, "expected stack register of the form jID")
+    else return none
   let _ ← consumeToken
   if ← parseOptionalPunctuation "<" then
     match ← peekToken with
     | { kind := .bareIdent, slice := slice } =>
       if slice.size < 2 then
-        throwAtCurrentPos "expected RV64 register of the form xID"
-      if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'x'.toUInt8 then
+        throwAtCurrentPos expectedForm
+      let registerPrefix := (← (getThe ParserState)).input.getD slice.start.byteOffset 0
+      let isVirtual := registerPrefix == 'j'.toUInt8
+      if isVirtual || (cls == .int && registerPrefix == 'x'.toUInt8) then
         let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
         let identifier := bitwidthSlice.of (← (getThe ParserState)).input
         let some reg := (String.fromUTF8? identifier).bind String.toInt? | return none
-        if reg > 31 then throwAtCurrentPos "RV64 registers range from x0 to x31"
+        if !isVirtual && reg > 31 then throwAtCurrentPos "RV64 registers range from x0 to x31"
         let _ ← consumeToken
         parsePunctuation ">"
-        return some (RegisterType.mk .int (some reg))
-      throwAtCurrentPos "expected RV64 register of the form xID"
-    | _ => throwAtCurrentPos "expected RV64 register of the form xID"
+        -- `j<n>` is the virtual register with index `-(n + 1)`, as the printer writes it.
+        return some (RegisterType.mk cls (some (if isVirtual then -(reg + 1) else reg)))
+      throwAtCurrentPos expectedForm
+    | _ => throwAtCurrentPos expectedForm
   else
-    return some $ RegisterType.mk .int none
+    return some $ RegisterType.mk cls none
 
 /--
   Resolve a just-consumed `!name` as a type alias. Returns `none` when the name denotes a dialect
