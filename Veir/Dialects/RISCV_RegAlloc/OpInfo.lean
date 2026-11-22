@@ -76,10 +76,6 @@ def Riscv_RegAlloc.verifyOperationSignature {OpInfo : Type} [IsOpCode OpInfo]
   if result.cls != resultCls then
     throw s!"result should be {({ cls := resultCls } : RegisterType)} type"
 
-/--
-Verify the local invariants of a `riscv_regalloc` operation in any
-operation-info type containing the `riscv_regalloc` dialect.
--/
 def Riscv_RegAlloc.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Riscv_RegAlloc] (opType : Riscv_RegAlloc) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
