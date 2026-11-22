@@ -318,12 +318,6 @@ theorem Except.ok_left_of_bind_ok {ε α : Type} {x : Except ε PUnit}
   | ok u => rfl
   | error e => simp [bind, Except.bind] at h
 
-/-- Unpack a successful `Except` bind into the success of both steps. -/
-theorem Except_bind_ok_iff {ε α β} {x : Except ε α} {f : α → Except ε β}
-    {b : β} :
-    (x >>= f) = Except.ok b ↔ ∃ a, x = Except.ok a ∧ f a = Except.ok b := by
-  cases x <;> simp [bind, Except.bind]
-
 /-- Remove an existential binder over `PUnit`. -/
 theorem exists_punit {p : PUnit → Prop} :
     (∃ u, p u) ↔ p PUnit.unit :=
@@ -374,6 +368,7 @@ def Std.HashMap.forKeysDepM [BEq α] [Hashable α] {m : Type w → Type w'} [Mon
     (b : Std.HashMap α β) (f : ∀ (a : α), a ∈ b → m PUnit) : m PUnit :=
   b.forM (fun k v => do if h : k ∈ b then f k (by grind))
 
+/-- Unpack a successful `Except` bind into the success of both steps. -/
 theorem Except.bind_eq_ok {ε : Type u} {α β : Type v} {x : Except ε α} {f : α → Except ε β}
     {b : β} : x >>= f = .ok b ↔ ∃ a, x = .ok a ∧ f a = .ok b := by
   cases x <;> simp [bind, Except.bind]
