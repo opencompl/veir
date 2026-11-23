@@ -10,18 +10,18 @@ namespace Veir
 namespace RegisterSpilling
 
 /-!
-  Pass that ensure that all blocks can be allocated in `numberRegisters` (currently hardcoded to 28) registers by inserting loads and stores.
+  Pass that ensure that all blocks can be allocated in `numberRegisters` (currently hardcoded to 28) registers by inserting spills and reloads.
 
   High-level algorithm for each basic block:
   1. Do backwards walk on block and record for every op which SSA values are last used ("die" at that op)
   2. Do forward walk on block.
      state.loadedValues holds SSA values that are currently in a register, ordered by when they were loaded (oldest first)
-     state.slots: Map from SSA value that was spilled to the new SSA value that is returned by the alloca op that was used to put the original value on the stack
+     state.slots: Map from SSA value that was spilled to the new SSA value that is returned by the spill op that was used to put the original value on the stack
      For every op:
      2.1 Check if (loadedValues union srcOperands) are larger than number of available registers
          If so, evict the loadedValues that were loaded first (FIFO) (not values that are used as operands!) to memory
      2.2 Check if all operands are in loadedValues.
-         If not, insert load operations (throw error if there is no slot that holds the value)
+         If not, insert reload operations (throw error if there is no slot that holds the value)
      2.3 Check which SSA values are last used at an op. Remove them from loadedValues
      2.4 Check if (loadedValues union opResults) are larger than number of available registers
          If so, evict the loadedValues that were loaded first (FIFO) (not values that are used as operands!) to memory
@@ -32,27 +32,22 @@ structure SpillState where
   /--  Values currently assumed to be in a register, in the order they were loaded,
   meaning the value at `loadedValues[0]` has been in the register file the longest.   -/
   loadedValues : Array ValuePtr := #[]
-  /-- The stack slot (alloca result) of every value spilled so far. -/
+  /-- The stack slot (spill result) of every value spilled so far. -/
   slots : Std.HashMap ValuePtr ValuePtr := ∅
-  /-- For a reloaded value, the `ld` result that currently holds it. -/
+  /-- For a reloaded value, the `reload` result that currently holds it. -/
   current : Std.HashMap ValuePtr ValuePtr := ∅
 
 /--
-  Spill `value` to risc.stack with alloca. insert that operation before op
+  Spill `value` to riscv.stack with spill. insert that operation before op
 -/
 def insertSpill (ctx : WfIRContext OpCode) (op : OperationPtr) (value: ValuePtr):
     Except String (WfIRContext OpCode × ValuePtr) := do
-  let some (ctx, alloca) := WfRewriter.createOp! ctx Riscv_Stack.alloca
-      #[RegisterType.mk] #[] #[] #[]
-      ({ size := 8, alignment := 8 } : RISCVStackAllocaProperties)
+  let some (ctx, spill) := WfRewriter.createOp! ctx Riscv_RegAlloc.spill
+      #[(RegisterType.mk .stack none : TypeAttr)] #[value] #[] #[]
+      ()
       (some (.before op))
-    | throw "register spilling could not create a stack slot"
-  let slot : ValuePtr := alloca.getResult 0
-  let some (ctx, _) := WfRewriter.createOp! ctx Riscv.sd
-      #[] #[value, slot] #[] #[]
-      ({ value := 0, volatile_ := false } : RISCVMemProperties)
-      (some (.before op))
-    | throw "register spilling could not create a spill store"
+    | throw "register spilling could not create a spill instruction"
+  let slot : ValuePtr := spill.getResult 0
   return (ctx, slot)
 
 /--
@@ -90,12 +85,12 @@ the slot map records where the value lives.
 -/
 def insertReload (ctx : WfIRContext OpCode) (op : OperationPtr) (slot : ValuePtr) :
     Except String (WfIRContext OpCode × ValuePtr) := do
-  let some (ctx, ld) := WfRewriter.createOp! ctx Riscv.ld
+  let some (ctx, reload) := WfRewriter.createOp! ctx Riscv_RegAlloc.reload
       #[RegisterType.mk] #[slot] #[] #[]
-      ({ value := 0, volatile_ := false } : RISCVMemProperties)
+      ()
       (some (.before op))
     | throw "register spilling could not create a reload"
-  return (ctx, (ld.getResult 0))
+  return (ctx, (reload.getResult 0))
 
 /--
 Spill around one operation, as described in the module docstring: evict to make room for

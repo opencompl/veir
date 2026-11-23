@@ -110,44 +110,37 @@
 // CHECK-NEXT:  %34 = "riscv.li"() <{"value" = 28 : i64}> : () -> !riscv.reg
 
 // Each further value needs a register, so the values that have been loaded the longest get evicted 
-// CHECK-NEXT:  %75 = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 8 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  "riscv.sd"(%7, %75) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:  %75 = "riscv_regalloc.spill"(%7) : (!riscv.reg) -> !riscv.stack
 // CHECK-NEXT:  %35 = "riscv.li"() <{"value" = 29 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %77 = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 8 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  "riscv.sd"(%8, %77) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:  %76 = "riscv_regalloc.spill"(%8) : (!riscv.reg) -> !riscv.stack
 // CHECK-NEXT:  %36 = "riscv.li"() <{"value" = 30 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %79 = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 8 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  "riscv.sd"(%9, %79) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:  %77 = "riscv_regalloc.spill"(%9) : (!riscv.reg) -> !riscv.stack
 // CHECK-NEXT:  %37 = "riscv.li"() <{"value" = 31 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %81 = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 8 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  "riscv.sd"(%10, %81) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:  %78 = "riscv_regalloc.spill"(%10) : (!riscv.reg) -> !riscv.stack
 // CHECK-NEXT:  %38 = "riscv.li"() <{"value" = 32 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %83 = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 8 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  "riscv.sd"(%11, %83) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:  %79 = "riscv_regalloc.spill"(%11) : (!riscv.reg) -> !riscv.stack
 // CHECK-NEXT:  %39 = "riscv.li"() <{"value" = 33 : i64}> : () -> !riscv.reg
 
 // The first add needs values 1 and 2 back in registers, which evicts the two oldest
 // loaded values, 6 and 7 (%12 and %13). The reloads follow in operand order.
-// CHECK-NEXT:  %85 = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 8 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  "riscv.sd"(%12, %85) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:  %87 = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 8 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  "riscv.sd"(%13, %87) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:  %89 = "riscv.ld"(%75) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %90 = "riscv.ld"(%77) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %40 = "riscv.add"(%89, %90) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:  %80 = "riscv_regalloc.spill"(%12) : (!riscv.reg) -> !riscv.stack
+// CHECK-NEXT:  %81 = "riscv_regalloc.spill"(%13) : (!riscv.reg) -> !riscv.stack
+// CHECK-NEXT:  %82 = "riscv_regalloc.reload"(%75) : (!riscv.stack) -> !riscv.reg
+// CHECK-NEXT:  %83 = "riscv_regalloc.reload"(%76) : (!riscv.stack) -> !riscv.reg
+// CHECK-NEXT:  %40 = "riscv.add"(%82, %83) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 
 // Each following add frees the registers of its operands, so reloading the next stored
 // value evicts nothing.
-// CHECK-NEXT:  %91 = "riscv.ld"(%79) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %41 = "riscv.add"(%40, %91) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %92 = "riscv.ld"(%81) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %42 = "riscv.add"(%41, %92) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %93 = "riscv.ld"(%83) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %43 = "riscv.add"(%42, %93) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %94 = "riscv.ld"(%85) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %44 = "riscv.add"(%43, %94) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %95 = "riscv.ld"(%87) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  %45 = "riscv.add"(%44, %95) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:  %84 = "riscv_regalloc.reload"(%77) : (!riscv.stack) -> !riscv.reg
+// CHECK-NEXT:  %41 = "riscv.add"(%40, %84) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:  %85 = "riscv_regalloc.reload"(%78) : (!riscv.stack) -> !riscv.reg
+// CHECK-NEXT:  %42 = "riscv.add"(%41, %85) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:  %86 = "riscv_regalloc.reload"(%79) : (!riscv.stack) -> !riscv.reg
+// CHECK-NEXT:  %43 = "riscv.add"(%42, %86) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:  %87 = "riscv_regalloc.reload"(%80) : (!riscv.stack) -> !riscv.reg
+// CHECK-NEXT:  %44 = "riscv.add"(%43, %87) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:  %88 = "riscv_regalloc.reload"(%81) : (!riscv.stack) -> !riscv.reg
+// CHECK-NEXT:  %45 = "riscv.add"(%44, %88) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 
 // Values 8 to 33 (%14 to %39) were never evicted, so the remaining adds need no spill code.
 // CHECK-NEXT:  %46 = "riscv.add"(%45, %14) : (!riscv.reg, !riscv.reg) -> !riscv.reg
