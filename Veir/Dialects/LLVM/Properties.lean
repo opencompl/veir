@@ -8,6 +8,7 @@ public import Std.Data.HashMap
 public import Veir.IR.Attribute
 
 import Veir.Dialects.Builtin.Properties
+import Veir.ForLean
 
 namespace Veir
 
@@ -692,15 +693,38 @@ private def caseValuesShape? (type : String) : Option (Nat × Nat) := do
   return (← count.toNat?, ← width.toNat?)
 
 /--
+  Reads the hex form of a dense elements body, `"0x..."`, as `count` unsigned `width`-bit
+  patterns. As in MLIR's `DenseElementsAttr::getFromRawBuffer`, each element takes
+  `⌈width / 8⌉` little-endian bytes, and a buffer holding a single element is a splat.
+  `none` if the body is not hex or its size fits neither.
+-/
+private def hexCaseValues? (body : String) (count width : Nat) : Option (Array Nat) := do
+  let digits ← (body.dropPrefix? "\"0x").bind (·.dropSuffix? "\"")
+  let digits ← digits.toString.toList.toArray.mapM Char.hexDigit?
+  guard (digits.size % 2 == 0)
+  let bytes := (Array.range (digits.size / 2)).map fun i =>
+    digits[2 * i]!.toNat * 16 + digits[2 * i + 1]!.toNat
+  let stride := (width + 7) / 8
+  let element (i : Nat) : Nat :=
+    (List.range stride).foldr (fun j acc => acc * 256 + bytes[i * stride + j]!) 0 % 2 ^ width
+  if bytes.size == stride then
+    return Array.replicate count (element 0)
+  guard (bytes.size == stride * count)
+  return (Array.range count).map element
+
+/--
   Reads a `case_values` attribute: a one-dimensional tensor or vector of `W`-bit integers, each in
   MLIR's range for `W`, from the signed minimum to the unsigned maximum. `none` otherwise.
 
   `case_values` is a dense elements attribute VeIR keeps as text, so its body -- `5` for one
   case, `[13, 35]` for several -- is read back here. MLIR prints `i1` elements as `true` and
-  `false`, which are read as 1 and 0. Other encodings, such as raw hex data, are not read.
+  `false`, which are read as 1 and 0. MLIR prints a body with more than 100 elements as raw hex
+  data by default, `"0x..."`, which `hexCaseValues?` reads.
 -/
 def LLVMSwitchCaseValues.parse? (attr : DenseElementsAttr) : Option LLVMSwitchCaseValues := do
   let (count, width) ← caseValuesShape? attr.type
+  if let some bits := hexCaseValues? attr.value.trimAscii.toString count width then
+    return { width, bits }
   let body := String.ofList (attr.value.toList.filter fun c =>
     !c.isWhitespace && c != '[' && c != ']')
   let element (s : String) : Option Int :=
