@@ -65,7 +65,7 @@ def regOf (ip : InsertPoint) (acc : WfIRContext OpCode × Array ValuePtr)
     return (ctx, regs.push (casts[0]!.getResult 0))
   | none =>
     let some (ctx, x0) := WfRewriter.createOp! ctx Rv64.get_register
-      #[(RegisterType.mk (some 0) : TypeAttr)] #[] #[] #[] () ip
+      #[(RegisterType.mk .int (some 0) : TypeAttr)] #[] #[] #[] () ip
       | throw "isel-br-riscv64: cannot create x0"
     return (ctx, regs.push (x0.getResult 0))
 

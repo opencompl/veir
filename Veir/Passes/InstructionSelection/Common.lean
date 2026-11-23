@@ -78,7 +78,7 @@ def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
       guard opType resType root.properties
       return (resType, x))
     (fun (resType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType]
       let riscvResOp ← CreateProg.operation (.riscv riscvOp)
@@ -109,7 +109,7 @@ def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp :
       guard opType root.properties
       return (opType, lhs, rhs))
     (fun (opType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType]
       let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)

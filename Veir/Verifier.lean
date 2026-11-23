@@ -1126,7 +1126,7 @@ private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode
   simp only [IsVerifiedModArithBinop, TypeAttr.inj]
   simp only [verifyModArithBinOp, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
              verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyModArithType,
-             Except_bind_ok_iff, exists_punit] at h
+             Except.bind_eq_ok, exists_punit] at h
   obtain ⟨hPlainOpCounts, operandType, hOperandTypesMatch,
           hResultTypeMatches, modArithType, hModArithType, _⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
@@ -1188,7 +1188,7 @@ theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds
   simp only [IsVerifiedModArithConstant, TypeAttr.inj]
   simp only [verifyModArithConstantOp, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
             TypeAttr.verifyModArithType,
-            Except_bind_ok_iff, exists_punit] at h
+            Except.bind_eq_ok, exists_punit] at h
   obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
     at hPlainOpCounts hModArithType hAttr
