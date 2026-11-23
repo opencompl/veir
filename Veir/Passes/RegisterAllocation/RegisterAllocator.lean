@@ -9,12 +9,15 @@ namespace Veir
 public section
 /--
 Assign a register to an unassigned register-typed SSA value, updating its type in the context.
-Preserve existing assignments and reject values with non-register types.
+Preserve existing assignments and reject values with non-register types
+or with a register class other than the one of `stack`.
 -/
-def allocateRegister (ctx : WfIRContext OpCode) (value : ValuePtr) (stack : RegisterStack) :
-    Except String (WfIRContext OpCode × RegisterStack × RegisterType) := do
+def allocateRegister (ctx : WfIRContext OpCode) (value : ValuePtr) (stack : RegisterStack cls) :
+    Except String (WfIRContext OpCode × RegisterStack cls × RegisterType) := do
   let .registerType reg := (value.getType! ctx.raw).val
     | throw "expected a register-typed value"
+  if reg.cls != cls then
+    throw s!"expected a value of type {RegisterType.mk cls none}, got {reg}"
   if reg.index.isSome then return (ctx, stack, reg)
   let (reg, s) := stack.pop
   let ctx := WfRewriter.setType! ctx value reg
@@ -26,8 +29,8 @@ For each operation, allocate registers for all unallocated results before releas
 At this stage, register reuse is limited to virtual registers.
 Termination is guaranteed by the finite number of operations in the block.
 -/
-partial def allocateOps (ctx: WfIRContext OpCode) (op: Option OperationPtr) (stack: RegisterStack) :
-    Except String (WfIRContext OpCode × RegisterStack) := do
+partial def allocateOps (ctx: WfIRContext OpCode) (op: Option OperationPtr)
+    (stack: RegisterStack .int) : Except String (WfIRContext OpCode × RegisterStack .int) := do
     let some op := op | return (ctx, stack)
     let mut ctx := ctx
     let mut stack := stack
@@ -39,9 +42,10 @@ partial def allocateOps (ctx: WfIRContext OpCode) (op: Option OperationPtr) (sta
         stack := newStack
         resultRegs := resultRegs.push reg
 
-    for reg in resultRegs do
-        if reg.index.any (· < 0) then
-            stack := stack.push reg
+      for reg in resultRegs do
+        if let some index := reg.index.filter (· < 0) then
+            stack := stack.push index
+
 
     for operand in op.getOperands! ctx.raw do
         let (newCtx, newStack, _) ← allocateRegister ctx operand stack
