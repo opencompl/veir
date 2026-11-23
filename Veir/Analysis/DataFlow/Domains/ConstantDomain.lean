@@ -61,7 +61,7 @@ instance : BoundedOrder AbstractConstant where
   le_top := le_top
   bot_le := bot_le
 
-def ofFoldDecision (result : FoldDecision) (operands : Array AbstractConstant) : AbstractConstant :=
+@[expose] def ofFoldDecision (result : FoldDecision) (operands : Array AbstractConstant) : AbstractConstant :=
   match result with
   | .useOperand index => operands[index]?.getD ⊤
   | .useConstant value => .constant value

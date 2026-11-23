@@ -15,13 +15,21 @@ namespace SparseConstantPropagation
 def kind : AnalysisKind :=
   .sparseConstantPropagation
 
+/-- The folder's view of the operand facts: the value of each constant fact, else unknown. -/
+@[expose]
+def constantOperands (facts : Array AbstractConstant) : Array (Option RuntimeValue) :=
+  facts.map fun
+    | .constant value => some value
+    | _ => none
+
 /--
 Sparse constant propagation transfer function.
 - operations with regions conservatively force results to `⊤`,
 - any operand at `⊥` leave results as `⊥` and delay propagation,
-- otherwise we try to fold and return the result (if there isn't 
+- otherwise we try to fold and return the result (if there isn't
   a result from the fold, return `⊤`)
 -/
+@[expose]
 def transfer
     (op : OperationPtr)
     (operandLatticeElements : Array AbstractConstant)
@@ -40,7 +48,7 @@ def transfer
   -- infer a result.
   else if operandLatticeElements.any (· = ⊥) then
     Array.replicate numResults ⊥
-  
+
   -- Grab constant out of constant like operation
   else if opType.isConstantLike then
     (op.getResults! irCtx.raw).map fun result =>
@@ -49,10 +57,7 @@ def transfer
 
   -- Attempt folding the lattice elements of the operands
   else if opInBounds : op.InBounds irCtx.raw then
-    let constantOperands := operandLatticeElements.map fun
-      | .constant value => some value
-      | _ => none
-    match op.foldsTo irCtx opInBounds constantOperands with
+    match op.foldsTo irCtx opInBounds (constantOperands operandLatticeElements) with
     | some results =>
       results.map fun result =>
         AbstractConstant.ofFoldDecision result operandLatticeElements
