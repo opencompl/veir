@@ -681,7 +681,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 /--
   The element count and integer width of a `case_values` type, `vector<NxiW>` or
-  `tensor<NxiW>`.
+  `tensor<NxiW>`. As in MLIR, a vector must have at least one element.
 -/
 private def caseValuesShape? (type : String) : Option (Nat × Nat) := do
   let t := String.ofList (type.toList.filter (!·.isWhitespace))
@@ -690,7 +690,48 @@ private def caseValuesShape? (type : String) : Option (Nat × Nat) := do
   let [count, elem] := rest.splitOn "x" | none
   let [elem, ""] := elem.splitOn ">" | none
   let ["", width] := elem.splitOn "i" | none
-  return (← count.toNat?, ← width.toNat?)
+  let count ← count.toNat?
+  guard (kind == "tensor" || count > 0)
+  return (count, ← width.toNat?)
+
+private def trimWhitespace (cs : List Char) : List Char :=
+  ((cs.dropWhile Char.isWhitespace).reverse.dropWhile Char.isWhitespace).reverse
+
+/--
+  One element of a decimal dense elements body, as MLIR's `TensorLiteralParser::parseElement`
+  and `buildAttributeAPInt` read it: `true` or `false` for `i1`, or an optional `-` followed by
+  decimal digits. A value must fit `width` bits: up to the unsigned maximum, or, when negated,
+  down to the signed minimum with its sign bit set, which rules out `-0`.
+-/
+private def decimalCaseValue? (cs : List Char) (width : Nat) : Option Int := do
+  let cs := trimWhitespace cs
+  if width == 1 && cs == "true".toList then return 1
+  if width == 1 && cs == "false".toList then return 0
+  let (negative, digits) := match cs with
+    | '-' :: rest => (true, trimWhitespace rest)
+    | _ => (false, cs)
+  guard (!digits.isEmpty && digits.all Char.isDigit)
+  let n := digits.foldl (fun acc d => acc * 10 + (d.toNat - '0'.toNat)) 0
+  if negative then
+    guard (0 < width && 1 ≤ n && n ≤ 2 ^ (width - 1))
+    return -(n : Int)
+  guard (n < 2 ^ width)
+  return n
+
+/--
+  Reads a decimal dense elements body: empty, a single element, or a flat bracketed list of
+  comma-separated elements (see `decimalCaseValue?`). A nested list is rejected, since it would
+  not match a one-dimensional type.
+-/
+private def decimalCaseValues? (body : String) (width : Nat) : Option (Array Int) := do
+  match trimWhitespace body.toList with
+  | [] => return #[]
+  | '[' :: rest =>
+    guard (rest.getLast? == some ']')
+    let inner := trimWhitespace rest.dropLast
+    if inner.isEmpty then return #[]
+    ((String.ofList inner).splitOn ",").toArray.mapM (decimalCaseValue? ·.toList width)
+  | cs => return #[← decimalCaseValue? cs width]
 
 /--
   Reads the hex form of a dense elements body, `"0x..."`, as `count` unsigned `width`-bit
@@ -714,7 +755,8 @@ private def hexCaseValues? (body : String) (count width : Nat) : Option (Array N
 
 /--
   Reads a `case_values` attribute: a one-dimensional tensor or vector of `W`-bit integers, each in
-  MLIR's range for `W`, from the signed minimum to the unsigned maximum. `none` otherwise.
+  MLIR's range for `W`, from the signed minimum to the unsigned maximum. `none` otherwise. Bodies
+  follow MLIR's grammar, so one MLIR's parser rejects is rejected here too.
 
   `case_values` is a dense elements attribute VeIR keeps as text, so its body -- `5` for one
   case, `[13, 35]` for several -- is read back here. MLIR prints `i1` elements as `true` and
@@ -725,17 +767,9 @@ def LLVMSwitchCaseValues.parse? (attr : DenseElementsAttr) : Option LLVMSwitchCa
   let (count, width) ← caseValuesShape? attr.type
   if let some bits := hexCaseValues? attr.value.trimAscii.toString count width then
     return { width, bits }
-  let body := String.ofList (attr.value.toList.filter fun c =>
-    !c.isWhitespace && c != '[' && c != ']')
-  let element (s : String) : Option Int :=
-    if width == 1 && s == "true" then some 1
-    else if width == 1 && s == "false" then some 0
-    else s.toInt?
-  let values ← if body.isEmpty then pure #[] else (body.splitOn ",").toArray.mapM element
+  let values ← decimalCaseValues? attr.value width
   guard (values.size == count)
   let modulus : Int := 2 ^ width
-  let signedMin : Int := -(2 ^ (width - 1) : Int)
-  guard (values.all fun v => signedMin ≤ v && v < modulus)
   /- `BitVec.ofInt width v`, without recomputing `2 ^ width` per value. -/
   let bits := values.map fun v => (v.emod modulus).toNat
   return { width, bits }
