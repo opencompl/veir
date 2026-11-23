@@ -4,7 +4,6 @@
 // declarations are passed over, every function body is allocated, and virtual
 // numbering restarts per function. Bodies cover a return-only block, concrete
 // allocation with reuse, and a fixed x0 result left alone.
-// Virtual j-register syntax is output-only; inputs must use unallocated types.
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, alignment = 4 : i64,
     global_type = i32, linkage = #llvm.linkage<external>, sym_name = "global",

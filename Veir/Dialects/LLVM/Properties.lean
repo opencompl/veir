@@ -671,13 +671,10 @@ def LLVMCondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
            operandSegmentSizes := sizesAttr }
 
 /--
-  The case values of an `llvm.switch`, read once from its `case_values` attribute. `values` are
-  the values as written; `bits` are the same values as unsigned `width`-bit patterns, which is
-  how the verifier, the interpreter, and the folder compare them.
+  The case values of an `llvm.switch`, as unsigned `width`-bit patterns.
 -/
 structure LLVMSwitchCaseValues where
   width : Nat
-  values : Array Int
   bits : Array Nat
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -717,7 +714,7 @@ def LLVMSwitchCaseValues.parse? (attr : DenseElementsAttr) : Option LLVMSwitchCa
   guard (values.all fun v => signedMin ≤ v && v < modulus)
   /- `BitVec.ofInt width v`, without recomputing `2 ^ width` per value. -/
   let bits := values.map fun v => (v.emod modulus).toNat
-  return { width, values, bits }
+  return { width, bits }
 
 /--
   Properties of `llvm.switch`. `case_operand_segments` splits the trailing case
@@ -776,9 +773,9 @@ def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) (width : Nat
     Option LLVMSwitchCaseValues :=
   let count := props.case_operand_segments.values.size
   match props.case_values, props.parsedCaseValues with
-  | none, _ => if count = 0 then some { width, values := #[], bits := #[] } else none
+  | none, _ => if count = 0 then some { width, bits := #[] } else none
   | some _, some parsed =>
-    if parsed.width == width && parsed.values.size == count then some parsed else none
+    if parsed.width == width && parsed.bits.size == count then some parsed else none
   | some _, none => none
 
 /--

@@ -282,6 +282,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
+    | .g_global_value => [
+      .legalFor [p0],
+    ]
     | .g_ptrtoint => [
       .legalForTypePairs [(s64, p0)],
     ]

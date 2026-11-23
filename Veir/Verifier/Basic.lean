@@ -23,13 +23,14 @@ variable {OpInfo : Type} [IsOpCode OpInfo]
 /--
   Type compatibility for values forwarded to block arguments or returned from
   functions. Register types are compatible when their register constraints
-  agree, treating an unconstrained `!riscv.reg` (no index) as matching any
+  agree and they are of the same type of register, treating an unconstrained `!riscv.reg` (no index) as matching any
   physical register such as `!riscv.reg<x0>`. All other types must be equal.
 -/
 def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
   match opTy, argTy with
   | .registerType r1, .registerType r2 =>
-      decide (r1.index = r2.index) || r1.index.isNone || r2.index.isNone
+      r1.cls == r2.cls &&
+        (decide (r1.index = r2.index) || r1.index.isNone || r2.index.isNone)
   | _, _ => decide (opTy = argTy)
 
 /-- Whether `attr` is definitely a non-zero initializer. -/
