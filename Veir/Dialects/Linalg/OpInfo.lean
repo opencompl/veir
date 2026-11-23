@@ -55,7 +55,7 @@ def Linalg.hasSSADominance (_op : Linalg) (_index : Nat) : Bool :=
 def Linalg.isTerminator (op : Linalg) : Bool :=
   match op with
   | .yield => true
-  | .generic => false
+  | _ => false
 
 #generate_dialect Linalg
 
