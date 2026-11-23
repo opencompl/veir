@@ -129,7 +129,7 @@ not the first operation in the matcher.
 @[expose]
 def MatchProg.rootSemantics (prog : MatchProg OpCode α) (matched : SemanticAssignment)
     (memory : MemoryState) :
-    Option (Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) := do
+    Option (FunctionTree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) := do
   let .operation opCode operandHandles resultTypeHandles _ propertyHandle opHandle _ _ :: _ :=
     prog.decls | none
   if opHandle ≠ prog.rootHandle then none else do
@@ -150,7 +150,8 @@ input, and call the continuation with an updated assignment.
 called with an updated semantics assignment. -/
 @[expose]
 def CreateDecl.semantics (decl : CreateDecl OpCode) (assignment : SemanticAssignment)
-    (memory : MemoryState) (next : SemanticAssignment → MemoryState → Tree α) : Tree α :=
+    (memory : MemoryState) (next : SemanticAssignment → MemoryState → FunctionTree α) :
+    FunctionTree α :=
   match decl with
   | .type value result => next (assignment.bindType result value) memory
   | .property _ value result => next (assignment.bindProperty result value) memory
@@ -174,7 +175,7 @@ def CreateDecl.semantics (decl : CreateDecl OpCode) (assignment : SemanticAssign
 @[expose]
 def CreateProg.semanticsDecls (decls : List (CreateDecl OpCode))
     (assignment : SemanticAssignment) (memory : MemoryState)
-    (next : SemanticAssignment → MemoryState → Tree α) : Tree α :=
+    (next : SemanticAssignment → MemoryState → FunctionTree α) : FunctionTree α :=
   match decls with
   | [] => next assignment memory
   | decl :: decls =>
@@ -186,7 +187,7 @@ an intermediate return type or an opaque CTree bind. -/
 @[expose]
 def CreateProg.semantics (prog : CreateProg OpCode α) (replacement : Replacement OpCode)
     (assignment : SemanticAssignment) (memory : MemoryState) :
-    Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+    FunctionTree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
   CreateProg.semanticsDecls prog.decls assignment memory fun final memory =>
     match final.getValues replacement.values.toList with
     | some values => pure (values.toArray, memory, none)

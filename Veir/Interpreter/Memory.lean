@@ -94,6 +94,10 @@ def MemoryState.pointerToGlobal (mem : MemoryState) (symbol : String) : Option P
   let obj ← mem.objects[i]?
   return ⟨obj.base⟩
 
+/-- The global whose object starts at `p`, if the memory has one. -/
+def MemoryState.globalAt? (mem : MemoryState) (p : Pointer) : Option String :=
+  mem.globals.keys.find? (mem.pointerToGlobal · = some p)
+
 /--
   The size of an `alloca` in bytes as a 64-bit value. An `alloca` has no way
   to report failure, so a size that does not fit in the address space is
