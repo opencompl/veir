@@ -223,10 +223,10 @@ private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
     candidate := target.getNextOp! ctx
   none
 
-/-- Whether the `llvm.mlir.addressof` `op` names a global that `riscv.la` can address: one that
+/-- Whether the `gmir.g_global_value` `op` names a global that `riscv.la` can address: one that
   is not thread-local or external weak, or one that cannot be resolved in an enclosing module. -/
 private def isLaAddressable (ctx : IRContext OpCode) (op : OperationPtr) : Option Unit := do
-  let properties := op.getProperties! ctx Llvm.mlir__addressof
+  let properties := op.getProperties! ctx GMIR.g_global_value
   let some name := properties.global_name.getName? | none
   if let some global := lookupGlobal? ctx op name then
     -- An undefined weak symbol resolves to zero, which a PC-relative `la`
@@ -234,13 +234,13 @@ private def isLaAddressable (ctx : IRContext OpCode) (op : OperationPtr) : Optio
     if global.isThreadLocal || global.linkage.value = "extern_weak" then none
   return ()
 
-/-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type, except for TLS and
+/-- `gmir.g_global_value` -> `riscv.la` and a cast back to the pointer type, except for TLS and
   external weak globals. -/
-def addressof_pattern : Pattern OpCode :=
+def gmirGlobalValue_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
       let resType ← MatchProg.type (Attr := TypeAttr)
-      let root ← MatchProg.root (.llvm .mlir__addressof) #[] #[resType]
+      let root ← MatchProg.root (.gmir .g_global_value) #[] #[resType]
       let () ← MatchProg.inspectOperation (Outputs := Unit) root.op isLaAddressable
       return (resType, root.properties))
     (fun (resType, props) => do
@@ -251,8 +251,8 @@ def addressof_pattern : Pattern OpCode :=
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[laOp.res[0]!] #[resType])
     (fun castBackOp => castBackOp)
 
-/-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type. -/
-def addressof : Puddle.CompiledPattern OpCode := addressof_pattern.compile
+/-- `gmir.g_global_value` -> `riscv.la` and a cast back to the pointer type. -/
+def gmirGlobalValue : Puddle.CompiledPattern OpCode := gmirGlobalValue_pattern.compile
 
 /--
   The signed 12-bit immediate offset of a load/store address `getelementptr base, c*`, with
@@ -2135,7 +2135,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[gmirSelect.run,
-    constant.run, addressof.run] ++
+    constant.run, gmirGlobalValue.run] ++
     #[
     sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
     zext32.run, zext16.run, trunc.run,
