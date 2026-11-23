@@ -68,6 +68,22 @@ def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext O
   op.verifyNonOperandCounts ctx opIn 0 0 successors
 
 /--
+  Check that a range of `op`'s operands matches the types in `expected`.
+  The operands `operandBase .. operandBase + block.numArguments` are
+  mapped positionally onto `expected`, which may be a successor block, the entry
+  block of one of `op`'s regions, or a block that `op` transfers control to implicitly.
+  Callers must have already verified that this operand range is in bounds.
+-/
+def OperationPtr.verifyOperandTypesMatchTypeArray
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (operandBase : Nat) (expected : Array Attribute) (errPrefix : String) :
+    Except String PUnit := do
+  for h : j in [0:expected.size] do
+    let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
+    if !Attribute.branchArgCompatible opTy.val expected[j] then
+      throw s!"{errPrefix} type mismatch at {j}th argument: operand has type {opTy}, expected {expected[j]}"
+
+/--
   Check that the operands forwarded to a successor block match the types of that
   block's arguments. `operandBase` is the index of the first forwarded operand;
   the forwarded operands are `operandBase .. operandBase + dest.numArguments`,
@@ -78,12 +94,8 @@ def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext O
 def OperationPtr.verifyBranchSuccessorArgTypes
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (operandBase : Nat) (dest : BlockPtr) (errPrefix : String) :
-    Except String PUnit := do
-  for j in [0:dest.getNumArguments! ctx.raw] do
-    let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
-    let argTy := (dest.getArgument j).getType! ctx.raw
-    if !Attribute.branchArgCompatible opTy.val argTy.val then
-      throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, block argument has type {argTy}"
+    Except String PUnit :=
+  op.verifyOperandTypesMatchTypeArray ctx operandBase ((dest.getArgumentTypes! ctx.raw).map (·.val)) errPrefix
 
 /--
   Verify an unconditional branch with a single successor: every operand is
