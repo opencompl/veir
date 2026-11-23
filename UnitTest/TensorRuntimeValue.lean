@@ -26,7 +26,7 @@ private def i32 (n : Int) : RuntimeValue :=
 private def f32Zero : RuntimeValue :=
   .float f32ty (Data.Float.FloatValue.positiveZero f32ty.format)
 
-private def tensorTy (shape : Array Nat) : TypeAttr :=
+private def integerTensorTy (shape : Array Nat) : TypeAttr :=
   TypeAttr.of TensorType { shape := shape, elementType := .integerType i32ty }
 
 private def floatTensorTy (shape : Array Nat) : TypeAttr :=
@@ -43,11 +43,11 @@ private def testEmptyTensor : String := Id.run do
   let RuntimeValue.tensor elems := empty | return "emptyTensor did not produce a .tensor"
   if elems ≠ #[i32Poison, i32Poison, i32Poison, i32Poison] then
     return "emptyTensor did not fill with four element poisons"
-  if !(RuntimeValue.Conforms empty (tensorTy #[2, 2])) then
+  if !(RuntimeValue.Conforms empty (integerTensorTy #[2, 2])) then
     return "emptyTensor result does not conform to tensor<2x2xi32>"
-  if RuntimeValue.Conforms (.tensor #[i32Poison, i32Poison]) (tensorTy #[2, 2]) then
+  if RuntimeValue.Conforms (.tensor #[i32Poison, i32Poison]) (integerTensorTy #[2, 2]) then
     return "2-element tensor incorrectly conforms to tensor<2x2xi32>"
-  if RuntimeValue.Conforms (.tensor #[f32Zero, f32Zero]) (tensorTy #[2]) then
+  if RuntimeValue.Conforms (.tensor #[f32Zero, f32Zero]) (integerTensorTy #[2]) then
     return "f32 elements incorrectly conform to tensor<2xi32>"
   return "ok"
 
@@ -59,13 +59,13 @@ info: "ok"
 
 private def testInterpretEmpty : String := Id.run do
   let .ok (results, none) :=
-      Tensor.interpretOp' .empty () #[tensorTy #[2, 2]] #[] #[]
+      Tensor.interpretOp' .empty () #[integerTensorTy #[2, 2]] #[] #[]
     | return "tensor.empty of i32 did not succeed"
   let some result := results[0]? | return "tensor.empty produced no result"
   let RuntimeValue.tensor elems := result | return "tensor.empty did not produce a .tensor"
   if elems ≠ #[i32Poison, i32Poison, i32Poison, i32Poison] then
     return "tensor.empty did not fill with four element poisons"
-  if !(RuntimeValue.Conforms result (tensorTy #[2, 2])) then
+  if !(RuntimeValue.Conforms result (integerTensorTy #[2, 2])) then
     return "tensor.empty result does not conform to tensor<2x2xi32>"
   return "ok"
 
@@ -130,7 +130,7 @@ private def testInterpretEmptyModule : String := Id.run do
       let RuntimeValue.tensor elems := result | return "main did not return a .tensor"
       if elems ≠ #[i32Poison, i32Poison, i32Poison, i32Poison] then
         return "main did not return four element poisons"
-      if !(RuntimeValue.Conforms result (tensorTy #[2, 2])) then
+      if !(RuntimeValue.Conforms result (integerTensorTy #[2, 2])) then
         return "main result does not conform to tensor<2x2xi32>"
       return "ok"
     | .fail _ => return "interpreting main failed"
