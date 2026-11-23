@@ -472,11 +472,11 @@ def OperationPtr.verifyRISCVRegisterTypes {OpInfo : Type} [IsOpCode OpInfo]
   let opTypes := op.getOperandTypes! ctx.raw
   for i in [0:opTypes.size] do
     match (opTypes[i]!).val with
-    | .registerType _ => pure ()
+    | .registerType { cls := .int, .. } => pure ()
     | _ => throw s!"{instrName}: Expected operand {i} to have !riscv.reg type"
   for i in [0:op.getNumResults ctx.raw opIn] do
     match ((op.getResult i).getType! ctx.raw).val with
-    | .registerType _ => pure ()
+    | .registerType { cls := .int, .. } => pure ()
     | _ => throw s!"{instrName}: Expected result {i} to have !riscv.reg type"
 
 /--

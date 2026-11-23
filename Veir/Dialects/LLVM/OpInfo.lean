@@ -1247,9 +1247,9 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     /- Case values must be distinct at the condition's width, as in LLVM IR. Upstream MLIR
        accepts duplicates, but such a switch cannot be translated to LLVM IR. -/
     let mut seen : Std.HashSet Nat := {}
-    for v in caseValues.values, key in caseValues.bits do
+    for key in caseValues.bits do
       if seen.contains key then
-        throw s!"llvm.switch: duplicate case value {v}"
+        throw s!"llvm.switch: duplicate case value {(BitVec.ofNat caseValues.width key).toInt}"
       seen := seen.insert key
     if let some weights := props.branch_weights then
       if weights.values.size ≠ caseSegments.size + 1 then

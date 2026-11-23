@@ -45,7 +45,7 @@ def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
       let _ ← MatchProg.root (.llvm llvmOp) #[a, a, amt] #[opType]
       return (opType, a, amt))
     (fun (opType, a, amt) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let aCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[a] #[regType]
       let amtCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -80,7 +80,7 @@ def constant_pattern : Pattern OpCode :=
           (fun props => props.value matches .integer _)
       return (type, root.properties))
     (fun (type, constProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let liProps ← CreateProg.applyNative
           (Outputs := Handle OpCode (.prop (.riscv .li))) (type, constProps)
           fun (type, constProps) => do
@@ -132,7 +132,7 @@ def lowerRegCast (srcOp : OpCode) (legal : TypeAttr → TypeAttr → propertiesO
           fun (opType, resType, props) => legal opType resType props
       return (resType, x))
     (fun (resType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       /- First, cast the operand to registers -/
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType]
@@ -244,7 +244,7 @@ def addressof_pattern : Pattern OpCode :=
       let () ← MatchProg.inspectOperation (Outputs := Unit) root.op isLaAddressable
       return (resType, root.properties))
     (fun (resType, props) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let laProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .la))) props
           fun props => some (RISCVSymbolProperties.mk props.global_name)
       let laOp ← CreateProg.operation (.riscv .la) #[] #[regType] (.inr laProps)
@@ -355,7 +355,7 @@ def lowerLoadOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
       guard resType baseType root.properties
       return (resType, base, gep?, root.properties))
     (fun (resType, base, gep?, loadProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       /- cast base (!llvm.ptr) -> register -/
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[base] #[regType]
@@ -409,7 +409,7 @@ def lowerStoreOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
       guard valType baseType root.properties
       return (val, base, gep?, root.properties))
     (fun (val, base, gep?, storeProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       /- cast base (!llvm.ptr) -> register -/
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[base] #[regType]
@@ -580,7 +580,7 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) (throughTrunc : Bool := false) 
           #[val, val, amt] #[resType]
       return (resType, val, amtType, amtOp.properties))
     (fun (resType, val, amtType, amtProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType]
       let imm := fun (type : TypeAttr) (props : GMIRConstantProperties) => do
@@ -662,7 +662,7 @@ def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
       let _ ← MatchProg.root (.llvm .intr__fshl) #[x, y, z] #[resType]
       return (resType, x, y, z))
     (fun (resType, x, y, z) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType]
       let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -727,7 +727,7 @@ def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
       let _ ← MatchProg.root (.llvm .intr__fshr) #[x, y, z] #[resType]
       return (resType, x, y, z))
     (fun (resType, x, y, z) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType]
       let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -786,7 +786,7 @@ def gmirPoison_pattern : Pattern OpCode :=
       let _ ← MatchProg.root (.gmir .g_poison) #[] #[resType]
       return resType)
     (fun resType => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
       let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -858,7 +858,7 @@ def memIntrinsicCallPattern (isMemset : Bool) : Pattern OpCode :=
         guard (memIntrinsicAccesses? ctx isMemset props (op.getOperand! ctx 2)).isNone
       return (dst, src, len))
     (fun (dst, src, len) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let dstCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[dst] #[regType]
       let srcCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[src] #[regType]
       -- memset takes its fill byte as an int, so zero-extend the i8.
@@ -1087,7 +1087,7 @@ def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
       matchLegal .g_select type root.properties (type₁ := condType)
       return (type, cond, val))
     (fun (type, cond, val) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType]
       let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -1144,7 +1144,7 @@ def gmirSelectZeroOfSetcc_pattern (zeroFalse : Bool) (pred : Data.LLVM.IntPred) 
       matchLegal .g_select type root.properties (type₁ := condType)
       return (type, lhs, rhs, val))
     (fun (type, lhs, rhs, val) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType]
       let lhsCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -1196,7 +1196,7 @@ def gmirSelect_pattern : Pattern OpCode :=
       matchLegal .g_select type root.properties (type₁ := condType)
       return (type, cond, tval, fval))
     (fun (type, cond, tval, fval) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let tCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[tval] #[regType]
       let fCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -1344,7 +1344,7 @@ def sextInRegExt_pattern (sz : Nat) (riscvOp : Riscv)
   Pattern.Builder
     (matchSextInReg (· = sz))
     (fun (resType, src, _) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[src] #[regType]
       let extOp ← CreateProg.operation (.riscv riscvOp) #[castOp.res[0]!] #[regType] riscvProps
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[extOp.res[0]!] #[resType])
@@ -1359,7 +1359,7 @@ def sextInRegShift_pattern : Pattern OpCode :=
         let sz := props.sz.toNat
         let shift : Int := 64 - sz
         mkRISCVImm shift
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[src] #[regType]
       let leftProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .slli)))
           props fun props => some (shiftProps props)
@@ -1419,7 +1419,7 @@ def gmirXor : Puddle.CompiledPattern OpCode := gmirXor_pattern.compile
 def createRegOp (type : Handle OpCode .type) (operands : Array (Handle OpCode .value))
     (riscvOp : Riscv) (props : PropertiesOrHandle (OpCode.riscv riscvOp)) :
     CreateProg.Builder CreatedOpHandle := do
-  let regType ← CreateProg.type (RegisterType.mk none)
+  let regType ← CreateProg.type (RegisterType.mk .int none)
   let castOps ← operands.mapM fun operand =>
     CreateProg.operation (.builtin .unrealized_conversion_cast) #[operand] #[regType]
   let riscvOp ← CreateProg.operation (.riscv riscvOp) (castOps.map (·.res[0]!)) #[regType] props
@@ -1849,7 +1849,7 @@ def gmirConstant_pattern : Pattern OpCode :=
       matchLegal .g_constant type root.properties
       return (type, root.properties))
     (fun (type, constProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let liProps ← CreateProg.applyNative constProps fun ⟨const⟩ =>
         some (RISCVImmediateProperties.mk (BitVec.ofInt 64 const.value))
       let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] (.inr liProps)
@@ -1896,7 +1896,7 @@ def gmirBitreverse_pattern : Pattern OpCode :=
       matchLegal .g_bitreverse type root.properties
       return (type, x))
     (fun (type, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
       let brev8Op ← CreateProg.operation (.riscv .brev8) #[castOp.res[0]!] #[regType]
       let rev8Op ← CreateProg.operation (.riscv .rev8) #[brev8Op.res[0]!] #[regType]
@@ -2024,7 +2024,7 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
       matchLegal .g_icmp resType root.properties (type₁ := opType)
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType]
       let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
@@ -2085,7 +2085,7 @@ def gmirSlti_pattern (pred : Data.LLVM.IntPred) : Pattern OpCode :=
       matchLegal .g_icmp resType root.properties (type₁ := type)
       return (resType, lhs, constant.properties))
     (fun (resType, lhs, constProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk .int none)
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[lhs] #[regType]
       let cmpOp ← if unsigned then do
           let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .sltiu)))
