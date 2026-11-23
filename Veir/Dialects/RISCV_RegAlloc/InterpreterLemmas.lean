@@ -17,11 +17,10 @@ theorem Riscv_RegAlloc.reloading_returns_spilled_value
       = some (spilled, action)) :
     Riscv_RegAlloc.interpretOp' .reload () reloadTypes spilled reloadBlocks
       = some (operands, none) := by
-  obtain ⟨list⟩ := operands
-  match list, h with
-  | [.reg value], h =>
-    simp [Riscv_RegAlloc.interpretOp'] at h
-    obtain ⟨rfl, rfl⟩ := h
-    rfl
+  match operands with
+  | ⟨[.reg value]⟩ =>
+   cases h
+   rfl
+
 
 end Veir
