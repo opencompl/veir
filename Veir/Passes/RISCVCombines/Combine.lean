@@ -74,7 +74,7 @@ def srl_sra_signbitGen_pattern (srlDst : Riscv)
         (fun props => (cast hSrl props : RISCVImmediateProperties).value.toInt = (width : Int) - 1)
       return (x, root.properties))
     (fun (x, props) => do
-      let regType ← Puddle.CreateProg.type (RegisterType.mk none)
+      let regType ← Puddle.CreateProg.type (RegisterType.mk .int none)
       Puddle.CreateProg.operation (.riscv srlDst) #[x] #[regType] (.inr props))
     (fun op => op)
 
@@ -1090,7 +1090,7 @@ def li_zero_to_x0_pattern : Puddle.Pattern OpCode :=
         guard (op.hasUses! ctx)
       return ())
     (fun () => do
-      let x0Type ← Puddle.CreateProg.type (RegisterType.mk (some 0))
+      let x0Type ← Puddle.CreateProg.type (RegisterType.mk .int (some 0))
       Puddle.CreateProg.operation (.rv64 .get_register) #[] #[x0Type])
     (fun x0Op => x0Op)
 
