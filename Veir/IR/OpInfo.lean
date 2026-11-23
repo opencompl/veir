@@ -48,12 +48,43 @@ structure SymbolOpInterface (Properties : Type) where
   /-- Return the name of the symbol, or `none` for an optional symbol without a name. -/
   getSymName : Properties → Option StringAttr
 
+/--
+Default implementation of `FunctionOpInterface.verifyBody`.
+
+Asserts the entry block of the function has one argument per function argument, of the same
+type. External functions have no entry block and always pass.
+
+This is equivalent to the default `FunctionOpInterface::verifyBody` in MLIR.
+-/
+def FunctionOpInterface.defaultVerifyBody {OpInfo : Type} [IsOpCode OpInfo]
+    (functionType : FunctionType) (op : OperationPtr) (ctx : IRContext OpInfo) :
+    Except String Unit := do
+  let some region := (op.getRegions! ctx)[0]? | return
+  let some entry := region.getFirstBlock! ctx | return
+  let inputs := functionType.inputs
+  if entry.getNumArguments! ctx ≠ inputs.size then
+    throw s!"entry block must have {inputs.size} arguments to match function signature"
+  for h : i in [0:inputs.size] do
+    let argType := ((entry.getArgument i : ValuePtr).getType! ctx).val
+    if argType ≠ inputs[i] then
+      throw s!"type of entry block argument #{i}({argType}) must match the type of the \
+        corresponding argument in function signature({inputs[i]})"
+
 /-- Information exposed by operations that behave like functions. -/
 structure FunctionOpInterface (Properties : Type) where
   /-- Return the type of the function. -/
   getFunctionType : Properties → FunctionType
   /-- Return the properties with the function type replaced. -/
   setFunctionType : Properties → FunctionType → Properties
+  /--
+  Verify that the function body matches its type.
+
+  The default assumes every function argument must have an
+  entry block argument of the same type.
+  -/
+  verifyBody : {OpInfo : Type} → [IsOpCode OpInfo] → Properties → OperationPtr → IRContext OpInfo
+      → Except String Unit :=
+    fun props op ctx => FunctionOpInterface.defaultVerifyBody (getFunctionType props) op ctx
 
 /-- The callee of a call: a symbol, or one of its operands. -/
 inductive CallInterfaceCallable (α : Type) where

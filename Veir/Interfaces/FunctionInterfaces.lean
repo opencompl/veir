@@ -152,21 +152,10 @@ def getResultTypes (funcOp : FunctionOp ctx op) : Array Attribute :=
 -/
 
 /--
-Check that the entry block of the function has one argument per function argument, of the same
-type. External functions have no entry block and always pass.
-
-This is equivalent to the default `FunctionOpInterface::verifyBody` in MLIR.
+Run function body verification (FunctionOpInterface.verifyBody).
 -/
 def verifyBody (funcOp : FunctionOp ctx op) : Except String Unit := do
-  let some entry := funcOp.getEntryBlock? | return
-  let inputs := funcOp.getArgumentTypes
-  if entry.getNumArguments! ctx ≠ inputs.size then
-    throw s!"entry block must have {inputs.size} arguments to match function signature"
-  for h : i in [0:inputs.size] do
-    let argType := ((entry.getArgument i : ValuePtr).getType! ctx).val
-    if argType ≠ inputs[i] then
-      throw s!"type of entry block argument #{i}({argType}) must match the type of the \
-        corresponding argument in function signature({inputs[i]})"
+  funcOp.functionInterface.verifyBody (op.getProperties! ctx (op.getOpType! ctx)) op ctx
 
 /--
 Check the invariants that every function-like operation shares.
