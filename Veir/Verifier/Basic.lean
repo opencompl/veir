@@ -420,8 +420,8 @@ def OperationPtr.verifyIntegerUnop (op : OperationPtr)
     s!"{instrName}: Expected result type to match operand type"
   pure operandType
 
-def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+def OperationPtr.verifyCmpResultGeneric (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) (resultType : IntegerType) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
@@ -430,7 +430,12 @@ def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
     s!"{instrName}: Expected operand 1 to have integer type"
   let _ ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
-  ((op.getResult 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 result"
+  if resultType ≠ ((op.getResult 0).getType! ctx.raw) then
+    throw s!"{instrName}: Expected {resultType} result"
+
+def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyCmpResultGeneric ctx opIn (IntegerType.signless 1)
 
 def OperationPtr.verifySelectTypes (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
