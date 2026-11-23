@@ -1377,6 +1377,23 @@ partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
   parsePunctuation ">"
   return some (Match.OptionalType.mk inner)
 
+partial def parseOptionalWasmSSAType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "wasmssa".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  match ← parseOptionalKeyword "local".toByteArray with
+  | true =>
+    let _ ← parseKeyword "ref".toByteArray "expected 'ref' after '!wasmssa<local'"
+    let _ ← parseKeyword "to".toByteArray "expected 'to' after '!wasmssa<local ref'"
+    let inner ← parseType "expected the wrapped type of a '!wasmssa<local ref to ...>'"
+    parsePunctuation ">"
+    return some (WasmSSA.LocalRefType.mk inner)
+  | false => throwAtCurrentPos "unable to parse unknown WasmSSA type: expected '!wasmssa<local ref to ...>'"
+
 /--
   Parse a type, if present.
 -/
@@ -1444,6 +1461,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some pdlTypeType
   if let some matchOptionalType ← parseOptionalMatchOptionalType then
     return some matchOptionalType
+  else if let some wasmssaType := ← parseOptionalWasmSSAType then
+    return some wasmssaType
   if let some dialectType ← parseOptionalDialectType then
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then

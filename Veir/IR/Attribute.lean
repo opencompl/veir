@@ -742,6 +742,15 @@ structure Match.OptionalType where
   innerType : Attribute
 
 /--
+  A WasmSSA LocalRefType (`wasmssa.local<ty>`), the type of local variables.
+
+  The `elementType` can be a 32- or 64-bit signless integer or float,
+  or 128-bit signless integer or a function reference or external reference.
+-/
+structure WasmSSA.LocalRefType where
+  elementType : Attribute
+
+/--
   An attribute from an unknown dialect, kept as its source text.
   It can be either a type attribute or a non-type attribute.
 
@@ -886,6 +895,8 @@ inductive Attribute
 | seqFirMemType (type : Seq.FirMemType)
 /-- SMT sort type (`!smt.bool` or `!smt.bv<width>`) -/
 | smtSortType (type : SMT.SortType)
+/-- WasmSSA LocalRefType (`wasmssa.local<ty>`) -/
+| wasmssaLocalRefType (type : WasmSSA.LocalRefType)
 deriving Inhabited
 
 end
@@ -894,11 +905,11 @@ end
 derive_mutual_repr for
   VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
-  UnregisteredAttr, Attribute
+  WasmSSA.LocalRefType, UnregisteredAttr, Attribute
 derive_mutual_hashable for
   VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
-  UnregisteredAttr, Attribute
+  WasmSSA.LocalRefType, UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
   default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
@@ -920,6 +931,9 @@ instance : Inhabited LLVM.StructType where
 
 instance : Inhabited Match.OptionalType where
   default := { innerType := .pdlValueType .mk }
+
+instance : Inhabited WasmSSA.LocalRefType where
+  default := { elementType := .unitAttr .mk }
 
 def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
@@ -975,6 +989,10 @@ theorem LLVM.StructType.sizeOf_elems_body {t : StructType} (hx : x ∈ t.body) :
 theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
     sizeOf t.innerType < sizeOf t := by
   grind [cases Match.OptionalType]
+
+theorem WasmSSA.LocalRefType.sizeOf_elementType {t : WasmSSA.LocalRefType} :
+    sizeOf t.elementType < sizeOf t := by
+  grind [cases WasmSSA.LocalRefType]
 
 theorem UnregisteredAttr.sizeOf_type {a : UnregisteredAttr} (h : a.type = some t) :
     sizeOf t < sizeOf a := by
@@ -1305,6 +1323,9 @@ partial def LLVM.StructType.toString (type : LLVM.StructType) : String :=
   let body := String.intercalate ", " (type.body.toList.map Attribute.toString)
   s!"!llvm.struct<{name}{packed}({body})>"
 
+partial def WasmSSA.LocalRefType.toString (type : WasmSSA.LocalRefType) : String :=
+  s!"!wasmssa<local ref to {Attribute.toString type.elementType}>"
+
 partial def Match.OptionalType.toString (type : Match.OptionalType) : String :=
   s!"!match.optional<{Attribute.toString type.innerType}>"
 
@@ -1379,6 +1400,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .seqClockType type => ToString.toString type
   | .seqFirMemType type => ToString.toString type
   | .smtSortType type => ToString.toString type
+  | .wasmssaLocalRefType type => type.toString
 
 end
 
@@ -1411,6 +1433,9 @@ instance : ToString LLVM.ArrayType where
 
 instance : ToString LLVM.StructType where
   toString := LLVM.StructType.toString
+
+instance : ToString WasmSSA.LocalRefType where
+  toString := WasmSSA.LocalRefType.toString
 
 instance : ToString Match.OptionalType where
   toString := Match.OptionalType.toString
@@ -1772,6 +1797,15 @@ decreasing_by
   have := @LLVM.StructType.sizeOf_elems_body
   grind
 
+def WasmSSA.LocalRefType.decEq (opt1 opt2 : WasmSSA.LocalRefType) : Decidable (opt1 = opt2) :=
+  match Attribute.decEq opt1.elementType opt2.elementType with
+  | isTrue _ => isTrue (by grind [cases WasmSSA.LocalRefType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf opt1
+decreasing_by
+  have := @WasmSSA.LocalRefType.sizeOf_elementType
+  grind
+
 def Match.OptionalType.decEq (opt1 opt2 : Match.OptionalType) : Decidable (opt1 = opt2) :=
   match Attribute.decEq opt1.innerType opt2.innerType with
   | isTrue _ => isTrue (by grind [cases Match.OptionalType])
@@ -1941,6 +1975,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case smtSortType x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case wasmssaLocalRefType x =>
+    exact IsAttr.decEqAgainst x attr2 (WasmSSA.LocalRefType.decEq x)
 termination_by sizeOf attr1
 decreasing_by
   all_goals exact Nat.lt_add_of_pos_left (by decide)
@@ -2032,6 +2068,7 @@ def isType (attr : Attribute) : Bool :=
   | .seqClockType _ => true
   | .seqFirMemType _ => true
   | .smtSortType _ => true
+  | .wasmssaLocalRefType _ => true
 
 /--
   Returns the size, in bits, that an LLVM type would use if stored to memory.
@@ -2137,6 +2174,8 @@ theorem isType_seqClockType type : (Attribute.of Seq.ClockType type).isType = tr
 theorem isType_seqFirMemType type : (Attribute.of Seq.FirMemType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_smtSortType type : (Attribute.of SMT.SortType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_wasmssaLocalRefType type : (Attribute.of WasmSSA.LocalRefType type).isType = true := by rfl
 
 end Attribute
 
@@ -2378,6 +2417,7 @@ type_attribute_instance PDL.TypeType => Attribute.pdlTypeType
 type_attribute_instance Seq.ClockType => Attribute.seqClockType
 type_attribute_instance Seq.FirMemType => Attribute.seqFirMemType
 type_attribute_instance SMT.SortType => Attribute.smtSortType
+type_attribute_instance WasmSSA.LocalRefType => Attribute.wasmssaLocalRefType
 
 instance : CoeDep (RegisterClass → Option Int → RegisterType) RegisterType.mk TypeAttr where
   coe := TypeAttr.of RegisterType {}
