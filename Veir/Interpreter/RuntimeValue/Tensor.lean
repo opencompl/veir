@@ -12,6 +12,6 @@ namespace Veir
 -/
 @[expose]
 def RuntimeValue.emptyTensor (shape : Array Nat) (elemPoison : RuntimeValue) : RuntimeValue :=
-  .tensor (Array.replicate (shape.foldl Nat.mul 1) elemPoison)
+  .tensor shape (Array.replicate (shape.foldl Nat.mul 1) elemPoison)
 
 end Veir

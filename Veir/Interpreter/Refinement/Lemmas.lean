@@ -58,9 +58,9 @@ theorem RuntimeValue.isRefinedBy_float_iff {ty ty' : FloatType}
 @[simp, grind .]
 theorem RuntimeValue.isRefinedBy_refl (v : RuntimeValue) : v ⊒ v := by
   cases v
-  case tensor xs =>
+  case tensor shape xs =>
     rw [RuntimeValue.isRefinedBy]
-    exact ⟨rfl, fun i => by simpa using RuntimeValue.isRefinedBy_refl xs[i]⟩
+    exact ⟨rfl, rfl, fun i => by simpa using RuntimeValue.isRefinedBy_refl xs[i]⟩
   all_goals grind [RuntimeValue.isRefinedBy]
 termination_by v
 
@@ -68,17 +68,24 @@ termination_by v
 theorem RuntimeValue.arrayIsRefinedBy_refl (a : Array RuntimeValue) : a ⊒ a := by
   simp [arrayIsRefinedBy]
 
-/-- A `tensor` value is refined exactly when its elements are, pointwise. -/
+/--
+  Same-shape tensors refine exactly when their flat elements refine pointwise.
+  Differently shaped tensors never refine.
+-/
 @[simp, grind =]
-theorem RuntimeValue.isRefinedBy_tensor_iff {xs ys : Array RuntimeValue} :
-    RuntimeValue.tensor xs ⊒ .tensor ys ↔ xs ⊒ ys := by
+theorem RuntimeValue.isRefinedBy_tensor_iff {sShape tShape : Array Nat}
+    {xs ys : Array RuntimeValue} :
+    RuntimeValue.tensor sShape xs ⊒ .tensor tShape ys ↔
+      sShape = tShape ∧ xs ⊒ ys := by
   rw [RuntimeValue.isRefinedBy, RuntimeValue.arrayIsRefinedBy]
-  apply and_congr_right
-  intro _
   constructor
-  · intro h i hi
+  · rintro ⟨rfl, hsize, h⟩
+    refine ⟨rfl, hsize, ?_⟩
+    intro i hi
     simpa [getElem!_pos, hi] using h ⟨i, hi⟩
-  · intro h i
+  · rintro ⟨rfl, hsize, h⟩
+    refine ⟨rfl, hsize, ?_⟩
+    intro i
     simpa [getElem!_pos, i.isLt] using h i.val i.isLt
 
 @[simp, grind .]
@@ -193,14 +200,14 @@ theorem Interp.isRefinedBy_refl_operationResult
 theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
     (h12 : v₁ ⊒ v₂) (h23 : v₂ ⊒ v₃) : v₁ ⊒ v₃ := by
   cases v₁
-  case tensor xs =>
+  case tensor sShape xs =>
     cases v₂ <;> cases v₃ <;>
       unfold RuntimeValue.isRefinedBy at h12 h23 ⊢ <;> try contradiction
-    next ys zs =>
-      refine ⟨h12.1.trans h23.1, fun i => ?_⟩
+    next tShape ys uShape zs =>
+      refine ⟨h12.1.trans h23.1, h12.2.1.trans h23.2.1, fun i => ?_⟩
       have hi : i.val < ys.size := by omega
-      apply RuntimeValue.isRefinedBy_trans (h12.2 i)
-      simpa [getElem!_pos, hi] using h23.2 ⟨i.val, hi⟩
+      apply RuntimeValue.isRefinedBy_trans (h12.2.2 i)
+      simpa [getElem!_pos, hi] using h23.2.2 ⟨i.val, hi⟩
   all_goals grind [RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy_trans,
       cases RuntimeValue, LLVM.Byte.isRefinedBy_trans]
 termination_by v₁
@@ -344,35 +351,40 @@ theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
 theorem RuntimeValue.Conforms.of_isRefinedBy {source target : RuntimeValue}
     {type : TypeAttr} (hConforms : source.Conforms type) (hRefined : source ⊒ target) :
     target.Conforms type := by
-  cases source <;> cases target <;> unfold RuntimeValue.isRefinedBy at hRefined <;>
-    (try exact hRefined.elim) <;>
-    unfold RuntimeValue.Conforms at hConforms ⊢ <;>
-    split at hConforms <;> (try exact hConforms.elim) <;> rename_i heq <;> cases heq
-  all_goals first
-    | trivial
-    | (obtain ⟨rfl, -⟩ := hRefined; exact hConforms)
-    | (obtain ⟨rfl, rfl⟩ := hRefined; exact hConforms)
-    | (split at hRefined
-       · next h => subst h; exact hConforms
-       · exact hRefined.elim)
-    | (rename_i xs ys _ _ _ _
-       obtain ⟨hsize, helems⟩ := hRefined
-       have elem (i : Nat) (hi : i < ys.size) (ty : TypeAttr)
-           (h : (xs[i]'(by omega)).Conforms ty) : ys[i].Conforms ty := by
-         simpa [getElem!_pos, hi] using
-           RuntimeValue.Conforms.of_isRefinedBy h (helems ⟨i, by omega⟩)
-       first
-       | (split at hConforms
-          · next h =>
-            rw [dite_eq_left h]
-            exact ⟨by have := hConforms.1; omega,
-              fun i => elem i i.isLt _ (hConforms.2 ⟨i, by omega⟩)⟩
-          · exact hConforms.elim)
-       | (refine ⟨by have := hConforms.1; omega, fun i => ?_⟩
-          have := hConforms.2 ⟨i, by omega⟩
-          split at this
-          · next h => rw [dite_eq_left h]; exact elem i i.isLt _ this
-          · exact this.elim))
+  cases source with
+  | tensor sShape xs =>
+    cases target with
+    | tensor tShape ys =>
+      unfold RuntimeValue.isRefinedBy at hRefined
+      obtain ⟨rfl, hsize, helems⟩ := hRefined
+      unfold RuntimeValue.Conforms at hConforms ⊢
+      split at hConforms <;> (try exact hConforms.elim) <;> rename_i heq <;> cases heq
+      split at hConforms
+      · next heleTy =>
+        split
+        · next heleTy' =>
+          obtain ⟨hshape, hnum, hxs⟩ := hConforms
+          refine ⟨hshape, hsize.symm.trans hnum, fun i => ?_⟩
+          have hi : (i : Nat) < xs.size := by omega
+          exact RuntimeValue.Conforms.of_isRefinedBy (hxs ⟨i, hi⟩)
+            (by simpa [getElem!_pos, i.isLt] using helems ⟨i, hi⟩)
+        · next hfalse => exact (hfalse heleTy).elim
+      · exact hConforms.elim
+    | _ =>
+      unfold RuntimeValue.isRefinedBy at hRefined
+      exact hRefined.elim
+  | _ =>
+    cases target <;> unfold RuntimeValue.isRefinedBy at hRefined <;>
+      (try exact hRefined.elim) <;>
+      unfold RuntimeValue.Conforms at hConforms ⊢ <;>
+      split at hConforms <;> (try exact hConforms.elim) <;> rename_i heq <;> cases heq
+    all_goals first
+      | trivial
+      | (obtain ⟨rfl, -⟩ := hRefined; exact hConforms)
+      | (obtain ⟨rfl, rfl⟩ := hRefined; exact hConforms)
+      | (split at hRefined
+         · next h => subst h; exact hConforms
+         · exact hRefined.elim)
 termination_by source
 
 /-! ## Interp refinements -/
@@ -447,9 +459,9 @@ open Veir.Data.LLVM
   | .byte w x, .byte w' y =>
     if h : w = w' then ((x.cast h).glb? y).map (.byte w') else none
   | .addr p, .addr q => (p.glb? q).map .addr
-  | .tensor xs, .tensor ys =>
-    if xs.size = ys.size then
-      (Array.ofFnM fun i : Fin xs.size => glb? xs[i] ys[i.val]!).map .tensor
+  | .tensor sShape xs, .tensor tShape ys =>
+    if sShape = tShape ∧ xs.size = ys.size then
+      (Array.ofFnM fun i : Fin xs.size => glb? xs[i] ys[i.val]!).map (.tensor sShape)
     else none
   | c, d => if c = d then some c else none
 termination_by c
@@ -458,14 +470,15 @@ termination_by c
 theorem RuntimeValue.glb?_isRefinedBy {c d m : RuntimeValue} (h : c.glb? d = some m) :
     c ⊒ m ∧ d ⊒ m := by
   cases c <;> cases d <;> unfold RuntimeValue.glb? at h
-  case tensor.tensor xs ys =>
+  case tensor.tensor sShape xs tShape ys =>
     split at h
     · next hs =>
+        obtain ⟨rfl, hsizeEq⟩ := hs
         simp only [Option.map_eq_some_iff, Array.ofFnM_option_eq_some_iff] at h
         obtain ⟨ms, ⟨hsize, hm⟩, rfl⟩ := h
         have elem (i : Fin xs.size) := RuntimeValue.glb?_isRefinedBy (hm i)
         rw [RuntimeValue.isRefinedBy, RuntimeValue.isRefinedBy]
-        refine ⟨⟨hsize, fun i => (elem i).1⟩, ⟨hs.symm.trans hsize, fun i => ?_⟩⟩
+        refine ⟨⟨rfl, hsize, fun i => (elem i).1⟩, ⟨rfl, hsizeEq.symm.trans hsize, fun i => ?_⟩⟩
         have hi : i.val < xs.size := by omega
         simpa [getElem!_pos, hi] using (elem ⟨i, hi⟩).2
     · cases h
@@ -510,19 +523,21 @@ theorem RuntimeValue.glb?_greatest {c d e : RuntimeValue} (hc : c ⊒ e) (hd : d
     ∃ m, c.glb? d = some m ∧ m ⊒ e := by
   cases c <;> cases d <;> cases e <;> unfold RuntimeValue.isRefinedBy at hc hd <;>
     (try exact hc.elim) <;> (try exact hd.elim)
-  case tensor.tensor.tensor xs ys zs =>
-    have hs : xs.size = ys.size := hc.1.trans hd.1.symm
+  case tensor.tensor.tensor sShape xs tShape ys uShape zs =>
+    obtain ⟨rfl, hsizeC, hcElem⟩ := hc
+    obtain ⟨rfl, hsizeD, hdElem⟩ := hd
+    have hs : xs.size = ys.size := hsizeC.trans hsizeD.symm
     have elem (i : Fin xs.size) :
         ∃ m, xs[i].glb? ys[i.val]! = some m ∧ m ⊒ zs[i.val]! := by
       have hi : i.val < ys.size := by omega
-      exact RuntimeValue.glb?_greatest (hc.2 i) (by
-        simpa [getElem!_pos, hi] using hd.2 ⟨i.val, hi⟩)
+      exact RuntimeValue.glb?_greatest (hcElem i) (by
+        simpa [getElem!_pos, hi] using hdElem ⟨i.val, hi⟩)
     obtain ⟨ms, hm⟩ := Array.exists_ofFnM_option_eq_some_iff.mpr
       (fun i => let ⟨m, hm, _⟩ := elem i; ⟨m, hm⟩)
     obtain ⟨hsize, hget⟩ := Array.ofFnM_option_eq_some_iff.mp hm
-    refine ⟨_, by simp only [RuntimeValue.glb?, ite_eq_left hs, hm, Option.map_some]; rfl, ?_⟩
+    refine ⟨_, by simp only [RuntimeValue.glb?, ↓reduceIte, hs, and_self, hm, Option.map_some]; rfl, ?_⟩
     rw [RuntimeValue.isRefinedBy]
-    refine ⟨hsize.symm.trans hc.1, fun i => ?_⟩
+    refine ⟨rfl, hsize.symm.trans hsizeC, fun i => ?_⟩
     obtain ⟨m, he, hme⟩ := elem ⟨i, by omega⟩
     have : m = ms[i.val]! := Option.some.inj (he.symm.trans (hget ⟨i, by omega⟩))
     simpa [this] using hme
@@ -561,12 +576,14 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
     c = d := by
   cases c <;> cases d <;> unfold RuntimeValue.isRefinedBy at h₁ h₂ <;>
     (try exact h₁.elim) <;> (try exact h₂.elim)
-  case tensor.tensor xs ys =>
+  case tensor.tensor sShape xs tShape ys =>
+    obtain ⟨rfl, hsize, h⟩ := h₁
+    obtain ⟨-, -, h'⟩ := h₂
     congr 1
-    apply Array.ext h₁.1
+    apply Array.ext hsize
     intro i hi hj
-    have forward := h₁.2 ⟨i, hi⟩
-    have backward := h₂.2 ⟨i, hj⟩
+    have forward := h ⟨i, hi⟩
+    have backward := h' ⟨i, hj⟩
     simp only [getElem!_pos, hi, hj] at forward backward
     exact RuntimeValue.isRefinedBy_antisymm forward backward
   case int.int w x w' y =>

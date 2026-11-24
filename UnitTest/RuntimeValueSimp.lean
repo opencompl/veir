@@ -42,5 +42,5 @@ example (operands : Array RuntimeValue) (t : TensorType) :
     ∃ elems,
       (elems.size = t.numElements ∧
         ∃ h : t.elementType.isType, ∀ e ∈ elems, Conforms e ⟨t.elementType, h⟩) ∧
-      operands = #[.tensor elems] := by
+      operands = #[.tensor t.shape elems] := by
   simp

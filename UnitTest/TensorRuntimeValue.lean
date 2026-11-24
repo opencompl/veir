@@ -5,9 +5,9 @@ import Veir.Interpreter.Refinement.Lemmas
 import UnitTest.Helpers
 
 /-!
-  Runtime representation of statically shaped tensors as `RuntimeValue.tensor`,
-  and interpretation of `tensor.empty` via element poison when the element type
-  has one.
+  Runtime representation of statically shaped tensors as `RuntimeValue.tensor`
+  (shape plus flat elements), and interpretation of `tensor.empty` via element
+  poison when the element type has one.
 -/
 
 open Veir
@@ -40,15 +40,19 @@ private def testEmptyTensor : String := Id.run do
   if TensorType.numElements { shape := #[0, 4], elementType := .integerType i32ty } ≠ 0 then
     return "tensor with a zero dimension should have 0 elements"
   let empty := RuntimeValue.emptyTensor #[2, 2] i32Poison
-  let RuntimeValue.tensor elems := empty | return "emptyTensor did not produce a .tensor"
+  let RuntimeValue.tensor shape elems := empty | return "emptyTensor did not produce a .tensor"
+  if shape ≠ #[2, 2] then
+    return "emptyTensor did not store the shape"
   if elems ≠ #[i32Poison, i32Poison, i32Poison, i32Poison] then
     return "emptyTensor did not fill with four element poisons"
   if !(RuntimeValue.Conforms empty (integerTensorTy #[2, 2])) then
     return "emptyTensor result does not conform to tensor<2x2xi32>"
-  if RuntimeValue.Conforms (.tensor #[i32Poison, i32Poison]) (integerTensorTy #[2, 2]) then
+  if RuntimeValue.Conforms (.tensor #[2, 2] #[i32Poison, i32Poison]) (integerTensorTy #[2, 2]) then
     return "2-element tensor incorrectly conforms to tensor<2x2xi32>"
-  if RuntimeValue.Conforms (.tensor #[f32Zero, f32Zero]) (integerTensorTy #[2]) then
+  if RuntimeValue.Conforms (.tensor #[2] #[f32Zero, f32Zero]) (integerTensorTy #[2]) then
     return "f32 elements incorrectly conform to tensor<2xi32>"
+  if RuntimeValue.Conforms (.tensor #[3] #[i32Poison, i32Poison]) (integerTensorTy #[2]) then
+    return "wrong-shape tensor incorrectly conforms to tensor<2xi32>"
   return "ok"
 
 /--
@@ -62,7 +66,9 @@ private def testInterpretEmpty : String := Id.run do
       Tensor.interpretOp' .empty () #[integerTensorTy #[2, 2]] #[] #[]
     | return "tensor.empty of i32 did not succeed"
   let some result := results[0]? | return "tensor.empty produced no result"
-  let RuntimeValue.tensor elems := result | return "tensor.empty did not produce a .tensor"
+  let RuntimeValue.tensor shape elems := result | return "tensor.empty did not produce a .tensor"
+  if shape ≠ #[2, 2] then
+    return "tensor.empty did not store the shape"
   if elems ≠ #[i32Poison, i32Poison, i32Poison, i32Poison] then
     return "tensor.empty did not fill with four element poisons"
   if !(RuntimeValue.Conforms result (integerTensorTy #[2, 2])) then
@@ -88,19 +94,22 @@ info: "ok"
 #guard_msgs in
 #eval testInterpretEmptyFloat
 
-/-- Pointwise `glb?` on tensors: meet of elements, or `none` on conflict / size mismatch. -/
+/-- Pointwise `glb?` on tensors: meet of elements, or `none` on conflict / shape mismatch. -/
 private def testTensorGlb : String := Id.run do
-  let some (.tensor elems) :=
+  let some (.tensor shape elems) :=
       RuntimeValue.glb?
-        (.tensor #[i32Poison, i32 2])
-        (.tensor #[i32 1, i32 2])
+        (.tensor #[2] #[i32Poison, i32 2])
+        (.tensor #[2] #[i32 1, i32 2])
     | return "glb? of poison/concrete with matching concrete failed"
+  if shape ≠ #[2] then
+    return "glb? did not preserve the shape"
   if elems ≠ #[i32 1, i32 2] then
     return "glb? did not take the pointwise meet"
-  let none := RuntimeValue.glb? (.tensor #[i32 1]) (.tensor #[i32 2])
+  let none := RuntimeValue.glb? (.tensor #[1] #[i32 1]) (.tensor #[1] #[i32 2])
     | return "glb? of conflicting concrete elements should be none"
-  let none := RuntimeValue.glb? (.tensor #[i32Poison]) (.tensor #[i32Poison, i32Poison])
-    | return "glb? of differently sized tensors should be none"
+  let none := RuntimeValue.glb?
+      (.tensor #[1] #[i32Poison]) (.tensor #[2] #[i32Poison, i32Poison])
+    | return "glb? of differently shaped tensors should be none"
   return "ok"
 
 /--
@@ -127,7 +136,9 @@ private def testInterpretEmptyModule : String := Id.run do
     match interpretFunction (ctx := ctx) funcOp #[] MemoryState.empty (opIn := found.property) with
     | .ok (_, results) =>
       let some result := results[0]? | return "main produced no result"
-      let RuntimeValue.tensor elems := result | return "main did not return a .tensor"
+      let RuntimeValue.tensor shape elems := result | return "main did not return a .tensor"
+      if shape ≠ #[2, 2] then
+        return "main did not return the expected shape"
       if elems ≠ #[i32Poison, i32Poison, i32Poison, i32Poison] then
         return "main did not return four element poisons"
       if !(RuntimeValue.Conforms result (integerTensorTy #[2, 2])) then
@@ -142,16 +153,20 @@ info: "ok"
 #guard_msgs in
 #eval testInterpretEmptyModule
 
-/-! Pointwise refinement of tensor values. -/
+/-! Pointwise refinement of tensor values (same shape required). -/
 
-example : RuntimeValue.tensor #[.int 32 .poison, .int 32 .poison] ⊒
-    .tensor #[.int 32 (.val (BitVec.ofInt 32 1)), .int 32 (.val (BitVec.ofInt 32 2))] := by
+example : RuntimeValue.tensor #[2] #[.int 32 .poison, .int 32 .poison] ⊒
+    .tensor #[2] #[.int 32 (.val (BitVec.ofInt 32 1)), .int 32 (.val (BitVec.ofInt 32 2))] := by
   simp [Data.LLVM.Int.isRefinedBy_eq]
 
-example : ¬ (RuntimeValue.tensor #[.int 32 (.val (BitVec.ofInt 32 1)), .int 32 (.val (BitVec.ofInt 32 2))] ⊒
-    .tensor #[.int 32 .poison, .int 32 .poison]) := by
+example : ¬ (RuntimeValue.tensor #[2] #[.int 32 (.val (BitVec.ofInt 32 1)), .int 32 (.val (BitVec.ofInt 32 2))] ⊒
+    .tensor #[2] #[.int 32 .poison, .int 32 .poison]) := by
   simp [Data.LLVM.Int.isRefinedBy_eq]
 
-example : RuntimeValue.tensor #[.int 32 .poison, .int 32 .poison] ⊒
-    .tensor #[.int 32 .poison, .int 32 .poison] := by
+example : RuntimeValue.tensor #[2] #[.int 32 .poison, .int 32 .poison] ⊒
+    .tensor #[2] #[.int 32 .poison, .int 32 .poison] := by
+  simp
+
+example : ¬ (RuntimeValue.tensor #[2] #[.int 32 .poison] ⊒
+    .tensor #[1] #[.int 32 .poison]) := by
   simp

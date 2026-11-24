@@ -31,8 +31,9 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
     fieldType = expectedType ∧ FeltSemantics.IsCanonical fieldType value
-  | .tensor elements, ⟨.tensorType tensorType, _⟩ =>
+  | .tensor shape elements, ⟨.tensorType tensorType, _⟩ =>
     if h : tensorType.elementType.isType then
+      shape = tensorType.shape ∧
       elements.size = tensorType.numElements ∧
         ∀ i : Fin elements.size, Conforms elements[i] ⟨tensorType.elementType, h⟩
     else False
@@ -43,7 +44,7 @@ termination_by val
 def decidableConforms (val : RuntimeValue) (ty : TypeAttr) : Decidable (Conforms val ty) := by
   unfold Conforms
   split <;> try infer_instance
-  · next elements tensorType _ =>
+  · next shape elements tensorType _ =>
       have (h) (i : Fin elements.size) := decidableConforms elements[i] ⟨tensorType.elementType, h⟩
       infer_instance
 termination_by val
@@ -115,30 +116,32 @@ theorem Conforms.feltType {runtimeValue feltTy} :
     constructor <;> rintro ⟨⟩ <;> grind
 
 /--
-  A tensor value is a row-major `.tensor` with one element per entry of the shape's
-  product, every element conforming to the element type.
+  A tensor value carries the type's shape, with one element per entry of the
+  shape's product, every element conforming to the element type.
 -/
 @[simp, grind =]
 theorem Conforms.tensorType {runtimeValue tensorType} :
     Conforms runtimeValue (.of TensorType tensorType) ↔
-    ∃ elements, runtimeValue = .tensor elements ∧ elements.size = tensorType.numElements ∧
+    ∃ elements, runtimeValue = .tensor tensorType.shape elements ∧
+      elements.size = tensorType.numElements ∧
       ∃ h : tensorType.elementType.isType,
         ∀ e ∈ elements, Conforms e ⟨tensorType.elementType, h⟩ := by
   cases runtimeValue <;> unfold Conforms <;>
     simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, reduceCtorEq, false_and,
       exists_false]
-  next elements =>
-    simp only [RuntimeValue.tensor.injEq, exists_eq_left']
+  next shape elements =>
     split
     · next h =>
-      simp only [h, exists_true_left, and_congr_right_iff]
-      intro _
       constructor
-      · intro hall e he
-        obtain ⟨i, hi, rfl⟩ := Array.mem_iff_getElem.mp he
-        exact hall ⟨i, hi⟩
-      · intro hall i
-        exact hall _ (Array.getElem_mem i.isLt)
+      · intro ⟨hshape, hsize, hall⟩
+        refine ⟨elements, ?_, hsize, h, ?_⟩
+        · simp [hshape]
+        · intro e he
+          obtain ⟨i, hi, rfl⟩ := Array.mem_iff_getElem.mp he
+          exact hall ⟨i, hi⟩
+      · intro ⟨elems, heq, hsize, _, hall⟩
+        obtain ⟨rfl, rfl⟩ := RuntimeValue.tensor.inj heq
+        exact ⟨rfl, hsize, fun i => hall _ (Array.getElem_mem i.isLt)⟩
     · next h => simp [h]
 
 @[expose]

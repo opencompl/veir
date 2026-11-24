@@ -23,10 +23,12 @@ inductive RuntimeValue where
 /-- A canonical natural-number representative in the field identified by `fieldType`. -/
 | felt (fieldType : FeltType) (value : Nat)
 /--
-  Elements of a ranked tensor, flattened in row-major order.
-  The shape is carried by the IR type, not by the value.
+  A ranked tensor: static shape together with elements flattened in row-major
+  order. Well-formed values satisfy `elems.size = shape.foldl Nat.mul 1`.
+  The IR type still carries shape for typing; the value stores it so later
+  ops (e.g. extract/insert) can use it without operand types.
 -/
-| tensor (elems : Array RuntimeValue)
+| tensor (shape : Array Nat) (elems : Array RuntimeValue)
 deriving Inhabited, BEq
 
 def RuntimeValue.decEq (a b : RuntimeValue) : Decidable (a = b) := by
@@ -38,8 +40,12 @@ def RuntimeValue.decEq (a b : RuntimeValue) : Decidable (a = b) := by
     by_cases h : w = w'
     · subst w'; simp only [true_and, heq_eq_eq]; infer_instance
     · exact isFalse (by simp [h])
-  case tensor.tensor xs ys =>
-    exact Array.instDecidabelEq' xs ys (fun x y _ _ => RuntimeValue.decEq x y)
+  case tensor.tensor s xs s' ys =>
+    by_cases hs : s = s'
+    · subst hs
+      simp only [true_and]
+      exact Array.instDecidabelEq' xs ys (fun x y _ _ => RuntimeValue.decEq x y)
+    · exact isFalse (by simp [hs])
   all_goals infer_instance
 termination_by a
 
@@ -52,9 +58,10 @@ def RuntimeValue.toString : RuntimeValue → String
   | .addr val => ToString.toString val
   | .reg val => ToString.toString val
   | .felt fieldType val => s!"{val} : {fieldType}"
-  | .tensor elems =>
+  | .tensor shape elems =>
+    let shapeStr := "x".intercalate (shape.toList.map Nat.repr)
     let elemsStr := ",".intercalate (elems.map RuntimeValue.toString).toList
-    s!"tensor[{elemsStr}]"
+    s!"tensor<{shapeStr}>[{elemsStr}]"
 termination_by v => v
 
 instance : ToString RuntimeValue where
