@@ -2,9 +2,6 @@
 
 // Every function shape the register passes reject, one per chunk. A failing chunk does not 
 // stop the following ones, so all the diagnostics below are produced in a single run.
-//
-// The passes report no source location, so a message is tied to its chunk only by
-// position: the CHECK lines at the bottom are in chunk order and must stay that way.
 
 // The pass reads the functions out of the root's single region. A verified `builtin.module`
 // always has exactly one, but the pipeline roots the pass at whatever operation it is given,
@@ -20,6 +17,8 @@
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
+
+// CHECK:      register allocation expects a module with a single region
 
 // -----
 
@@ -41,6 +40,8 @@
   "cf.br"()[^bb1] : () -> ()
 }) : () -> ()
 
+// CHECK:      register allocation expects a module body with a single block
+
 // -----
 
 // The module body is a single block that may still declare arguments: nothing can ever pass
@@ -54,6 +55,8 @@
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
+
+// CHECK:      register allocation does not support block arguments
 
 // -----
 
@@ -70,6 +73,8 @@
   }) : () -> ()
 }) : () -> ()
 
+// CHECK:      register allocation supports at most 8 function arguments
+
 // -----
 
 // A function with more than one block.
@@ -83,6 +88,8 @@
   }) : () -> ()
 }) : () -> ()
 
+// CHECK:      register allocation requires a single-block function
+
 // -----
 
 // A function with three results: only a0 and a1 return values in registers.
@@ -92,6 +99,8 @@
     "riscv_cf.return"(%a, %a, %a) : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
+
+// CHECK:      register allocation supports at most 2 function results
 
 // -----
 
@@ -107,6 +116,8 @@
   }) : () -> ()
 }) : () -> ()
 
+// CHECK:      register allocation does not support function calls
+
 // -----
 
 // A variadic function: its variadic arguments are not modeled.
@@ -116,6 +127,8 @@
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
+
+// CHECK:      register allocation does not support variadic functions
 
 // -----
 
@@ -129,6 +142,8 @@
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
+
+// CHECK:      register allocation does not support operations with nested regions
 
 // -----
 
@@ -148,14 +163,5 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      register allocation expects a module with a single region
-// CHECK:      register allocation expects a module body with a single block
-// CHECK:      register allocation does not support block arguments
-// CHECK:      register allocation supports at most 8 function arguments
-// CHECK:      register allocation requires a single-block function
-// CHECK:      register allocation supports at most 2 function results
-// CHECK:      register allocation does not support function calls
-// CHECK:      register allocation does not support variadic functions
-// CHECK:      register allocation does not support operations with nested regions
 // CHECK:      register allocation requires a single-block function
 // CHECK-NOT:  error
