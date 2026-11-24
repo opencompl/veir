@@ -65,6 +65,77 @@ theorem selectNonzero_one {w : Nat} (c : Int 1) (x y : Int w) :
     rcases BitVec.eq_zero_or_eq_one c' with rfl | rfl <;>
       simp [selectNonzero, Int.select, Id.run]
 
+/--
+Converts a shift amount (type group 1) to the width `w` of the shifted value (type group 0).
+An amount that does not fit in `w` bits is out of range, so it is replaced by the all-ones value,
+which is also out of range and hence yields the same (poison) result.
+-/
+def shiftAmount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
+  | .val v => .val (if v.toNat < w then BitVec.ofNat w v.toNat else BitVec.allOnes w)
+  | .poison => .poison
+
+/-- Converts a bit count to the width `w` of the result (type group 0) of `g_ctlz`/`g_cttz`/`g_ctpop`. -/
+def resizeCount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
+  | .val v => .val (BitVec.ofNat w v.toNat)
+  | .poison => .poison
+
+/--
+The `2 * w`-bit value whose low half is `lo` and whose high half is `hi`, as produced by gMIR's
+`g_merge_values`. If either half is poison, the result is poison.
+-/
+-- TODO: A poison half should not make the other half poison, so that a half padded with
+-- `g_implicit_def` (as LLVM does when narrowing `g_anyext`) keeps the defined half.
+def mergeValues {w : Nat} (lo hi : Data.LLVM.Int w) : Data.LLVM.Int (w + w) :=
+  match lo, hi with
+  | .val lo, .val hi => .val (hi ++ lo)
+  | _, _ => .poison
+
+/--
+The low and the high half of the `2 * w`-bit `x`, as produced by gMIR's `g_unmerge_values`.
+If `x` is poison, both halves are poison.
+-/
+def unmergeValues {w : Nat} (x : Data.LLVM.Int (w + w)) :
+    Data.LLVM.Int w × Data.LLVM.Int w :=
+  match x with
+  | .val x => (.val (x.truncate w), .val (x.extractLsb' w w))
+  | .poison => (.poison, .poison)
+
+/--
+The sum of `x`, `y` and the carry `c`, and the carry out, as produced by gMIR's `g_uadde`. The sum
+is taken modulo `2^w`, and the carry out is `1` if it does not fit in `w` bits. If any operand is
+poison, both results are poison.
+-/
+def uaddWithCarry {w : Nat} (x y : Data.LLVM.Int w) (c : Data.LLVM.Int 1) :
+    Data.LLVM.Int w × Data.LLVM.Int 1 :=
+  match x, y, c with
+  | .val x, .val y, .val c =>
+    let sum := x + y + c.zeroExtend w
+    -- `BitVec.carry w` is the carry out of a `w`-bit add, i.e. whether `x + y + c ≥ 2^w`.
+    (.val sum, .val (BitVec.ofBool (BitVec.carry w x y (c.getLsbD 0))))
+  | _, _, _ => (.poison, .poison)
+
+/--
+The difference of `x`, `y` and the borrow `b`, and the borrow out, as produced by gMIR's `g_usube`.
+The difference is taken modulo `2^w`, and the borrow out is `1` if `x < y + b` as unsigned integers.
+If any operand is poison, both results are poison.
+-/
+def usubWithBorrow {w : Nat} (x y : Data.LLVM.Int w) (b : Data.LLVM.Int 1) :
+    Data.LLVM.Int w × Data.LLVM.Int 1 :=
+  match x, y, b with
+  | .val x, .val y, .val b =>
+    -- `y + b` is at most `2^w`, so it fits in `w + 1` bits.
+    let borrow := (x.zeroExtend (w + 1)).ult (y.zeroExtend (w + 1) + b.zeroExtend (w + 1))
+    (.val (x - y - b.zeroExtend w), .val (BitVec.ofBool borrow))
+  | _, _, _ => (.poison, .poison)
+
+/--
+Reverses the bits within each byte of `x`, as RISC-V's `brev8` (LLVM's `RISCV::G_BREV8`).
+Reversing all bits also reverses the byte order, which `bswap` undoes. The verifier only accepts
+widths of 8, 16, 32 and 64 bits.
+-/
+def brev8 {w : Nat} (x : Data.LLVM.Int w) : Data.LLVM.Int w :=
+  if w = 8 then Data.LLVM.Int.bitreverse x else Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)
+
 end
 
 end Veir.Data.GMIR
