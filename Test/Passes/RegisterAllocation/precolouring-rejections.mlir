@@ -11,6 +11,8 @@
   }) : () -> ()
 }) : () -> ()
 
+// CHECK:      illegal register allocation of function arguments: argument 0 cannot be passed in !riscv.reg<x0>, the calling convention passes it in !riscv.reg<x10>
+
 // -----
 
 // A virtual register is an assignment too: precolouring runs before allocation.
@@ -20,6 +22,8 @@
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
+
+// CHECK:      illegal register allocation of function arguments: argument 0 cannot be passed in !riscv.reg<j0>, the calling convention passes it in !riscv.reg<x10>
 
 // -----
 
@@ -33,7 +37,5 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      illegal register allocation of function arguments: argument 0 cannot be passed in !riscv.reg<x0>, the calling convention passes it in !riscv.reg<x10>
-// CHECK:      illegal register allocation of function arguments: argument 0 cannot be passed in !riscv.reg<j0>, the calling convention passes it in !riscv.reg<x10>
 // CHECK:      illegal register allocation of function results: result 1 cannot be returned from !riscv.reg<x10>, the copy of result 0 into it overwrites it
 // CHECK-NOT:  error

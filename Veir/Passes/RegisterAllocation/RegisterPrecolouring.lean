@@ -83,7 +83,7 @@ def precolourArguments (ctx : WfIRContext OpCode) (entry : BlockPtr) :
     let reg := aRegister i
     match ← allocationState ctx arg' reg s!"argument {i}" with
     | .inTarget => continue
-    | .preallocated r => throw s!"illegal register allocation of function arguments:
+    | .preallocated r => throw s!"illegal register allocation of function arguments: \
           argument {i} cannot be passed in {r}, the calling convention passes it in {reg}"
     | .unallocated => pure ()
     ctx := WfRewriter.setType! ctx arg' reg
@@ -126,7 +126,7 @@ def precolourResults (ctx : WfIRContext OpCode) (entry : BlockPtr) :
       -- Only result 1 can be in a0 here (result 0 in a0 is `inTarget`). It is overwritten by the
       -- copy of result 0 into a0, unless it is the same value, which then needs no copy.
       if r == aRegister 0 && operands[0]? != some value then
-        throw s!"illegal register allocation of function results: result 1 cannot be returned
+        throw s!"illegal register allocation of function results: result 1 cannot be returned \
         from {r}, the copy of result 0 into it overwrites it"
     | .unallocated => pure ()
     let some (ctx', copy) := WfRewriter.createOp! ctx Riscv.mv #[reg] #[value] #[] #[] ()
