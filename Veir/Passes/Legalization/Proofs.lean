@@ -12,12 +12,13 @@ meta import Veir.Meta.Tactic.PBVDecide
 import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.GMIR.Basic
-import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Data.GMIR_RISCV.Basic
 
 public section
 
 namespace Veir.Data.LLVM
+
+open Veir.Data.GMIR
 
 /--
 Prove the correctness of `llvm.add` widening with anyext.
