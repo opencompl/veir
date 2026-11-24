@@ -34,8 +34,8 @@ The simp call is contextual, so that each guard rewrites the conclusion it guard
 macro "proveCombineValid" : tactic => `(tactic| (
   simp only [riscv_pattern]
   simpPuddleValid
-  simp [puddle, riscv_combine]
-  all_goals veir_bv_decide))
+  simp +contextual [puddle, riscv_combine]
+  all_goals veir_bv_normalize))
 
 /-! ## Identities, booleans and immediates -/
 
