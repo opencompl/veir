@@ -83,7 +83,8 @@ def precolourArguments (ctx : WfIRContext OpCode) (entry : BlockPtr) :
     let reg := aRegister i
     match ← allocationState ctx arg' reg s!"argument {i}" with
     | .inTarget => continue
-    | .preallocated r => throw s!"precolouring cannot move argument {i} of type {r} into {reg}"
+    | .preallocated r => throw s!"illegal register allocation of function arguments:
+          argument {i} cannot be passed in {r}, the calling convention passes it in {reg}"
     | .unallocated => pure ()
     ctx := WfRewriter.setType! ctx arg' reg
     if (arg'.getFirstUse! ctx.raw).isNone then continue
@@ -105,8 +106,8 @@ The copies run sequentially, so a copy must not overwrite a result that a later 
 reads:
 - An unassigned result is safe: the physical renaming pass (later) excludes `a0`/`a1`.
 - A preallocated result can be overwritten. With at most two results, the only case is
-  result 1 preallocated to `a0`: the copy of result 0 into `a0` runs first, e.g.
-  `return %b, %a` with `%a` in `a0`. This case is rejected.
+  when result 0 is not preallocated to `a0` but result 1 preallocated to `a0`,
+  e.g. `return %b, %a` with `%a` in `a0` and `%b` in `a1`. This parallel copy is rejected.
 -/
 def precolourResults (ctx : WfIRContext OpCode) (entry : BlockPtr) :
     Except String (WfIRContext OpCode) := do
@@ -122,9 +123,11 @@ def precolourResults (ctx : WfIRContext OpCode) (entry : BlockPtr) :
     match ← allocationState ctx value reg s!"result {i}" with
     | .inTarget => continue
     | .preallocated r =>
-      -- Result 0 in `a0` is `inTarget`, so this only fires for result 1.
-      if r == aRegister 0 then
-        throw s!"precolouring cannot return result {i} from a0: the copy of result 0 into a0 overwrites it"
+      -- Only result 1 can be in a0 here (result 0 in a0 is `inTarget`). It is overwritten by the
+      -- copy of result 0 into a0, unless it is the same value, which then needs no copy.
+      if r == aRegister 0 && operands[0]? != some value then
+        throw s!"illegal register allocation of function results: result 1 cannot be returned
+        from {r}, the copy of result 0 into it overwrites it"
     | .unallocated => pure ()
     let some (ctx', copy) := WfRewriter.createOp! ctx Riscv.mv #[reg] #[value] #[] #[] ()
         (some (.before ret))
