@@ -49,12 +49,16 @@ inductive ResolvesValue (values : NameEnv) :
   | local : values name = some valueId →
       ResolvesValue values (.localIdent name) (.ref valueId)
   | intConst : ResolvesValue values (.intConst value) (.intConst value)
+  | boolConst : ResolvesValue values (.boolConst b) (.intConst (if b then 1 else 0))
 
 inductive ResolvesBinInst (values : NameEnv) :
     BinInst → ResolvedAST → Prop where
   | bin : ResolvesValue values lhs lhs' →
       ResolvesValue values rhs rhs' →
       ResolvesBinInst values ⟨op, ty, lhs, rhs⟩ (.bin op ty lhs' rhs')
+
+inductive ResolvesBinary (values : NameEnv) : Inst → ResolvedAST → Prop where
+  | bin : ResolvesBinInst values inst res → ResolvesBinary values (.bin inst) res
 
 inductive HasEnv3 (n : NameEnv) (header : FuncHeader) (insts : List Instruction) : Prop where
     | mk : (∀ pj  ∈ header.params.zipIdx, n pj.1.name = some (.param pj.2)) →
@@ -147,7 +151,7 @@ names are discarded by resolution. Reference indices are preserved without valid
 def unresolveFunction (f : ResolvedFunction) : FuncDef :=
   let header := { f.header with
     params := f.header.params.zipIdx.map fun (p, i) => { p with name := s!"arg{i}" } }
-  let insts : List Instruction := f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", unresolveInst inst⟩
+  let insts : List Instruction := f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩
   ⟨header, [⟨f.label, insts, .ret ⟨header.retType, unresolveValue f.result⟩⟩]⟩
 
 def formatType : LLType → String
@@ -177,7 +181,7 @@ instance : Repr ResolvedFunction where
 /-- Resolution uses all definitions; dominance and typing are separate checks. -/
 inductive ResolvesFunction : FuncDef → ResolvedFunction → Prop where
   | mk (env) :  HasEnv3 env header insts →
-      ResolvesList (fun inst => ResolvesBinInst env inst.inst) insts resolved →
+      ResolvesList (fun inst => ResolvesBinary env inst.inst) insts resolved →
       ResolvesValue env result value →
       ResolvesFunction ⟨header, [⟨label, insts, .ret ⟨header.retType, result⟩⟩]⟩
         ⟨header, label, resolved, value⟩
@@ -186,16 +190,21 @@ inductive ResolvesFunction : FuncDef → ResolvedFunction → Prop where
 def resolveValue (env : NameEnv) : Value → Option ResolvedValue
   | .localIdent name => (env name).map .ref
   | .intConst value => some (.intConst value)
+  | .boolConst b => some (.intConst (if b then 1 else 0))
 
 def resolveBinInst (env : NameEnv) (inst : BinInst) : Option ResolvedAST := do
   let lhs ← resolveValue env inst.lhs
   let rhs ← resolveValue env inst.rhs
   return .bin inst.op inst.ty lhs rhs
 
+def resolveBinary (env : NameEnv) : Inst → Option ResolvedAST
+  | .bin inst => resolveBinInst env inst
+  | .phi .. => none
+
 def resolveInsts (env : NameEnv) : List Instruction → Option (List ResolvedAST)
   | [] => some []
   | inst :: insts => do
-      let resolved ← resolveBinInst env inst.inst
+      let resolved ← resolveBinary env inst.inst
       let rest ← resolveInsts env insts
       return resolved :: rest
 
@@ -230,10 +239,16 @@ theorem resolveBinInst_sound (env : NameEnv) (inst : BinInst) (r : ResolvedAST) 
   simp [resolveBinInst, Option.bind_eq_some_iff]
   grind [resolveValue_sound, ResolvesBinInst]
 
+theorem resolveBinary_sound (h : resolveBinary env inst = some res) :
+    ResolvesBinary env inst res := by
+  cases inst
+  · exact .bin (resolveBinInst_sound _ _ _ h)
+  · contradiction
+
 theorem resolveInsts_sound (env : NameEnv) (insts : List Instruction) (rs : List ResolvedAST) :
-    resolveInsts env insts = some rs → ResolvesList (fun i => ResolvesBinInst env i.inst) insts rs := by
+    resolveInsts env insts = some rs → ResolvesList (fun i => ResolvesBinary env i.inst) insts rs := by
   induction insts generalizing rs <;>
-    simp [resolveInsts, Option.bind_eq_some_iff] <;> grind [resolveBinInst_sound, ResolvesList]
+    simp [resolveInsts, Option.bind_eq_some_iff] <;> grind [resolveBinary_sound, ResolvesList]
 
 theorem resolveFunction_sound (f : FuncDef) (r : ResolvedFunction) :
     resolveFunction f = some r → ResolvesFunction f r := by
@@ -256,11 +271,15 @@ theorem resolveBinInst_complete (env : NameEnv) (inst : BinInst) (r : ResolvedAS
   rintro ⟨hl, hr⟩
   simp [resolveBinInst, resolveValue_complete _ _ _ hl, resolveValue_complete _ _ _ hr]
 
+theorem resolveBinary_complete (h : ResolvesBinary env inst res) :
+    resolveBinary env inst = some res := by
+  cases h with | bin h => exact resolveBinInst_complete _ _ _ h
+
 theorem resolveInsts_complete (env : NameEnv) (insts : List Instruction) (rs : List ResolvedAST) :
-    ResolvesList (fun i => ResolvesBinInst env i.inst) insts rs → resolveInsts env insts = some rs := by
+    ResolvesList (fun i => ResolvesBinary env i.inst) insts rs → resolveInsts env insts = some rs := by
   intro h; induction h with
   | nil => rfl
-  | cons hi _ ih => simp [resolveInsts, resolveBinInst_complete _ _ _ hi, ih]
+  | cons hi _ ih => simp [resolveInsts, resolveBinary_complete hi, ih]
 
 theorem resolveFunction_complete (f : FuncDef) (r : ResolvedFunction) :
     ResolvesFunction f r → resolveFunction f = some r := by
@@ -331,7 +350,7 @@ theorem valueIdName_injective : Function.Injective valueIdName := by
 
 theorem unresolve_bindings (f : ResolvedFunction) :
     bindings (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", unresolveInst inst⟩) =
+      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩) =
     (List.range f.header.params.length).map (fun i => (valueIdName (.param i), .param i)) ++
     (List.range f.insts.length).map (fun i => (valueIdName (.inst i), .inst i)) := by
   unfold bindings
@@ -345,7 +364,7 @@ theorem lookup_valueIdName (ids : List ValueId) (id : ValueId) (h : id ∈ ids) 
 theorem unresolve_lookup (f : ResolvedFunction) (id : ValueId)
     (h : ValidResolvedValue f.header.params.length f.insts.length (.ref id)) :
     environment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", unresolveInst inst⟩)
+      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩)
       (valueIdName id) = some id := by
   rw [environment, unresolve_bindings]
   have hm : id ∈ (List.range f.header.params.length).map ValueId.param ++
@@ -359,13 +378,13 @@ theorem unresolve_param_name (f : ResolvedFunction)
 
 theorem unresolve_inst_name (insts : List ResolvedAST)
     (h : ij ∈ (insts.zipIdx.map fun (inst, i) =>
-      (⟨s!"{i}", unresolveInst inst⟩ : Instruction)).zipIdx) :
+      (⟨s!"{i}", .bin (unresolveInst inst)⟩ : Instruction)).zipIdx) :
     ij.1.name = valueIdName (.inst ij.2) := by
   simpa [valueIdName] using congrArg Instruction.name (List.fst_eq_of_mem_zipIdx h)
 
 theorem unresolve_validEnvironment (f : ResolvedFunction) :
     validEnvironment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", unresolveInst inst⟩) := by
+      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩) := by
   constructor
   · intro pj hp; rw [unresolve_param_name f hp]; apply unresolve_lookup
     simpa [unresolveFunction, ValidResolvedValue] using List.snd_lt_of_mem_zipIdx hp
@@ -375,13 +394,13 @@ theorem unresolve_validEnvironment (f : ResolvedFunction) :
 theorem unresolve_resolvesValue (f : ResolvedFunction) (v : ResolvedValue)
     (h : ValidResolvedValue f.header.params.length f.insts.length v) :
     ResolvesValue (environment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", unresolveInst inst⟩)) (unresolveValue v) v := by
+      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩)) (unresolveValue v) v := by
   rcases v with (_ | _) | _ <;> first | exact .local (unresolve_lookup _ _ h) | exact .intConst
 
 theorem unresolve_resolvesInst (f : ResolvedFunction) (inst : ResolvedAST)
     (h : ValidResolvedInst f.header.params.length f.insts.length inst) :
     ResolvesBinInst (environment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", unresolveInst inst⟩)) (unresolveInst inst) inst := by
+      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩)) (unresolveInst inst) inst := by
   cases inst; exact .bin (unresolve_resolvesValue _ _ h.1) (unresolve_resolvesValue _ _ h.2)
 
 theorem resolvesList_maps (xs : List α) (g : α → β) (k : α → γ)
@@ -390,13 +409,13 @@ theorem resolvesList_maps (xs : List α) (g : α → β) (k : α → γ)
 
 theorem unresolve_resolvesInsts (f : ResolvedFunction)
     (h : ∀ inst ∈ f.insts, ValidResolvedInst f.header.params.length f.insts.length inst) :
-    ResolvesList (fun (i : Instruction) => ResolvesBinInst (environment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", unresolveInst inst⟩)) i.inst)
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", unresolveInst inst⟩) f.insts := by
+    ResolvesList (fun (i : Instruction) => ResolvesBinary (environment (unresolveFunction f).header
+      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩)) i.inst)
+      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩) f.insts := by
   simpa only [List.zipIdx_map_fst] using resolvesList_maps f.insts.zipIdx
-    (fun (inst, i) => (⟨s!"{i}", unresolveInst inst⟩ : Instruction)) Prod.fst
-    (R := fun (i : Instruction) inst => ResolvesBinInst _ i.inst inst)
-    (fun p hp => unresolve_resolvesInst f p.1 (h p.1 (List.fst_mem_of_mem_zipIdx hp)))
+    (fun (inst, i) => (⟨s!"{i}", .bin (unresolveInst inst)⟩ : Instruction)) Prod.fst
+    (R := fun (i : Instruction) inst => ResolvesBinary _ i.inst inst)
+    (fun p hp => .bin (unresolve_resolvesInst f p.1 (h p.1 (List.fst_mem_of_mem_zipIdx hp))))
 
 theorem resolve_round_trip (f : ResolvedFunction) :
     ValidResolvedFunction f →
@@ -413,10 +432,10 @@ theorem resolve_round_trip (f : ResolvedFunction) :
 def deMorganFunction (name middle : String) (op : BinOp) : FuncDef :=
   ⟨⟨.int 32, name, [⟨.int 32, "p"⟩, ⟨.int 32, "q"⟩]⟩,
     [⟨"entry", [
-      ⟨"not_p", ⟨.xor, .int 32, .localIdent "p", .intConst (-1)⟩⟩,
-      ⟨"not_q", ⟨.xor, .int 32, .localIdent "q", .intConst (-1)⟩⟩,
-      ⟨middle, ⟨op, .int 32, .localIdent "not_p", .localIdent "not_q"⟩⟩,
-      ⟨"result", ⟨.xor, .int 32, .localIdent middle, .intConst (-1)⟩⟩],
+      ⟨"not_p", .bin ⟨.xor, .int 32, .localIdent "p", .intConst (-1)⟩⟩,
+      ⟨"not_q", .bin ⟨.xor, .int 32, .localIdent "q", .intConst (-1)⟩⟩,
+      ⟨middle, .bin ⟨op, .int 32, .localIdent "not_p", .localIdent "not_q"⟩⟩,
+      ⟨"result", .bin ⟨.xor, .int 32, .localIdent middle, .intConst (-1)⟩⟩],
       .ret ⟨.int 32, .localIdent "result"⟩⟩]⟩
 
 def deMorganModule : Module :=
@@ -465,7 +484,7 @@ theorem deMorgan_resolves (name middle : String) (op : BinOp)
     ResolvesFunction (deMorganFunction name middle op) (resolvedDeMorganFunction name op) := by
   apply resolveFunction_sound
   simp [resolveFunction, deMorganFunction, resolvedDeMorganFunction, validEnvironment,
-    environment, bindings, List.lookup, resolveInsts, resolveBinInst, resolveValue,
+    environment, bindings, List.lookup, resolveInsts, resolveBinary, resolveBinInst, resolveValue,
     deMorganNot, deMorganCombined, deMorganResult, beq_false_of_ne hp,
     beq_false_of_ne hq, beq_false_of_ne hnp, beq_false_of_ne hnq, beq_false_of_ne (Ne.symm hr)]
 

@@ -209,6 +209,7 @@ def LowersFunctionTiles (f : ResolvedFunction) (op : OperationPtr) : Prop :=
     MatchesOp ctx ret Llvm.return #[] #[v] #[] () ∧
     block.OpChain ctx.raw (tiles.flatten ++ cs ++ [ret]).toArray
 
+#check BlockPtr.getArguments!
 
 /-- Only the module reachable from the root is specified;  We don't require Dominance -/
 def LowersModule (m : ResolvedModule) (root : OperationPtr) : Prop :=

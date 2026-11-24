@@ -16,19 +16,21 @@ Agreement with these relations and with the original lexer remains to be proved.
 namespace Veir.LexerLanguage.LLVM
 
 inductive Keyword where
-  | define | ret | xor | and | or
+  | define | ret | xor | and | or | phi | br | label | true | false
   deriving Repr, DecidableEq
 
 def Keyword.spelling : Keyword → String
   | .define => "define" | .ret => "ret" | .xor => "xor" | .and => "and" | .or => "or"
+  | .phi => "phi" | .br => "br" | .label => "label"
+  | .true => "true" | .false => "false"
 
 inductive Punct where
-  | equal | comma | lbrace | rbrace | lparen | rparen
+  | equal | comma | lbrace | rbrace | lparen | rparen | lbracket | rbracket
   deriving Repr, DecidableEq
 
 def Punct.spelling : Punct → String
   | .equal => "=" | .comma => "," | .lbrace => "{" | .rbrace => "}"
-  | .lparen => "(" | .rparen => ")"
+  | .lparen => "(" | .rparen => ")" | .lbracket => "[" | .rbracket => "]"
 
 inductive Token where
   | Eof | ws | comment
@@ -59,10 +61,7 @@ def digit : Lexer := .charClass digitClass
 def bareName : Lexer := Examples.bareName
 def nameRun : Lexer := (Lexer.charClass nameCharClass).plus
 
-/-- A label name contains at least one nondigit. This excludes numeric labels
-without excluding names that begin with digits, such as `12foo:`. -/
-def labelName : Lexer :=
-  .seq (.star digit) (.seq (.charClass nameStartClass) (.star (.charClass nameCharClass)))
+def labelName : Lexer := nameRun
 
 inductive Boundary where
   | any
@@ -114,11 +113,11 @@ def rules : List Rule :=
     ⟨.seq (.literal "i") digit.plus, .intType, .notFollowedBy nameCharClass⟩,
     ⟨.seq labelName (.literal ":"), .label, .any⟩,
     ⟨.seq (.literal "@") bareName, .global, .any⟩,
-    ⟨.seq (.literal "%") bareName, .local, .any⟩,
-    ⟨.alt digit.plus (.seq (.literal "-") digit.plus), .integer, .any⟩ ] ++
-  ([Keyword.define, .ret, .xor, .and, .or].map (fun k =>
+    ⟨.seq (.literal "%") (.alt bareName digit.plus), .local, .any⟩,
+    ⟨.alt digit.plus (.seq (.literal "-") digit.plus), .integer, .notFollowedBy nameCharClass⟩ ] ++
+  ([Keyword.define, .ret, .xor, .and, .or, .phi, .br, .label, .true, .false].map (fun k =>
     ⟨.literal k.spelling, .fixed (.kw k), .notFollowedBy nameCharClass⟩)) ++
-  ([Punct.equal, .comma, .lbrace, .rbrace, .lparen, .rparen].map (fun p =>
+  ([Punct.equal, .comma, .lbrace, .rbrace, .lparen, .rparen, .lbracket, .rbracket].map (fun p =>
     ⟨.literal p.spelling, .fixed (.punct p), .any⟩))
 
 /-- EOF is represented separately and is never a consuming token rule. -/
@@ -159,9 +158,7 @@ def candidate (input : List Char) : Option ScanResult :=
         (rule.action.decode piece).map (fun tok => ⟨piece, tok, rest⟩)
       else none))
 
-/-- Mirror the original dispatcher's diagnostics when no rule can consume input.
-The original's numeric-label and invalid-integer error constructors are retained,
-although its current dispatcher does not produce them. -/
+/-- Mirror the original dispatcher's diagnostics when no rule can consume input. -/
 def rejection : List Char → TokenizationError
   | [] => .noProgress
   | c :: cs =>

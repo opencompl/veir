@@ -1,4 +1,4 @@
-import Veir.Parser.LLVMLowering
+import Veir.Parser.LLVMControlFlow
 import Veir.Input
 import Veir.Printer
 import Veir.IR.RootedIso
@@ -10,8 +10,7 @@ Compares two ways of bringing textual LLVM IR into VeIR:
 
 * reference: `mlir-translate --import-llvm` → `mlir-opt --mlir-print-op-generic`
   → VeIR's MLIR parser;
-* new: `LLVMParserProp.parse` → `NameResolutionSketch.resolveModule`
-  → `LLVMLowering.lowerModule`.
+* new: `LLVMLowering.ControlFlow.parseAndLower`.
 
 The two IR graphs are compared with `rootedIso?`, the executable form of `RootedIso`: equality
 up to a renaming of operations and blocks. Both are also printed in generic form for
@@ -22,7 +21,7 @@ and attributes the new path does not produce.
 Usage: `lake env lean --run Tools/llvm-parser-difftest/DiffTest.lean <examples-dir> <out-dir>`
 -/
 
-open Veir LLVMParserProp NameResolutionSketch LLVMLowering
+open Veir LLVMLowering
 
 /-- Run `cmd args`, feeding `stdin`, and return its stdout or a message containing stderr.
 `lake env` points `LD_LIBRARY_PATH` at Lean's LLVM, which breaks the MLIR tools, so it is unset. -/
@@ -55,23 +54,18 @@ def referencePath (file : System.FilePath) : IO (Except String (WfIRContext OpCo
   | .ok (ctx, root, _) => return .ok (ctx, root, generic)
   | .error e => return .error s!"VeIR MLIR parser: {e}"
 
-/-- New path: LLVM text → VeIR, through this branch's parser, resolver and lowering. -/
-def newPath (src : String) : Except String (WfIRContext OpCode × OperationPtr) := do
-  let m ← (parse src).mapError (s!"parse: {reprStr ·}")
-  let some r := resolveModule m | throw "resolveModule failed"
-  (lowerModule r).mapError (s!"lowerModule: {·}")
-
 inductive Outcome where
   | iso
-  | mismatch (normalisedEqual : Bool)
+  | mismatch (normalisedEqual : Option Bool)
   | referenceError (msg : String)
   | newError (msg : String)
   | bothError (ref new : String)
 
 def Outcome.label : Outcome → String
   | .iso => "ISOMORPHIC"
-  | .mismatch true => "MISMATCH (equal after reverseModule)"
-  | .mismatch false => "MISMATCH (differs after reverseModule)"
+  | .mismatch (some true) => "MISMATCH (equal after reverseModule)"
+  | .mismatch (some false) => "MISMATCH (differs after reverseModule)"
+  | .mismatch none => "MISMATCH (reverseModule could not compare)"
   | .referenceError _ => "REFERENCE-ERROR"
   | .newError _ => "NEW-ERROR"
   | .bothError .. => "BOTH-ERROR"
@@ -81,7 +75,7 @@ def compareFile (file outDir : System.FilePath) : IO Outcome := do
   let stem := file.fileStem.getD "out"
   let src ← IO.FS.readFile file
   let ref ← referencePath file
-  let new := newPath src
+  let new := ControlFlow.parseAndLower src
   match ref, new with
   | .error r, .error n => return .bothError r n
   | .error r, .ok _ => return .referenceError r
@@ -94,8 +88,8 @@ def compareFile (file outDir : System.FilePath) : IO Outcome := do
     IO.FS.writeFile (outDir / s!"{stem}.new.mlir") newText
     if rootedIso? rctx rroot nctx nroot then return .iso
     let normalisedEqual := match reverseModule rctx rroot, reverseModule nctx nroot with
-      | .ok a, .ok b => decide (a = b)
-      | _, _ => false
+      | .ok a, .ok b => some (decide (a = b))
+      | _, _ => none
     return .mismatch normalisedEqual
 
 def main (args : List String) : IO UInt32 := do

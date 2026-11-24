@@ -24,22 +24,25 @@ comments are represented explicitly in the lexical specification. -/
 
 /-- Keywords are data: adding one means a constructor plus a spelling line. -/
 inductive Keyword where
-  | define | ret | xor | and | or
+  | define | ret | xor | and | or | phi | br | label | true | false
   deriving Repr, DecidableEq
 
-def Keyword.all : List Keyword := [.define, .ret, .xor, .and, .or]
+def Keyword.all : List Keyword := [.define, .ret, .xor, .and, .or, .phi, .br, .label, .true, .false]
 
 def Keyword.spelling : Keyword → List Char
   | .define => "define".toList | .ret => "ret".toList | .xor => "xor".toList | .and => "and".toList | .or => "or".toList
+  | .phi => "phi".toList | .br => "br".toList | .label => "label".toList
+  | .true => "true".toList | .false => "false".toList
 
 inductive Punct where
-  | equal | comma | lbrace | rbrace | lparen | rparen
+  | equal | comma | lbrace | rbrace | lparen | rparen | lbracket | rbracket
   deriving Repr, DecidableEq
 
-def Punct.all : List Punct := [.equal, .comma, .lbrace, .rbrace, .lparen, .rparen]
+def Punct.all : List Punct := [.equal, .comma, .lbrace, .rbrace, .lparen, .rparen, .lbracket, .rbracket]
 
 def Punct.char : Punct → Char
   | .equal => '=' | .comma => ',' | .lbrace => '{' | .rbrace => '}' | .lparen => '(' | .rparen => ')'
+  | .lbracket => '[' | .rbracket => ']'
 
 theorem Keyword.mem_all (k : Keyword) : k ∈ Keyword.all := by cases k <;> decide
 theorem Punct.mem_all (p : Punct) : p ∈ Punct.all := by cases p <;> decide
@@ -186,8 +189,9 @@ def digits (s : String) : Prop :=
 
 /-- A token's payload satisfies the lexical restrictions on its constructor. -/
 def IsValidToken : Token → Prop
-  | .LabelStr name => labelName name ∧ ¬digits name
-  | .GlobalVar name | .LocalVar name => bareName name
+  | .LabelStr name => labelName name
+  | .GlobalVar name => bareName name
+  | .LocalVar name => bareName name ∨ digits name
   | _ => True
 
 /-- Valid nontrivia tokens followed by exactly one final EOF token. -/
@@ -246,11 +250,11 @@ inductive TokenRepresentation : List Char → Token → Prop where
       TokenRepresentation (';' :: line) .comment
   | punct (p : Punct) : TokenRepresentation [p.char] (.punct p)
   | word {w : List Char} {tok : Token} : WordToken w tok → TokenRepresentation w tok
-  | label (name : String) : labelName name ∧ ¬digits name →
+  | label (name : String) : labelName name →
       TokenRepresentation (name.toList ++ [':']) (.LabelStr name)
   | global (name : String) : bareName name →
       TokenRepresentation ('@' :: name.toList) (.GlobalVar name)
-  | local (name : String) : bareName name →
+  | local (name : String) : (bareName name ∨ digits name) →
       TokenRepresentation ('%' :: name.toList) (.LocalVar name)
   | integer {s : List Char} {value : Int} : decimalInteger s value →
       TokenRepresentation s (.APSInt value)
@@ -330,12 +334,12 @@ def recognize : List Char → Option Token
   | [] => some .Eof
   | ';' :: cs => if commentBody cs then some .comment else none
   | '@' :: cs => if bareName (String.ofList cs) then some (.GlobalVar (String.ofList cs)) else none
-  | '%' :: cs => if bareName (String.ofList cs) then some (.LocalVar (String.ofList cs)) else none
+  | '%' :: cs => if bareName (String.ofList cs) ∨ digits (String.ofList cs) then some (.LocalVar (String.ofList cs)) else none
   | cs =>
       if ∀ c ∈ cs, isWs c then some .ws
       else if cs.getLast? = some ':' then
         let name := String.ofList cs.dropLast
-        if labelName name ∧ ¬digits name then some (.LabelStr name) else none
+        if labelName name then some (.LabelStr name) else none
       else match cs with
         | [c] => match Punct.all.find? (·.char == c) with
           | some p => some (.punct p)
@@ -371,11 +375,11 @@ theorem recognize_name (hc : nameChar c) :
     recognize (c :: cs) =
       if (c :: cs).getLast? = some ':' then
         let name := String.ofList (c :: cs).dropLast
-        if labelName name ∧ ¬digits name then some (.LabelStr name) else none
+        if labelName name then some (.LabelStr name) else none
       else (classifyWordRelevant (c :: cs)).or ((decideDecimal (c :: cs)).map Token.APSInt) := by
   obtain ⟨hsemi, hat, hpercent, hws, _⟩ := nameChar_exclusions hc
   have hp : Punct.all.find? (·.char == c) = none := by
-    have : ∀ x ∈ ['=', ',', '{', '}', '(', ')'], ¬nameChar x := by decide
+    have : ∀ x ∈ ['=', ',', '{', '}', '(', ')', '[', ']'], ¬nameChar x := by decide
     simp_all [Punct.all, Punct.char]; grind
   cases cs <;> simp [recognize, hsemi, hat, hpercent, hws, hp]
 
@@ -383,12 +387,12 @@ theorem recognize_ws (hne : cs ≠ []) (hw : ∀ c ∈ cs, isWs c) :
     recognize cs = some .ws := by
   cases cs <;> simp_all [recognize, isWs] <;> grind
 
-theorem recognize_label (h : labelName name ∧ ¬digits name) :
+theorem recognize_label (h : labelName name) :
     recognize (name.toList ++ [':']) = some (.LabelStr name) := by
   cases he : name.toList with
   | nil => simp_all [labelName]
   | cons c cs =>
-      rw [List.cons_append, recognize_name (h.1.2 c (by simp [he]))]
+      rw [List.cons_append, recognize_name (h.2 c (by simp [he]))]
       simp [← List.cons_append, ← he, h]
 
 theorem recognize_word (h : WordToken cs tok) : recognize cs = some tok := by
@@ -728,9 +732,12 @@ theorem TokenRepresentation.significant_chars (h : TokenRepresentation piece tok
   | word hw => exact fun c hc => (hw.nameChars c hc).not_ws_or_semicolon
   | label name hn =>
       exact List.forall_mem_append.mpr
-        ⟨fun c hc => (hn.1.2 c hc).not_ws_or_semicolon, by decide⟩
-  | global name hn | «local» name hn =>
+        ⟨fun c hc => (hn.2 c hc).not_ws_or_semicolon, by decide⟩
+  | global name hn =>
       exact List.forall_mem_cons.mpr ⟨by decide, fun c hc => (hn.nameChars c hc).not_ws_or_semicolon⟩
+  | «local» name hn =>
+      exact List.forall_mem_cons.mpr ⟨by decide, fun c hc =>
+        (hn.elim (·.nameChars c hc) (fun h => (h.2 c hc).nameChar)).not_ws_or_semicolon⟩
   | integer hd => exact fun c hc => (hd.nameChars c hc).not_ws_or_semicolon
 
 theorem TokenRepresentation.trivia (h : TokenRepresentation piece tok)

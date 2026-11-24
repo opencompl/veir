@@ -29,6 +29,7 @@ inductive LLType where
 inductive Value where
   | localIdent (name : String)
   | intConst (value : Int)
+  | boolConst (value : Bool)
   deriving Repr, DecidableEq
 
 /-- `TypeValue`: a type followed by a value, as in `ret i32 %result`. -/
@@ -50,15 +51,27 @@ structure BinInst where
   rhs : Value
   deriving Repr, DecidableEq
 
+structure PhiIncoming where
+  value : Value
+  predecessor : String
+  deriving Repr, DecidableEq
+
+inductive Inst where
+  | bin (inst : BinInst)
+  | phi (ty : LLType) (first : PhiIncoming) (rest : List PhiIncoming)
+  deriving Repr, DecidableEq
+
 /-- `LocalDefInst`: `%name = inst`. The fragment has no unnamed instructions. -/
 structure Instruction where
   name : String
-  inst : BinInst
+  inst : Inst
   deriving Repr, DecidableEq
 
-/-- `Terminator`, restricted to `RetTerm` with a value. -/
+/-- An integer return or a branch to one or two labels. -/
 inductive Terminator where
   | ret (tv : TypeValue)
+  | br (dst : String)
+  | condBr (condition : Value) (yes no : String)
   deriving Repr, DecidableEq
 
 /-- `BasicBlock`: a label, instructions, and a terminator. -/
@@ -104,6 +117,8 @@ inductive LLType.Spells : LLType → List Token → Prop where
 inductive Value.Spells : Value → List Token → Prop where
   | localIdent : Value.Spells (.localIdent n) [.LocalVar n]
   | intConst : Value.Spells (.intConst v) [.APSInt v]
+  | true : Value.Spells (.boolConst true) [.kw .true]
+  | false : Value.Spells (.boolConst false) [.kw .false]
 
 inductive TypeValue.Spells : TypeValue → List Token → Prop where
   | mk : LLType.Spells τ ts₁ → Value.Spells v ts₂ →
@@ -119,13 +134,6 @@ inductive BinInst.Spells : BinInst → List Token → Prop where
       Value.Spells x tsL → Value.Spells y tsR →
       BinInst.Spells ⟨o, τ, x, y⟩ (tsOp ++ tsTy ++ tsL ++ [.punct .comma] ++ tsR)
 
-inductive Instruction.Spells : Instruction → List Token → Prop where
-  | mk : BinInst.Spells i ts →
-      Instruction.Spells ⟨n, i⟩ (.LocalVar n :: .punct .equal :: ts)
-
-inductive Terminator.Spells : Terminator → List Token → Prop where
-  | ret : TypeValue.Spells v ts → Terminator.Spells (.ret v) (.kw .ret :: ts)
-
 /-- A list of items, each spelled by `spells`, concatenated with `sep` between them. -/
 inductive SepBy (spells : α → List Token → Prop) (sep : List Token) :
     List α → List Token → Prop where
@@ -133,6 +141,30 @@ inductive SepBy (spells : α → List Token → Prop) (sep : List Token) :
   | one : spells a ts → SepBy spells sep [a] ts
   | cons : spells a ts → SepBy spells sep (b :: as) tss →
       SepBy spells sep (a :: b :: as) (ts ++ sep ++ tss)
+
+inductive PhiIncoming.Spells : PhiIncoming → List Token → Prop where
+  | mk : Value.Spells v ts → PhiIncoming.Spells ⟨v, pred⟩
+      ([.punct .lbracket] ++ ts ++ [.punct .comma, .LocalVar pred, .punct .rbracket])
+
+def PhiIncoming.CommaSpells (x : PhiIncoming) (ts : List Token) : Prop :=
+  ∃ pre, x.Spells pre ∧ ts = .punct .comma :: pre
+
+inductive Inst.Spells : Inst → List Token → Prop where
+  | bin : BinInst.Spells i ts → Inst.Spells (.bin i) ts
+  | phi : LLType.Spells ty tsTy → PhiIncoming.Spells first tsFirst →
+      SepBy PhiIncoming.CommaSpells [] rest tsRest →
+      Inst.Spells (.phi ty first rest) (.kw .phi :: tsTy ++ tsFirst ++ tsRest)
+
+inductive Instruction.Spells : Instruction → List Token → Prop where
+  | mk : Inst.Spells i ts →
+      Instruction.Spells ⟨n, i⟩ (.LocalVar n :: .punct .equal :: ts)
+
+inductive Terminator.Spells : Terminator → List Token → Prop where
+  | ret : TypeValue.Spells v ts → Terminator.Spells (.ret v) (.kw .ret :: ts)
+  | br : Terminator.Spells (.br dst) [.kw .br, .kw .label, .LocalVar dst]
+  | condBr : Value.Spells c ts → Terminator.Spells (.condBr c yes no)
+      ([.kw .br, .intType 1] ++ ts ++
+        [.punct .comma, .kw .label, .LocalVar yes, .punct .comma, .kw .label, .LocalVar no])
 
 inductive BasicBlock.Spells : BasicBlock → List Token → Prop where
   | mk : SepBy Instruction.Spells [] is tsI → Terminator.Spells tm tsT →
@@ -230,6 +262,8 @@ def parseValue : Parser Value :=
   token "value" fun
     | .LocalVar n => some (.localIdent n)
     | .APSInt v => some (.intConst v)
+    | .kw .true => some (.boolConst true)
+    | .kw .false => some (.boolConst false)
     | _ => none
 
 def parseLocalName : Parser String :=
@@ -238,28 +272,70 @@ def parseLocalName : Parser String :=
 def parseTypeValue : Parser TypeValue :=
   return ⟨← parseType, ← parseValue⟩
 
-def parseBinOp : Parser BinOp :=
-  token "binary operator (xor, and, or)" fun
-    | .kw .xor => some .xor
-    | .kw .and => some .and
-    | .kw .or => some .or
-    | _ => none
+def binOpToken : Token → Option BinOp
+  | .kw .xor => some .xor
+  | .kw .and => some .and
+  | .kw .or => some .or
+  | _ => none
 
-def parseBinInst : Parser BinInst := do
-  let op ← parseBinOp
+def parseBinOp : Parser BinOp := token "binary operator (xor, and, or)" binOpToken
+
+def parseBinOperands (op : BinOp) : Parser BinInst := do
   let ty ← parseType
   let lhs ← parseValue
   expect (.punct .comma)
   return ⟨op, ty, lhs, ← parseValue⟩
 
+def parseBinInst : Parser BinInst := parseBinOp >>= parseBinOperands
+
+def parsePhiIncoming : Parser PhiIncoming := do
+  expect (.punct .lbracket)
+  let value ← parseValue
+  expect (.punct .comma)
+  let predecessor ← parseLocalName
+  expect (.punct .rbracket)
+  return ⟨value, predecessor⟩
+
+def parseCommaIncoming : Parser PhiIncoming := do
+  expect (.punct .comma)
+  parsePhiIncoming
+
+def parseInstTag : Parser (Option BinOp) :=
+  token "instruction operator" fun
+    | .kw .phi => some none
+    | t => (binOpToken t).map some
+
+def parseInst : Parser Inst := do
+  match ← parseInstTag with
+  | some op => return .bin (← parseBinOperands op)
+  | none =>
+      return .phi (← parseType) (← parsePhiIncoming)
+        (← manyWhile (· = .punct .comma) parseCommaIncoming)
+
 def parseInstruction : Parser Instruction := do
   let name ← parseLocalName
   expect (.punct .equal)
-  return ⟨name, ← parseBinInst⟩
+  return ⟨name, ← parseInst⟩
+
+def parseTermTag : Parser Bool :=
+  token "terminator" fun | .kw .ret => some false | .kw .br => some true | _ => none
+
+def parseBranchTag : Parser Bool :=
+  token "label or i1" fun | .kw .label => some false | .intType 1 => some true | _ => none
+
+def parseBranchDest : Parser String := do
+  expect (.punct .comma)
+  expect (.kw .label)
+  parseLocalName
+
+def parseBranch : Parser Terminator := do
+  if ← parseBranchTag then
+    return .condBr (← parseValue) (← parseBranchDest) (← parseBranchDest)
+  else
+    return .br (← parseLocalName)
 
 def parseTerminator : Parser Terminator := do
-  expect (.kw .ret)
-  return .ret (← parseTypeValue)
+  if ← parseTermTag then parseBranch else return .ret (← parseTypeValue)
 
 def parseBasicBlock : Parser BasicBlock := do
   let label ← token "block label" fun | .LabelStr n => some n | _ => none
@@ -373,8 +449,10 @@ theorem LLType.spells_iff (x : LLType) (ts : List Token) :
   cases x <;> grind [LLType.Spells]
 
 theorem Value.spells_iff (x : Value) (ts : List Token) :
-    Value.Spells x ts ↔ ts = [match x with | .localIdent n => .LocalVar n | .intConst v => .APSInt v] := by
-  grind [Value.Spells]
+    Value.Spells x ts ↔ ts = [match x with
+      | .localIdent n => .LocalVar n | .intConst v => .APSInt v
+      | .boolConst true => .kw .true | .boolConst false => .kw .false] := by
+  cases x <;> grind [Value.Spells]
 
 theorem BinOp.spells_iff (x : BinOp) (ts : List Token) :
     BinOp.Spells x ts ↔ ts = [match x with | .xor => .kw .xor | .and => .kw .and | .or => .kw .or] := by
@@ -387,8 +465,8 @@ theorem parseType_correct (ts rest : List Token) (x : LLType) :
 
 theorem parseValue_correct (ts rest : List Token) (x : Value) :
     parseValue ts = .ok (x, rest) ↔ ∃ pre, Value.Spells x pre ∧ ts = pre ++ rest := by
-  cases x <;> simp only [parseValue, token_correct, Value.spells_iff]
-  all_goals grind [Token]
+  rcases x with n | v | (_ | _) <;>
+    simp only [parseValue, token_correct, Value.spells_iff] <;> grind [Token, Keyword]
 
 theorem parseLocalName_correct (ts rest : List Token) (n : String) :
     parseLocalName ts = .ok (n, rest) ↔ ts = .LocalVar n :: rest := by
@@ -427,7 +505,7 @@ theorem parseTypeValue_correct (ts rest : List Token) (x : TypeValue) :
 
 theorem parseBinOp_correct (ts rest : List Token) (x : BinOp) :
     parseBinOp ts = .ok (x, rest) ↔ ∃ pre, BinOp.Spells x pre ∧ ts = pre ++ rest := by
-  cases x <;> simp only [parseBinOp, token_correct, BinOp.spells_iff]
+  cases x <;> simp only [parseBinOp, binOpToken, token_correct, BinOp.spells_iff]
   all_goals grind [Token]
 
 theorem BinInst.spells_iff (x : BinInst) (ts : List Token) :
@@ -436,38 +514,106 @@ theorem BinInst.spells_iff (x : BinInst) (ts : List Token) :
   cases x <;> grind [BinInst.Spells]
 
 theorem Instruction.spells_iff (x : Instruction) (ts : List Token) :
-    Instruction.Spells x ts ↔ ∃ pre, BinInst.Spells x.inst pre ∧ ts = .LocalVar x.name :: .punct .equal :: pre := by
+    Instruction.Spells x ts ↔ ∃ pre, Inst.Spells x.inst pre ∧ ts = .LocalVar x.name :: .punct .equal :: pre := by
   cases x <;> grind [Instruction.Spells]
 
-theorem Terminator.spells_iff (x : Terminator) (ts : List Token) :
-    Terminator.Spells x ts ↔ ∃ tv pre, x = .ret tv ∧ TypeValue.Spells tv pre ∧ ts = .kw .ret :: pre := by
-  grind [Terminator.Spells]
+theorem Terminator.not_startsWith_local (h : Terminator.Spells x ts) :
+    ¬ startsWith isLocalVar (ts ++ rest) := by
+  cases h <;> exact not_false
 
 theorem Param.spells_iff (x : Param) (ts : List Token) :
     Param.Spells x ts ↔ ∃ pre, LLType.Spells x.ty pre ∧ ts = pre ++ [.LocalVar x.name] := by
   cases x <;> grind [Param.Spells]
 
+theorem parseBinOperands_correct (ts rest : List Token) (op : BinOp) (x : BinInst) :
+    parseBinOperands op ts = .ok (x, rest) ↔ x.op = op ∧
+      ∃ b c d, LLType.Spells x.ty b ∧ Value.Spells x.lhs c ∧ Value.Spells x.rhs d ∧
+        ts = b ++ c ++ [.punct .comma] ++ d ++ rest := by
+  rcases x with ⟨o, t, l, r⟩
+  simp only [parseBinOperands, bind_correct, pure_correct, expect_result, parseType_correct,
+    parseValue_correct, BinInst.mk.injEq]
+  constructor
+  · rintro ⟨_, _, ⟨b, hb, rfl⟩, _, _, ⟨c, hc, rfl⟩, _, _, ⟨rfl, rfl⟩,
+      _, _, ⟨d, hd, rfl⟩, ⟨rfl, rfl, rfl, rfl⟩, rfl⟩
+    exact ⟨rfl, b, c, d, hb, hc, hd, by simp⟩
+  · rintro ⟨rfl, b, c, d, hb, hc, hd, rfl⟩
+    refine ⟨t, c ++ .punct .comma :: (d ++ rest), ⟨b, hb, by simp⟩, l,
+      .punct .comma :: (d ++ rest), ⟨c, hc, rfl⟩, (), d ++ rest, ?_, r, rest,
+      ⟨d, hd, rfl⟩, ?_⟩ <;> simp
+
 theorem parseBinInst_correct (ts rest : List Token) (x : BinInst) :
     parseBinInst ts = .ok (x, rest) ↔ ∃ pre, BinInst.Spells x pre ∧ ts = pre ++ rest := by
-  rcases x with ⟨op, ty, lhs, rhs⟩
-  simp [parseBinInst, BinInst.spells_iff, bind_correct, map_correct, expect_result, parseType_correct,
-    parseValue_correct, parseBinOp_correct, LLType.spells_iff, Value.spells_iff, BinOp.spells_iff,
-    List.append_assoc, exists_and_left]
-  simp [and_assoc, and_left_comm, and_comm]
+  simp only [parseBinInst, bind_correct, parseBinOp_correct, parseBinOperands_correct,
+    BinInst.spells_iff]
+  constructor
+  · rintro ⟨o, _, ⟨a, ha, rfl⟩, rfl, b, c, d, hb, hc, hd, rfl⟩
+    exact ⟨_, ⟨a, b, c, d, ha, hb, hc, hd, rfl⟩, by simp⟩
+  · rintro ⟨_, ⟨a, b, c, d, ha, hb, hc, hd, rfl⟩, rfl⟩
+    exact ⟨_, _, ⟨a, ha, by simp⟩, rfl, b, c, d, hb, hc, hd, rfl⟩
 
-theorem parseInstruction_correct (ts rest : List Token) (x : Instruction) :
-    parseInstruction ts = .ok (x, rest) ↔ ∃ pre, Instruction.Spells x pre ∧ ts = pre ++ rest := by
-  cases x
-  simp [parseInstruction, Instruction.spells_iff, parseBinInst_correct, bind_correct,
-    map_correct, expect_result, parseLocalName_correct]
+theorem parsePhiIncoming_correct (ts rest : List Token) (x : PhiIncoming) :
+    parsePhiIncoming ts = .ok (x, rest) ↔ ∃ pre, x.Spells pre ∧ ts = pre ++ rest := by
+  rcases x with ⟨v, pred⟩
+  simp only [parsePhiIncoming, bind_correct, expect_result, parseValue_correct,
+    parseLocalName_correct, pure_correct]
+  constructor
+  · rintro ⟨_, _, ⟨rfl, rfl⟩, _, _, ⟨pre, h, rfl⟩, _, _, ⟨rfl, rfl⟩,
+      _, _, rfl, _, _, ⟨rfl, rfl⟩, hEq, rfl⟩
+    cases hEq
+    exact ⟨_, .mk h, by simp⟩
+  · rintro ⟨_, h, rfl⟩
+    cases h with
+    | mk h =>
+      rename_i pre
+      let close := .punct .rbracket :: rest
+      let suffix := .punct .comma :: .LocalVar pred :: close
+      exact ⟨(), pre ++ suffix, (by simp [suffix, close]),
+        v, suffix, ⟨pre, h, rfl⟩, (), .LocalVar pred :: close, rfl,
+        pred, close, rfl, (), rest, rfl, rfl, rfl⟩
+
+theorem parseCommaIncoming_correct (ts rest : List Token) (x : PhiIncoming) :
+    parseCommaIncoming ts = .ok (x, rest) ↔ ∃ pre, x.CommaSpells pre ∧ ts = pre ++ rest := by
+  simp only [parseCommaIncoming, bind_correct, expect_result, parsePhiIncoming_correct,
+    PhiIncoming.CommaSpells]
   grind
+
+theorem parseInstTag_correct (ts rest : List Token) (op : Option BinOp) :
+    parseInstTag ts = .ok (op, rest) ↔
+      match op with
+      | none => ts = .kw .phi :: rest
+      | some op => ∃ pre, BinOp.Spells op pre ∧ ts = pre ++ rest := by
+  rcases op with (_ | _ | _) | _ <;>
+    simp only [parseInstTag, binOpToken, token_correct, BinOp.spells_iff] <;> grind [Token, Keyword]
+
+theorem parseTermTag_correct (ts rest : List Token) (isBr : Bool) :
+    parseTermTag ts = .ok (isBr, rest) ↔ ts = .kw (if isBr then .br else .ret) :: rest := by
+  cases isBr <;> simp only [parseTermTag, token_correct] <;> grind [Token, Keyword]
+
+theorem parseBranchTag_correct (ts rest : List Token) (isCond : Bool) :
+    parseBranchTag ts = .ok (isCond, rest) ↔
+      ts = (if isCond then .intType 1 else .kw .label) :: rest := by
+  cases isCond <;> simp only [parseBranchTag, token_correct] <;> grind [Token, Keyword]
+
+theorem parseBranchDest_correct (ts rest : List Token) (dst : String) :
+    parseBranchDest ts = .ok (dst, rest) ↔ ts = .punct .comma :: .kw .label :: .LocalVar dst :: rest := by
+  simp [parseBranchDest, bind_correct, expect_result, parseLocalName_correct]
 
 theorem parseTerminator_correct (ts rest : List Token) (x : Terminator) :
     parseTerminator ts = .ok (x, rest) ↔ ∃ pre, Terminator.Spells x pre ∧ ts = pre ++ rest := by
-  cases x
-  simp [parseTerminator, Terminator.spells_iff, parseTypeValue_correct, bind_correct,
-    map_correct, expect_result]
-  grind
+  simp only [parseTerminator, bind_correct, parseTermTag_correct]
+  cases x <;> simp [Bool.exists_bool, parseBranch, bind_correct, map_correct,
+    parseBranchTag_correct, parseTypeValue_correct, parseValue_correct,
+    parseLocalName_correct, parseBranchDest_correct]
+  case ret => grind [Terminator.Spells]
+  case br =>
+    exact ⟨fun h => ⟨_, .br, h⟩, fun ⟨_, h, he⟩ => by cases h; exact he⟩
+  case condBr c yes no =>
+    constructor
+    · rintro ⟨_, rfl, _, rfl, _, _, ⟨pre, h, rfl⟩, _, _, rfl, _, rfl, rfl, rfl, rfl⟩
+      exact ⟨_, .condBr h, by simp⟩
+    · rintro ⟨_, h, rfl⟩
+      cases h with | @condBr _ pre _ _ h =>
+        exact ⟨_, rfl, _, rfl, c, _, ⟨pre, h, by simp⟩, yes, _, rfl, no, rfl, rfl, rfl, rfl⟩
 
 section Repetition
 variable {α : Type} {R : α → List Token → Prop} {item : Parser α} {starts : Token → Prop} [DecidablePred starts]
@@ -527,24 +673,118 @@ theorem BasicBlock.spells_iff (x : BasicBlock) (ts : List Token) :
       Terminator.Spells x.term b ∧ ts = .LabelStr x.label :: a ++ b := by
   cases x <;> grind [BasicBlock.Spells]
 
-theorem manyInstructions_correct (ts rest : List Token) (xs : List Instruction) :
+theorem manyIncoming_correct (ts rest : List Token) (xs : List PhiIncoming) :
+    manyWhile (· = .punct .comma) parseCommaIncoming ts = .ok (xs, rest) ↔
+      ∃ pre, SepBy PhiIncoming.CommaSpells [] xs pre ∧ ts = pre ++ rest ∧
+        ¬ startsWith (· = .punct .comma) rest := by
+  apply manyWhile_spells parseCommaIncoming_correct
+  rintro _ _ ⟨_, _, rfl⟩ _
+  rfl
+
+def Inst.EndsBefore : Inst → List Token → Prop
+  | .bin _, _ => True
+  | .phi .., rest => ¬ startsWith (· = .punct .comma) rest
+
+theorem parseInst_exact (ts rest : List Token) (x : Inst) :
+    parseInst ts = .ok (x, rest) ↔ (∃ pre, x.Spells pre ∧ ts = pre ++ rest) ∧ x.EndsBefore rest := by
+  simp only [parseInst, bind_correct, parseInstTag_correct]
+  cases x <;> simp [Option.exists, bind_correct, map_correct, parseBinOperands_correct,
+    parseType_correct, parsePhiIncoming_correct, manyIncoming_correct, Inst.EndsBefore]
+  case bin i =>
+    have h := parseBinInst_correct ts rest i
+    simp [parseBinInst, bind_correct, parseBinOp_correct, parseBinOperands_correct] at h
+    exact h.trans ⟨fun ⟨pre, hi, he⟩ => ⟨pre, .bin hi, he⟩,
+      fun ⟨pre, hi, he⟩ => by cases hi with | bin hi => exact ⟨pre, hi, he⟩⟩
+  case phi ty first xs =>
+    constructor
+    · rintro ⟨_, rfl, _, _, ⟨a, ha, rfl⟩, _, _, ⟨b, hb, rfl⟩, _, ⟨c, hc, rfl, ht⟩, rfl, rfl, rfl⟩
+      exact ⟨⟨_, .phi ha hb hc, by simp⟩, ht⟩
+    · rintro ⟨⟨_, h, rfl⟩, ht⟩
+      cases h with | phi ha hb hc =>
+        rename_i a b c
+        exact ⟨a ++ (b ++ (c ++ rest)), by simp, ty, b ++ (c ++ rest), ⟨a, ha, rfl⟩,
+          first, c ++ rest, ⟨b, hb, rfl⟩, xs, ⟨c, hc, rfl, ht⟩, rfl, rfl, rfl⟩
+
+theorem parseInstruction_correct (ts rest : List Token) (x : Instruction) :
+    parseInstruction ts = .ok (x, rest) ↔
+      (∃ pre, x.Spells pre ∧ ts = pre ++ rest) ∧ x.inst.EndsBefore rest := by
+  cases x
+  simp [parseInstruction, Instruction.spells_iff, parseInst_exact, bind_correct,
+    map_correct, expect_result, parseLocalName_correct]
+  grind
+
+theorem Instruction.Spells.spells_start (h : Instruction.Spells x pre) :
+    startsWith isLocalVar (pre ++ rest) ∧ pre ≠ [] := by
+  cases h; simp [startsWith, isLocalVar]
+
+theorem Instruction.ends_before {x : Instruction} (h : ¬ startsWith (· = .punct .comma) rest) :
+    x.inst.EndsBefore rest := by
+  cases x.inst <;> simp [Inst.EndsBefore, h]
+
+theorem repeats_instructions_end (h : Repeats isLocalVar Instruction.Spells ts xs rest)
+    (ht : ¬ startsWith (· = .punct .comma) rest) :
+    ¬ startsWith (· = .punct .comma) ts := by
+  cases h with
+  | stop => exact ht
+  | step hs =>
+    cases ts with
+    | nil => contradiction
+    | cons t _ => cases t <;> first | contradiction | exact nofun
+
+theorem manyInstructions_repeats (ht : ¬ startsWith (· = .punct .comma) rest) :
+    manyWhile isLocalVar parseInstruction ts = .ok (xs, rest) ↔
+    Repeats isLocalVar Instruction.Spells ts xs rest := by
+  induction ts using manyWhile.induct isLocalVar generalizing xs with
+  | case1 ts hs ih =>
+    rw [manyWhile]; simp only [hs, ↓reduceIte, Except.bind_eq_ok]
+    constructor
+    · rintro ⟨⟨a, next⟩, hi, h⟩
+      split at h <;> simp_all [except_map_ok, parseInstruction_correct]
+      obtain ⟨⟨pre, hp, rfl⟩, _⟩ := hi
+      obtain ⟨_, hr, rfl⟩ := h
+      exact .step hs ⟨pre, hp, rfl, (hp.spells_start (rest := next)).2⟩ hr
+    · intro h
+      cases h with
+      | stop => contradiction
+      | step hstart hspell hr =>
+        rename_i a next tail
+        obtain ⟨pre, hp, rfl, hn⟩ := hspell
+        have hl : next.length < (pre ++ next).length := by simp [List.length_pos_iff.mpr hn]
+        have ha := (parseInstruction_correct _ _ _).mpr
+          ⟨⟨pre, hp, rfl⟩, Instruction.ends_before (repeats_instructions_end hr ht)⟩
+        exact ⟨(a, next), ha, by simp only [hl, ↓reduceIte, (ih next hl).mpr hr]; rfl⟩
+  | case2 ts hs =>
+    rw [manyWhile]
+    simp only [hs, ↓reduceIte]
+    constructor
+    · intro h; cases h; exact .stop hs
+    · intro h; cases h with | stop => rfl | step h => exact (hs h).elim
+
+theorem manyInstructions_correct (ts rest : List Token) (xs : List Instruction)
+    (ht : ¬ startsWith (· = .punct .comma) rest) :
     manyWhile isLocalVar parseInstruction ts = .ok (xs, rest) ↔
       ∃ pre, SepBy Instruction.Spells [] xs pre ∧ ts = pre ++ rest ∧
         ¬ startsWith isLocalVar rest := by
-  apply manyWhile_spells parseInstruction_correct
-  intro a pre h rest; cases h; trivial
+  rw [manyInstructions_repeats ht]
+  exact ⟨Repeats.sound, fun ⟨_, h, he, hs⟩ =>
+    he ▸ h.repeats (fun _ _ hi _ => hi.spells_start.1) hs⟩
+
+theorem Terminator.Spells.not_startsWith_comma (h : Terminator.Spells x ts) :
+    ¬ startsWith (· = .punct .comma) (ts ++ rest) := by
+  cases h <;> exact nofun
 
 theorem parseBasicBlock_correct (ts rest : List Token) (x : BasicBlock) :
     parseBasicBlock ts = .ok (x, rest) ↔ ∃ pre, BasicBlock.Spells x pre ∧ ts = pre ++ rest := by
-  simp only [parseBasicBlock, bind_correct, pure_correct, label_token, manyInstructions_correct,
-    parseTerminator_correct]
+  simp only [parseBasicBlock, bind_correct, pure_correct, label_token, parseTerminator_correct]
   constructor
-  · rintro ⟨l, _, rfl, is, _, ⟨a, ha, rfl, _⟩, tm, _, ⟨b, hb, rfl⟩, rfl, rfl⟩
+  · rintro ⟨l, _, rfl, is, _, hi, tm, _, ⟨b, hb, rfl⟩, rfl, rfl⟩
+    obtain ⟨a, ha, rfl, _⟩ := (manyInstructions_correct _ _ _ hb.not_startsWith_comma).mp hi
     exact ⟨_, .mk ha hb, by simp⟩
   · rintro ⟨pre, h, rfl⟩; obtain ⟨a, b, ha, hb, rfl⟩ := (BasicBlock.spells_iff _ _).mp h
     refine ⟨x.label, a ++ (b ++ rest), by simp [List.append_assoc], x.insts, b ++ rest,
-      ⟨a, ha, rfl, ?_⟩, x.term, rest, ⟨b, hb, rfl⟩, (by cases x; rfl), rfl⟩
-    obtain ⟨_, _, _, _, rfl⟩ := (Terminator.spells_iff _ _).mp hb; exact not_false
+      (manyInstructions_correct _ _ _ hb.not_startsWith_comma).mpr
+        ⟨a, ha, rfl, Terminator.not_startsWith_local hb⟩,
+      x.term, rest, ⟨b, hb, rfl⟩, (by cases x; rfl), rfl⟩
 
 theorem parseParam_correct (ts rest : List Token) (x : Param) :
     parseParam ts = .ok (x, rest) ↔ ∃ pre, Param.Spells x pre ∧ ts = pre ++ rest := by
@@ -729,6 +969,8 @@ def LLType.tokens : LLType → List Token
 def Value.tokens : Value → List Token
   | .localIdent n => [.LocalVar n]
   | .intConst v => [.APSInt v]
+  | .boolConst true => [.kw .true]
+  | .boolConst false => [.kw .false]
 
 def TypeValue.tokens (v : TypeValue) : List Token := v.ty.tokens ++ v.val.tokens
 
@@ -740,11 +982,22 @@ def BinOp.tokens : BinOp → List Token
 def BinInst.tokens (i : BinInst) : List Token :=
   i.op.tokens ++ i.ty.tokens ++ i.lhs.tokens ++ [.punct .comma] ++ i.rhs.tokens
 
+def PhiIncoming.tokens (x : PhiIncoming) : List Token :=
+  [.punct .lbracket] ++ x.value.tokens ++ [.punct .comma, .LocalVar x.predecessor, .punct .rbracket]
+
+def Inst.tokens : Inst → List Token
+  | .bin i => i.tokens
+  | .phi ty first rest => .kw .phi :: ty.tokens ++ first.tokens ++
+      rest.flatMap (fun x => .punct .comma :: x.tokens)
+
 def Instruction.tokens (i : Instruction) : List Token :=
   .LocalVar i.name :: .punct .equal :: i.inst.tokens
 
 def Terminator.tokens : Terminator → List Token
   | .ret v => .kw .ret :: v.tokens
+  | .br dst => [.kw .br, .kw .label, .LocalVar dst]
+  | .condBr c yes no => [.kw .br, .intType 1] ++ c.tokens ++
+      [.punct .comma, .kw .label, .LocalVar yes, .punct .comma, .kw .label, .LocalVar no]
 
 def BasicBlock.tokens (b : BasicBlock) : List Token :=
   .LabelStr b.label :: b.insts.flatMap Instruction.tokens ++ b.term.tokens
@@ -772,7 +1025,9 @@ theorem LLType.spells_tokens (x : LLType) : LLType.Spells x x.tokens := by
   cases x; exact .int
 
 theorem Value.spells_tokens (x : Value) : Value.Spells x x.tokens := by
-  cases x <;> constructor
+  cases x with
+  | boolConst b => cases b <;> constructor
+  | _ => constructor
 
 theorem TypeValue.spells_tokens (x : TypeValue) : TypeValue.Spells x x.tokens :=
   .mk x.ty.spells_tokens x.val.spells_tokens
@@ -783,17 +1038,30 @@ theorem BinOp.spells_tokens (x : BinOp) : BinOp.Spells x x.tokens := by
 theorem BinInst.spells_tokens (x : BinInst) : BinInst.Spells x x.tokens :=
   .mk x.op.spells_tokens x.ty.spells_tokens x.lhs.spells_tokens x.rhs.spells_tokens
 
-theorem Instruction.spells_tokens (x : Instruction) : Instruction.Spells x x.tokens :=
-  .mk x.inst.spells_tokens
-
 theorem Terminator.spells_tokens (x : Terminator) : Terminator.Spells x x.tokens := by
-  cases x with | ret v => exact .ret v.spells_tokens
+  cases x with
+  | ret v => exact .ret v.spells_tokens
+  | br => exact .br
+  | condBr c => exact .condBr c.spells_tokens
 
 theorem SepBy.flatMap {α : Type} {R : α → List Token → Prop} {tokens : α → List Token}
     (xs : List α) (h : ∀ x ∈ xs, R x (tokens x)) : SepBy R [] xs (xs.flatMap tokens) := by
   induction xs with
   | nil => exact .nil
   | cons x xs ih => exact (ih (by simp_all)).prepend (h x (by simp))
+
+theorem PhiIncoming.spells_tokens (x : PhiIncoming) : x.Spells x.tokens :=
+  .mk x.value.spells_tokens
+
+theorem Inst.spells_tokens (x : Inst) : x.Spells x.tokens := by
+  cases x with
+  | bin i => exact .bin i.spells_tokens
+  | phi ty first rest =>
+    exact .phi ty.spells_tokens first.spells_tokens
+      (SepBy.flatMap rest (fun x _ => ⟨_, x.spells_tokens, rfl⟩))
+
+theorem Instruction.spells_tokens (x : Instruction) : Instruction.Spells x x.tokens :=
+  .mk x.inst.spells_tokens
 
 theorem BasicBlock.spells_tokens (x : BasicBlock) : BasicBlock.Spells x x.tokens :=
   .mk (SepBy.flatMap x.insts (fun i _ => i.spells_tokens)) x.term.spells_tokens
