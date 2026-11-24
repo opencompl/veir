@@ -205,7 +205,8 @@ def g_fshr := (lowerFunnelShift .intr__fshr .g_fshr).compile
 
 /--
   `llvm.select` -> `g_select`, as in LLVM's `IRTranslator::translateSelect`. The `i1` condition
-  selects as `g_select` does, see `GMIR.selectNonzero_one`. The values are integers or pointers.
+  selects as `g_select` does, see `Data.GMIR.selectNonzero_one`. The values are integers or
+  pointers.
 -/
 def lowerSelect : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder

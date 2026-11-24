@@ -537,21 +537,6 @@ def mul_by_neg_one_pattern : Pattern OpCode :=
       CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, x] #[type] subProps)
     (fun op => op)
 
-/-- `x * 2` → `x + x`. Both overflow in the same cases, so the flags carry over. -/
-def mulo_by_2_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let x ← MatchProg.value type
-      let two ← matchConstant type (·.bits.toInt = 2)
-      let root ← MatchProg.root (.gmir .g_mul) #[x, two.res[0]!] #[type]
-      return (type, x, root.properties))
-    (fun (type, x, mulProps) => do
-      let addProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_add)))
-          mulProps fun props => some { nsw := props.nsw, nuw := props.nuw }
-      CreateProg.operation (.gmir .g_add) #[x, x] #[type] addProps)
-    (fun op => op)
-
 /-- `a + ((0 - b) << c)` → `a - (b << c)`, and the same with the operands of the addition swapped
     when `shiftFirst` is set. -/
 def add_shift_pattern (shiftFirst : Bool) : Pattern OpCode :=
@@ -1054,8 +1039,9 @@ def urem_pow2_to_mask_pattern : Pattern OpCode :=
 
 /-! ### constant_fold_binops -/
 
-/-- `c₁ op c₂` → the constant `fold c₁ c₂`, with both constants read as signed integers. -/
-def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : Pattern OpCode :=
+/-- `c₁ op c₂` → the constant `fold c₁ c₂`, at the width of the constants. -/
+def constant_fold_binop_pattern (opcode : GMIR)
+    (fold : ∀ {w : Nat}, BitVec w → BitVec w → BitVec w) : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType)
@@ -1064,7 +1050,7 @@ def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : P
       let _ ← MatchProg.root (.gmir opcode) #[c₁.res[0]!, c₂.res[0]!] #[type]
       return (type, c₁.properties, c₂.properties))
     (fun (type, c₁, c₂) =>
-      createConstantWith type (c₁, c₂) fun (c₁, c₂) => fold c₁.bits.toInt c₂.bits.toInt)
+      createConstantWith type (c₁, c₂) fun (c₁, c₂) => (fold c₁.bits (c₂.bits.setWidth _)).toInt)
     (fun op => op)
 
 /-! ### select_combines
@@ -1309,7 +1295,7 @@ def combines : Array (CompiledPattern OpCode) :=
       #[GMIR.g_and, .g_or, .g_xor].map (hoist_logic_op_pattern · hand)) ++
   #[sub_add_reg_x_add_y_sub_y_pattern, sub_add_reg_x_add_y_sub_x_pattern,
     sub_add_reg_negate_pattern false, sub_add_reg_negate_pattern true,
-    xor_of_and_with_same_reg_pattern, trunc_of_ext_pattern .g_zext, mulo_by_2_pattern,
+    xor_of_and_with_same_reg_pattern, trunc_of_ext_pattern .g_zext,
     add_shift_pattern false, add_shift_pattern true] ++
   (#[GMIR.g_add, .g_sub, .g_xor].flatMap fun opcode =>
       #[Data.LLVM.IntPred.eq, .ne].map (redundant_binop_in_equality_pattern opcode ·)) ++
@@ -1333,8 +1319,11 @@ def combines : Array (CompiledPattern OpCode) :=
     sub_of_mul_const_pattern, canonicalize_icmp_pattern,
     bitreverse_shift_pattern .g_shl .g_lshr, bitreverse_shift_pattern .g_lshr .g_shl,
     udiv_by_pow2_pattern, mul_to_shl_pattern, urem_pow2_to_mask_pattern] ++
-  #[(GMIR.g_add, fun a b => a + b), (.g_sub, (· - ·)), (.g_mul, (· * ·)),
-    (.g_smin, min), (.g_smax, max)].map (fun (opcode, fold) => constant_fold_binop_pattern opcode fold) ++
+  #[constant_fold_binop_pattern .g_add (· + ·), constant_fold_binop_pattern .g_sub (· - ·),
+    constant_fold_binop_pattern .g_mul (· * ·),
+    constant_fold_binop_pattern .g_smin fun a b => if a.sle b then a else b,
+    constant_fold_binop_pattern .g_smax fun a b => if a.sle b then b else a,
+    constant_fold_binop_pattern .g_shl (· <<< ·)] ++
   #[sub_minus_one_pattern] ++
   #[GMIR.g_sub, .g_add, .g_or, .g_xor, .g_shl, .g_ashr, .g_lshr].map right_identity_zero_pattern ++
   #[right_identity_one_int_pattern, binop_same_val_pattern .g_and, binop_same_val_pattern .g_or,
