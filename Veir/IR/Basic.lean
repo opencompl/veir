@@ -1675,7 +1675,8 @@ def getPredecessors! (block : BlockPtr) (ctx : IRContext OpInfo) : Array BlockPt
   while let some predUse := currentUse do
     let use := predUse.get! ctx
     currentUse := use.nextUse
-    preds := preds.push ((use.owner.get! ctx).parent.get!)
+    if let some parent := (use.owner.get! ctx).parent then
+      preds := preds.push parent
   return preds
 
 end BlockPtr
