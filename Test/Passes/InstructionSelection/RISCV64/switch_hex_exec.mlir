@@ -2,10 +2,11 @@
 // RUN: veir-opt %s -p=riscv > %t.riscv
 // RUN: filecheck %s --check-prefix=ASM < %t.riscv
 // RUN: veir-interpret %t.riscv | filecheck %s
+// RUN: %if mlir-opt %{ mlir-opt --mlir-print-op-generic %s | veir-interpret | filecheck %s %}
 
 // MLIR prints `case_values` with more than 100 elements as raw little-endian hex data, one
 // `ceil(W / 8)`-byte chunk per element. These switches use that form for i32 cases 1, 2 and 5;
-// an i17 case -3 (three bytes, 0x1FFFD); an i1 case `true` (one byte); and an i64 case
+// an i17 case -3 (three bytes, 0x1FFFD); an i1 case `true` (nonzero byte 0x02); and an i64 case
 // 0x0123456789ABCDEF.
 //
 // i in 0..8: i32 key hits on i = 1, 2, 5; i17 key i - 4 hits on i = 1; i1 key hits on odd i;
@@ -44,7 +45,7 @@
   ^k1(%v17: i64):
     %key1 = "llvm.trunc"(%i) : (i32) -> i1
     "llvm.switch"(%key1, %s0, %b5) [^k64, ^k64]
-      <{case_operand_segments = array<i32: 1>, case_values = dense<"0x01"> : vector<1xi1>,
+      <{case_operand_segments = array<i32: 1>, case_values = dense<"0x02"> : vector<1xi1>,
         operandSegmentSizes = array<i32: 1, 1, 1>}> : (i1, i64, i64) -> ()
   ^k64(%v1: i64):
     %iw = "llvm.zext"(%i) : (i32) -> i64

@@ -1,5 +1,6 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
+// RUN: %if mlir-translate %{ mlir-translate --mlir-to-llvmir %s | filecheck %s --check-prefix=MLIR %}
 
 "builtin.module"() ({
   "llvm.mlir.global"() <{global_type = !llvm.struct<"Outer", (i64, !llvm.struct<packed (i16, !llvm.ptr)>, !llvm.array<2 x i32>)>, linkage = #llvm.linkage<external>, sym_name = "zero_struct", alignment = 8 : i64}> ({
@@ -22,6 +23,10 @@
   "llvm.mlir.global"() <{global_type = !llvm.array<2 x i17>, linkage = #llvm.linkage<external>, sym_name = "raw_i17", value = dense<"0xfdff01030001"> : tensor<2xi17>}> ({}) : () -> ()
   "llvm.mlir.global"() <{global_type = !llvm.array<2 x i17>, linkage = #llvm.linkage<external>, sym_name = "raw_i17_splat", value = dense<"0xFDFF01"> : tensor<2xi17>}> ({}) : () -> ()
   "llvm.mlir.global"() <{global_type = !llvm.array<2 x i1>, linkage = #llvm.linkage<external>, sym_name = "raw_bits", value = dense<"0x0100"> : tensor<2xi1>}> ({}) : () -> ()
+  "llvm.mlir.global"() <{global_type = !llvm.array<2 x i1>, linkage = #llvm.linkage<external>, sym_name = "raw_nonzero_bits", value = dense<"0x0200"> : tensor<2xi1>}> ({}) : () -> ()
+  "llvm.mlir.global"() <{global_type = !llvm.array<2 x i1>, linkage = #llvm.linkage<external>, sym_name = "raw_nonzero_splat", value = dense<"0xFE"> : tensor<2xi1>}> ({}) : () -> ()
+  "llvm.mlir.global"() <{global_type = !llvm.array<2 x i16>, linkage = #llvm.linkage<external>, sym_name = "hex_integers", value = dense<[0xFFFF, - 0x8000]> : tensor<2xi16>}> ({}) : () -> ()
+  "llvm.mlir.global"() <{global_type = !llvm.array<2 x i16>, linkage = #llvm.linkage<external>, sym_name = "hex_splat", value = dense<-0x7> : tensor<2xi16>}> ({}) : () -> ()
   "llvm.func"() <{function_type = !llvm.func<i16 ()>, sym_name = "read_integer"}> ({
     %p = "llvm.mlir.addressof"() <{global_name = @integers}> : () -> !llvm.ptr
     %v = "llvm.load"(%p) : (!llvm.ptr) -> i16
@@ -43,3 +48,12 @@
 // CHECK-NEXT: @raw_i17 = global [2 x i17] [i17 131069, i17 65539]
 // CHECK-NEXT: @raw_i17_splat = global [2 x i17] [i17 131069, i17 131069]
 // CHECK-NEXT: @raw_bits = global [2 x i1] [i1 1, i1 0]
+// CHECK-NEXT: @raw_nonzero_bits = global [2 x i1] [i1 1, i1 0]
+// CHECK-NEXT: @raw_nonzero_splat = global [2 x i1] [i1 1, i1 1]
+// CHECK-NEXT: @hex_integers = global [2 x i16] [i16 65535, i16 -32768]
+// CHECK-NEXT: @hex_splat = global [2 x i16] [i16 -7, i16 -7]
+
+// MLIR: @raw_nonzero_bits = global [2 x i1] [i1 true, i1 false]
+// MLIR: @raw_nonzero_splat = global [2 x i1] [i1 true, i1 true]
+// MLIR: @hex_integers = global [2 x i16] [i16 -1, i16 -32768]
+// MLIR: @hex_splat = global [2 x i16] [i16 -7, i16 -7]

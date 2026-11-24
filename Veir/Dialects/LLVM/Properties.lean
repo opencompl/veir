@@ -694,44 +694,20 @@ private def caseValuesShape? (type : String) : Option (Nat × Nat) := do
   guard (kind == "tensor" || count > 0)
   return (count, ← width.toNat?)
 
-private def trimWhitespace (cs : List Char) : List Char :=
-  ((cs.dropWhile Char.isWhitespace).reverse.dropWhile Char.isWhitespace).reverse
-
 /--
-  One element of a decimal dense elements body, as MLIR's `TensorLiteralParser::parseElement`
-  and `buildAttributeAPInt` read it: `true` or `false` for `i1`, or an optional `-` followed by
-  decimal digits. A value must fit `width` bits: up to the unsigned maximum, or, when negated,
-  down to the signed minimum with its sign bit set, which rules out `-0`.
+  Reads a literal dense elements body: empty, a single element, or a flat bracketed list of
+  comma-separated elements. A nested list is rejected, since it would not match a
+  one-dimensional type.
 -/
-private def decimalCaseValue? (cs : List Char) (width : Nat) : Option Int := do
-  let cs := trimWhitespace cs
-  if width == 1 && cs == "true".toList then return 1
-  if width == 1 && cs == "false".toList then return 0
-  let (negative, digits) := match cs with
-    | '-' :: rest => (true, trimWhitespace rest)
-    | _ => (false, cs)
-  guard (!digits.isEmpty && digits.all Char.isDigit)
-  let n := digits.foldl (fun acc d => acc * 10 + (d.toNat - '0'.toNat)) 0
-  if negative then
-    guard (0 < width && 1 ≤ n && n ≤ 2 ^ (width - 1))
-    return -(n : Int)
-  guard (n < 2 ^ width)
-  return n
-
-/--
-  Reads a decimal dense elements body: empty, a single element, or a flat bracketed list of
-  comma-separated elements (see `decimalCaseValue?`). A nested list is rejected, since it would
-  not match a one-dimensional type.
--/
-private def decimalCaseValues? (body : String) (width : Nat) : Option (Array Int) := do
-  match trimWhitespace body.toList with
+private def literalCaseValues? (body : String) (width : Nat) : Option (Array Int) := do
+  match body.trimAscii.toString.toList with
   | [] => return #[]
   | '[' :: rest =>
     guard (rest.getLast? == some ']')
-    let inner := trimWhitespace rest.dropLast
+    let inner := (String.ofList rest.dropLast).trimAscii.toString
     if inner.isEmpty then return #[]
-    ((String.ofList inner).splitOn ",").toArray.mapM (decimalCaseValue? ·.toList width)
-  | cs => return #[← decimalCaseValue? cs width]
+    (inner.splitOn ",").toArray.mapM (DenseElementsAttr.parseInteger? · width)
+  | cs => return #[← DenseElementsAttr.parseInteger? (String.ofList cs) width]
 
 /--
   Reads a `case_values` attribute: a one-dimensional tensor or vector of `W`-bit integers, each in
@@ -747,7 +723,7 @@ def LLVMSwitchCaseValues.parse? (attr : DenseElementsAttr) : Option LLVMSwitchCa
   let (count, width) ← caseValuesShape? attr.type
   if let some bits := DenseElementsAttr.parseRawIntegers? attr.value.trimAscii.toString count width then
     return { width, bits }
-  let values ← decimalCaseValues? attr.value width
+  let values ← literalCaseValues? attr.value width
   guard (values.size == count)
   let modulus : Int := 2 ^ width
   /- `BitVec.ofInt width v`, without recomputing `2 ^ width` per value. -/

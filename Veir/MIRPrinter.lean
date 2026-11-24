@@ -2,7 +2,6 @@ module
 
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
-import Veir.ForLean
 import Veir.IR.DenseElementsAttr
 import Veir.IR.SymbolRef
 import Std.Data.TreeMap.Raw.Basic
@@ -788,16 +787,6 @@ private partial def integerArrayShape? : Attribute → Option (List Nat × Nat)
     return (t.size :: dims, width)
   | _ => none
 
-private def denseInteger? (text : String) : Option Int := do
-  if text == "true" then return 1
-  if text == "false" then return 0
-  if text.startsWith "0x" then
-    let digits := text.toList.drop 2
-    guard (!digits.isEmpty)
-    let n ← digits.foldlM (fun n c => do return n * 16 + (← Char.hexDigit? c).toNat) 0
-    return Int.ofNat n
-  text.toInt?
-
 /-- Dense elements are stored as text in VeIR. Check the shape and width before
     reading integer lists, splats, or raw data. -/
 private def denseIntegers? (attr : DenseElementsAttr) (type : Attribute) : Option (Array Int) := do
@@ -807,7 +796,7 @@ private def denseIntegers? (attr : DenseElementsAttr) (type : Attribute) : Optio
   let attrType := String.ofList (attr.type.toList.filter (!·.isWhitespace))
   guard (attrType == s!"tensor<{shape}>" || attrType == s!"vector<{shape}>")
   let count := dims.foldl (· * ·) 1
-  let text := String.ofList (attr.value.toList.filter (!·.isWhitespace))
+  let text := attr.value.trimAscii.toString
   if text.isEmpty then
     guard (count == 0)
     return #[]
@@ -815,13 +804,12 @@ private def denseIntegers? (attr : DenseElementsAttr) (type : Attribute) : Optio
     return (← DenseElementsAttr.parseRawIntegers? text count width).map Int.ofNat
   let values ← if text.startsWith "[" then do
       let flat := String.ofList (text.toList.filter fun c => c != '[' && c != ']')
-      if flat.isEmpty then pure #[]
-      else (flat.splitOn ",").toArray.mapM denseInteger?
+      if flat.trimAscii.isEmpty then pure #[]
+      else (flat.splitOn ",").toArray.mapM (DenseElementsAttr.parseInteger? · width)
     else do
-      let value ← denseInteger? text
+      let value ← DenseElementsAttr.parseInteger? text width
       pure (Array.replicate count value)
   guard (values.size == count)
-  guard (values.all fun v => -(2 ^ (width - 1) : Int) ≤ v && v < (2 ^ width : Int))
   return values
 
 /-- Aggregate updates stay structured until emission. A persistent map shares unchanged

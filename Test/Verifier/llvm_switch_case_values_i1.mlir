@@ -2,6 +2,7 @@
 // RUN: MLIR_ROUNDTRIP
 
 // MLIR prints `i1` dense elements as `true` and `false`; the verifier reads them as 1 and 0.
+// Raw bytes use nonzero truth, including bytes whose low bit is zero.
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<i1 (i1)>, linkage = #llvm.linkage<external>, sym_name = "f"}> ({
   ^bb0(%x: i1):
@@ -9,9 +10,12 @@
   ^bb1:
     "llvm.switch"(%x)[^bb2, ^bb2, ^bb2] <{case_operand_segments = array<i32: 0, 0>, case_values = dense<[false, true]> : vector<2xi1>, operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
   ^bb2:
+    "llvm.switch"(%x)[^bb3, ^bb3, ^bb3] <{case_operand_segments = array<i32: 0, 0>, case_values = dense<"0x0002"> : vector<2xi1>, operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+  ^bb3:
     "llvm.return"(%x) : (i1) -> ()
   }) : () -> ()
 }) : () -> ()
 
 // CHECK: "case_values" = dense<true> : vector<1xi1>
 // CHECK: "case_values" = dense<[false, true]> : vector<2xi1>
+// CHECK: "case_values" = dense<{{"0x0002"|\[false, true\]}}> : vector<2xi1>
