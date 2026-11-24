@@ -1,9 +1,9 @@
-// RUN: not veir-opt %s --split-input-file --allow-unregistered-dialect -p=register-allocation-riscv64 2>&1 >/dev/null | filecheck %s
+// RUN: not veir-opt %s --split-input-file --allow-unregistered-dialect -p=register-precolouring-riscv64,register-allocation-riscv64 2>&1 >/dev/null | filecheck %s
 
-// Every shape the pass rejects, one per chunk. A failing chunk does not stop the
-// following ones, so all the diagnostics below are produced in a single run.
+// Every function shape the register passes reject, one per chunk. A failing chunk does not 
+// stop the following ones, so all the diagnostics below are produced in a single run.
 //
-// The pass reports no source location, so a message is tied to its chunk only by
+// The passes report no source location, so a message is tied to its chunk only by
 // position: the CHECK lines at the bottom are in chunk order and must stay that way.
 
 // The pass reads the functions out of the root's single region. A verified `builtin.module`
@@ -57,11 +57,15 @@
 
 // -----
 
-// A function entry block with arguments.
+// A function with more arguments than the eight argument registers a0-a7: the ninth would
+// be passed on the stack.
 "builtin.module"() ({
-  "riscv_cf.func"() <{sym_name = "f", function_type = (!riscv.reg) -> ()}> ({
-  ^entry(%a : !riscv.reg):
-    %sum = "riscv.add"(%a, %a) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+  "riscv_cf.func"() <{sym_name = "f", function_type = (!riscv.reg, !riscv.reg, !riscv.reg,
+      !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()}> ({
+  ^entry(%a0 : !riscv.reg, %a1 : !riscv.reg, %a2 : !riscv.reg, %a3 : !riscv.reg,
+         %a4 : !riscv.reg, %a5 : !riscv.reg, %a6 : !riscv.reg, %a7 : !riscv.reg,
+         %a8 : !riscv.reg):
+    %sum = "riscv.add"(%a0, %a8) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
@@ -81,11 +85,35 @@
 
 // -----
 
-// A function with return values.
+// A function with three results: only a0 and a1 return values in registers.
 "builtin.module"() ({
-  "riscv_cf.func"() <{sym_name = "f", function_type = () -> !riscv.reg}> ({
+  "riscv_cf.func"() <{sym_name = "f", function_type = () -> (!riscv.reg, !riscv.reg, !riscv.reg)}> ({
     %a = "riscv.li"() <{value = 5 : i64}> : () -> !riscv.reg
-    "riscv_cf.return"(%a) : (!riscv.reg) -> ()
+    "riscv_cf.return"(%a, %a, %a) : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
+  }) : () -> ()
+}) : () -> ()
+
+// -----
+
+// A function that calls another: a value live across the call could be given a caller-saved
+// register, which the call clobbers.
+"builtin.module"() ({
+  "riscv_cf.func"() <{sym_name = "g", function_type = () -> ()}> ({}) : () -> ()
+  "riscv_cf.func"() <{sym_name = "f", function_type = () -> ()}> ({
+    %a = "riscv.li"() <{value = 5 : i64}> : () -> !riscv.reg
+    "riscv_cf.call"() <{callee = @g}> : () -> ()
+    %b = "riscv.add"(%a, %a) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    "riscv_cf.return"() : () -> ()
+  }) : () -> ()
+}) : () -> ()
+
+// -----
+
+// A variadic function: its variadic arguments are not modeled.
+"builtin.module"() ({
+  "llvm.func"() <{function_type = !llvm.func<void (!riscv.reg, ...)>, sym_name = "f"}> ({
+  ^entry(%a : !riscv.reg):
+    "riscv_cf.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
 
@@ -123,9 +151,11 @@
 // CHECK:      register allocation expects a module with a single region
 // CHECK:      register allocation expects a module body with a single block
 // CHECK:      register allocation does not support block arguments
-// CHECK:      register allocation does not support block arguments
+// CHECK:      register allocation supports at most 8 function arguments
 // CHECK:      register allocation requires a single-block function
-// CHECK:      register allocation does not support function return values
+// CHECK:      register allocation supports at most 2 function results
+// CHECK:      register allocation does not support function calls
+// CHECK:      register allocation does not support variadic functions
 // CHECK:      register allocation does not support operations with nested regions
 // CHECK:      register allocation requires a single-block function
 // CHECK-NOT:  error
