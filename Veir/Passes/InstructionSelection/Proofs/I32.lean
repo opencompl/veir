@@ -3,7 +3,7 @@ module
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Casting
-public import Veir.Dialects.GMIR_RISCV.Semantics
+public import Veir.Data.GMIR_RISCV.Basic
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
@@ -16,7 +16,7 @@ import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Lemmas
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Data.Casting
-import all Veir.Dialects.GMIR_RISCV.Semantics
+import all Veir.Data.GMIR_RISCV.Basic
 
 public section
 

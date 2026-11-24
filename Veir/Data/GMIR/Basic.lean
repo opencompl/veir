@@ -7,7 +7,7 @@ import all Veir.Data.LLVM.Int.Bitblast
 
 open Veir.Data.LLVM
 
-namespace Veir.GMIR
+namespace Veir.Data.GMIR
 
 public section
 
@@ -67,4 +67,4 @@ theorem selectNonzero_one {w : Nat} (c : Int 1) (x y : Int w) :
 
 end
 
-end Veir.GMIR
+end Veir.Data.GMIR

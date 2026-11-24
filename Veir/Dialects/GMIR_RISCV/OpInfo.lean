@@ -5,7 +5,7 @@ public import Veir.Verifier.Basic
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Dialects.GMIR.OpInfo
-public import Veir.Dialects.GMIR_RISCV.Semantics
+public import Veir.Data.GMIR_RISCV.Basic
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -112,7 +112,8 @@ def GMIR_RISCV.interpretOp' (opType : Veir.GMIR_RISCV) (_properties : properties
   let operands ← match operands.toList with
     | [.int 64 x] => pure #[.int 32 (low x)]
     | [.int 64 lhs, .int 64 rhs] =>
-      let rhs := if opType matches .g_sllw | .g_srlw | .g_sraw then wordShiftAmount (low rhs)
+      let rhs := if opType matches .g_sllw | .g_srlw | .g_sraw then
+          Data.GMIR_RISCV.wordShiftAmount (low rhs)
         else low rhs
       pure #[.int 32 (low lhs), .int 32 rhs]
     | _ => none

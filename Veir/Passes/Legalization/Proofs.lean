@@ -2,8 +2,8 @@ module
 
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Casting
-public import Veir.Dialects.GMIR.Semantics
-public import Veir.Dialects.GMIR_RISCV.Semantics
+public import Veir.Data.GMIR.Basic
+public import Veir.Data.GMIR_RISCV.Basic
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
@@ -11,9 +11,9 @@ meta import Veir.Meta.Tactic.PBVDecide
 
 import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Dialects.GMIR.Semantics
+import all Veir.Data.GMIR.Basic
 import all Veir.Dialects.GMIR.OpInfo
-import all Veir.Dialects.GMIR_RISCV.Semantics
+import all Veir.Data.GMIR_RISCV.Basic
 
 public section
 

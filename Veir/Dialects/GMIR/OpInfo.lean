@@ -10,7 +10,7 @@ public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
 public import Veir.Data.LLVM.Int.Basic
-public import Veir.Dialects.GMIR.Semantics
+public import Veir.Data.GMIR.Basic
 import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
 
@@ -416,7 +416,7 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let [.int _ cond, .int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (GMIR.selectNonzero cond lhs rhs)], mem, none)
+    return (#[.int bw (Data.GMIR.selectNonzero cond lhs rhs)], mem, none)
   | .g_sub => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -735,18 +735,18 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let [.int bw x, .int bw' y, .int _ z] := operands.toList | none
     if h : bw' ≠ bw then none else
     let y := y.cast (by simp at h; exact h)
-    return (#[.int bw (Data.LLVM.Int.fshl x y (GMIR.funnelShiftAmount bw z))], mem, none)
+    return (#[.int bw (Data.LLVM.Int.fshl x y (Data.GMIR.funnelShiftAmount bw z))], mem, none)
   | .g_fshr => do
     let [.int bw x, .int bw' y, .int _ z] := operands.toList | none
     if h : bw' ≠ bw then none else
     let y := y.cast (by simp at h; exact h)
-    return (#[.int bw (Data.LLVM.Int.fshr x y (GMIR.funnelShiftAmount bw z))], mem, none)
+    return (#[.int bw (Data.LLVM.Int.fshr x y (Data.GMIR.funnelShiftAmount bw z))], mem, none)
   | .g_rotl => do
     let [.int bw x, .int _ z] := operands.toList | none
-    return (#[.int bw (GMIR.rotl x z)], mem, none)
+    return (#[.int bw (Data.GMIR.rotl x z)], mem, none)
   | .g_rotr => do
     let [.int bw x, .int _ z] := operands.toList | none
-    return (#[.int bw (GMIR.rotr x z)], mem, none)
+    return (#[.int bw (Data.GMIR.rotr x z)], mem, none)
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
