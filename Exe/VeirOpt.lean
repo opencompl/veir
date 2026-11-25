@@ -9,6 +9,7 @@ import Veir.Passes.PrintDataFlow
 import Veir.Passes.InstCombine
 import Veir.Passes.ApplyPatterns
 import Veir.Passes.CSE
+import Veir.Passes.Mem2Reg
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RISCV64Branches
 import Veir.Passes.InstructionSelection.RISCV64Abi
@@ -41,6 +42,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      InstCombinePass,
      ApplyPatternsPass,
      CSEPass,
+     Mem2RegPass,
      IselRISCV64,
      IselBrRISCV64,
      CallLoweringRISCV64,
