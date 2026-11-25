@@ -25,58 +25,42 @@ set_option maxRecDepth 4096
 
 theorem smax_nsw_add_dist_common_left_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (smax_nsw_add_dist_common_left_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [smax_nsw_add_dist_common_left_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveSignedAddDist
+  simp only [smax_nsw_add_dist_common_left_pattern, requireUses, orient_eq]
+  proveSignedAddDist
 
 theorem smax_nsw_add_dist_common_right_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (smax_nsw_add_dist_common_right_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [smax_nsw_add_dist_common_right_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveSignedAddDist
+  simp only [smax_nsw_add_dist_common_right_pattern, requireUses, orient_eq]
+  proveSignedAddDist
 
 theorem smax_nsw_add_dist_crossed_left_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (smax_nsw_add_dist_crossed_left_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [smax_nsw_add_dist_crossed_left_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveSignedAddDist
+  simp only [smax_nsw_add_dist_crossed_left_pattern, requireUses, orient_eq]
+  proveSignedAddDist
 
 theorem smax_nsw_add_dist_crossed_right_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (smax_nsw_add_dist_crossed_right_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [smax_nsw_add_dist_crossed_right_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveSignedAddDist
+  simp only [smax_nsw_add_dist_crossed_right_pattern, requireUses, orient_eq]
+  proveSignedAddDist
 
 theorem smin_nsw_add_dist_common_left_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (smin_nsw_add_dist_common_left_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [smin_nsw_add_dist_common_left_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveSignedAddDist
+  simp only [smin_nsw_add_dist_common_left_pattern, requireUses, orient_eq]
+  proveSignedAddDist
 
 theorem smin_nsw_add_dist_common_right_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (smin_nsw_add_dist_common_right_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [smin_nsw_add_dist_common_right_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveSignedAddDist
+  simp only [smin_nsw_add_dist_common_right_pattern, requireUses, orient_eq]
+  proveSignedAddDist
 
 theorem smin_nsw_add_dist_crossed_left_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (smin_nsw_add_dist_crossed_left_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [smin_nsw_add_dist_crossed_left_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveSignedAddDist
+  simp only [smin_nsw_add_dist_crossed_left_pattern, requireUses, orient_eq]
+  proveSignedAddDist
 
 theorem smin_nsw_add_dist_crossed_right_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (smin_nsw_add_dist_crossed_right_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [smin_nsw_add_dist_crossed_right_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveSignedAddDist
+  simp only [smin_nsw_add_dist_crossed_right_pattern, requireUses, orient_eq]
+  proveSignedAddDist
 
 end Veir.InstructionSimplify.CTreeProofs

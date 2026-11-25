@@ -54,11 +54,41 @@ elab "checkPuddleSimpTactic" : tactic => do
           check decl.type
           if let some value := decl.value? then check value
 
+/- Patterns parameterized by symbolic choices (for example, the operand orientation of a
+commutative node) select their operand handles with `if`. These distribute the lookup over the
+choice, so semantic normalization proceeds without splitting on it. -/
+theorem SemanticAssignment.getValue_ite (assignment : SemanticAssignment) (c : Prop) [Decidable c]
+    (h₁ h₂ : Handle OpCode .value) :
+    assignment.getValue (if c then h₁ else h₂) =
+      if c then assignment.getValue h₁ else assignment.getValue h₂ := by
+  split <;> rfl
+
+theorem SemanticAssignment.getValueType_ite (assignment : SemanticAssignment) (c : Prop)
+    [Decidable c] (h₁ h₂ : Handle OpCode .value) :
+    assignment.getValueType (if c then h₁ else h₂) =
+      if c then assignment.getValueType h₁ else assignment.getValueType h₂ := by
+  split <;> rfl
+
+theorem ite_some_some {α : Type _} (c : Prop) [Decidable c] (x y : α) :
+    (if c then some x else some y) = some (if c then x else y) := by
+  split <;> rfl
+
 open Lean Elab Tactic in
-/-- Discharge the structural CTree validity obligations, leaving semantic preservation. -/
+/--
+Discharge the structural CTree validity obligations, leaving semantic preservation.
+
+Boolean variables in the context are treated as symbolic pattern choices: structural
+well-formedness is checked for each of their assignments, while the semantic obligation is
+normalized once with the choices left symbolic.
+-/
 elab "simpPuddleValid" : tactic => withMainContext do
   unless (← getMainTarget).isAppOf ``Pattern.Valid do
     throwError "expected a CTree pattern validity goal"
+  let mut splitChoices ← `(tactic| skip)
+  for decl in ← getLCtx do
+    if !decl.isImplementationDetail && !decl.userName.hasMacroScopes &&
+        (← instantiateMVars decl.type).isConstOf ``Bool then
+      splitChoices ← `(tactic| $splitChoices <;> cases $(mkIdent decl.userName):ident)
   evalTactic (← `(tactic| (
     /- The pattern may already be normalized, e.g. by `cbv`. -/
     try unfoldPuddleBuilder
@@ -69,9 +99,11 @@ elab "simpPuddleValid" : tactic => withMainContext do
         false_implies, implies_true]
       simp [get_effects, is_terminator]
     · cbv
-    · open scoped Veir.Puddle.PuddleCbv in cbv
+    · $splitChoices <;> open scoped Veir.Puddle.PuddleCbv in cbv
     /- Normalize semantic plumbing while keeping operation denotations opaque. -/
-    simp only [Pattern.PreservesSemantics, MatchProg.Models,
+    simp only [↓SemanticAssignment.getValue_ite, ↓SemanticAssignment.getValueType_ite,
+      ite_some_some, ite_self,
+      Pattern.PreservesSemantics, MatchProg.Models,
       Veir.Puddle.MatchProg.bindingDecls, List.partition_eq_filter_filter,
       MatchProg.ModelsDecls, MatchDecl.Models, MatchProg.rootSemantics,
       CreateProg.semantics, CreateProg.semanticsDecls, CreateDecl.semantics,

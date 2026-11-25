@@ -11,6 +11,7 @@ import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Ptr.Basic
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
+public meta import Lean
 
 namespace Veir.InstructionSimplify.CTreeProofs
 
@@ -39,8 +40,304 @@ private theorem default_or_disjoint :
     (@default (propertiesOf (OpCode.llvm .or))
       (@instInhabitedPropertiesOf OpCode instIsOpCodeOpCode (.llvm .or))).disjoint = false := rfl
 
+/-! ## Commutative operand orientations
+
+Rules over commutative nodes are compiled once per operand orientation, selected by the bits of
+a `swaps` parameter through `orient`. Rather than proving each orientation separately, the
+validity proof keeps the bits symbolic: `orient_eq` selects each operand with an `if`, the
+structural checks split on the bits, and the semantic obligation is normalized once, with the
+lemmas below showing the commutative operations ignore the orientation.
+-/
+
+theorem orient_eq (swaps index : Nat) (a b : Handle OpCode .value) :
+    orient swaps index a b =
+      #[if swaps.testBit index then b else a, if swaps.testBit index then a else b] := by
+  unfold orient; split <;> simp_all
+
+open Lean Elab Tactic Meta in
+/-- Generalize each `Nat.testBit` in the goal to a fresh Boolean pattern choice. -/
+elab "generalizeSwapBits" : tactic => withMainContext do
+  let target ← instantiateMVars (← getMainTarget)
+  let bitsRef ← IO.mkRef (#[] : Array Expr)
+  target.forEachWhere (fun e => e.isAppOfArity ``Nat.testBit 2 && !e.hasLooseBVars) fun e =>
+    bitsRef.modify fun bits => if bits.contains e then bits else bits.push e
+  let bits ← bitsRef.get
+  let args := bits.mapIdx fun i e => { expr := e, xName? := some (.mkSimple s!"swap{i}") }
+  let (_, goal) ← (← getMainGoal).generalize args
+  replaceMainGoal [goal]
+
+private theorem int_add_comm {w : Nat} (x y : Data.LLVM.Int w) (nsw nuw : Bool) :
+    x.add y nsw nuw = y.add x nsw nuw := by
+  cases x <;> cases y <;> simp [Data.LLVM.Int.add, BitVec.add_comm, BitVec.saddOverflow_comm,
+    BitVec.uaddOverflow_comm, Id.run]
+
+private theorem int_smax_comm {w : Nat} (x y : Data.LLVM.Int w) : x.smax y = y.smax x := by
+  cases x <;> cases y <;> simp only [Data.LLVM.Int.smax, Id.run]
+  rename_i a b
+  by_cases h₁ : a.sle b <;> by_cases h₂ : b.sle a <;>
+    simp only [h₁, h₂, ↓reduceIte, Bool.false_eq_true] <;>
+    simp only [BitVec.sle, decide_eq_true_eq, Bool.not_eq_true, decide_eq_false_iff_not] at h₁ h₂
+  · congr 1; apply BitVec.eq_of_toInt_eq; omega
+  · omega
+
+private theorem int_smin_comm {w : Nat} (x y : Data.LLVM.Int w) : x.smin y = y.smin x := by
+  cases x <;> cases y <;> simp only [Data.LLVM.Int.smin, Id.run]
+  rename_i a b
+  by_cases h₁ : a.sle b <;> by_cases h₂ : b.sle a <;>
+    simp only [h₁, h₂, ↓reduceIte, Bool.false_eq_true] <;>
+    simp only [BitVec.sle, decide_eq_true_eq, Bool.not_eq_true, decide_eq_false_iff_not] at h₁ h₂
+  · congr 1; apply BitVec.eq_of_toInt_eq; omega
+  · omega
+
+private theorem int_umax_comm {w : Nat} (x y : Data.LLVM.Int w) : x.umax y = y.umax x := by
+  cases x <;> cases y <;> simp only [Data.LLVM.Int.umax, Id.run]
+  rename_i a b
+  by_cases h₁ : a.ule b <;> by_cases h₂ : b.ule a <;>
+    simp only [h₁, h₂, ↓reduceIte, Bool.false_eq_true] <;>
+    simp only [BitVec.ule, decide_eq_true_eq, Bool.not_eq_true, decide_eq_false_iff_not] at h₁ h₂
+  · congr 1; apply BitVec.eq_of_toNat_eq; omega
+  · omega
+
+private theorem int_umin_comm {w : Nat} (x y : Data.LLVM.Int w) : x.umin y = y.umin x := by
+  cases x <;> cases y <;> simp only [Data.LLVM.Int.umin, Id.run]
+  rename_i a b
+  by_cases h₁ : a.ule b <;> by_cases h₂ : b.ule a <;>
+    simp only [h₁, h₂, ↓reduceIte, Bool.false_eq_true] <;>
+    simp only [BitVec.ule, decide_eq_true_eq, Bool.not_eq_true, decide_eq_false_iff_not] at h₁ h₂
+  · congr 1; apply BitVec.eq_of_toNat_eq; omega
+  · omega
+
+private theorem int_and_comm {w : Nat} (x y : Data.LLVM.Int w) : x.and y = y.and x := by
+  cases x <;> cases y <;> simp [Data.LLVM.Int.and, BitVec.and_comm, Id.run]
+
+private theorem int_or_comm {w : Nat} (x y : Data.LLVM.Int w) (disjoint : Bool) :
+    x.or y disjoint = y.or x disjoint := by
+  cases x <;> cases y <;> simp [Data.LLVM.Int.or, BitVec.and_comm, BitVec.or_comm, Id.run]
+
+private theorem int_xor_comm {w : Nat} (x y : Data.LLVM.Int w) : x.xor y = y.xor x := by
+  cases x <;> cases y <;> simp [Data.LLVM.Int.xor, BitVec.xor_comm, Id.run]
+
+private theorem int_mul_comm {w : Nat} (x y : Data.LLVM.Int w) (nsw nuw : Bool) :
+    x.mul y nsw nuw = y.mul x nsw nuw := by
+  cases x <;> cases y <;> simp [Data.LLVM.Int.mul, BitVec.mul_comm, BitVec.smulOverflow,
+    BitVec.umulOverflow, Int.mul_comm, Nat.mul_comm, Id.run]
+
+theorem interpretOp'_add_ite (properties : propertiesOf (OpCode.llvm .add))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (blockOperands : Array BlockPtr) (memory : MemoryState) :
+    Veir.CTree.interpretOp' (.llvm .add) properties resultTypes
+        #[if c then b else a, if c then a else b] blockOperands memory =
+      Veir.CTree.interpretOp' (.llvm .add) properties resultTypes #[a, b] blockOperands memory := by
+  split
+  · simp only [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp']
+    cases a <;> cases b <;> simp
+    rename_i w x w' y
+    by_cases h : w' = w
+    · subst h; simp [int_add_comm]
+    · simp [h, Ne.symm h]
+  · rfl
+
+theorem interpretOp'_intr__smax_ite (properties : propertiesOf (OpCode.llvm .intr__smax))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (blockOperands : Array BlockPtr) (memory : MemoryState) :
+    Veir.CTree.interpretOp' (.llvm .intr__smax) properties resultTypes
+        #[if c then b else a, if c then a else b] blockOperands memory =
+      Veir.CTree.interpretOp' (.llvm .intr__smax) properties resultTypes #[a, b] blockOperands memory := by
+  split
+  · simp only [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp']
+    cases a <;> cases b <;> simp
+    rename_i w x w' y
+    by_cases h : w' = w
+    · subst h; simp [int_smax_comm]
+    · simp [h, Ne.symm h]
+  · rfl
+
+theorem interpretOp'_intr__smin_ite (properties : propertiesOf (OpCode.llvm .intr__smin))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (blockOperands : Array BlockPtr) (memory : MemoryState) :
+    Veir.CTree.interpretOp' (.llvm .intr__smin) properties resultTypes
+        #[if c then b else a, if c then a else b] blockOperands memory =
+      Veir.CTree.interpretOp' (.llvm .intr__smin) properties resultTypes #[a, b] blockOperands memory := by
+  split
+  · simp only [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp']
+    cases a <;> cases b <;> simp
+    rename_i w x w' y
+    by_cases h : w' = w
+    · subst h; simp [int_smin_comm]
+    · simp [h, Ne.symm h]
+  · rfl
+
+theorem interpretOp'_intr__umax_ite (properties : propertiesOf (OpCode.llvm .intr__umax))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (blockOperands : Array BlockPtr) (memory : MemoryState) :
+    Veir.CTree.interpretOp' (.llvm .intr__umax) properties resultTypes
+        #[if c then b else a, if c then a else b] blockOperands memory =
+      Veir.CTree.interpretOp' (.llvm .intr__umax) properties resultTypes #[a, b] blockOperands memory := by
+  split
+  · simp only [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp']
+    cases a <;> cases b <;> simp
+    rename_i w x w' y
+    by_cases h : w' = w
+    · subst h; simp [int_umax_comm]
+    · simp [h, Ne.symm h]
+  · rfl
+
+theorem interpretOp'_intr__umin_ite (properties : propertiesOf (OpCode.llvm .intr__umin))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (blockOperands : Array BlockPtr) (memory : MemoryState) :
+    Veir.CTree.interpretOp' (.llvm .intr__umin) properties resultTypes
+        #[if c then b else a, if c then a else b] blockOperands memory =
+      Veir.CTree.interpretOp' (.llvm .intr__umin) properties resultTypes #[a, b] blockOperands memory := by
+  split
+  · simp only [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp']
+    cases a <;> cases b <;> simp
+    rename_i w x w' y
+    by_cases h : w' = w
+    · subst h; simp [int_umin_comm]
+    · simp [h, Ne.symm h]
+  · rfl
+
+theorem interpretOp'_and_ite (properties : propertiesOf (OpCode.llvm .and))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (blockOperands : Array BlockPtr) (memory : MemoryState) :
+    Veir.CTree.interpretOp' (.llvm .and) properties resultTypes
+        #[if c then b else a, if c then a else b] blockOperands memory =
+      Veir.CTree.interpretOp' (.llvm .and) properties resultTypes #[a, b] blockOperands memory := by
+  split
+  · simp only [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp']
+    cases a <;> cases b <;> simp
+    rename_i w x w' y
+    by_cases h : w' = w
+    · subst h; simp [int_and_comm]
+    · simp [h, Ne.symm h]
+  · rfl
+
+theorem interpretOp'_or_ite (properties : propertiesOf (OpCode.llvm .or))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (blockOperands : Array BlockPtr) (memory : MemoryState) :
+    Veir.CTree.interpretOp' (.llvm .or) properties resultTypes
+        #[if c then b else a, if c then a else b] blockOperands memory =
+      Veir.CTree.interpretOp' (.llvm .or) properties resultTypes #[a, b] blockOperands memory := by
+  split
+  · simp only [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp']
+    cases a <;> cases b <;> simp
+    rename_i w x w' y
+    by_cases h : w' = w
+    · subst h; simp [int_or_comm]
+    · simp [h, Ne.symm h]
+  · rfl
+
+theorem interpretOp'_xor_ite (properties : propertiesOf (OpCode.llvm .xor))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (blockOperands : Array BlockPtr) (memory : MemoryState) :
+    Veir.CTree.interpretOp' (.llvm .xor) properties resultTypes
+        #[if c then b else a, if c then a else b] blockOperands memory =
+      Veir.CTree.interpretOp' (.llvm .xor) properties resultTypes #[a, b] blockOperands memory := by
+  split
+  · simp only [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp']
+    cases a <;> cases b <;> simp
+    rename_i w x w' y
+    by_cases h : w' = w
+    · subst h; simp [int_xor_comm]
+    · simp [h, Ne.symm h]
+  · rfl
+
+theorem interpretOp'_mul_ite (properties : propertiesOf (OpCode.llvm .mul))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (blockOperands : Array BlockPtr) (memory : MemoryState) :
+    Veir.CTree.interpretOp' (.llvm .mul) properties resultTypes
+        #[if c then b else a, if c then a else b] blockOperands memory =
+      Veir.CTree.interpretOp' (.llvm .mul) properties resultTypes #[a, b] blockOperands memory := by
+  split
+  · simp only [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp']
+    cases a <;> cases b <;> simp
+    rename_i w x w' y
+    by_cases h : w' = w
+    · subst h; simp [int_mul_comm]
+    · simp [h, Ne.symm h]
+  · rfl
+
+theorem canInterpretTo_add_ite (properties : propertiesOf (OpCode.llvm .add))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (results : Interp (Array RuntimeValue)) :
+    CTree.CanInterpretTo (.llvm .add) properties resultTypes
+        #[if c then b else a, if c then a else b] results =
+      CTree.CanInterpretTo (.llvm .add) properties resultTypes #[a, b] results := by
+  simp only [CTree.CanInterpretTo, interpretOp'_add_ite]
+
+theorem canInterpretTo_mul_ite (properties : propertiesOf (OpCode.llvm .mul))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (results : Interp (Array RuntimeValue)) :
+    CTree.CanInterpretTo (.llvm .mul) properties resultTypes
+        #[if c then b else a, if c then a else b] results =
+      CTree.CanInterpretTo (.llvm .mul) properties resultTypes #[a, b] results := by
+  simp only [CTree.CanInterpretTo, interpretOp'_mul_ite]
+
+theorem canInterpretTo_intr__smax_ite (properties : propertiesOf (OpCode.llvm .intr__smax))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (results : Interp (Array RuntimeValue)) :
+    CTree.CanInterpretTo (.llvm .intr__smax) properties resultTypes
+        #[if c then b else a, if c then a else b] results =
+      CTree.CanInterpretTo (.llvm .intr__smax) properties resultTypes #[a, b] results := by
+  simp only [CTree.CanInterpretTo, interpretOp'_intr__smax_ite]
+
+theorem canInterpretTo_intr__smin_ite (properties : propertiesOf (OpCode.llvm .intr__smin))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (results : Interp (Array RuntimeValue)) :
+    CTree.CanInterpretTo (.llvm .intr__smin) properties resultTypes
+        #[if c then b else a, if c then a else b] results =
+      CTree.CanInterpretTo (.llvm .intr__smin) properties resultTypes #[a, b] results := by
+  simp only [CTree.CanInterpretTo, interpretOp'_intr__smin_ite]
+
+theorem canInterpretTo_intr__umax_ite (properties : propertiesOf (OpCode.llvm .intr__umax))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (results : Interp (Array RuntimeValue)) :
+    CTree.CanInterpretTo (.llvm .intr__umax) properties resultTypes
+        #[if c then b else a, if c then a else b] results =
+      CTree.CanInterpretTo (.llvm .intr__umax) properties resultTypes #[a, b] results := by
+  simp only [CTree.CanInterpretTo, interpretOp'_intr__umax_ite]
+
+theorem canInterpretTo_intr__umin_ite (properties : propertiesOf (OpCode.llvm .intr__umin))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (results : Interp (Array RuntimeValue)) :
+    CTree.CanInterpretTo (.llvm .intr__umin) properties resultTypes
+        #[if c then b else a, if c then a else b] results =
+      CTree.CanInterpretTo (.llvm .intr__umin) properties resultTypes #[a, b] results := by
+  simp only [CTree.CanInterpretTo, interpretOp'_intr__umin_ite]
+
+theorem canInterpretTo_and_ite (properties : propertiesOf (OpCode.llvm .and))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (results : Interp (Array RuntimeValue)) :
+    CTree.CanInterpretTo (.llvm .and) properties resultTypes
+        #[if c then b else a, if c then a else b] results =
+      CTree.CanInterpretTo (.llvm .and) properties resultTypes #[a, b] results := by
+  simp only [CTree.CanInterpretTo, interpretOp'_and_ite]
+
+theorem canInterpretTo_or_ite (properties : propertiesOf (OpCode.llvm .or))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (results : Interp (Array RuntimeValue)) :
+    CTree.CanInterpretTo (.llvm .or) properties resultTypes
+        #[if c then b else a, if c then a else b] results =
+      CTree.CanInterpretTo (.llvm .or) properties resultTypes #[a, b] results := by
+  simp only [CTree.CanInterpretTo, interpretOp'_or_ite]
+
+theorem canInterpretTo_xor_ite (properties : propertiesOf (OpCode.llvm .xor))
+    (resultTypes : Array TypeAttr) (c : Prop) [Decidable c] (a b : RuntimeValue)
+    (results : Interp (Array RuntimeValue)) :
+    CTree.CanInterpretTo (.llvm .xor) properties resultTypes
+        #[if c then b else a, if c then a else b] results =
+      CTree.CanInterpretTo (.llvm .xor) properties resultTypes #[a, b] results := by
+  simp only [CTree.CanInterpretTo, interpretOp'_xor_ite]
+
+/-- Undo symbolic operand orientations of commutative operations. -/
+macro "rewriteCommutedOperands" : tactic => `(tactic|
+  simp -failIfUnchanged only [interpretOp'_add_ite, canInterpretTo_add_ite, interpretOp'_mul_ite, canInterpretTo_mul_ite, interpretOp'_intr__smax_ite, canInterpretTo_intr__smax_ite, interpretOp'_intr__smin_ite, canInterpretTo_intr__smin_ite, interpretOp'_intr__umax_ite, canInterpretTo_intr__umax_ite, interpretOp'_intr__umin_ite, canInterpretTo_intr__umin_ite, interpretOp'_and_ite, canInterpretTo_and_ite, interpretOp'_or_ite, canInterpretTo_or_ite, interpretOp'_xor_ite, canInterpretTo_xor_ite])
+
+/-- Normalize a rule, keeping any commutative orientations selected by `swaps` bits symbolic. -/
 macro "normalizeInstructionSimplify" : tactic => `(tactic| (
+  generalizeSwapBits
   simpPuddleValid
+  rewriteCommutedOperands
   simp [puddle, OperationResult.isRefinedBy, Veir.CTree.interpretOp',
     Llvm.interpretOpCTree, Llvm.interpretOp', CTree.CanInterpretTo,
     RuntimeValue.isRefinedBy, default_or_disjoint]))
@@ -144,7 +441,9 @@ private theorem bitwidth_of_integer (t : IntegerType) :
     bitwidth (.of IntegerType t) = t.bitwidth := rfl
 
 macro "normalizeConstantRule" : tactic => `(tactic| (
+  generalizeSwapBits
   simpPuddleValid
+  rewriteCommutedOperands
   simp [puddle, RuntimeValue.Conforms.integerType]
   repeat' first
     | erw [forall_constantIs]

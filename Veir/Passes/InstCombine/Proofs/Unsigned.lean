@@ -25,58 +25,42 @@ set_option maxRecDepth 4096
 
 theorem umax_nuw_add_dist_common_left_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (umax_nuw_add_dist_common_left_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [umax_nuw_add_dist_common_left_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveUnsignedAddDist
+  simp only [umax_nuw_add_dist_common_left_pattern, requireUses, orient_eq]
+  proveUnsignedAddDist
 
 theorem umax_nuw_add_dist_common_right_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (umax_nuw_add_dist_common_right_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [umax_nuw_add_dist_common_right_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveUnsignedAddDist
+  simp only [umax_nuw_add_dist_common_right_pattern, requireUses, orient_eq]
+  proveUnsignedAddDist
 
 theorem umax_nuw_add_dist_crossed_left_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (umax_nuw_add_dist_crossed_left_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [umax_nuw_add_dist_crossed_left_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveUnsignedAddDist
+  simp only [umax_nuw_add_dist_crossed_left_pattern, requireUses, orient_eq]
+  proveUnsignedAddDist
 
 theorem umax_nuw_add_dist_crossed_right_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (umax_nuw_add_dist_crossed_right_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [umax_nuw_add_dist_crossed_right_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveUnsignedAddDist
+  simp only [umax_nuw_add_dist_crossed_right_pattern, requireUses, orient_eq]
+  proveUnsignedAddDist
 
 theorem umin_nuw_add_dist_common_left_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (umin_nuw_add_dist_common_left_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [umin_nuw_add_dist_common_left_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveUnsignedAddDist
+  simp only [umin_nuw_add_dist_common_left_pattern, requireUses, orient_eq]
+  proveUnsignedAddDist
 
 theorem umin_nuw_add_dist_common_right_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (umin_nuw_add_dist_common_right_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [umin_nuw_add_dist_common_right_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveUnsignedAddDist
+  simp only [umin_nuw_add_dist_common_right_pattern, requireUses, orient_eq]
+  proveUnsignedAddDist
 
 theorem umin_nuw_add_dist_crossed_left_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (umin_nuw_add_dist_crossed_left_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [umin_nuw_add_dist_crossed_left_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveUnsignedAddDist
+  simp only [umin_nuw_add_dist_crossed_left_pattern, requireUses, orient_eq]
+  proveUnsignedAddDist
 
 theorem umin_nuw_add_dist_crossed_right_valid (swaps : Nat) :
     Puddle.CTree.Pattern.Valid (umin_nuw_add_dist_crossed_right_pattern swaps) := by
-  cases h0 : swaps.testBit 0 <;> cases h1 : swaps.testBit 1 <;> cases h2 : swaps.testBit 2
-  all_goals
-    simp only [umin_nuw_add_dist_crossed_right_pattern, requireUses, orient, h0, h1, h2, Bool.false_eq_true, ↓reduceIte]
-    proveUnsignedAddDist
+  simp only [umin_nuw_add_dist_crossed_right_pattern, requireUses, orient_eq]
+  proveUnsignedAddDist
 
 end Veir.InstructionSimplify.CTreeProofs
