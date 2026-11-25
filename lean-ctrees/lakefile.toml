@@ -3,9 +3,8 @@ version = "0.1.0"
 defaultTargets = ["CTree"]
 
 [[require]]
-name = "Coinductive"
-git = "https://github.com/ISTA-PLV/coinductive"
-rev = "main"
+name = "QPFTypes"
+path = "../QPFTypes"
 
 [[lean_lib]]
 name = "CTree"

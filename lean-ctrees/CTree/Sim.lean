@@ -9,7 +9,7 @@ public import CTree.Interp
 public section
 
 namespace CTree
-open Coinductive Lean.Order Tower
+open Lean.Order Tower
 
 variable {EIn FIn CIn C'In DIn X Y X' Y' : Type u}
   {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u} {C' : C'In → Type u} {D : DIn → Type u}
