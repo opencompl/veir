@@ -15,8 +15,10 @@ repeated constant captures compare bits, while ordinary captures compare SSA
 identity. LLVM intrinsic immediate booleans become VeIR properties. One-use
 checks are profitability guards, not semantic assumptions. New operations use
 only explicitly justified flags; LLVM debug/profile metadata has no counterpart
-in these VeIR integer properties. These are executable patterns, not validity
-proofs. See the regression tests for supported shapes and boundary cases.
+in these VeIR integer properties. Named uncompiled patterns are exposed for
+`Puddle.CTree.Pattern.Valid` proofs in `Veir.Passes.InstCombine.Proofs`; that module
+currently covers a subset of the rules. See the regression tests for supported
+shapes and boundary cases.
 -/
 
 namespace Veir.InstructionSimplify
@@ -97,19 +99,22 @@ set_option linter.unusedVariables false
 
 -- InstCombineSimplifyRules.td:165
 /-- Zero-length memory intrinsics have no accesses, including volatile ones. -/
+def erase_zero_length_memory_intrinsic_pattern (opcode : Llvm) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let pointerType ← MatchProg.type (Attr := LLVM.PointerType)
+      let destination ← MatchProg.value pointerType
+      let source ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let lengthType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let length ← MatchProg.operation (.llvm .mlir__constant) #[] #[lengthType] (constantIs 0)
+      let _ ← MatchProg.root (.llvm opcode) #[destination, source, length.res[0]!] #[]
+      return ())
+    pure
+    (fun _ => (#[] : Array (Handle OpCode .value)))
+
 def erase_zero_length_memory_intrinsic : Array (CompiledPattern OpCode) :=
   #[Llvm.intr__memcpy, Llvm.intr__memmove, Llvm.intr__memset].map fun opcode =>
-    (Pattern.Builder
-      (do
-        let pointerType ← MatchProg.type (Attr := LLVM.PointerType)
-        let destination ← MatchProg.value pointerType
-        let source ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
-        let lengthType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-        let length ← MatchProg.operation (.llvm .mlir__constant) #[] #[lengthType] (constantIs 0)
-        let _ ← MatchProg.root (.llvm opcode) #[destination, source, length.res[0]!] #[]
-        return ())
-      pure
-      (fun _ => (#[] : Array (Handle OpCode .value)))).compile
+    (erase_zero_length_memory_intrinsic_pattern opcode).compile
 
 -- erase_invalid_length_#AtomicMemory.rule_id_component (InstCombineSimplifyRules.td:177): not ported.
 -- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
@@ -253,8 +258,8 @@ def erase_zero_length_memory_intrinsic : Array (CompiledPattern OpCode) :=
 -- no VeIR equivalent.
 
 -- InstCombineSimplifyRules.td:794
-def reconstruct_two_element_aggregate : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun _ => Pattern.Builder
+def reconstruct_two_element_aggregate_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let aggregateType ← MatchProg.type (Attr := TypeAttr) fun t =>
         match t.val with
@@ -277,9 +282,12 @@ def reconstruct_two_element_aggregate : Array (CompiledPattern OpCode) :=
     pure
     (fun aggregate => aggregate)
 
+def reconstruct_two_element_aggregate : Array (CompiledPattern OpCode) :=
+  compileVariants 0 reconstruct_two_element_aggregate_pattern
+
 -- InstCombineSimplifyRules.td:813
-def extract_value_from_identical_aggregate_insert_path : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun _ => Pattern.Builder
+def extract_value_from_identical_aggregate_insert_path_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let aggregateType ← MatchProg.type (Attr := TypeAttr)
       let insertedType ← MatchProg.type (Attr := TypeAttr)
@@ -293,9 +301,12 @@ def extract_value_from_identical_aggregate_insert_path : Array (CompiledPattern 
     pure
     (fun inserted => inserted)
 
+def extract_value_from_identical_aggregate_insert_path : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract_value_from_identical_aggregate_insert_path_pattern
+
 -- InstCombineSimplifyRules.td:821
-def extract_prefix_of_aggregate_insert_path : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun _ => Pattern.Builder
+def extract_prefix_of_aggregate_insert_path_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let aggregateType ← MatchProg.type (Attr := TypeAttr)
       let insertedType ← MatchProg.type (Attr := TypeAttr)
@@ -315,9 +326,12 @@ def extract_prefix_of_aggregate_insert_path : Array (CompiledPattern OpCode) :=
       return result.res[0]!)
     (fun result => result)
 
+def extract_prefix_of_aggregate_insert_path : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract_prefix_of_aggregate_insert_path_pattern
+
 -- InstCombineSimplifyRules.td:831
-def aggregate_insert_path_prefix_of_extract : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun _ => Pattern.Builder
+def aggregate_insert_path_prefix_of_extract_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let aggregateType ← MatchProg.type (Attr := TypeAttr)
       let insertedType ← MatchProg.type (Attr := TypeAttr)
@@ -336,9 +350,12 @@ def aggregate_insert_path_prefix_of_extract : Array (CompiledPattern OpCode) :=
       return result.res[0]!)
     (fun result => result)
 
+def aggregate_insert_path_prefix_of_extract : Array (CompiledPattern OpCode) :=
+  compileVariants 0 aggregate_insert_path_prefix_of_extract_pattern
+
 -- InstCombineSimplifyRules.td:844
-def bypass_aggregate_insert_on_diverging_extract_path : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun _ => Pattern.Builder
+def bypass_aggregate_insert_on_diverging_extract_path_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let aggregateType ← MatchProg.type (Attr := TypeAttr)
       let insertedType ← MatchProg.type (Attr := TypeAttr)
@@ -354,6 +371,9 @@ def bypass_aggregate_insert_on_diverging_extract_path : Array (CompiledPattern O
       let result ← CreateProg.operation (.llvm .extractvalue) #[aggregate] #[resultType] (.inr ep)
       return result.res[0]!)
     (fun result => result)
+
+def bypass_aggregate_insert_on_diverging_extract_path : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bypass_aggregate_insert_on_diverging_extract_path_pattern
 
 -- remove_overwritten_aggregate_insert (InstCombineSimplifyRules.td:855): not ported.
 -- Requires scanning an arbitrary single-use aggregate insertion chain for a later covering
@@ -1022,8 +1042,8 @@ def bypass_aggregate_insert_on_diverging_extract_path : Array (CompiledPattern O
 -- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- InstCombineSimplifyRules.td:4383
-def select_poison_cond : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_poison_cond_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1037,9 +1057,12 @@ def select_poison_cond : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def select_poison_cond : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_poison_cond_pattern
+
 -- InstCombineSimplifyRules.td:4398
-def nsw_mul_neg_one : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def nsw_mul_neg_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1054,9 +1077,12 @@ def nsw_mul_neg_one : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def nsw_mul_neg_one : Array (CompiledPattern OpCode) :=
+  compileVariants 1 nsw_mul_neg_one_pattern
+
 -- InstCombineSimplifyRules.td:4402
-def mul_neg_one : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def mul_neg_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1072,9 +1098,12 @@ def mul_neg_one : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def mul_neg_one : Array (CompiledPattern OpCode) :=
+  compileVariants 1 mul_neg_one_pattern
+
 -- InstCombineSimplifyRules.td:4408
-def sdiv_neg_one : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def sdiv_neg_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1089,9 +1118,12 @@ def sdiv_neg_one : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def sdiv_neg_one : Array (CompiledPattern OpCode) :=
+  compileVariants 0 sdiv_neg_one_pattern
+
 -- InstCombineSimplifyRules.td:4413
-def srem_neg_one : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def srem_neg_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1105,9 +1137,12 @@ def srem_neg_one : Array (CompiledPattern OpCode) :=
       return k4.res[0]!)
     (fun result => result)
 
+def srem_neg_one : Array (CompiledPattern OpCode) :=
+  compileVariants 0 srem_neg_one_pattern
+
 -- InstCombineSimplifyRules.td:4424
-def and_two_same_masks_drop_one : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def and_two_same_masks_drop_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -1127,9 +1162,12 @@ def and_two_same_masks_drop_one : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def and_two_same_masks_drop_one : Array (CompiledPattern OpCode) :=
+  compileVariants 3 and_two_same_masks_drop_one_pattern
+
 -- InstCombineSimplifyRules.td:4434
-def or_not_and3_contains : Array (CompiledPattern OpCode) :=
-  compileVariants 4 fun swaps => Pattern.Builder
+def or_not_and3_contains_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1148,9 +1186,12 @@ def or_not_and3_contains : Array (CompiledPattern OpCode) :=
       return k9.res[0]!)
     (fun result => result)
 
+def or_not_and3_contains : Array (CompiledPattern OpCode) :=
+  compileVariants 4 or_not_and3_contains_pattern
+
 -- InstCombineSimplifyRules.td:4438
-def or_not_and4_contains : Array (CompiledPattern OpCode) :=
-  compileVariants 5 fun swaps => Pattern.Builder
+def or_not_and4_contains_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1171,9 +1212,12 @@ def or_not_and4_contains : Array (CompiledPattern OpCode) :=
       return k11.res[0]!)
     (fun result => result)
 
+def or_not_and4_contains : Array (CompiledPattern OpCode) :=
+  compileVariants 5 or_not_and4_contains_pattern
+
 -- InstCombineSimplifyRules.td:4443
-def and_not_or3_contains : Array (CompiledPattern OpCode) :=
-  compileVariants 4 fun swaps => Pattern.Builder
+def and_not_or3_contains_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1192,9 +1236,12 @@ def and_not_or3_contains : Array (CompiledPattern OpCode) :=
       return k9.res[0]!)
     (fun result => result)
 
+def and_not_or3_contains : Array (CompiledPattern OpCode) :=
+  compileVariants 4 and_not_or3_contains_pattern
+
 -- InstCombineSimplifyRules.td:4447
-def and_not_or4_contains : Array (CompiledPattern OpCode) :=
-  compileVariants 5 fun swaps => Pattern.Builder
+def and_not_or4_contains_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1215,9 +1262,12 @@ def and_not_or4_contains : Array (CompiledPattern OpCode) :=
       return k11.res[0]!)
     (fun result => result)
 
+def and_not_or4_contains : Array (CompiledPattern OpCode) :=
+  compileVariants 5 and_not_or4_contains_pattern
+
 -- InstCombineSimplifyRules.td:4452
-def select_true : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_true_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1230,9 +1280,12 @@ def select_true : Array (CompiledPattern OpCode) :=
       return x3)
     (fun result => result)
 
+def select_true : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_true_pattern
+
 -- InstCombineSimplifyRules.td:4457
-def select_false : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_false_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1245,9 +1298,12 @@ def select_false : Array (CompiledPattern OpCode) :=
       return y4)
     (fun result => result)
 
+def select_false : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_false_pattern
+
 -- InstCombineSimplifyRules.td:4462
-def select_same : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_same_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1259,13 +1315,16 @@ def select_same : Array (CompiledPattern OpCode) :=
       return x3)
     (fun result => result)
 
+def select_same : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_same_pattern
+
 -- canonicalize_icmp_ne_with_invertible_users (InstCombineSimplifyRules.td:4471): not ported.
 -- Requires coordinated inversion of the comparison and its users; Puddle replaces only the
 -- matched root.
 
 -- InstCombineSimplifyRules.td:4493
-def add_i1_to_xor : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def add_i1_to_xor_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -1277,9 +1336,12 @@ def add_i1_to_xor : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def add_i1_to_xor : Array (CompiledPattern OpCode) :=
+  compileVariants 1 add_i1_to_xor_pattern
+
 -- InstCombineSimplifyRules.td:4500
-def sub_i1_to_xor : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def sub_i1_to_xor_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -1291,9 +1353,12 @@ def sub_i1_to_xor : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def sub_i1_to_xor : Array (CompiledPattern OpCode) :=
+  compileVariants 0 sub_i1_to_xor_pattern
+
 -- InstCombineSimplifyRules.td:4505
-def mul_i1_to_and : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def mul_i1_to_and_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -1305,9 +1370,12 @@ def mul_i1_to_and : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def mul_i1_to_and : Array (CompiledPattern OpCode) :=
+  compileVariants 1 mul_i1_to_and_pattern
+
 -- InstCombineSimplifyRules.td:4514
-def select_true_false : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_true_false_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let c2 ← MatchProg.value t0
@@ -1318,6 +1386,9 @@ def select_true_false : Array (CompiledPattern OpCode) :=
     (fun (t0, c2) => do
       return c2)
     (fun result => result)
+
+def select_true_false : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_true_false_pattern
 
 -- select_logical_and_keep_condition_when_it_implies_rhs (InstCombineSimplifyRules.td:4519): not ported.
 -- Requires LLVM boolean implication and poison-speculation facts, which VeIR does not currently
@@ -1344,8 +1415,8 @@ def select_true_false : Array (CompiledPattern OpCode) :=
 -- compute.
 
 -- InstCombineSimplifyRules.td:4582
-def umax_shl_nuw_scale_inc : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def umax_shl_nuw_scale_inc_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t5
@@ -1370,13 +1441,18 @@ def umax_shl_nuw_scale_inc : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umax_shl_nuw_scale_inc : Array (CompiledPattern OpCode) :=
+  compileVariants 2 umax_shl_nuw_scale_inc_pattern
+
 -- InstCombineSimplifyRules.td:4590
 -- Same scalar pattern as `umax_shl_nuw_scale_inc`; keep the source rule name.
+def umax_shl_nuw_scale_inc_commuted_pattern (swaps : Nat) : Pattern OpCode := umax_shl_nuw_scale_inc_pattern swaps
+
 def umax_shl_nuw_scale_inc_commuted : Array (CompiledPattern OpCode) := umax_shl_nuw_scale_inc
 
 -- InstCombineSimplifyRules.td:4598
-def umax_mul_nuw_scale_inc : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def umax_mul_nuw_scale_inc_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t5
@@ -1401,13 +1477,18 @@ def umax_mul_nuw_scale_inc : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umax_mul_nuw_scale_inc : Array (CompiledPattern OpCode) :=
+  compileVariants 3 umax_mul_nuw_scale_inc_pattern
+
 -- InstCombineSimplifyRules.td:4608
 -- Same scalar pattern as `umax_mul_nuw_scale_inc`; keep the source rule name.
+def umax_mul_nuw_scale_inc_commuted_pattern (swaps : Nat) : Pattern OpCode := umax_mul_nuw_scale_inc_pattern swaps
+
 def umax_mul_nuw_scale_inc_commuted : Array (CompiledPattern OpCode) := umax_mul_nuw_scale_inc
 
 -- InstCombineSimplifyRules.td:4622
-def umin_i1 : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_i1_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -1419,9 +1500,12 @@ def umin_i1 : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def umin_i1 : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_i1_pattern
+
 -- InstCombineSimplifyRules.td:4622
-def umax_i1 : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umax_i1_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -1433,9 +1517,12 @@ def umax_i1 : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def umax_i1 : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umax_i1_pattern
+
 -- InstCombineSimplifyRules.td:4622
-def smin_i1 : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smin_i1_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -1447,9 +1534,12 @@ def smin_i1 : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def smin_i1 : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smin_i1_pattern
+
 -- InstCombineSimplifyRules.td:4622
-def smax_i1 : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smax_i1_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -1461,9 +1551,12 @@ def smax_i1 : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def smax_i1 : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smax_i1_pattern
+
 -- InstCombineSimplifyRules.td:4627
-def select_eq_zero_self : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_eq_zero_self_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1477,9 +1570,12 @@ def select_eq_zero_self : Array (CompiledPattern OpCode) :=
       return x3)
     (fun result => result)
 
+def select_eq_zero_self : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_eq_zero_self_pattern
+
 -- InstCombineSimplifyRules.td:4632
-def select_ne_zero_self : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_ne_zero_self_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1493,13 +1589,16 @@ def select_ne_zero_self : Array (CompiledPattern OpCode) :=
       return x3)
     (fun result => result)
 
+def select_ne_zero_self : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_ne_zero_self_pattern
+
 -- canonicalize_icmp_eq_and1_one_with_invertible_users (InstCombineSimplifyRules.td:4643): not ported.
 -- Requires coordinated inversion of the comparison and its users; Puddle replaces only the
 -- matched root.
 
 -- InstCombineSimplifyRules.td:4653
-def shl_oob_poison : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def shl_oob_poison_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1512,9 +1611,12 @@ def shl_oob_poison : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def shl_oob_poison : Array (CompiledPattern OpCode) :=
+  compileVariants 0 shl_oob_poison_pattern
+
 -- InstCombineSimplifyRules.td:4653
-def lshr_oob_poison : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def lshr_oob_poison_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1527,9 +1629,12 @@ def lshr_oob_poison : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def lshr_oob_poison : Array (CompiledPattern OpCode) :=
+  compileVariants 0 lshr_oob_poison_pattern
+
 -- InstCombineSimplifyRules.td:4653
-def ashr_oob_poison : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ashr_oob_poison_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -1542,9 +1647,12 @@ def ashr_oob_poison : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def ashr_oob_poison : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ashr_oob_poison_pattern
+
 -- InstCombineSimplifyRules.td:4662
-def select_sgt_const_and_to_and_smin : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_sgt_const_and_to_and_smin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1564,9 +1672,12 @@ def select_sgt_const_and_to_and_smin : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_sgt_const_and_to_and_smin : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_sgt_const_and_to_and_smin_pattern
+
 -- InstCombineSimplifyRules.td:4675
-def select_sgt_negative_const_xor_signbit_to_and_smin : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_sgt_negative_const_xor_signbit_to_and_smin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1592,9 +1703,12 @@ def select_sgt_negative_const_xor_signbit_to_and_smin : Array (CompiledPattern O
       return new8.res[0]!)
     (fun result => result)
 
+def select_sgt_negative_const_xor_signbit_to_and_smin : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_sgt_negative_const_xor_signbit_to_and_smin_pattern
+
 -- InstCombineSimplifyRules.td:4692
-def select_ult_and_const_to_and_umin : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_ult_and_const_to_and_umin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1614,9 +1728,12 @@ def select_ult_and_const_to_and_umin : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_ult_and_const_to_and_umin : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_ult_and_const_to_and_umin_pattern
+
 -- InstCombineSimplifyRules.td:4705
-def select_sgt_nsw_add_const_to_smax_nsw_add : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_sgt_nsw_add_const_to_smax_nsw_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1635,10 +1752,13 @@ def select_sgt_nsw_add_const_to_smax_nsw_add : Array (CompiledPattern OpCode) :=
       let new8 ← CreateProg.operation (.llvm .add) #[new9.res[0]!, op6.res[0]!] #[t0] (.inl { nsw := true, nuw := false })
       return new8.res[0]!)
     (fun result => result)
+
+def select_sgt_nsw_add_const_to_smax_nsw_add : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_sgt_nsw_add_const_to_smax_nsw_add_pattern
 
 -- InstCombineSimplifyRules.td:4721
-def select_slt_nsw_add_const_to_smin_nsw_add : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_slt_nsw_add_const_to_smin_nsw_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1658,9 +1778,12 @@ def select_slt_nsw_add_const_to_smin_nsw_add : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_slt_nsw_add_const_to_smin_nsw_add : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_slt_nsw_add_const_to_smin_nsw_add_pattern
+
 -- InstCombineSimplifyRules.td:4733
-def select_sgt_add_const_to_smax_add : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_sgt_add_const_to_smax_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1680,9 +1803,12 @@ def select_sgt_add_const_to_smax_add : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_sgt_add_const_to_smax_add : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_sgt_add_const_to_smax_add_pattern
+
 -- InstCombineSimplifyRules.td:4747
-def select_slt_add_const_to_smin_add : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_slt_add_const_to_smin_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1702,9 +1828,12 @@ def select_slt_add_const_to_smin_add : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_slt_add_const_to_smin_add : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_slt_add_const_to_smin_add_pattern
+
 -- InstCombineSimplifyRules.td:4757
-def select_ult_add_const_to_umin_add : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_ult_add_const_to_umin_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1724,9 +1853,12 @@ def select_ult_add_const_to_umin_add : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_ult_add_const_to_umin_add : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_ult_add_const_to_umin_add_pattern
+
 -- InstCombineSimplifyRules.td:4767
-def select_ugt_add_const_to_umax_add : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_ugt_add_const_to_umax_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1746,9 +1878,12 @@ def select_ugt_add_const_to_umax_add : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_ugt_add_const_to_umax_add : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_ugt_add_const_to_umax_add_pattern
+
 -- InstCombineSimplifyRules.td:4778
-def select_sgt_const_nsw_nuw_add_to_smin_nsw_nuw_add : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_sgt_const_nsw_nuw_add_to_smin_nsw_nuw_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1768,9 +1903,12 @@ def select_sgt_const_nsw_nuw_add_to_smin_nsw_nuw_add : Array (CompiledPattern Op
       return new8.res[0]!)
     (fun result => result)
 
+def select_sgt_const_nsw_nuw_add_to_smin_nsw_nuw_add : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_sgt_const_nsw_nuw_add_to_smin_nsw_nuw_add_pattern
+
 -- InstCombineSimplifyRules.td:4794
-def select_sgt_const_nsw_nuw_add_to_smin_nuw_add : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_sgt_const_nsw_nuw_add_to_smin_nuw_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1790,9 +1928,12 @@ def select_sgt_const_nsw_nuw_add_to_smin_nuw_add : Array (CompiledPattern OpCode
       return new8.res[0]!)
     (fun result => result)
 
+def select_sgt_const_nsw_nuw_add_to_smin_nuw_add : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_sgt_const_nsw_nuw_add_to_smin_nuw_add_pattern
+
 -- InstCombineSimplifyRules.td:4809
-def select_sgt_const_nsw_nuw_add_to_smin_nsw_add : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_sgt_const_nsw_nuw_add_to_smin_nsw_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1812,9 +1953,12 @@ def select_sgt_const_nsw_nuw_add_to_smin_nsw_add : Array (CompiledPattern OpCode
       return new8.res[0]!)
     (fun result => result)
 
+def select_sgt_const_nsw_nuw_add_to_smin_nsw_add : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_sgt_const_nsw_nuw_add_to_smin_nsw_add_pattern
+
 -- InstCombineSimplifyRules.td:4823
-def select_sgt_const_add_to_smin_add : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_sgt_const_add_to_smin_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1834,9 +1978,12 @@ def select_sgt_const_add_to_smin_add : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_sgt_const_add_to_smin_add : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_sgt_const_add_to_smin_add_pattern
+
 -- InstCombineSimplifyRules.td:4833
-def select_ugt_const_add_to_umin_add : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_ugt_const_add_to_umin_add_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1856,13 +2003,16 @@ def select_ugt_const_add_to_umin_add : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_ugt_const_add_to_umin_add : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_ugt_const_add_to_umin_add_pattern
+
 -- select_ult_const_add_to_decremented_umax_add (InstCombineSimplifyRules.td:4843): not ported.
 -- Source counterexample (i8): X=Bound=Selected=0, Addend=1 gives 1 before and 0 after; Bound-1
 -- wraps.
 
 -- InstCombineSimplifyRules.td:4855
-def select_ugt_const_mul_to_umin_mul : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_ugt_const_mul_to_umin_mul_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1882,13 +2032,16 @@ def select_ugt_const_mul_to_umin_mul : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_ugt_const_mul_to_umin_mul : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_ugt_const_mul_to_umin_mul_pattern
+
 -- select_sgt_const_mul_to_incremented_smin_mul (InstCombineSimplifyRules.td:4863): not ported.
 -- Source counterexample (i8): X=0, Bound=127, Factor=1, Selected=-128 gives 0 before and -128
 -- after; Bound+1 wraps.
 
 -- InstCombineSimplifyRules.td:4872
-def select_ult_const_nsw_nuw_mul_to_umax_nsw_nuw_mul : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_ult_const_nsw_nuw_mul_to_umax_nsw_nuw_mul_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1908,9 +2061,12 @@ def select_ult_const_nsw_nuw_mul_to_umax_nsw_nuw_mul : Array (CompiledPattern Op
       return new8.res[0]!)
     (fun result => result)
 
+def select_ult_const_nsw_nuw_mul_to_umax_nsw_nuw_mul : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_ult_const_nsw_nuw_mul_to_umax_nsw_nuw_mul_pattern
+
 -- InstCombineSimplifyRules.td:4889
-def select_ult_const_nsw_nuw_mul_to_umax_nuw_mul : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_ult_const_nsw_nuw_mul_to_umax_nuw_mul_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1930,9 +2086,12 @@ def select_ult_const_nsw_nuw_mul_to_umax_nuw_mul : Array (CompiledPattern OpCode
       return new8.res[0]!)
     (fun result => result)
 
+def select_ult_const_nsw_nuw_mul_to_umax_nuw_mul : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_ult_const_nsw_nuw_mul_to_umax_nuw_mul_pattern
+
 -- InstCombineSimplifyRules.td:4905
-def select_ult_const_nsw_nuw_mul_to_umax_nsw_mul : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_ult_const_nsw_nuw_mul_to_umax_nsw_mul_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -1952,9 +2111,12 @@ def select_ult_const_nsw_nuw_mul_to_umax_nsw_mul : Array (CompiledPattern OpCode
       return new8.res[0]!)
     (fun result => result)
 
+def select_ult_const_nsw_nuw_mul_to_umax_nsw_mul : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_ult_const_nsw_nuw_mul_to_umax_nsw_mul_pattern
+
 -- InstCombineSimplifyRules.td:4922
-def add_nsw_smin_saturation_bound_to_sadd_sat : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def add_nsw_smin_saturation_bound_to_sadd_sat_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -1969,9 +2131,12 @@ def add_nsw_smin_saturation_bound_to_sadd_sat : Array (CompiledPattern OpCode) :
       return new6.res[0]!)
     (fun result => result)
 
+def add_nsw_smin_saturation_bound_to_sadd_sat : Array (CompiledPattern OpCode) :=
+  compileVariants 2 add_nsw_smin_saturation_bound_to_sadd_sat_pattern
+
 -- InstCombineSimplifyRules.td:4932
-def or_smax_adjacent_equal_endpoints_raise_bound : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def or_smax_adjacent_equal_endpoints_raise_bound_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -1990,9 +2155,12 @@ def or_smax_adjacent_equal_endpoints_raise_bound : Array (CompiledPattern OpCode
       return new6.res[0]!)
     (fun result => result)
 
+def or_smax_adjacent_equal_endpoints_raise_bound : Array (CompiledPattern OpCode) :=
+  compileVariants 2 or_smax_adjacent_equal_endpoints_raise_bound_pattern
+
 -- InstCombineSimplifyRules.td:4953
-def select_slt_const_or_to_or_smax : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_slt_const_or_to_or_smax_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2012,9 +2180,12 @@ def select_slt_const_or_to_or_smax : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_slt_const_or_to_or_smax : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_slt_const_or_to_or_smax_pattern
+
 -- InstCombineSimplifyRules.td:4964
-def select_ugt_const_smin_to_smin_umin : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_ugt_const_smin_to_smin_umin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2031,9 +2202,12 @@ def select_ugt_const_smin_to_smin_umin : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def select_ugt_const_smin_to_smin_umin : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_ugt_const_smin_to_smin_umin_pattern
+
 -- InstCombineSimplifyRules.td:4975
-def select_ugt_const_smax_to_smax_umin : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_ugt_const_smax_to_smax_umin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2052,9 +2226,12 @@ def select_ugt_const_smax_to_smax_umin : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_ugt_const_smax_to_smax_umin : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_ugt_const_smax_to_smax_umin_pattern
+
 -- InstCombineSimplifyRules.td:4985
-def select_slt_const_umin_to_umin_smax : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_slt_const_umin_to_umin_smax_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2073,9 +2250,12 @@ def select_slt_const_umin_to_umin_smax : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_slt_const_umin_to_umin_smax : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_slt_const_umin_to_umin_smax_pattern
+
 -- InstCombineSimplifyRules.td:4995
-def select_sgt_const_umax_to_umax_smin : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_sgt_const_umax_to_umax_smin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2094,9 +2274,12 @@ def select_sgt_const_umax_to_umax_smin : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def select_sgt_const_umax_to_umax_smin : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_sgt_const_umax_to_umax_smin_pattern
+
 -- InstCombineSimplifyRules.td:5046
-def correlated_signed_clamp_lower_less : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def correlated_signed_clamp_lower_less_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2117,9 +2300,12 @@ def correlated_signed_clamp_lower_less : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def correlated_signed_clamp_lower_less : Array (CompiledPattern OpCode) :=
+  compileVariants 1 correlated_signed_clamp_lower_less_pattern
+
 -- InstCombineSimplifyRules.td:5046
-def correlated_signed_clamp_lower_greater : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def correlated_signed_clamp_lower_greater_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2140,9 +2326,12 @@ def correlated_signed_clamp_lower_greater : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def correlated_signed_clamp_lower_greater : Array (CompiledPattern OpCode) :=
+  compileVariants 1 correlated_signed_clamp_lower_greater_pattern
+
 -- InstCombineSimplifyRules.td:5046
-def correlated_signed_clamp_upper_greater : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def correlated_signed_clamp_upper_greater_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2163,9 +2352,12 @@ def correlated_signed_clamp_upper_greater : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def correlated_signed_clamp_upper_greater : Array (CompiledPattern OpCode) :=
+  compileVariants 1 correlated_signed_clamp_upper_greater_pattern
+
 -- InstCombineSimplifyRules.td:5046
-def correlated_signed_clamp_upper_less : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def correlated_signed_clamp_upper_less_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2186,9 +2378,12 @@ def correlated_signed_clamp_upper_less : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def correlated_signed_clamp_upper_less : Array (CompiledPattern OpCode) :=
+  compileVariants 1 correlated_signed_clamp_upper_less_pattern
+
 -- InstCombineSimplifyRules.td:5051
-def correlated_unsigned_clamp_lower_less : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def correlated_unsigned_clamp_lower_less_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2209,9 +2404,12 @@ def correlated_unsigned_clamp_lower_less : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def correlated_unsigned_clamp_lower_less : Array (CompiledPattern OpCode) :=
+  compileVariants 1 correlated_unsigned_clamp_lower_less_pattern
+
 -- InstCombineSimplifyRules.td:5051
-def correlated_unsigned_clamp_lower_greater : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def correlated_unsigned_clamp_lower_greater_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2232,9 +2430,12 @@ def correlated_unsigned_clamp_lower_greater : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def correlated_unsigned_clamp_lower_greater : Array (CompiledPattern OpCode) :=
+  compileVariants 1 correlated_unsigned_clamp_lower_greater_pattern
+
 -- InstCombineSimplifyRules.td:5051
-def correlated_unsigned_clamp_upper_greater : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def correlated_unsigned_clamp_upper_greater_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2255,9 +2456,12 @@ def correlated_unsigned_clamp_upper_greater : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def correlated_unsigned_clamp_upper_greater : Array (CompiledPattern OpCode) :=
+  compileVariants 1 correlated_unsigned_clamp_upper_greater_pattern
+
 -- InstCombineSimplifyRules.td:5051
-def correlated_unsigned_clamp_upper_less : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def correlated_unsigned_clamp_upper_less_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2277,6 +2481,9 @@ def correlated_unsigned_clamp_upper_less : Array (CompiledPattern OpCode) :=
       let new8 ← CreateProg.operation (.llvm .intr__umin) #[new9.res[0]!, op4.res[0]!] #[t0]
       return new8.res[0]!)
     (fun result => result)
+
+def correlated_unsigned_clamp_upper_less : Array (CompiledPattern OpCode) :=
+  compileVariants 1 correlated_unsigned_clamp_upper_less_pattern
 
 -- add_udiv_remainder_bit_to_unsigned_divceil (InstCombineSimplifyRules.td:5061): not ported.
 -- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
@@ -2335,8 +2542,8 @@ def correlated_unsigned_clamp_upper_less : Array (CompiledPattern OpCode) :=
 -- simplifier.
 
 -- InstCombineSimplifyRules.td:5256
-def xor_one_use_select_constant_zero_same_constant_true : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def xor_one_use_select_constant_zero_same_constant_true_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t6 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2355,9 +2562,12 @@ def xor_one_use_select_constant_zero_same_constant_true : Array (CompiledPattern
       return new6.res[0]!)
     (fun result => result)
 
+def xor_one_use_select_constant_zero_same_constant_true : Array (CompiledPattern OpCode) :=
+  compileVariants 1 xor_one_use_select_constant_zero_same_constant_true_pattern
+
 -- InstCombineSimplifyRules.td:5267
-def xor_one_use_select_zero_constant_same_constant_false : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def xor_one_use_select_zero_constant_same_constant_false_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t6 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2376,13 +2586,16 @@ def xor_one_use_select_zero_constant_same_constant_false : Array (CompiledPatter
       return new6.res[0]!)
     (fun result => result)
 
+def xor_one_use_select_zero_constant_same_constant_false : Array (CompiledPattern OpCode) :=
+  compileVariants 1 xor_one_use_select_zero_constant_same_constant_false_pattern
+
 -- map_#Predicate#_over_aligned_selects (InstCombineSimplifyRules.td:5279): not ported.
 -- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
 -- simplifier.
 
 -- InstCombineSimplifyRules.td:5324
-def bswap_bswap : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bswap_bswap_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2393,6 +2606,9 @@ def bswap_bswap : Array (CompiledPattern OpCode) :=
       return x3)
     (fun result => result)
 
+def bswap_bswap : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bswap_bswap_pattern
+
 -- bswap_one_use_shl_byte_aligned (InstCombineSimplifyRules.td:5333): not ported.
 -- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
 -- existing VeIR constant/modular analyses do not supply this contract.
@@ -2402,8 +2618,8 @@ def bswap_bswap : Array (CompiledPattern OpCode) :=
 -- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:5346
-def bswap_shl_to_single_low_byte : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bswap_shl_to_single_low_byte_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2421,9 +2637,12 @@ def bswap_shl_to_single_low_byte : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def bswap_shl_to_single_low_byte : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bswap_shl_to_single_low_byte_pattern
+
 -- InstCombineSimplifyRules.td:5351
-def bswap_lshr_to_single_high_byte : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bswap_lshr_to_single_high_byte_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2441,9 +2660,12 @@ def bswap_lshr_to_single_high_byte : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def bswap_lshr_to_single_high_byte : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bswap_lshr_to_single_high_byte_pattern
+
 -- InstCombineSimplifyRules.td:5361
-def bswap_shl_leaving_one_byte_to_lshr : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bswap_shl_leaving_one_byte_to_lshr_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2460,9 +2682,12 @@ def bswap_shl_leaving_one_byte_to_lshr : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def bswap_shl_leaving_one_byte_to_lshr : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bswap_shl_leaving_one_byte_to_lshr_pattern
+
 -- InstCombineSimplifyRules.td:5368
-def bswap_lshr_leaving_one_byte_to_shl : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bswap_lshr_leaving_one_byte_to_shl_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2479,9 +2704,12 @@ def bswap_lshr_leaving_one_byte_to_shl : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def bswap_lshr_leaving_one_byte_to_shl : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bswap_lshr_leaving_one_byte_to_shl_pattern
+
 -- InstCombineSimplifyRules.td:5377
-def bswap_and_low_byte_to_shl : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def bswap_and_low_byte_to_shl_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2498,9 +2726,12 @@ def bswap_and_low_byte_to_shl : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def bswap_and_low_byte_to_shl : Array (CompiledPattern OpCode) :=
+  compileVariants 1 bswap_and_low_byte_to_shl_pattern
+
 -- InstCombineSimplifyRules.td:5381
-def bswap_and_high_byte_to_lshr : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def bswap_and_high_byte_to_lshr_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2518,9 +2749,12 @@ def bswap_and_high_byte_to_lshr : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def bswap_and_high_byte_to_lshr : Array (CompiledPattern OpCode) :=
+  compileVariants 1 bswap_and_high_byte_to_lshr_pattern
+
 -- InstCombineSimplifyRules.td:5395
-def bswap_trunc_bswap_to_high_bytes : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bswap_trunc_bswap_to_high_bytes_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t4 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -2545,9 +2779,12 @@ def bswap_trunc_bswap_to_high_bytes : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def bswap_trunc_bswap_to_high_bytes : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bswap_trunc_bswap_to_high_bytes_pattern
+
 -- InstCombineSimplifyRules.td:5410
-def select_eq_zero_add_identity : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def select_eq_zero_add_identity_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2563,13 +2800,16 @@ def select_eq_zero_add_identity : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def select_eq_zero_add_identity : Array (CompiledPattern OpCode) :=
+  compileVariants 2 select_eq_zero_add_identity_pattern
+
 -- narrow_truncated_smax_smin_sext_constants_at_call (InstCombineSimplifyRules.td:5422): not ported.
 -- Requires TIC effect `replace_truncating_users_and_erase`, `erase_root` and its
 -- analysis/property contract; this is not a supported root-value replacement.
 
 -- InstCombineSimplifyRules.td:5448
-def xor_pair_common_operand_cancel : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def xor_pair_common_operand_cancel_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -2585,6 +2825,9 @@ def xor_pair_common_operand_cancel : Array (CompiledPattern OpCode) :=
       let new7 ← CreateProg.operation (.llvm .xor) #[a3, b6] #[t0]
       return new7.res[0]!)
     (fun result => result)
+
+def xor_pair_common_operand_cancel : Array (CompiledPattern OpCode) :=
+  compileVariants 3 xor_pair_common_operand_cancel_pattern
 
 -- umin_known_unsigned_upper_bound (InstCombineSimplifyRules.td:5459): not ported.
 -- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
@@ -2639,8 +2882,8 @@ def xor_pair_common_operand_cancel : Array (CompiledPattern OpCode) :=
 -- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:5561
-def uadd_sat_nested_constants : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def uadd_sat_nested_constants_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2659,9 +2902,12 @@ def uadd_sat_nested_constants : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def uadd_sat_nested_constants : Array (CompiledPattern OpCode) :=
+  compileVariants 0 uadd_sat_nested_constants_pattern
+
 -- InstCombineSimplifyRules.td:5568
-def uadd_sat_nested_constants_to_max : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def uadd_sat_nested_constants_to_max_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2679,9 +2925,12 @@ def uadd_sat_nested_constants_to_max : Array (CompiledPattern OpCode) :=
       return k6.res[0]!)
     (fun result => result)
 
+def uadd_sat_nested_constants_to_max : Array (CompiledPattern OpCode) :=
+  compileVariants 0 uadd_sat_nested_constants_to_max_pattern
+
 -- InstCombineSimplifyRules.td:5575
-def usub_sat_nested_constants : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def usub_sat_nested_constants_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2700,9 +2949,12 @@ def usub_sat_nested_constants : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def usub_sat_nested_constants : Array (CompiledPattern OpCode) :=
+  compileVariants 0 usub_sat_nested_constants_pattern
+
 -- InstCombineSimplifyRules.td:5582
-def usub_sat_nested_constants_to_zero : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def usub_sat_nested_constants_to_zero_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2720,9 +2972,12 @@ def usub_sat_nested_constants_to_zero : Array (CompiledPattern OpCode) :=
       return k6.res[0]!)
     (fun result => result)
 
+def usub_sat_nested_constants_to_zero : Array (CompiledPattern OpCode) :=
+  compileVariants 0 usub_sat_nested_constants_to_zero_pattern
+
 -- InstCombineSimplifyRules.td:5589
-def sadd_sat_nested_same_sign_constants : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def sadd_sat_nested_same_sign_constants_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2741,9 +2996,12 @@ def sadd_sat_nested_same_sign_constants : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def sadd_sat_nested_same_sign_constants : Array (CompiledPattern OpCode) :=
+  compileVariants 0 sadd_sat_nested_same_sign_constants_pattern
+
 -- InstCombineSimplifyRules.td:5604
-def usub_sat_nuw_add_constant_lanes : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def usub_sat_nuw_add_constant_lanes_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -2762,9 +3020,12 @@ def usub_sat_nuw_add_constant_lanes : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def usub_sat_nuw_add_constant_lanes : Array (CompiledPattern OpCode) :=
+  compileVariants 1 usub_sat_nuw_add_constant_lanes_pattern
+
 -- InstCombineSimplifyRules.td:5614
-def select_eq_pick_rhs : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_eq_pick_rhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2778,9 +3039,12 @@ def select_eq_pick_rhs : Array (CompiledPattern OpCode) :=
       return y4)
     (fun result => result)
 
+def select_eq_pick_rhs : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_eq_pick_rhs_pattern
+
 -- InstCombineSimplifyRules.td:5620
-def select_ne_pick_lhs : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_ne_pick_lhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -2794,13 +3058,16 @@ def select_ne_pick_lhs : Array (CompiledPattern OpCode) :=
       return y4)
     (fun result => result)
 
+def select_ne_pick_lhs : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_ne_pick_lhs_pattern
+
 -- fshr_self_const_to_fshl (InstCombineSimplifyRules.td:5628): not ported.
 -- Source counterexample with APInt arithmetic (i3): X=1, C=4 rotates right to 4, but (3-4)%3
 -- wraps to 1 and rotates left to 2.
 
 -- InstCombineSimplifyRules.td:5640
-def smax_smin_val : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smax_smin_val_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -2811,10 +3078,13 @@ def smax_smin_val : Array (CompiledPattern OpCode) :=
     (fun (t0, x2, op3) => do
       return x2)
     (fun result => result)
+
+def smax_smin_val : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smax_smin_val_pattern
 
 -- InstCombineSimplifyRules.td:5646
-def smin_smax_val : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smin_smax_val_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -2826,9 +3096,12 @@ def smin_smax_val : Array (CompiledPattern OpCode) :=
       return x2)
     (fun result => result)
 
+def smin_smax_val : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smin_smax_val_pattern
+
 -- InstCombineSimplifyRules.td:5652
-def smin_smin_val : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smin_smin_val_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -2840,9 +3113,12 @@ def smin_smin_val : Array (CompiledPattern OpCode) :=
       return op3.res[0]!)
     (fun result => result)
 
+def smin_smin_val : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smin_smin_val_pattern
+
 -- InstCombineSimplifyRules.td:5658
-def smax_smax_val : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smax_smax_val_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -2854,9 +3130,12 @@ def smax_smax_val : Array (CompiledPattern OpCode) :=
       return op3.res[0]!)
     (fun result => result)
 
+def smax_smax_val : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smax_smax_val_pattern
+
 -- InstCombineSimplifyRules.td:5669
-def select_cond_cond_false : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_cond_cond_false_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let c2 ← MatchProg.value t0
@@ -2867,9 +3146,12 @@ def select_cond_cond_false : Array (CompiledPattern OpCode) :=
       return c2)
     (fun result => result)
 
+def select_cond_cond_false : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_cond_cond_false_pattern
+
 -- InstCombineSimplifyRules.td:5674
-def select_cond_true_cond : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_cond_true_cond_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let c2 ← MatchProg.value t0
@@ -2880,9 +3162,12 @@ def select_cond_true_cond : Array (CompiledPattern OpCode) :=
       return c2)
     (fun result => result)
 
+def select_cond_true_cond : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_cond_true_cond_pattern
+
 -- InstCombineSimplifyRules.td:5681
-def nuw_add_ugt_self : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def nuw_add_ugt_self_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -2899,12 +3184,15 @@ def nuw_add_ugt_self : Array (CompiledPattern OpCode) :=
       return k5.res[0]!)
     (fun result => result)
 
+def nuw_add_ugt_self : Array (CompiledPattern OpCode) :=
+  compileVariants 1 nuw_add_ugt_self_pattern
+
 -- nsw_add_pos_sgt_self (InstCombineSimplifyRules.td:5687): not ported.
 -- Source counterexample: C = 0 satisfies is_non_negative, but (X + 0) > X is false.
 
 -- InstCombineSimplifyRules.td:5693
-def nsw_add_neg_slt_self : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def nsw_add_neg_slt_self_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -2920,6 +3208,9 @@ def nsw_add_neg_slt_self : Array (CompiledPattern OpCode) :=
       let k5 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k5Props)
       return k5.res[0]!)
     (fun result => result)
+
+def nsw_add_neg_slt_self : Array (CompiledPattern OpCode) :=
+  compileVariants 1 nsw_add_neg_slt_self_pattern
 
 -- select_i1_false_to_and (InstCombineSimplifyRules.td:5709): not ported.
 -- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
@@ -3015,22 +3306,24 @@ def nsw_add_neg_slt_self : Array (CompiledPattern OpCode) :=
 
 -- InstCombineSimplifyRules.td:7857
 /-- A single zero GEP index, either encoded as an attribute or an SSA operand. -/
+def gep_zero_index_pattern (dynamic : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let pointerType ← MatchProg.type (Attr := LLVM.PointerType)
+      let pointer ← MatchProg.value pointerType
+      let operands ← if dynamic then do
+          let indexType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+          let index ← MatchProg.operation (.llvm .mlir__constant) #[] #[indexType] (constantIs 0)
+          pure #[pointer, index.res[0]!]
+        else pure #[pointer]
+      let _ ← MatchProg.root (.llvm .getelementptr) operands #[pointerType]
+        (fun p => p.rawConstantIndices.values == #[if dynamic then -2147483648 else 0])
+      return pointer)
+    pure
+    (fun pointer => pointer)
+
 def gep_zero_index : Array (CompiledPattern OpCode) :=
-  #[false, true].map fun dynamic =>
-    (Pattern.Builder
-      (do
-        let pointerType ← MatchProg.type (Attr := LLVM.PointerType)
-        let pointer ← MatchProg.value pointerType
-        let operands ← if dynamic then do
-            let indexType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-            let index ← MatchProg.operation (.llvm .mlir__constant) #[] #[indexType] (constantIs 0)
-            pure #[pointer, index.res[0]!]
-          else pure #[pointer]
-        let _ ← MatchProg.root (.llvm .getelementptr) operands #[pointerType]
-          (fun p => p.rawConstantIndices.values == #[if dynamic then -2147483648 else 0])
-        return pointer)
-      pure
-      (fun pointer => pointer)).compile
+  #[false, true].map fun dynamic => (gep_zero_index_pattern dynamic).compile
 
 -- gep_canonicalize_source_to_byte_array (InstCombineSimplifyRules.td:7866): not ported.
 -- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
@@ -3337,8 +3630,8 @@ def gep_zero_index : Array (CompiledPattern OpCode) :=
 -- helpers do not supply these target-independent source-type and flag contracts.
 
 -- InstCombineSimplifyRules.td:9018
-def add_select_consts_fold : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def add_select_consts_fold_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t7 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -3361,6 +3654,9 @@ def add_select_consts_fold : Array (CompiledPattern OpCode) :=
       let new7 ← CreateProg.operation (.llvm .select) #[cond3, k8.res[0]!, k9.res[0]!] #[t0]
       return new7.res[0]!)
     (fun result => result)
+
+def add_select_consts_fold : Array (CompiledPattern OpCode) :=
+  compileVariants 1 add_select_consts_fold_pattern
 
 -- select_one_index_geps_common_base (InstCombineSimplifyRules.td:9036): not ported.
 -- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
@@ -3407,110 +3703,128 @@ def add_select_consts_fold : Array (CompiledPattern OpCode) :=
 -- helpers do not supply these target-independent source-type and flag contracts.
 
 -- InstCombineSimplifyRules.td:9190
+def uadd_overflow_zero_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let t1 ← MatchProg.type (Attr := TypeAttr)
+      let x3 ← MatchProg.value t0
+      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
+      let op2 ← MatchProg.operation (.llvm .intr__uadd__with__overflow) #[x3, op4.res[0]!] #[t1]
+      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[0])
+      return (t0, t1, x3))
+    (fun (t0, t1, x3) => do
+      return x3)
+    (fun result => result)
+
 def uadd_overflow_zero : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let t1 ← MatchProg.type (Attr := TypeAttr)
-      let x3 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
-      let op2 ← MatchProg.operation (.llvm .intr__uadd__with__overflow) #[x3, op4.res[0]!] #[t1]
-      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[0])
-      return (t0, t1, x3))
-    (fun (t0, t1, x3) => do
-      return x3)
-    (fun result => result)
+  compileVariants 0 uadd_overflow_zero_pattern
 
 -- InstCombineSimplifyRules.td:9190
+def uadd_overflow_zero_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
+      let t1 ← MatchProg.type (Attr := TypeAttr)
+      let t2 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let x3 ← MatchProg.value t2
+      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t2] (constantIs (0))
+      let op2 ← MatchProg.operation (.llvm .intr__uadd__with__overflow) #[x3, op4.res[0]!] #[t1]
+      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[1])
+      return (t0, t1, t2, x3))
+    (fun (t0, t1, t2, x3) => do
+      let k5Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
+        CreateProg.applyNative t0 fun m0 => some (integerConstant m0 (BitVec.ofNat 1 0).toInt)
+      let k5 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k5Props)
+      return k5.res[0]!)
+    (fun result => result)
+
 def uadd_overflow_zero_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
-      let t1 ← MatchProg.type (Attr := TypeAttr)
-      let t2 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t2
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t2] (constantIs (0))
-      let op2 ← MatchProg.operation (.llvm .intr__uadd__with__overflow) #[x3, op4.res[0]!] #[t1]
-      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[1])
-      return (t0, t1, t2, x3))
-    (fun (t0, t1, t2, x3) => do
-      let k5Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative t0 fun m0 => some (integerConstant m0 (BitVec.ofNat 1 0).toInt)
-      let k5 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k5Props)
-      return k5.res[0]!)
-    (fun result => result)
+  compileVariants 0 uadd_overflow_zero_flag_pattern
 
 -- InstCombineSimplifyRules.td:9190
+def sadd_overflow_zero_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let t1 ← MatchProg.type (Attr := TypeAttr)
+      let x3 ← MatchProg.value t0
+      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
+      let op2 ← MatchProg.operation (.llvm .intr__sadd__with__overflow) #[x3, op4.res[0]!] #[t1]
+      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[0])
+      return (t0, t1, x3))
+    (fun (t0, t1, x3) => do
+      return x3)
+    (fun result => result)
+
 def sadd_overflow_zero : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let t1 ← MatchProg.type (Attr := TypeAttr)
-      let x3 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
-      let op2 ← MatchProg.operation (.llvm .intr__sadd__with__overflow) #[x3, op4.res[0]!] #[t1]
-      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[0])
-      return (t0, t1, x3))
-    (fun (t0, t1, x3) => do
-      return x3)
-    (fun result => result)
+  compileVariants 0 sadd_overflow_zero_pattern
 
 -- InstCombineSimplifyRules.td:9190
+def sadd_overflow_zero_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
+      let t1 ← MatchProg.type (Attr := TypeAttr)
+      let t2 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let x3 ← MatchProg.value t2
+      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t2] (constantIs (0))
+      let op2 ← MatchProg.operation (.llvm .intr__sadd__with__overflow) #[x3, op4.res[0]!] #[t1]
+      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[1])
+      return (t0, t1, t2, x3))
+    (fun (t0, t1, t2, x3) => do
+      let k5Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
+        CreateProg.applyNative t0 fun m0 => some (integerConstant m0 (BitVec.ofNat 1 0).toInt)
+      let k5 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k5Props)
+      return k5.res[0]!)
+    (fun result => result)
+
 def sadd_overflow_zero_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
-      let t1 ← MatchProg.type (Attr := TypeAttr)
-      let t2 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t2
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t2] (constantIs (0))
-      let op2 ← MatchProg.operation (.llvm .intr__sadd__with__overflow) #[x3, op4.res[0]!] #[t1]
-      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[1])
-      return (t0, t1, t2, x3))
-    (fun (t0, t1, t2, x3) => do
-      let k5Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative t0 fun m0 => some (integerConstant m0 (BitVec.ofNat 1 0).toInt)
-      let k5 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k5Props)
-      return k5.res[0]!)
-    (fun result => result)
+  compileVariants 0 sadd_overflow_zero_flag_pattern
 
 -- InstCombineSimplifyRules.td:9190
+def usub_overflow_zero_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let t1 ← MatchProg.type (Attr := TypeAttr)
+      let x3 ← MatchProg.value t0
+      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
+      let op2 ← MatchProg.operation (.llvm .intr__usub__with__overflow) #[x3, op4.res[0]!] #[t1]
+      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[0])
+      return (t0, t1, x3))
+    (fun (t0, t1, x3) => do
+      return x3)
+    (fun result => result)
+
 def usub_overflow_zero : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let t1 ← MatchProg.type (Attr := TypeAttr)
-      let x3 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
-      let op2 ← MatchProg.operation (.llvm .intr__usub__with__overflow) #[x3, op4.res[0]!] #[t1]
-      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[0])
-      return (t0, t1, x3))
-    (fun (t0, t1, x3) => do
-      return x3)
-    (fun result => result)
+  compileVariants 0 usub_overflow_zero_pattern
 
 -- InstCombineSimplifyRules.td:9190
+def usub_overflow_zero_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
+      let t1 ← MatchProg.type (Attr := TypeAttr)
+      let t2 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let x3 ← MatchProg.value t2
+      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t2] (constantIs (0))
+      let op2 ← MatchProg.operation (.llvm .intr__usub__with__overflow) #[x3, op4.res[0]!] #[t1]
+      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[1])
+      return (t0, t1, t2, x3))
+    (fun (t0, t1, t2, x3) => do
+      let k5Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
+        CreateProg.applyNative t0 fun m0 => some (integerConstant m0 (BitVec.ofNat 1 0).toInt)
+      let k5 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k5Props)
+      return k5.res[0]!)
+    (fun result => result)
+
 def usub_overflow_zero_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
-      let t1 ← MatchProg.type (Attr := TypeAttr)
-      let t2 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t2
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t2] (constantIs (0))
-      let op2 ← MatchProg.operation (.llvm .intr__usub__with__overflow) #[x3, op4.res[0]!] #[t1]
-      let op1 ← MatchProg.root (.llvm .extractvalue) #[op2.res[0]!] #[t0] (fun p => p.position.values == #[1])
-      return (t0, t1, t2, x3))
-    (fun (t0, t1, t2, x3) => do
-      let k5Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative t0 fun m0 => some (integerConstant m0 (BitVec.ofNat 1 0).toInt)
-      let k5 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k5Props)
-      return k5.res[0]!)
-    (fun result => result)
+  compileVariants 0 usub_overflow_zero_flag_pattern
 
 -- InstCombineSimplifyRules.td:9190
-def ssub_overflow_zero : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ssub_overflow_zero_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3523,9 +3837,12 @@ def ssub_overflow_zero : Array (CompiledPattern OpCode) :=
       return x3)
     (fun result => result)
 
+def ssub_overflow_zero : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ssub_overflow_zero_pattern
+
 -- InstCombineSimplifyRules.td:9190
-def ssub_overflow_zero_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ssub_overflow_zero_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3542,9 +3859,12 @@ def ssub_overflow_zero_flag : Array (CompiledPattern OpCode) :=
       return k5.res[0]!)
     (fun result => result)
 
+def ssub_overflow_zero_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ssub_overflow_zero_flag_pattern
+
 -- InstCombineSimplifyRules.td:9190
-def smul_overflow_one : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def smul_overflow_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3557,13 +3877,16 @@ def smul_overflow_one : Array (CompiledPattern OpCode) :=
       return x3)
     (fun result => result)
 
+def smul_overflow_one : Array (CompiledPattern OpCode) :=
+  compileVariants 0 smul_overflow_one_pattern
+
 -- smul_overflow_one_flag (InstCombineSimplifyRules.td:9190): not ported.
 -- Source counterexample (i1): literal 1 is signed -1; multiplying X=-1 by it overflows, so the
 -- flag is not always false.
 
 -- InstCombineSimplifyRules.td:9206
-def uadd_overflow_constant_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def uadd_overflow_constant_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3583,9 +3906,12 @@ def uadd_overflow_constant_flag : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def uadd_overflow_constant_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 uadd_overflow_constant_flag_pattern
+
 -- InstCombineSimplifyRules.td:9212
-def umul_overflow_constant_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def umul_overflow_constant_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3605,6 +3931,9 @@ def umul_overflow_constant_flag : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def umul_overflow_constant_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 umul_overflow_constant_flag_pattern
+
 -- smul_overflow_constant_half_range_flag (InstCombineSimplifyRules.td:9225): not ported.
 -- Requires the signed-multiply no-wrap interval calculator, including negative constants and
 -- directed rounding.
@@ -3614,8 +3943,8 @@ def umul_overflow_constant_flag : Array (CompiledPattern OpCode) :=
 -- directed rounding.
 
 -- InstCombineSimplifyRules.td:9247
-def umul_overflow_i1_value : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def umul_overflow_i1_value_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3629,9 +3958,12 @@ def umul_overflow_i1_value : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def umul_overflow_i1_value : Array (CompiledPattern OpCode) :=
+  compileVariants 0 umul_overflow_i1_value_pattern
+
 -- InstCombineSimplifyRules.td:9251
-def umul_overflow_i1_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def umul_overflow_i1_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3648,9 +3980,12 @@ def umul_overflow_i1_flag : Array (CompiledPattern OpCode) :=
       return k5.res[0]!)
     (fun result => result)
 
+def umul_overflow_i1_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 umul_overflow_i1_flag_pattern
+
 -- InstCombineSimplifyRules.td:9258
-def ssub_overflow_constant_to_sadd : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ssub_overflow_constant_to_sadd_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := TypeAttr)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -3667,13 +4002,16 @@ def ssub_overflow_constant_to_sadd : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def ssub_overflow_constant_to_sadd : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ssub_overflow_constant_to_sadd_pattern
+
 -- sadd_overflow_one_flag (InstCombineSimplifyRules.td:9267): not ported.
 -- Source counterexample (i1): literal 1 is signed -1; X=0 does not overflow, but X==INT_MAX is
 -- true.
 
 -- InstCombineSimplifyRules.td:9272
-def sadd_overflow_minus_one_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def sadd_overflow_minus_one_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3692,9 +4030,12 @@ def sadd_overflow_minus_one_flag : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def sadd_overflow_minus_one_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 sadd_overflow_minus_one_flag_pattern
+
 -- InstCombineSimplifyRules.td:9277
-def sadd_overflow_positive_constant_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def sadd_overflow_positive_constant_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3715,9 +4056,12 @@ def sadd_overflow_positive_constant_flag : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def sadd_overflow_positive_constant_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 sadd_overflow_positive_constant_flag_pattern
+
 -- InstCombineSimplifyRules.td:9285
-def sadd_overflow_negative_constant_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def sadd_overflow_negative_constant_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3738,12 +4082,15 @@ def sadd_overflow_negative_constant_flag : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def sadd_overflow_negative_constant_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 sadd_overflow_negative_constant_flag_pattern
+
 -- ssub_overflow_one_flag (InstCombineSimplifyRules.td:9295): not ported.
 -- Source counterexample (i1): literal 1 is signed -1; X=0 overflows, but X==INT_MIN is false.
 
 -- InstCombineSimplifyRules.td:9300
-def ssub_overflow_minus_one_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ssub_overflow_minus_one_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3762,9 +4109,12 @@ def ssub_overflow_minus_one_flag : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def ssub_overflow_minus_one_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ssub_overflow_minus_one_flag_pattern
+
 -- InstCombineSimplifyRules.td:9305
-def ssub_overflow_positive_constant_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ssub_overflow_positive_constant_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3785,9 +4135,12 @@ def ssub_overflow_positive_constant_flag : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def ssub_overflow_positive_constant_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ssub_overflow_positive_constant_flag_pattern
+
 -- InstCombineSimplifyRules.td:9313
-def ssub_overflow_negative_constant_flag : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ssub_overflow_negative_constant_flag_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -3808,9 +4161,12 @@ def ssub_overflow_negative_constant_flag : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def ssub_overflow_negative_constant_flag : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ssub_overflow_negative_constant_flag_pattern
+
 -- InstCombineSimplifyRules.td:9328
-def ctlz_bitreverse : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ctlz_bitreverse_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -3824,9 +4180,12 @@ def ctlz_bitreverse : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def ctlz_bitreverse : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ctlz_bitreverse_pattern
+
 -- InstCombineSimplifyRules.td:9333
-def cttz_bitreverse : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def cttz_bitreverse_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -3840,9 +4199,12 @@ def cttz_bitreverse : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def cttz_bitreverse : Array (CompiledPattern OpCode) :=
+  compileVariants 0 cttz_bitreverse_pattern
+
 -- InstCombineSimplifyRules.td:9338
-def ctpop_bitreverse : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ctpop_bitreverse_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -3854,9 +4216,12 @@ def ctpop_bitreverse : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def ctpop_bitreverse : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ctpop_bitreverse_pattern
+
 -- InstCombineSimplifyRules.td:9343
-def ctpop_bswap : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ctpop_bswap_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -3868,9 +4233,12 @@ def ctpop_bswap : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def ctpop_bswap : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ctpop_bswap_pattern
+
 -- InstCombineSimplifyRules.td:9348
-def cttz_neg : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def cttz_neg_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
@@ -3885,9 +4253,12 @@ def cttz_neg : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def cttz_neg : Array (CompiledPattern OpCode) :=
+  compileVariants 0 cttz_neg_pattern
+
 -- InstCombineSimplifyRules.td:9353
-def cttz_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def cttz_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -3901,9 +4272,12 @@ def cttz_abs : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def cttz_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 cttz_abs_pattern
+
 -- InstCombineSimplifyRules.td:9360
-def ctpop_fshl_rotate : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ctpop_fshl_rotate_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -3916,9 +4290,12 @@ def ctpop_fshl_rotate : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def ctpop_fshl_rotate : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ctpop_fshl_rotate_pattern
+
 -- InstCombineSimplifyRules.td:9365
-def ctpop_fshr_rotate : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ctpop_fshr_rotate_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -3931,9 +4308,12 @@ def ctpop_fshr_rotate : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def ctpop_fshr_rotate : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ctpop_fshr_rotate_pattern
+
 -- InstCombineSimplifyRules.td:9370
-def umin_cttz_cttz : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_cttz_cttz_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -3952,9 +4332,12 @@ def umin_cttz_cttz : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def umin_cttz_cttz : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_cttz_cttz_pattern
+
 -- InstCombineSimplifyRules.td:9376
-def umin_ctlz_ctlz : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_ctlz_ctlz_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -3973,9 +4356,12 @@ def umin_ctlz_ctlz : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def umin_ctlz_ctlz : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_ctlz_ctlz_pattern
+
 -- InstCombineSimplifyRules.td:9383
-def umin_cttz_constant_cap : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_cttz_constant_cap_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -3996,13 +4382,18 @@ def umin_cttz_constant_cap : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def umin_cttz_constant_cap : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_cttz_constant_cap_pattern
+
 -- InstCombineSimplifyRules.td:9389
 -- Same scalar pattern as `umin_cttz_constant_cap`; keep the source rule name.
+def umin_constant_cttz_cap_pattern (swaps : Nat) : Pattern OpCode := umin_cttz_constant_cap_pattern swaps
+
 def umin_constant_cttz_cap : Array (CompiledPattern OpCode) := umin_cttz_constant_cap
 
 -- InstCombineSimplifyRules.td:9396
-def umin_ctlz_constant_cap : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_ctlz_constant_cap_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4023,13 +4414,18 @@ def umin_ctlz_constant_cap : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def umin_ctlz_constant_cap : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_ctlz_constant_cap_pattern
+
 -- InstCombineSimplifyRules.td:9402
 -- Same scalar pattern as `umin_ctlz_constant_cap`; keep the source rule name.
+def umin_constant_ctlz_cap_pattern (swaps : Nat) : Pattern OpCode := umin_ctlz_constant_cap_pattern swaps
+
 def umin_constant_ctlz_cap : Array (CompiledPattern OpCode) := umin_ctlz_constant_cap
 
 -- InstCombineSimplifyRules.td:9414
-def i_cttz_with_poison_i1_zero_defined : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def i_cttz_with_poison_i1_zero_defined_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -4043,9 +4439,12 @@ def i_cttz_with_poison_i1_zero_defined : Array (CompiledPattern OpCode) :=
       return new3.res[0]!)
     (fun result => result)
 
+def i_cttz_with_poison_i1_zero_defined : Array (CompiledPattern OpCode) :=
+  compileVariants 0 i_cttz_with_poison_i1_zero_defined_pattern
+
 -- InstCombineSimplifyRules.td:9414
-def i_ctlz_with_poison_i1_zero_defined : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def i_ctlz_with_poison_i1_zero_defined_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -4059,9 +4458,12 @@ def i_ctlz_with_poison_i1_zero_defined : Array (CompiledPattern OpCode) :=
       return new3.res[0]!)
     (fun result => result)
 
+def i_ctlz_with_poison_i1_zero_defined : Array (CompiledPattern OpCode) :=
+  compileVariants 0 i_ctlz_with_poison_i1_zero_defined_pattern
+
 -- InstCombineSimplifyRules.td:9422
-def i_cttz_with_poison_i1_zero_poison : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def i_cttz_with_poison_i1_zero_poison_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -4074,9 +4476,12 @@ def i_cttz_with_poison_i1_zero_poison : Array (CompiledPattern OpCode) :=
       return k3.res[0]!)
     (fun result => result)
 
+def i_cttz_with_poison_i1_zero_poison : Array (CompiledPattern OpCode) :=
+  compileVariants 0 i_cttz_with_poison_i1_zero_poison_pattern
+
 -- InstCombineSimplifyRules.td:9422
-def i_ctlz_with_poison_i1_zero_poison : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def i_ctlz_with_poison_i1_zero_poison_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x2 ← MatchProg.value t0
@@ -4089,9 +4494,12 @@ def i_ctlz_with_poison_i1_zero_poison : Array (CompiledPattern OpCode) :=
       return k3.res[0]!)
     (fun result => result)
 
+def i_ctlz_with_poison_i1_zero_poison : Array (CompiledPattern OpCode) :=
+  compileVariants 0 i_ctlz_with_poison_i1_zero_poison_pattern
+
 -- InstCombineSimplifyRules.td:9431
-def umin_i_cttz_with_poison_i1_one : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_i_cttz_with_poison_i1_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x3 ← MatchProg.value t0
@@ -4106,9 +4514,12 @@ def umin_i_cttz_with_poison_i1_one : Array (CompiledPattern OpCode) :=
       return k5.res[0]!)
     (fun result => result)
 
+def umin_i_cttz_with_poison_i1_one : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_i_cttz_with_poison_i1_one_pattern
+
 -- InstCombineSimplifyRules.td:9431
-def umin_i_ctlz_with_poison_i1_one : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_i_ctlz_with_poison_i1_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let x3 ← MatchProg.value t0
@@ -4123,9 +4534,12 @@ def umin_i_ctlz_with_poison_i1_one : Array (CompiledPattern OpCode) :=
       return k5.res[0]!)
     (fun result => result)
 
+def umin_i_ctlz_with_poison_i1_one : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_i_ctlz_with_poison_i1_one_pattern
+
 -- InstCombineSimplifyRules.td:9434
-def umin_one_i_cttz_with_poison_i1 : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_one_i_cttz_with_poison_i1_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let op2 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (1))
@@ -4140,9 +4554,12 @@ def umin_one_i_cttz_with_poison_i1 : Array (CompiledPattern OpCode) :=
       return k5.res[0]!)
     (fun result => result)
 
+def umin_one_i_cttz_with_poison_i1 : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_one_i_cttz_with_poison_i1_pattern
+
 -- InstCombineSimplifyRules.td:9434
-def umin_one_i_ctlz_with_poison_i1 : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_one_i_ctlz_with_poison_i1_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let op2 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (1))
@@ -4157,47 +4574,56 @@ def umin_one_i_ctlz_with_poison_i1 : Array (CompiledPattern OpCode) :=
       return k5.res[0]!)
     (fun result => result)
 
+def umin_one_i_ctlz_with_poison_i1 : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_one_i_ctlz_with_poison_i1_pattern
+
 -- InstCombineSimplifyRules.td:9443
+def brev_dist_i_bswap_and_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let x3 ← MatchProg.value t0
+      let op2 ← MatchProg.operation (.llvm .intr__bswap) #[x3] #[t0]
+      let y5 ← MatchProg.value t0
+      let op4 ← MatchProg.operation (.llvm .intr__bswap) #[y5] #[t0]
+      let op1 ← MatchProg.root (.llvm .and) (orient swaps 0 op2.res[0]! op4.res[0]!) #[t0]
+      let () ← requireUses op2.op 1
+      let () ← requireUses op4.op 1
+      return (t0, x3, y5))
+    (fun (t0, x3, y5) => do
+      let new7 ← CreateProg.operation (.llvm .and) #[x3, y5] #[t0]
+      let new6 ← CreateProg.operation (.llvm .intr__bswap) #[new7.res[0]!] #[t0]
+      return new6.res[0]!)
+    (fun result => result)
+
 def brev_dist_i_bswap_and : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+  compileVariants 1 brev_dist_i_bswap_and_pattern
+
+-- InstCombineSimplifyRules.td:9443
+def brev_dist_i_bswap_or_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
       let op2 ← MatchProg.operation (.llvm .intr__bswap) #[x3] #[t0]
       let y5 ← MatchProg.value t0
       let op4 ← MatchProg.operation (.llvm .intr__bswap) #[y5] #[t0]
-      let op1 ← MatchProg.root (.llvm .and) (orient swaps 0 op2.res[0]! op4.res[0]!) #[t0]
+      let op1 ← MatchProg.root (.llvm .or) (orient swaps 0 op2.res[0]! op4.res[0]!) #[t0]
       let () ← requireUses op2.op 1
       let () ← requireUses op4.op 1
       return (t0, x3, y5))
     (fun (t0, x3, y5) => do
-      let new7 ← CreateProg.operation (.llvm .and) #[x3, y5] #[t0]
+      let new7 ← CreateProg.operation (.llvm .or) #[x3, y5] #[t0]
       let new6 ← CreateProg.operation (.llvm .intr__bswap) #[new7.res[0]!] #[t0]
       return new6.res[0]!)
     (fun result => result)
 
--- InstCombineSimplifyRules.td:9443
 def brev_dist_i_bswap_or : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t0
-      let op2 ← MatchProg.operation (.llvm .intr__bswap) #[x3] #[t0]
-      let y5 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .intr__bswap) #[y5] #[t0]
-      let op1 ← MatchProg.root (.llvm .or) (orient swaps 0 op2.res[0]! op4.res[0]!) #[t0]
-      let () ← requireUses op2.op 1
-      let () ← requireUses op4.op 1
-      return (t0, x3, y5))
-    (fun (t0, x3, y5) => do
-      let new7 ← CreateProg.operation (.llvm .or) #[x3, y5] #[t0]
-      let new6 ← CreateProg.operation (.llvm .intr__bswap) #[new7.res[0]!] #[t0]
-      return new6.res[0]!)
-    (fun result => result)
+  compileVariants 1 brev_dist_i_bswap_or_pattern
 
 -- InstCombineSimplifyRules.td:9443
-def brev_dist_i_bswap_xor : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def brev_dist_i_bswap_xor_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4214,9 +4640,12 @@ def brev_dist_i_bswap_xor : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def brev_dist_i_bswap_xor : Array (CompiledPattern OpCode) :=
+  compileVariants 1 brev_dist_i_bswap_xor_pattern
+
 -- InstCombineSimplifyRules.td:9443
-def brev_dist_i_bitreverse_and : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def brev_dist_i_bitreverse_and_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4233,9 +4662,12 @@ def brev_dist_i_bitreverse_and : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def brev_dist_i_bitreverse_and : Array (CompiledPattern OpCode) :=
+  compileVariants 1 brev_dist_i_bitreverse_and_pattern
+
 -- InstCombineSimplifyRules.td:9443
-def brev_dist_i_bitreverse_or : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def brev_dist_i_bitreverse_or_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4252,9 +4684,12 @@ def brev_dist_i_bitreverse_or : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def brev_dist_i_bitreverse_or : Array (CompiledPattern OpCode) :=
+  compileVariants 1 brev_dist_i_bitreverse_or_pattern
+
 -- InstCombineSimplifyRules.td:9443
-def brev_dist_i_bitreverse_xor : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def brev_dist_i_bitreverse_xor_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4270,10 +4705,13 @@ def brev_dist_i_bitreverse_xor : Array (CompiledPattern OpCode) :=
       let new6 ← CreateProg.operation (.llvm .intr__bitreverse) #[new7.res[0]!] #[t0]
       return new6.res[0]!)
     (fun result => result)
+
+def brev_dist_i_bitreverse_xor : Array (CompiledPattern OpCode) :=
+  compileVariants 1 brev_dist_i_bitreverse_xor_pattern
 
 -- InstCombineSimplifyRules.td:9451
-def or_bswap_const_distribute : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def or_bswap_const_distribute_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4291,9 +4729,12 @@ def or_bswap_const_distribute : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def or_bswap_const_distribute : Array (CompiledPattern OpCode) :=
+  compileVariants 1 or_bswap_const_distribute_pattern
+
 -- InstCombineSimplifyRules.td:9455
-def xor_bswap_const_distribute : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def xor_bswap_const_distribute_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4312,9 +4753,12 @@ def xor_bswap_const_distribute : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def xor_bswap_const_distribute : Array (CompiledPattern OpCode) :=
+  compileVariants 1 xor_bswap_const_distribute_pattern
+
 -- InstCombineSimplifyRules.td:9460
-def or_bitreverse_const_distribute : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def or_bitreverse_const_distribute_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4332,13 +4776,16 @@ def or_bitreverse_const_distribute : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def or_bitreverse_const_distribute : Array (CompiledPattern OpCode) :=
+  compileVariants 1 or_bitreverse_const_distribute_pattern
+
 -- bitreverse_and_mask_or_high_mask (InstCombineSimplifyRules.td:9473): not ported.
 -- Source counterexample (i8): X=64, C=K=128 satisfies the leading-one guards, but gives 128
 -- before and 130 after.
 
 -- InstCombineSimplifyRules.td:9487
-def abs_sext_to_zext_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def abs_sext_to_zext_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t3 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -4355,6 +4802,9 @@ def abs_sext_to_zext_abs : Array (CompiledPattern OpCode) :=
       let new4 ← CreateProg.operation (.llvm .zext) #[new5.res[0]!] #[t0]
       return new4.res[0]!)
     (fun result => result)
+
+def abs_sext_to_zext_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 abs_sext_to_zext_abs_pattern
 
 -- abs_plain_known_nonnegative (InstCombineSimplifyRules.td:9494): not ported.
 -- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
@@ -4397,8 +4847,8 @@ def abs_sext_to_zext_abs : Array (CompiledPattern OpCode) :=
 -- LLVM value analysis is available in VeIR.
 
 -- InstCombineSimplifyRules.td:9594
-def fshl_drop_redundant_first_input_mask_for_rotate : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def fshl_drop_redundant_first_input_mask_for_rotate_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4413,13 +4863,16 @@ def fshl_drop_redundant_first_input_mask_for_rotate : Array (CompiledPattern OpC
       return new6.res[0]!)
     (fun result => result)
 
+def fshl_drop_redundant_first_input_mask_for_rotate : Array (CompiledPattern OpCode) :=
+  compileVariants 1 fshl_drop_redundant_first_input_mask_for_rotate_pattern
+
 -- fshl_rotate_exact_high_mask_to_lshr (InstCombineSimplifyRules.td:9608): not ported.
 -- Source permits Shift=0 and Mask=0, then creates lshr X,bitwidth (poison) from a defined zero
 -- result.
 
 -- InstCombineSimplifyRules.td:9621
-def fshl_rotate_exact_low_mask_to_shl : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def fshl_rotate_exact_low_mask_to_shl_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4435,9 +4888,12 @@ def fshl_rotate_exact_low_mask_to_shl : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def fshl_rotate_exact_low_mask_to_shl : Array (CompiledPattern OpCode) :=
+  compileVariants 1 fshl_rotate_exact_low_mask_to_shl_pattern
+
 -- InstCombineSimplifyRules.td:9633
-def fshl_drop_noncontributing_masked_second_input : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def fshl_drop_noncontributing_masked_second_input_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -4453,9 +4909,12 @@ def fshl_drop_noncontributing_masked_second_input : Array (CompiledPattern OpCod
       return new6.res[0]!)
     (fun result => result)
 
+def fshl_drop_noncontributing_masked_second_input : Array (CompiledPattern OpCode) :=
+  compileVariants 1 fshl_drop_noncontributing_masked_second_input_pattern
+
 -- InstCombineSimplifyRules.td:9650
-def fshl_rotate_or_exact_high_mask : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def fshl_rotate_or_exact_high_mask_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4471,6 +4930,9 @@ def fshl_rotate_or_exact_high_mask : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def fshl_rotate_or_exact_high_mask : Array (CompiledPattern OpCode) :=
+  compileVariants 1 fshl_rotate_or_exact_high_mask_pattern
+
 -- fshl_first_mask_contributes_nothing (InstCombineSimplifyRules.td:9665): not ported.
 -- Source permits Shift=0 and FirstMask=0, then creates lshr X,bitwidth (poison) from a defined
 -- zero result.
@@ -4484,8 +4946,8 @@ def fshl_rotate_or_exact_high_mask : Array (CompiledPattern OpCode) :=
 -- AND 4 is not reduction modulo 5.
 
 -- InstCombineSimplifyRules.td:9696
-def fshl_zero_lo_to_shl : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshl_zero_lo_to_shl_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -4498,10 +4960,13 @@ def fshl_zero_lo_to_shl : Array (CompiledPattern OpCode) :=
       let new5 ← CreateProg.operation (.llvm .shl) #[x2, op4.res[0]!] #[t0]
       return new5.res[0]!)
     (fun result => result)
+
+def fshl_zero_lo_to_shl : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshl_zero_lo_to_shl_pattern
 
 -- InstCombineSimplifyRules.td:9702
-def fshr_zero_hi_to_lshr : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshr_zero_hi_to_lshr_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op2 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
@@ -4515,9 +4980,12 @@ def fshr_zero_hi_to_lshr : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def fshr_zero_hi_to_lshr : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshr_zero_hi_to_lshr_pattern
+
 -- InstCombineSimplifyRules.td:9712
-def fshl_undef_lo_to_shl : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshl_undef_lo_to_shl_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -4531,9 +4999,12 @@ def fshl_undef_lo_to_shl : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def fshl_undef_lo_to_shl : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshl_undef_lo_to_shl_pattern
+
 -- InstCombineSimplifyRules.td:9719
-def fshr_undef_hi_to_lshr : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshr_undef_hi_to_lshr_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op2 ← MatchProg.operation (.llvm .mlir__undef) #[] #[t0]
@@ -4547,9 +5018,12 @@ def fshr_undef_hi_to_lshr : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def fshr_undef_hi_to_lshr : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshr_undef_hi_to_lshr_pattern
+
 -- InstCombineSimplifyRules.td:9726
-def fshl_zero_hi_to_lshr : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshl_zero_hi_to_lshr_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op2 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
@@ -4566,9 +5040,12 @@ def fshl_zero_hi_to_lshr : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def fshl_zero_hi_to_lshr : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshl_zero_hi_to_lshr_pattern
+
 -- InstCombineSimplifyRules.td:9733
-def fshl_undef_hi_to_lshr : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshl_undef_hi_to_lshr_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op2 ← MatchProg.operation (.llvm .mlir__undef) #[] #[t0]
@@ -4585,9 +5062,12 @@ def fshl_undef_hi_to_lshr : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def fshl_undef_hi_to_lshr : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshl_undef_hi_to_lshr_pattern
+
 -- InstCombineSimplifyRules.td:9741
-def fshr_zero_lo_to_shl : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshr_zero_lo_to_shl_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -4604,9 +5084,12 @@ def fshr_zero_lo_to_shl : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def fshr_zero_lo_to_shl : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshr_zero_lo_to_shl_pattern
+
 -- InstCombineSimplifyRules.td:9748
-def fshr_undef_lo_to_shl : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshr_undef_lo_to_shl_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -4623,9 +5106,12 @@ def fshr_undef_lo_to_shl : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def fshr_undef_lo_to_shl : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshr_undef_lo_to_shl_pattern
+
 -- InstCombineSimplifyRules.td:9835
-def ssub_sat_to_sadd_sat : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ssub_sat_to_sadd_sat_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -4641,6 +5127,9 @@ def ssub_sat_to_sadd_sat : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def ssub_sat_to_sadd_sat : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ssub_sat_to_sadd_sat_pattern
+
 -- infer_ptrmask_return_alignment (InstCombineSimplifyRules.td:9845): not ported.
 -- VeIR has no llvm.ptrmask operation or pointer-mask property/analysis interface.
 
@@ -4648,8 +5137,8 @@ def ssub_sat_to_sadd_sat : Array (CompiledPattern OpCode) :=
 -- VeIR has no llvm.ptrmask operation or pointer-mask property/analysis interface.
 
 -- InstCombineSimplifyRules.td:10522
-def smax_nsw_neg_to_neg_smin : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smax_nsw_neg_to_neg_smin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
@@ -4671,9 +5160,12 @@ def smax_nsw_neg_to_neg_smin : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def smax_nsw_neg_to_neg_smin : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smax_nsw_neg_to_neg_smin_pattern
+
 -- InstCombineSimplifyRules.td:10529
-def smin_nsw_neg_to_neg_smax : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smin_nsw_neg_to_neg_smax_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
@@ -4695,9 +5187,12 @@ def smin_nsw_neg_to_neg_smax : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def smin_nsw_neg_to_neg_smax : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smin_nsw_neg_to_neg_smax_pattern
+
 -- InstCombineSimplifyRules.td:10537
-def umin_one_to_zext_ne_zero : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_one_to_zext_ne_zero_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t3 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t3
@@ -4715,9 +5210,12 @@ def umin_one_to_zext_ne_zero : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def umin_one_to_zext_ne_zero : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_one_to_zext_ne_zero_pattern
+
 -- InstCombineSimplifyRules.td:10546
-def umax_zext_zext : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umax_zext_zext_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -4736,9 +5234,12 @@ def umax_zext_zext : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def umax_zext_zext : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umax_zext_zext_pattern
+
 -- InstCombineSimplifyRules.td:10546
-def umin_zext_zext : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_zext_zext_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -4757,9 +5258,12 @@ def umin_zext_zext : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def umin_zext_zext : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_zext_zext_pattern
+
 -- InstCombineSimplifyRules.td:10554
-def smax_sext_sext : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smax_sext_sext_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -4778,9 +5282,12 @@ def smax_sext_sext : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def smax_sext_sext : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smax_sext_sext_pattern
+
 -- InstCombineSimplifyRules.td:10554
-def smin_sext_sext : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smin_sext_sext_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -4799,9 +5306,12 @@ def smin_sext_sext : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def smin_sext_sext : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smin_sext_sext_pattern
+
 -- InstCombineSimplifyRules.td:10630
-def extract_smul_ov_neg_one : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract_smul_ov_neg_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -4818,9 +5328,12 @@ def extract_smul_ov_neg_one : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract_smul_ov_neg_one : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract_smul_ov_neg_one_pattern
+
 -- InstCombineSimplifyRules.td:10635
-def extract_umul_ov_neg_one : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract_umul_ov_neg_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -4837,9 +5350,12 @@ def extract_umul_ov_neg_one : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract_umul_ov_neg_one : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract_umul_ov_neg_one_pattern
+
 -- InstCombineSimplifyRules.td:10644
-def reassoc_const_i_umax : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def reassoc_const_i_umax_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4857,9 +5373,12 @@ def reassoc_const_i_umax : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def reassoc_const_i_umax : Array (CompiledPattern OpCode) :=
+  compileVariants 2 reassoc_const_i_umax_pattern
+
 -- InstCombineSimplifyRules.td:10644
-def reassoc_const_i_umin : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def reassoc_const_i_umin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4877,9 +5396,12 @@ def reassoc_const_i_umin : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def reassoc_const_i_umin : Array (CompiledPattern OpCode) :=
+  compileVariants 2 reassoc_const_i_umin_pattern
+
 -- InstCombineSimplifyRules.td:10644
-def reassoc_const_i_smax : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def reassoc_const_i_smax_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4897,9 +5419,12 @@ def reassoc_const_i_smax : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def reassoc_const_i_smax : Array (CompiledPattern OpCode) :=
+  compileVariants 2 reassoc_const_i_smax_pattern
+
 -- InstCombineSimplifyRules.td:10644
-def reassoc_const_i_smin : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def reassoc_const_i_smin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4917,9 +5442,12 @@ def reassoc_const_i_smin : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def reassoc_const_i_smin : Array (CompiledPattern OpCode) :=
+  compileVariants 2 reassoc_const_i_smin_pattern
+
 -- InstCombineSimplifyRules.td:10651
-def reassoc_var_const_i_umax : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def reassoc_var_const_i_umax_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4935,9 +5463,12 @@ def reassoc_var_const_i_umax : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def reassoc_var_const_i_umax : Array (CompiledPattern OpCode) :=
+  compileVariants 2 reassoc_var_const_i_umax_pattern
+
 -- InstCombineSimplifyRules.td:10651
-def reassoc_var_const_i_umin : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def reassoc_var_const_i_umin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4953,9 +5484,12 @@ def reassoc_var_const_i_umin : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def reassoc_var_const_i_umin : Array (CompiledPattern OpCode) :=
+  compileVariants 2 reassoc_var_const_i_umin_pattern
+
 -- InstCombineSimplifyRules.td:10651
-def reassoc_var_const_i_smax : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def reassoc_var_const_i_smax_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4971,9 +5505,12 @@ def reassoc_var_const_i_smax : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def reassoc_var_const_i_smax : Array (CompiledPattern OpCode) :=
+  compileVariants 2 reassoc_var_const_i_smax_pattern
+
 -- InstCombineSimplifyRules.td:10651
-def reassoc_var_const_i_smin : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def reassoc_var_const_i_smin_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -4989,9 +5526,12 @@ def reassoc_var_const_i_smin : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def reassoc_var_const_i_smin : Array (CompiledPattern OpCode) :=
+  compileVariants 2 reassoc_var_const_i_smin_pattern
+
 -- InstCombineSimplifyRules.td:10658
-def extract_usubo_ov_to_ult : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract_usubo_ov_to_ult_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -5007,9 +5547,12 @@ def extract_usubo_ov_to_ult : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract_usubo_ov_to_ult : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract_usubo_ov_to_ult_pattern
+
 -- InstCombineSimplifyRules.td:10664
-def abs_srem_two : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def abs_srem_two_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5025,9 +5568,12 @@ def abs_srem_two : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def abs_srem_two : Array (CompiledPattern OpCode) :=
+  compileVariants 0 abs_srem_two_pattern
+
 -- InstCombineSimplifyRules.td:10670
-def abs_select_neg_x : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def abs_select_neg_x_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -5045,9 +5591,12 @@ def abs_select_neg_x : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def abs_select_neg_x : Array (CompiledPattern OpCode) :=
+  compileVariants 0 abs_select_neg_x_pattern
+
 -- InstCombineSimplifyRules.td:10674
-def abs_select_x_neg : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def abs_select_x_neg_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -5065,9 +5614,12 @@ def abs_select_x_neg : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def abs_select_x_neg : Array (CompiledPattern OpCode) :=
+  compileVariants 0 abs_select_x_neg_pattern
+
 -- InstCombineSimplifyRules.td:10865
-def smax_smin_clamp_canon : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def smax_smin_clamp_canon_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5084,13 +5636,16 @@ def smax_smin_clamp_canon : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def smax_smin_clamp_canon : Array (CompiledPattern OpCode) :=
+  compileVariants 2 smax_smin_clamp_canon_pattern
+
 -- signed_clamp_known_nonnegative_to_umin (InstCombineSimplifyRules.td:10875): not ported.
 -- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
 -- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:10885
-def umax_umin_clamp_canon : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def umax_umin_clamp_canon_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5107,9 +5662,12 @@ def umax_umin_clamp_canon : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def umax_umin_clamp_canon : Array (CompiledPattern OpCode) :=
+  compileVariants 2 umax_umin_clamp_canon_pattern
+
 -- InstCombineSimplifyRules.td:11086
-def ssub_ov_to_sadd_ov : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ssub_ov_to_sadd_ov_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := TypeAttr)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -5126,9 +5684,12 @@ def ssub_ov_to_sadd_ov : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def ssub_ov_to_sadd_ov : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ssub_ov_to_sadd_ov_pattern
+
 -- InstCombineSimplifyRules.td:11093
-def extract_ov1_smul_i1 : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract_ov1_smul_i1_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -5142,9 +5703,12 @@ def extract_ov1_smul_i1 : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract_ov1_smul_i1 : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract_ov1_smul_i1_pattern
+
 -- InstCombineSimplifyRules.td:11146
-def abs_mul_inner_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def abs_mul_inner_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -5163,9 +5727,12 @@ def abs_mul_inner_abs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def abs_mul_inner_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 1 abs_mul_inner_abs_pattern
+
 -- InstCombineSimplifyRules.td:11151
-def abs_nsw_mul_inner_abs_plain : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def abs_nsw_mul_inner_abs_plain_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -5184,9 +5751,12 @@ def abs_nsw_mul_inner_abs_plain : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def abs_nsw_mul_inner_abs_plain : Array (CompiledPattern OpCode) :=
+  compileVariants 1 abs_nsw_mul_inner_abs_plain_pattern
+
 -- InstCombineSimplifyRules.td:11157
-def abs_mul_inner_abs_plain : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def abs_mul_inner_abs_plain_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -5205,9 +5775,12 @@ def abs_mul_inner_abs_plain : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def abs_mul_inner_abs_plain : Array (CompiledPattern OpCode) :=
+  compileVariants 1 abs_mul_inner_abs_plain_pattern
+
 -- InstCombineSimplifyRules.td:11165
-def abs_nsw_wrapping_mul_inner_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def abs_nsw_wrapping_mul_inner_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -5226,9 +5799,12 @@ def abs_nsw_wrapping_mul_inner_abs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def abs_nsw_wrapping_mul_inner_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 1 abs_nsw_wrapping_mul_inner_abs_pattern
+
 -- InstCombineSimplifyRules.td:11170
-def abs_plain_wrapping_mul_inner_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def abs_plain_wrapping_mul_inner_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -5247,9 +5823,12 @@ def abs_plain_wrapping_mul_inner_abs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def abs_plain_wrapping_mul_inner_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 1 abs_plain_wrapping_mul_inner_abs_pattern
+
 -- InstCombineSimplifyRules.td:11277
-def i_smax_and_negpow2_factor : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def i_smax_and_negpow2_factor_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5270,9 +5849,12 @@ def i_smax_and_negpow2_factor : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def i_smax_and_negpow2_factor : Array (CompiledPattern OpCode) :=
+  compileVariants 3 i_smax_and_negpow2_factor_pattern
+
 -- InstCombineSimplifyRules.td:11277
-def i_smin_and_negpow2_factor : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def i_smin_and_negpow2_factor_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5293,9 +5875,12 @@ def i_smin_and_negpow2_factor : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def i_smin_and_negpow2_factor : Array (CompiledPattern OpCode) :=
+  compileVariants 3 i_smin_and_negpow2_factor_pattern
+
 -- InstCombineSimplifyRules.td:11277
-def i_umax_and_negpow2_factor : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def i_umax_and_negpow2_factor_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5316,9 +5901,12 @@ def i_umax_and_negpow2_factor : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def i_umax_and_negpow2_factor : Array (CompiledPattern OpCode) :=
+  compileVariants 3 i_umax_and_negpow2_factor_pattern
+
 -- InstCombineSimplifyRules.td:11277
-def i_umin_and_negpow2_factor : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def i_umin_and_negpow2_factor_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5339,9 +5927,12 @@ def i_umin_and_negpow2_factor : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def i_umin_and_negpow2_factor : Array (CompiledPattern OpCode) :=
+  compileVariants 3 i_umin_and_negpow2_factor_pattern
+
 -- InstCombineSimplifyRules.td:11284
-def cttz_sext_to_zext : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def cttz_sext_to_zext_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t3 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -5359,9 +5950,12 @@ def cttz_sext_to_zext : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def cttz_sext_to_zext : Array (CompiledPattern OpCode) :=
+  compileVariants 0 cttz_sext_to_zext_pattern
+
 -- InstCombineSimplifyRules.td:11292
-def cttz_zext_zero_poison_narrow : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def cttz_zext_zero_poison_narrow_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t3 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -5379,9 +5973,12 @@ def cttz_zext_zero_poison_narrow : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def cttz_zext_zero_poison_narrow : Array (CompiledPattern OpCode) :=
+  compileVariants 0 cttz_zext_zero_poison_narrow_pattern
+
 -- InstCombineSimplifyRules.td:11297
-def ctpop_zext_narrow : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ctpop_zext_narrow_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t3 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -5397,45 +5994,54 @@ def ctpop_zext_narrow : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def ctpop_zext_narrow : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ctpop_zext_narrow_pattern
+
 -- InstCombineSimplifyRules.td:11307
+def i_bswap_and_two_i_bswap_cancel_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let x4 ← MatchProg.value t0
+      let op3 ← MatchProg.operation (.llvm .intr__bswap) #[x4] #[t0]
+      let y6 ← MatchProg.value t0
+      let op5 ← MatchProg.operation (.llvm .intr__bswap) #[y6] #[t0]
+      let op2 ← MatchProg.operation (.llvm .and) (orient swaps 0 op3.res[0]! op5.res[0]!) #[t0]
+      let op1 ← MatchProg.root (.llvm .intr__bswap) #[op2.res[0]!] #[t0]
+      let () ← requireUses op2.op 1
+      return (t0, x4, y6))
+    (fun (t0, x4, y6) => do
+      let new7 ← CreateProg.operation (.llvm .and) #[x4, y6] #[t0]
+      return new7.res[0]!)
+    (fun result => result)
+
 def i_bswap_and_two_i_bswap_cancel : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+  compileVariants 1 i_bswap_and_two_i_bswap_cancel_pattern
+
+-- InstCombineSimplifyRules.td:11307
+def i_bswap_or_two_i_bswap_cancel_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
       let op3 ← MatchProg.operation (.llvm .intr__bswap) #[x4] #[t0]
       let y6 ← MatchProg.value t0
       let op5 ← MatchProg.operation (.llvm .intr__bswap) #[y6] #[t0]
-      let op2 ← MatchProg.operation (.llvm .and) (orient swaps 0 op3.res[0]! op5.res[0]!) #[t0]
+      let op2 ← MatchProg.operation (.llvm .or) (orient swaps 0 op3.res[0]! op5.res[0]!) #[t0]
       let op1 ← MatchProg.root (.llvm .intr__bswap) #[op2.res[0]!] #[t0]
       let () ← requireUses op2.op 1
       return (t0, x4, y6))
     (fun (t0, x4, y6) => do
-      let new7 ← CreateProg.operation (.llvm .and) #[x4, y6] #[t0]
+      let new7 ← CreateProg.operation (.llvm .or) #[x4, y6] #[t0]
       return new7.res[0]!)
     (fun result => result)
 
--- InstCombineSimplifyRules.td:11307
 def i_bswap_or_two_i_bswap_cancel : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x4 ← MatchProg.value t0
-      let op3 ← MatchProg.operation (.llvm .intr__bswap) #[x4] #[t0]
-      let y6 ← MatchProg.value t0
-      let op5 ← MatchProg.operation (.llvm .intr__bswap) #[y6] #[t0]
-      let op2 ← MatchProg.operation (.llvm .or) (orient swaps 0 op3.res[0]! op5.res[0]!) #[t0]
-      let op1 ← MatchProg.root (.llvm .intr__bswap) #[op2.res[0]!] #[t0]
-      let () ← requireUses op2.op 1
-      return (t0, x4, y6))
-    (fun (t0, x4, y6) => do
-      let new7 ← CreateProg.operation (.llvm .or) #[x4, y6] #[t0]
-      return new7.res[0]!)
-    (fun result => result)
+  compileVariants 1 i_bswap_or_two_i_bswap_cancel_pattern
 
 -- InstCombineSimplifyRules.td:11307
-def i_bswap_xor_two_i_bswap_cancel : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def i_bswap_xor_two_i_bswap_cancel_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -5451,9 +6057,12 @@ def i_bswap_xor_two_i_bswap_cancel : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def i_bswap_xor_two_i_bswap_cancel : Array (CompiledPattern OpCode) :=
+  compileVariants 1 i_bswap_xor_two_i_bswap_cancel_pattern
+
 -- InstCombineSimplifyRules.td:11307
-def i_bitreverse_and_two_i_bitreverse_cancel : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def i_bitreverse_and_two_i_bitreverse_cancel_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -5469,9 +6078,12 @@ def i_bitreverse_and_two_i_bitreverse_cancel : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def i_bitreverse_and_two_i_bitreverse_cancel : Array (CompiledPattern OpCode) :=
+  compileVariants 1 i_bitreverse_and_two_i_bitreverse_cancel_pattern
+
 -- InstCombineSimplifyRules.td:11307
-def i_bitreverse_or_two_i_bitreverse_cancel : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def i_bitreverse_or_two_i_bitreverse_cancel_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -5487,9 +6099,12 @@ def i_bitreverse_or_two_i_bitreverse_cancel : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def i_bitreverse_or_two_i_bitreverse_cancel : Array (CompiledPattern OpCode) :=
+  compileVariants 1 i_bitreverse_or_two_i_bitreverse_cancel_pattern
+
 -- InstCombineSimplifyRules.td:11307
-def i_bitreverse_xor_two_i_bitreverse_cancel : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def i_bitreverse_xor_two_i_bitreverse_cancel_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -5505,47 +6120,56 @@ def i_bitreverse_xor_two_i_bitreverse_cancel : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def i_bitreverse_xor_two_i_bitreverse_cancel : Array (CompiledPattern OpCode) :=
+  compileVariants 1 i_bitreverse_xor_two_i_bitreverse_cancel_pattern
+
 -- InstCombineSimplifyRules.td:11319
+def bswap_ordered_and_bswap_one_lhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let x4 ← MatchProg.value t0
+      let op3 ← MatchProg.operation (.llvm .intr__bswap) #[x4] #[t0]
+      let y5 ← MatchProg.value t0
+      let op2 ← MatchProg.operation (.llvm .and) #[op3.res[0]!, y5] #[t0]
+      let op1 ← MatchProg.root (.llvm .intr__bswap) #[op2.res[0]!] #[t0]
+      let () ← requireUses op2.op 1
+      let () ← requireUses op3.op 1
+      return (t0, x4, y5))
+    (fun (t0, x4, y5) => do
+      let new7 ← CreateProg.operation (.llvm .intr__bswap) #[y5] #[t0]
+      let new6 ← CreateProg.operation (.llvm .and) #[x4, new7.res[0]!] #[t0]
+      return new6.res[0]!)
+    (fun result => result)
+
 def bswap_ordered_and_bswap_one_lhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+  compileVariants 0 bswap_ordered_and_bswap_one_lhs_pattern
+
+-- InstCombineSimplifyRules.td:11319
+def bswap_ordered_and_bswap_one_rhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x4 ← MatchProg.value t0
-      let op3 ← MatchProg.operation (.llvm .intr__bswap) #[x4] #[t0]
-      let y5 ← MatchProg.value t0
-      let op2 ← MatchProg.operation (.llvm .and) #[op3.res[0]!, y5] #[t0]
+      let y3 ← MatchProg.value t0
+      let x5 ← MatchProg.value t0
+      let op4 ← MatchProg.operation (.llvm .intr__bswap) #[x5] #[t0]
+      let op2 ← MatchProg.operation (.llvm .and) #[y3, op4.res[0]!] #[t0]
       let op1 ← MatchProg.root (.llvm .intr__bswap) #[op2.res[0]!] #[t0]
       let () ← requireUses op2.op 1
-      let () ← requireUses op3.op 1
-      return (t0, x4, y5))
-    (fun (t0, x4, y5) => do
-      let new7 ← CreateProg.operation (.llvm .intr__bswap) #[y5] #[t0]
-      let new6 ← CreateProg.operation (.llvm .and) #[x4, new7.res[0]!] #[t0]
+      let () ← requireUses op4.op 1
+      return (t0, y3, x5))
+    (fun (t0, y3, x5) => do
+      let new7 ← CreateProg.operation (.llvm .intr__bswap) #[y3] #[t0]
+      let new6 ← CreateProg.operation (.llvm .and) #[new7.res[0]!, x5] #[t0]
       return new6.res[0]!)
     (fun result => result)
 
--- InstCombineSimplifyRules.td:11319
 def bswap_ordered_and_bswap_one_rhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let y3 ← MatchProg.value t0
-      let x5 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .intr__bswap) #[x5] #[t0]
-      let op2 ← MatchProg.operation (.llvm .and) #[y3, op4.res[0]!] #[t0]
-      let op1 ← MatchProg.root (.llvm .intr__bswap) #[op2.res[0]!] #[t0]
-      let () ← requireUses op2.op 1
-      let () ← requireUses op4.op 1
-      return (t0, y3, x5))
-    (fun (t0, y3, x5) => do
-      let new7 ← CreateProg.operation (.llvm .intr__bswap) #[y3] #[t0]
-      let new6 ← CreateProg.operation (.llvm .and) #[new7.res[0]!, x5] #[t0]
-      return new6.res[0]!)
-    (fun result => result)
+  compileVariants 0 bswap_ordered_and_bswap_one_rhs_pattern
 
 -- InstCombineSimplifyRules.td:11319
-def bitrev_ordered_and_bitrev_one_lhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bitrev_ordered_and_bitrev_one_lhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -5562,9 +6186,12 @@ def bitrev_ordered_and_bitrev_one_lhs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def bitrev_ordered_and_bitrev_one_lhs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bitrev_ordered_and_bitrev_one_lhs_pattern
+
 -- InstCombineSimplifyRules.td:11319
-def bitrev_ordered_and_bitrev_one_rhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bitrev_ordered_and_bitrev_one_rhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let y3 ← MatchProg.value t0
@@ -5581,47 +6208,56 @@ def bitrev_ordered_and_bitrev_one_rhs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def bitrev_ordered_and_bitrev_one_rhs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bitrev_ordered_and_bitrev_one_rhs_pattern
+
 -- InstCombineSimplifyRules.td:11319
+def bswap_ordered_or_bswap_one_lhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let x4 ← MatchProg.value t0
+      let op3 ← MatchProg.operation (.llvm .intr__bswap) #[x4] #[t0]
+      let y5 ← MatchProg.value t0
+      let op2 ← MatchProg.operation (.llvm .or) #[op3.res[0]!, y5] #[t0]
+      let op1 ← MatchProg.root (.llvm .intr__bswap) #[op2.res[0]!] #[t0]
+      let () ← requireUses op2.op 1
+      let () ← requireUses op3.op 1
+      return (t0, x4, y5))
+    (fun (t0, x4, y5) => do
+      let new7 ← CreateProg.operation (.llvm .intr__bswap) #[y5] #[t0]
+      let new6 ← CreateProg.operation (.llvm .or) #[x4, new7.res[0]!] #[t0]
+      return new6.res[0]!)
+    (fun result => result)
+
 def bswap_ordered_or_bswap_one_lhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+  compileVariants 0 bswap_ordered_or_bswap_one_lhs_pattern
+
+-- InstCombineSimplifyRules.td:11319
+def bswap_ordered_or_bswap_one_rhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x4 ← MatchProg.value t0
-      let op3 ← MatchProg.operation (.llvm .intr__bswap) #[x4] #[t0]
-      let y5 ← MatchProg.value t0
-      let op2 ← MatchProg.operation (.llvm .or) #[op3.res[0]!, y5] #[t0]
+      let y3 ← MatchProg.value t0
+      let x5 ← MatchProg.value t0
+      let op4 ← MatchProg.operation (.llvm .intr__bswap) #[x5] #[t0]
+      let op2 ← MatchProg.operation (.llvm .or) #[y3, op4.res[0]!] #[t0]
       let op1 ← MatchProg.root (.llvm .intr__bswap) #[op2.res[0]!] #[t0]
       let () ← requireUses op2.op 1
-      let () ← requireUses op3.op 1
-      return (t0, x4, y5))
-    (fun (t0, x4, y5) => do
-      let new7 ← CreateProg.operation (.llvm .intr__bswap) #[y5] #[t0]
-      let new6 ← CreateProg.operation (.llvm .or) #[x4, new7.res[0]!] #[t0]
+      let () ← requireUses op4.op 1
+      return (t0, y3, x5))
+    (fun (t0, y3, x5) => do
+      let new7 ← CreateProg.operation (.llvm .intr__bswap) #[y3] #[t0]
+      let new6 ← CreateProg.operation (.llvm .or) #[new7.res[0]!, x5] #[t0]
       return new6.res[0]!)
     (fun result => result)
 
--- InstCombineSimplifyRules.td:11319
 def bswap_ordered_or_bswap_one_rhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let y3 ← MatchProg.value t0
-      let x5 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .intr__bswap) #[x5] #[t0]
-      let op2 ← MatchProg.operation (.llvm .or) #[y3, op4.res[0]!] #[t0]
-      let op1 ← MatchProg.root (.llvm .intr__bswap) #[op2.res[0]!] #[t0]
-      let () ← requireUses op2.op 1
-      let () ← requireUses op4.op 1
-      return (t0, y3, x5))
-    (fun (t0, y3, x5) => do
-      let new7 ← CreateProg.operation (.llvm .intr__bswap) #[y3] #[t0]
-      let new6 ← CreateProg.operation (.llvm .or) #[new7.res[0]!, x5] #[t0]
-      return new6.res[0]!)
-    (fun result => result)
+  compileVariants 0 bswap_ordered_or_bswap_one_rhs_pattern
 
 -- InstCombineSimplifyRules.td:11319
-def bitrev_ordered_or_bitrev_one_lhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bitrev_ordered_or_bitrev_one_lhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -5638,9 +6274,12 @@ def bitrev_ordered_or_bitrev_one_lhs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def bitrev_ordered_or_bitrev_one_lhs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bitrev_ordered_or_bitrev_one_lhs_pattern
+
 -- InstCombineSimplifyRules.td:11319
-def bitrev_ordered_or_bitrev_one_rhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bitrev_ordered_or_bitrev_one_rhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let y3 ← MatchProg.value t0
@@ -5657,9 +6296,12 @@ def bitrev_ordered_or_bitrev_one_rhs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def bitrev_ordered_or_bitrev_one_rhs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bitrev_ordered_or_bitrev_one_rhs_pattern
+
 -- InstCombineSimplifyRules.td:11319
-def bswap_ordered_xor_bswap_one_lhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bswap_ordered_xor_bswap_one_lhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -5676,9 +6318,12 @@ def bswap_ordered_xor_bswap_one_lhs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def bswap_ordered_xor_bswap_one_lhs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bswap_ordered_xor_bswap_one_lhs_pattern
+
 -- InstCombineSimplifyRules.td:11319
-def bswap_ordered_xor_bswap_one_rhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bswap_ordered_xor_bswap_one_rhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let y3 ← MatchProg.value t0
@@ -5695,9 +6340,12 @@ def bswap_ordered_xor_bswap_one_rhs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def bswap_ordered_xor_bswap_one_rhs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bswap_ordered_xor_bswap_one_rhs_pattern
+
 -- InstCombineSimplifyRules.td:11319
-def bitrev_ordered_xor_bitrev_one_lhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bitrev_ordered_xor_bitrev_one_lhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -5714,9 +6362,12 @@ def bitrev_ordered_xor_bitrev_one_lhs : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def bitrev_ordered_xor_bitrev_one_lhs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bitrev_ordered_xor_bitrev_one_lhs_pattern
+
 -- InstCombineSimplifyRules.td:11319
-def bitrev_ordered_xor_bitrev_one_rhs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bitrev_ordered_xor_bitrev_one_rhs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let y3 ← MatchProg.value t0
@@ -5732,10 +6383,13 @@ def bitrev_ordered_xor_bitrev_one_rhs : Array (CompiledPattern OpCode) :=
       let new6 ← CreateProg.operation (.llvm .xor) #[new7.res[0]!, x5] #[t0]
       return new6.res[0]!)
     (fun result => result)
+
+def bitrev_ordered_xor_bitrev_one_rhs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bitrev_ordered_xor_bitrev_one_rhs_pattern
 
 -- InstCombineSimplifyRules.td:11346
-def clamp_smax_smin_two : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def clamp_smax_smin_two_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t5
@@ -5753,9 +6407,12 @@ def clamp_smax_smin_two : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def clamp_smax_smin_two : Array (CompiledPattern OpCode) :=
+  compileVariants 2 clamp_smax_smin_two_pattern
+
 -- InstCombineSimplifyRules.td:11351
-def clamp_umax_umin_two : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def clamp_umax_umin_two_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t5
@@ -5773,9 +6430,12 @@ def clamp_umax_umin_two : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def clamp_umax_umin_two : Array (CompiledPattern OpCode) :=
+  compileVariants 2 clamp_umax_umin_two_pattern
+
 -- InstCombineSimplifyRules.td:11360
-def clamp_smin_smax_two : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def clamp_smin_smax_two_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t5
@@ -5793,9 +6453,12 @@ def clamp_smin_smax_two : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def clamp_smin_smax_two : Array (CompiledPattern OpCode) :=
+  compileVariants 2 clamp_smin_smax_two_pattern
+
 -- InstCombineSimplifyRules.td:11366
-def clamp_umin_umax_two : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def clamp_umin_umax_two_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t5
@@ -5813,53 +6476,62 @@ def clamp_umin_umax_two : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def clamp_umin_umax_two : Array (CompiledPattern OpCode) :=
+  compileVariants 2 clamp_umin_umax_two_pattern
+
 -- InstCombineSimplifyRules.td:11382
+def umax_nuw_add_dist_common_left_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let common3 ← MatchProg.value t0
+      let x4 ← MatchProg.value t0
+      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 common3 x4) #[t0] (fun p => p.nuw)
+      let y6 ← MatchProg.value t0
+      let op5 ← MatchProg.operation (.llvm .add) (orient swaps 1 common3 y6) #[t0] (fun p => p.nuw)
+      let op1 ← MatchProg.root (.llvm .intr__umax) (orient swaps 2 op2.res[0]! op5.res[0]!) #[t0]
+      let () ← requireUses op2.op 1
+      let () ← requireUses op5.op 1
+      return (t0, common3, x4, op2, y6, op5))
+    (fun (t0, common3, x4, op2, y6, op5) => do
+      let props8 : Handle OpCode (.prop (.llvm .add)) ←
+        CreateProg.applyNative (op2.properties, op5.properties) fun (m0, m1) => some { nsw := m0.nsw && m1.nsw, nuw := m0.nuw && m1.nuw }
+      let new9 ← CreateProg.operation (.llvm .intr__umax) #[x4, y6] #[t0]
+      let new7 ← CreateProg.operation (.llvm .add) #[common3, new9.res[0]!] #[t0] (.inr props8)
+      return new7.res[0]!)
+    (fun result => result)
+
 def umax_nuw_add_dist_common_left : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+  compileVariants 3 umax_nuw_add_dist_common_left_pattern
+
+-- InstCombineSimplifyRules.td:11382
+def umax_nuw_add_dist_common_right_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let common3 ← MatchProg.value t0
-      let x4 ← MatchProg.value t0
-      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 common3 x4) #[t0] (fun p => p.nuw)
+      let x3 ← MatchProg.value t0
+      let common4 ← MatchProg.value t0
+      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 x3 common4) #[t0] (fun p => p.nuw)
       let y6 ← MatchProg.value t0
-      let op5 ← MatchProg.operation (.llvm .add) (orient swaps 1 common3 y6) #[t0] (fun p => p.nuw)
+      let op5 ← MatchProg.operation (.llvm .add) (orient swaps 1 y6 common4) #[t0] (fun p => p.nuw)
       let op1 ← MatchProg.root (.llvm .intr__umax) (orient swaps 2 op2.res[0]! op5.res[0]!) #[t0]
       let () ← requireUses op2.op 1
       let () ← requireUses op5.op 1
-      return (t0, common3, x4, op2, y6, op5))
-    (fun (t0, common3, x4, op2, y6, op5) => do
+      return (t0, x3, common4, op2, y6, op5))
+    (fun (t0, x3, common4, op2, y6, op5) => do
       let props8 : Handle OpCode (.prop (.llvm .add)) ←
         CreateProg.applyNative (op2.properties, op5.properties) fun (m0, m1) => some { nsw := m0.nsw && m1.nsw, nuw := m0.nuw && m1.nuw }
-      let new9 ← CreateProg.operation (.llvm .intr__umax) #[x4, y6] #[t0]
-      let new7 ← CreateProg.operation (.llvm .add) #[common3, new9.res[0]!] #[t0] (.inr props8)
+      let new9 ← CreateProg.operation (.llvm .intr__umax) #[x3, y6] #[t0]
+      let new7 ← CreateProg.operation (.llvm .add) #[new9.res[0]!, common4] #[t0] (.inr props8)
       return new7.res[0]!)
     (fun result => result)
 
--- InstCombineSimplifyRules.td:11382
 def umax_nuw_add_dist_common_right : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t0
-      let common4 ← MatchProg.value t0
-      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 x3 common4) #[t0] (fun p => p.nuw)
-      let y6 ← MatchProg.value t0
-      let op5 ← MatchProg.operation (.llvm .add) (orient swaps 1 y6 common4) #[t0] (fun p => p.nuw)
-      let op1 ← MatchProg.root (.llvm .intr__umax) (orient swaps 2 op2.res[0]! op5.res[0]!) #[t0]
-      let () ← requireUses op2.op 1
-      let () ← requireUses op5.op 1
-      return (t0, x3, common4, op2, y6, op5))
-    (fun (t0, x3, common4, op2, y6, op5) => do
-      let props8 : Handle OpCode (.prop (.llvm .add)) ←
-        CreateProg.applyNative (op2.properties, op5.properties) fun (m0, m1) => some { nsw := m0.nsw && m1.nsw, nuw := m0.nuw && m1.nuw }
-      let new9 ← CreateProg.operation (.llvm .intr__umax) #[x3, y6] #[t0]
-      let new7 ← CreateProg.operation (.llvm .add) #[new9.res[0]!, common4] #[t0] (.inr props8)
-      return new7.res[0]!)
-    (fun result => result)
+  compileVariants 3 umax_nuw_add_dist_common_right_pattern
 
 -- InstCombineSimplifyRules.td:11382
-def umax_nuw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def umax_nuw_add_dist_crossed_left_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let common3 ← MatchProg.value t0
@@ -5879,9 +6551,12 @@ def umax_nuw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umax_nuw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
+  compileVariants 3 umax_nuw_add_dist_crossed_left_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def umax_nuw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def umax_nuw_add_dist_crossed_right_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5901,9 +6576,12 @@ def umax_nuw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umax_nuw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
+  compileVariants 3 umax_nuw_add_dist_crossed_right_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def umin_nuw_add_dist_common_left : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def umin_nuw_add_dist_common_left_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let common3 ← MatchProg.value t0
@@ -5923,9 +6601,12 @@ def umin_nuw_add_dist_common_left : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umin_nuw_add_dist_common_left : Array (CompiledPattern OpCode) :=
+  compileVariants 3 umin_nuw_add_dist_common_left_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def umin_nuw_add_dist_common_right : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def umin_nuw_add_dist_common_right_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5945,9 +6626,12 @@ def umin_nuw_add_dist_common_right : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umin_nuw_add_dist_common_right : Array (CompiledPattern OpCode) :=
+  compileVariants 3 umin_nuw_add_dist_common_right_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def umin_nuw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def umin_nuw_add_dist_crossed_left_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let common3 ← MatchProg.value t0
@@ -5967,9 +6651,12 @@ def umin_nuw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umin_nuw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
+  compileVariants 3 umin_nuw_add_dist_crossed_left_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def umin_nuw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def umin_nuw_add_dist_crossed_right_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -5989,53 +6676,62 @@ def umin_nuw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umin_nuw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
+  compileVariants 3 umin_nuw_add_dist_crossed_right_pattern
+
 -- InstCombineSimplifyRules.td:11382
+def smax_nsw_add_dist_common_left_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let common3 ← MatchProg.value t0
+      let x4 ← MatchProg.value t0
+      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 common3 x4) #[t0] (fun p => p.nsw)
+      let y6 ← MatchProg.value t0
+      let op5 ← MatchProg.operation (.llvm .add) (orient swaps 1 common3 y6) #[t0] (fun p => p.nsw)
+      let op1 ← MatchProg.root (.llvm .intr__smax) (orient swaps 2 op2.res[0]! op5.res[0]!) #[t0]
+      let () ← requireUses op2.op 1
+      let () ← requireUses op5.op 1
+      return (t0, common3, x4, op2, y6, op5))
+    (fun (t0, common3, x4, op2, y6, op5) => do
+      let props8 : Handle OpCode (.prop (.llvm .add)) ←
+        CreateProg.applyNative (op2.properties, op5.properties) fun (m0, m1) => some { nsw := m0.nsw && m1.nsw, nuw := m0.nuw && m1.nuw }
+      let new9 ← CreateProg.operation (.llvm .intr__smax) #[x4, y6] #[t0]
+      let new7 ← CreateProg.operation (.llvm .add) #[common3, new9.res[0]!] #[t0] (.inr props8)
+      return new7.res[0]!)
+    (fun result => result)
+
 def smax_nsw_add_dist_common_left : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+  compileVariants 3 smax_nsw_add_dist_common_left_pattern
+
+-- InstCombineSimplifyRules.td:11382
+def smax_nsw_add_dist_common_right_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let common3 ← MatchProg.value t0
-      let x4 ← MatchProg.value t0
-      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 common3 x4) #[t0] (fun p => p.nsw)
+      let x3 ← MatchProg.value t0
+      let common4 ← MatchProg.value t0
+      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 x3 common4) #[t0] (fun p => p.nsw)
       let y6 ← MatchProg.value t0
-      let op5 ← MatchProg.operation (.llvm .add) (orient swaps 1 common3 y6) #[t0] (fun p => p.nsw)
+      let op5 ← MatchProg.operation (.llvm .add) (orient swaps 1 y6 common4) #[t0] (fun p => p.nsw)
       let op1 ← MatchProg.root (.llvm .intr__smax) (orient swaps 2 op2.res[0]! op5.res[0]!) #[t0]
       let () ← requireUses op2.op 1
       let () ← requireUses op5.op 1
-      return (t0, common3, x4, op2, y6, op5))
-    (fun (t0, common3, x4, op2, y6, op5) => do
+      return (t0, x3, common4, op2, y6, op5))
+    (fun (t0, x3, common4, op2, y6, op5) => do
       let props8 : Handle OpCode (.prop (.llvm .add)) ←
         CreateProg.applyNative (op2.properties, op5.properties) fun (m0, m1) => some { nsw := m0.nsw && m1.nsw, nuw := m0.nuw && m1.nuw }
-      let new9 ← CreateProg.operation (.llvm .intr__smax) #[x4, y6] #[t0]
-      let new7 ← CreateProg.operation (.llvm .add) #[common3, new9.res[0]!] #[t0] (.inr props8)
+      let new9 ← CreateProg.operation (.llvm .intr__smax) #[x3, y6] #[t0]
+      let new7 ← CreateProg.operation (.llvm .add) #[new9.res[0]!, common4] #[t0] (.inr props8)
       return new7.res[0]!)
     (fun result => result)
 
--- InstCombineSimplifyRules.td:11382
 def smax_nsw_add_dist_common_right : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t0
-      let common4 ← MatchProg.value t0
-      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 x3 common4) #[t0] (fun p => p.nsw)
-      let y6 ← MatchProg.value t0
-      let op5 ← MatchProg.operation (.llvm .add) (orient swaps 1 y6 common4) #[t0] (fun p => p.nsw)
-      let op1 ← MatchProg.root (.llvm .intr__smax) (orient swaps 2 op2.res[0]! op5.res[0]!) #[t0]
-      let () ← requireUses op2.op 1
-      let () ← requireUses op5.op 1
-      return (t0, x3, common4, op2, y6, op5))
-    (fun (t0, x3, common4, op2, y6, op5) => do
-      let props8 : Handle OpCode (.prop (.llvm .add)) ←
-        CreateProg.applyNative (op2.properties, op5.properties) fun (m0, m1) => some { nsw := m0.nsw && m1.nsw, nuw := m0.nuw && m1.nuw }
-      let new9 ← CreateProg.operation (.llvm .intr__smax) #[x3, y6] #[t0]
-      let new7 ← CreateProg.operation (.llvm .add) #[new9.res[0]!, common4] #[t0] (.inr props8)
-      return new7.res[0]!)
-    (fun result => result)
+  compileVariants 3 smax_nsw_add_dist_common_right_pattern
 
 -- InstCombineSimplifyRules.td:11382
-def smax_nsw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def smax_nsw_add_dist_crossed_left_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let common3 ← MatchProg.value t0
@@ -6055,9 +6751,12 @@ def smax_nsw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def smax_nsw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
+  compileVariants 3 smax_nsw_add_dist_crossed_left_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def smax_nsw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def smax_nsw_add_dist_crossed_right_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6077,9 +6776,12 @@ def smax_nsw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def smax_nsw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
+  compileVariants 3 smax_nsw_add_dist_crossed_right_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def smin_nsw_add_dist_common_left : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def smin_nsw_add_dist_common_left_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let common3 ← MatchProg.value t0
@@ -6099,9 +6801,12 @@ def smin_nsw_add_dist_common_left : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def smin_nsw_add_dist_common_left : Array (CompiledPattern OpCode) :=
+  compileVariants 3 smin_nsw_add_dist_common_left_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def smin_nsw_add_dist_common_right : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def smin_nsw_add_dist_common_right_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6121,9 +6826,12 @@ def smin_nsw_add_dist_common_right : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def smin_nsw_add_dist_common_right : Array (CompiledPattern OpCode) :=
+  compileVariants 3 smin_nsw_add_dist_common_right_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def smin_nsw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def smin_nsw_add_dist_crossed_left_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let common3 ← MatchProg.value t0
@@ -6143,9 +6851,12 @@ def smin_nsw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def smin_nsw_add_dist_crossed_left : Array (CompiledPattern OpCode) :=
+  compileVariants 3 smin_nsw_add_dist_crossed_left_pattern
+
 -- InstCombineSimplifyRules.td:11382
-def smin_nsw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def smin_nsw_add_dist_crossed_right_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6164,10 +6875,13 @@ def smin_nsw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
       let new7 ← CreateProg.operation (.llvm .add) #[new9.res[0]!, common4] #[t0] (.inr props8)
       return new7.res[0]!)
     (fun result => result)
+
+def smin_nsw_add_dist_crossed_right : Array (CompiledPattern OpCode) :=
+  compileVariants 3 smin_nsw_add_dist_crossed_right_pattern
 
 -- InstCombineSimplifyRules.td:11403
-def umax_nuw_add_constant_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def umax_nuw_add_constant_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6189,9 +6903,12 @@ def umax_nuw_add_constant_dist : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def umax_nuw_add_constant_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 2 umax_nuw_add_constant_dist_pattern
+
 -- InstCombineSimplifyRules.td:11407
-def umin_nuw_add_constant_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def umin_nuw_add_constant_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6213,9 +6930,12 @@ def umin_nuw_add_constant_dist : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def umin_nuw_add_constant_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 2 umin_nuw_add_constant_dist_pattern
+
 -- InstCombineSimplifyRules.td:11411
-def smax_nsw_add_constant_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def smax_nsw_add_constant_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6237,9 +6957,12 @@ def smax_nsw_add_constant_dist : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def smax_nsw_add_constant_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 2 smax_nsw_add_constant_dist_pattern
+
 -- InstCombineSimplifyRules.td:11415
-def smin_nsw_add_constant_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def smin_nsw_add_constant_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6261,9 +6984,12 @@ def smin_nsw_add_constant_dist : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def smin_nsw_add_constant_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 2 smin_nsw_add_constant_dist_pattern
+
 -- InstCombineSimplifyRules.td:11421
-def umax_nuw_sub_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umax_nuw_sub_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -6281,9 +7007,12 @@ def umax_nuw_sub_dist : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umax_nuw_sub_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umax_nuw_sub_dist_pattern
+
 -- InstCombineSimplifyRules.td:11424
-def umin_nuw_sub_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_nuw_sub_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -6301,9 +7030,12 @@ def umin_nuw_sub_dist : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umin_nuw_sub_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_nuw_sub_dist_pattern
+
 -- InstCombineSimplifyRules.td:11427
-def smax_nsw_sub_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smax_nsw_sub_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -6321,9 +7053,12 @@ def smax_nsw_sub_dist : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def smax_nsw_sub_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smax_nsw_sub_dist_pattern
+
 -- InstCombineSimplifyRules.td:11430
-def smin_nsw_sub_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smin_nsw_sub_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let a3 ← MatchProg.value t0
@@ -6341,9 +7076,12 @@ def smin_nsw_sub_dist : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def smin_nsw_sub_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smin_nsw_sub_dist_pattern
+
 -- InstCombineSimplifyRules.td:11456
-def cttz_and_neg_self : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def cttz_and_neg_self_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
@@ -6359,9 +7097,12 @@ def cttz_and_neg_self : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def cttz_and_neg_self : Array (CompiledPattern OpCode) :=
+  compileVariants 1 cttz_and_neg_self_pattern
+
 -- InstCombineSimplifyRules.td:11463
-def cttz_umin_one_shl_power_of_two : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def cttz_umin_one_shl_power_of_two_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (1))
@@ -6382,9 +7123,12 @@ def cttz_umin_one_shl_power_of_two : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def cttz_umin_one_shl_power_of_two : Array (CompiledPattern OpCode) :=
+  compileVariants 1 cttz_umin_one_shl_power_of_two_pattern
+
 -- InstCombineSimplifyRules.td:11476
-def ctlz_umin_one_shl_power_of_two : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def ctlz_umin_one_shl_power_of_two_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (1))
@@ -6409,9 +7153,12 @@ def ctlz_umin_one_shl_power_of_two : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def ctlz_umin_one_shl_power_of_two : Array (CompiledPattern OpCode) :=
+  compileVariants 1 ctlz_umin_one_shl_power_of_two_pattern
+
 -- InstCombineSimplifyRules.td:11491
-def cttz_zero_poison_select_shifted_power_of_two_constants : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def cttz_zero_poison_select_shifted_power_of_two_constants_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t8 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -6440,9 +7187,12 @@ def cttz_zero_poison_select_shifted_power_of_two_constants : Array (CompiledPatt
       return new10.res[0]!)
     (fun result => result)
 
+def cttz_zero_poison_select_shifted_power_of_two_constants : Array (CompiledPattern OpCode) :=
+  compileVariants 0 cttz_zero_poison_select_shifted_power_of_two_constants_pattern
+
 -- InstCombineSimplifyRules.td:11512
-def extract_smul_ov_pow2 : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract_smul_ov_pow2_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -6460,9 +7210,12 @@ def extract_smul_ov_pow2 : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract_smul_ov_pow2 : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract_smul_ov_pow2_pattern
+
 -- InstCombineSimplifyRules.td:11523
-def extract_umul_ov_pow2 : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract_umul_ov_pow2_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -6480,9 +7233,12 @@ def extract_umul_ov_pow2 : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract_umul_ov_pow2 : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract_umul_ov_pow2_pattern
+
 -- InstCombineSimplifyRules.td:11535
-def extract_umul_self_overflow : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract_umul_self_overflow_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -6501,9 +7257,12 @@ def extract_umul_self_overflow : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def extract_umul_self_overflow : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract_umul_self_overflow_pattern
+
 -- InstCombineSimplifyRules.td:11545
-def ctlz_lshr_const_zero_poison : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ctlz_lshr_const_zero_poison_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
@@ -6519,9 +7278,12 @@ def ctlz_lshr_const_zero_poison : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def ctlz_lshr_const_zero_poison : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ctlz_lshr_const_zero_poison_pattern
+
 -- InstCombineSimplifyRules.td:11549
-def cttz_shl_const_zero_poison : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def cttz_shl_const_zero_poison_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
@@ -6537,6 +7299,9 @@ def cttz_shl_const_zero_poison : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def cttz_shl_const_zero_poison : Array (CompiledPattern OpCode) :=
+  compileVariants 0 cttz_shl_const_zero_poison_pattern
+
 -- lshr_nuw_shl_by_cttz_nuw_shl_pow2 (InstCombineSimplifyRules.td:11556): not ported.
 -- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
 -- existing VeIR constant/modular analyses do not supply this contract.
@@ -6548,8 +7313,8 @@ def cttz_shl_const_zero_poison : Array (CompiledPattern OpCode) :=
 -- Source counterexample: C = 0, X = 1, zero-defined ctlz gives width, not width - 1.
 
 -- InstCombineSimplifyRules.td:11582
-def cttz_lowmask_plus1 : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def cttz_lowmask_plus1_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (-1))
@@ -6567,9 +7332,12 @@ def cttz_lowmask_plus1 : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def cttz_lowmask_plus1 : Array (CompiledPattern OpCode) :=
+  compileVariants 1 cttz_lowmask_plus1_pattern
+
 -- InstCombineSimplifyRules.td:11589
-def ctpop_or_neg_self : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def ctpop_or_neg_self_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6590,9 +7358,12 @@ def ctpop_or_neg_self : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def ctpop_or_neg_self : Array (CompiledPattern OpCode) :=
+  compileVariants 1 ctpop_or_neg_self_pattern
+
 -- InstCombineSimplifyRules.td:11597
-def ctpop_lowclear_mask : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def ctpop_lowclear_mask_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -6610,9 +7381,12 @@ def ctpop_lowclear_mask : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def ctpop_lowclear_mask : Array (CompiledPattern OpCode) :=
+  compileVariants 3 ctpop_lowclear_mask_pattern
+
 -- InstCombineSimplifyRules.td:11603
-def ctpop_lowbit_minus_one : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def ctpop_lowbit_minus_one_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -6631,9 +7405,12 @@ def ctpop_lowbit_minus_one : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def ctpop_lowbit_minus_one : Array (CompiledPattern OpCode) :=
+  compileVariants 2 ctpop_lowbit_minus_one_pattern
+
 -- InstCombineSimplifyRules.td:11609
-def ctlz_lowclear_mask : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def ctlz_lowclear_mask_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x4 ← MatchProg.value t0
@@ -6656,9 +7433,12 @@ def ctlz_lowclear_mask : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def ctlz_lowclear_mask : Array (CompiledPattern OpCode) :=
+  compileVariants 3 ctlz_lowclear_mask_pattern
+
 -- InstCombineSimplifyRules.td:11619
-def fshl_i16_rotate8_to_bswap : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshl_i16_rotate8_to_bswap_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -6671,6 +7451,9 @@ def fshl_i16_rotate8_to_bswap : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def fshl_i16_rotate8_to_bswap : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshl_i16_rotate8_to_bswap_pattern
+
 -- recognize_bswap_bitreverse_fshl_root (InstCombineSimplifyRules.td:11630): not ported.
 -- Requires LLVM byte/bit permutation recognition over an expression DAG; VeIR has no equivalent
 -- recognizer.
@@ -6680,8 +7463,8 @@ def fshl_i16_rotate8_to_bswap : Array (CompiledPattern OpCode) :=
 -- recognizer.
 
 -- InstCombineSimplifyRules.td:11647
-def lshr_ctlz_log2bw_to_zext_eq_zero : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def lshr_ctlz_log2bw_to_zext_eq_zero_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t4 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t4
@@ -6701,13 +7484,16 @@ def lshr_ctlz_log2bw_to_zext_eq_zero : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def lshr_ctlz_log2bw_to_zext_eq_zero : Array (CompiledPattern OpCode) :=
+  compileVariants 0 lshr_ctlz_log2bw_to_zext_eq_zero_pattern
+
 -- fshr_const_to_fshl (InstCombineSimplifyRules.td:11655): not ported.
 -- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
 -- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:11667
-def extract0_sole_use_umul_ov : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract0_sole_use_umul_ov_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -6722,9 +7508,12 @@ def extract0_sole_use_umul_ov : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract0_sole_use_umul_ov : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract0_sole_use_umul_ov_pattern
+
 -- InstCombineSimplifyRules.td:11667
-def extract0_sole_use_uadd_ov : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract0_sole_use_uadd_ov_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -6739,9 +7528,12 @@ def extract0_sole_use_uadd_ov : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract0_sole_use_uadd_ov : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract0_sole_use_uadd_ov_pattern
+
 -- InstCombineSimplifyRules.td:11667
-def extract0_sole_use_usub_ov : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract0_sole_use_usub_ov_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -6756,9 +7548,12 @@ def extract0_sole_use_usub_ov : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract0_sole_use_usub_ov : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract0_sole_use_usub_ov_pattern
+
 -- InstCombineSimplifyRules.td:11667
-def extract0_sole_use_sadd_ov : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract0_sole_use_sadd_ov_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -6773,9 +7568,12 @@ def extract0_sole_use_sadd_ov : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract0_sole_use_sadd_ov : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract0_sole_use_sadd_ov_pattern
+
 -- InstCombineSimplifyRules.td:11667
-def extract0_sole_use_ssub_ov : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract0_sole_use_ssub_ov_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -6790,9 +7588,12 @@ def extract0_sole_use_ssub_ov : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract0_sole_use_ssub_ov : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract0_sole_use_ssub_ov_pattern
+
 -- InstCombineSimplifyRules.td:11667
-def extract0_sole_use_smul_ov : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def extract0_sole_use_smul_ov_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := TypeAttr)
@@ -6807,6 +7608,9 @@ def extract0_sole_use_smul_ov : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def extract0_sole_use_smul_ov : Array (CompiledPattern OpCode) :=
+  compileVariants 0 extract0_sole_use_smul_ov_pattern
+
 -- freeze_push_to_unique_poison_source (InstCombineSimplifyRules.td:11702): not ported.
 -- Requires use-graph/dominance facts and coordinated sharing of an undef choice; a root-local
 -- replacement cannot implement that policy.
@@ -6816,8 +7620,8 @@ def extract0_sole_use_smul_ov : Array (CompiledPattern OpCode) :=
 -- replacement cannot implement that policy.
 
 -- InstCombineSimplifyRules.td:11717
-def ctpop_lshr_allones : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ctpop_lshr_allones_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (-1))
@@ -6833,9 +7637,12 @@ def ctpop_lshr_allones : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def ctpop_lshr_allones : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ctpop_lshr_allones_pattern
+
 -- InstCombineSimplifyRules.td:11723
-def ctpop_shl_allones : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def ctpop_shl_allones_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (-1))
@@ -6851,9 +7658,12 @@ def ctpop_shl_allones : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def ctpop_shl_allones : Array (CompiledPattern OpCode) :=
+  compileVariants 0 ctpop_shl_allones_pattern
+
 -- InstCombineSimplifyRules.td:11733
-def abs_neg_to_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def abs_neg_to_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
@@ -6868,9 +7678,12 @@ def abs_neg_to_abs : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def abs_neg_to_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 abs_neg_to_abs_pattern
+
 -- InstCombineSimplifyRules.td:11739
-def smax_opposite_nsw_subtractions_to_nsw_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def smax_opposite_nsw_subtractions_to_nsw_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6888,9 +7701,12 @@ def smax_opposite_nsw_subtractions_to_nsw_abs : Array (CompiledPattern OpCode) :
       return new6.res[0]!)
     (fun result => result)
 
+def smax_opposite_nsw_subtractions_to_nsw_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 smax_opposite_nsw_subtractions_to_nsw_abs_pattern
+
 -- InstCombineSimplifyRules.td:11746
-def smax_opposite_consumed_subtractions_to_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def smax_opposite_consumed_subtractions_to_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6908,9 +7724,12 @@ def smax_opposite_consumed_subtractions_to_abs : Array (CompiledPattern OpCode) 
       return new6.res[0]!)
     (fun result => result)
 
+def smax_opposite_consumed_subtractions_to_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 smax_opposite_consumed_subtractions_to_abs_pattern
+
 -- InstCombineSimplifyRules.td:11755
-def smax_opposite_subtractions_reuse_rhs_as_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def smax_opposite_subtractions_reuse_rhs_as_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -6927,9 +7746,12 @@ def smax_opposite_subtractions_reuse_rhs_as_abs : Array (CompiledPattern OpCode)
       return new6.res[0]!)
     (fun result => result)
 
+def smax_opposite_subtractions_reuse_rhs_as_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 0 smax_opposite_subtractions_reuse_rhs_as_abs_pattern
+
 -- InstCombineSimplifyRules.td:11761
-def smax_x_neg_x_to_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smax_x_neg_x_to_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -6944,9 +7766,12 @@ def smax_x_neg_x_to_abs : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def smax_x_neg_x_to_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smax_x_neg_x_to_abs_pattern
+
 -- InstCombineSimplifyRules.td:11766
-def smin_x_neg_x_to_nabs : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def smin_x_neg_x_to_nabs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -6965,9 +7790,12 @@ def smin_x_neg_x_to_nabs : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def smin_x_neg_x_to_nabs : Array (CompiledPattern OpCode) :=
+  compileVariants 1 smin_x_neg_x_to_nabs_pattern
+
 -- InstCombineSimplifyRules.td:11771
-def umin_x_neg_x_to_abs : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_x_neg_x_to_abs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -6982,9 +7810,12 @@ def umin_x_neg_x_to_abs : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def umin_x_neg_x_to_abs : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_x_neg_x_to_abs_pattern
+
 -- InstCombineSimplifyRules.td:11776
-def umax_x_neg_x_to_nabs : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umax_x_neg_x_to_nabs_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -7003,9 +7834,12 @@ def umax_x_neg_x_to_nabs : Array (CompiledPattern OpCode) :=
       return new5.res[0]!)
     (fun result => result)
 
+def umax_x_neg_x_to_nabs : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umax_x_neg_x_to_nabs_pattern
+
 -- InstCombineSimplifyRules.td:11790
-def umin_nuw_shl_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_nuw_shl_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -7023,9 +7857,12 @@ def umin_nuw_shl_dist : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umin_nuw_shl_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_nuw_shl_dist_pattern
+
 -- InstCombineSimplifyRules.td:11794
-def umax_nuw_shl_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umax_nuw_shl_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -7043,9 +7880,12 @@ def umax_nuw_shl_dist : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umax_nuw_shl_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umax_nuw_shl_dist_pattern
+
 -- InstCombineSimplifyRules.td:11801
-def fshl_rotate_neg_to_fshr : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshl_rotate_neg_to_fshr_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -7060,9 +7900,12 @@ def fshl_rotate_neg_to_fshr : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def fshl_rotate_neg_to_fshr : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshl_rotate_neg_to_fshr_pattern
+
 -- InstCombineSimplifyRules.td:11807
-def fshr_rotate_neg_to_fshl : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def fshr_rotate_neg_to_fshl_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x2 ← MatchProg.value t0
@@ -7077,9 +7920,12 @@ def fshr_rotate_neg_to_fshl : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def fshr_rotate_neg_to_fshl : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fshr_rotate_neg_to_fshl_pattern
+
 -- InstCombineSimplifyRules.td:11815
-def abs_zext_elim : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def abs_zext_elim_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t2 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -7091,17 +7937,24 @@ def abs_zext_elim : Array (CompiledPattern OpCode) :=
       return op2.res[0]!)
     (fun result => result)
 
+def abs_zext_elim : Array (CompiledPattern OpCode) :=
+  compileVariants 0 abs_zext_elim_pattern
+
 -- InstCombineSimplifyRules.td:11975
 -- Same scalar pattern as `select_eq_zero_self`; keep the source rule name.
+def select_eq_zero_identity_pattern (swaps : Nat) : Pattern OpCode := select_eq_zero_self_pattern swaps
+
 def select_eq_zero_identity : Array (CompiledPattern OpCode) := select_eq_zero_self
 
 -- InstCombineSimplifyRules.td:11979
 -- Same scalar pattern as `select_ne_zero_self`; keep the source rule name.
+def select_ne_zero_identity_pattern (swaps : Nat) : Pattern OpCode := select_ne_zero_self_pattern swaps
+
 def select_ne_zero_identity : Array (CompiledPattern OpCode) := select_ne_zero_self
 
 -- InstCombineSimplifyRules.td:12011
-def select_eq_const_identity : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_eq_const_identity_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -7116,9 +7969,12 @@ def select_eq_const_identity : Array (CompiledPattern OpCode) :=
       return x3)
     (fun result => result)
 
+def select_eq_const_identity : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_eq_const_identity_pattern
+
 -- InstCombineSimplifyRules.td:12016
-def select_ne_const_identity : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def select_ne_const_identity_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -7133,9 +7989,12 @@ def select_ne_const_identity : Array (CompiledPattern OpCode) :=
       return x3)
     (fun result => result)
 
+def select_ne_const_identity : Array (CompiledPattern OpCode) :=
+  compileVariants 1 select_ne_const_identity_pattern
+
 -- InstCombineSimplifyRules.td:12021
-def select_eq_zero_or : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def select_eq_zero_or_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -7151,9 +8010,12 @@ def select_eq_zero_or : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def select_eq_zero_or : Array (CompiledPattern OpCode) :=
+  compileVariants 2 select_eq_zero_or_pattern
+
 -- InstCombineSimplifyRules.td:12026
-def select_ne_zero_or : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def select_ne_zero_or_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -7169,9 +8031,12 @@ def select_ne_zero_or : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def select_ne_zero_or : Array (CompiledPattern OpCode) :=
+  compileVariants 2 select_ne_zero_or_pattern
+
 -- InstCombineSimplifyRules.td:12057
-def reassociate_three_smax_constants : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def reassociate_three_smax_constants_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let y3 ← MatchProg.value t0
@@ -7193,9 +8058,12 @@ def reassociate_three_smax_constants : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def reassociate_three_smax_constants : Array (CompiledPattern OpCode) :=
+  compileVariants 3 reassociate_three_smax_constants_pattern
+
 -- InstCombineSimplifyRules.td:12060
-def reassociate_three_smin_constants : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def reassociate_three_smin_constants_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let y3 ← MatchProg.value t0
@@ -7217,9 +8085,12 @@ def reassociate_three_smin_constants : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def reassociate_three_smin_constants : Array (CompiledPattern OpCode) :=
+  compileVariants 3 reassociate_three_smin_constants_pattern
+
 -- InstCombineSimplifyRules.td:12063
-def reassociate_three_umax_constants : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def reassociate_three_umax_constants_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let y3 ← MatchProg.value t0
@@ -7241,9 +8112,12 @@ def reassociate_three_umax_constants : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def reassociate_three_umax_constants : Array (CompiledPattern OpCode) :=
+  compileVariants 3 reassociate_three_umax_constants_pattern
+
 -- InstCombineSimplifyRules.td:12066
-def reassociate_three_umin_constants : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
+def reassociate_three_umin_constants_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let y3 ← MatchProg.value t0
@@ -7265,25 +8139,36 @@ def reassociate_three_umin_constants : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def reassociate_three_umin_constants : Array (CompiledPattern OpCode) :=
+  compileVariants 3 reassociate_three_umin_constants_pattern
+
 -- InstCombineSimplifyRules.td:12070
 -- Same scalar pattern as `reassoc_const_i_smax`; keep the source rule name.
+def smax_smax_const_fold_pattern (swaps : Nat) : Pattern OpCode := reassoc_const_i_smax_pattern swaps
+
 def smax_smax_const_fold : Array (CompiledPattern OpCode) := reassoc_const_i_smax
 
 -- InstCombineSimplifyRules.td:12077
 -- Same scalar pattern as `reassoc_const_i_smin`; keep the source rule name.
+def smin_smin_const_fold_pattern (swaps : Nat) : Pattern OpCode := reassoc_const_i_smin_pattern swaps
+
 def smin_smin_const_fold : Array (CompiledPattern OpCode) := reassoc_const_i_smin
 
 -- InstCombineSimplifyRules.td:12084
 -- Same scalar pattern as `reassoc_const_i_umax`; keep the source rule name.
+def umax_umax_const_fold_pattern (swaps : Nat) : Pattern OpCode := reassoc_const_i_umax_pattern swaps
+
 def umax_umax_const_fold : Array (CompiledPattern OpCode) := reassoc_const_i_umax
 
 -- InstCombineSimplifyRules.td:12091
 -- Same scalar pattern as `reassoc_const_i_umin`; keep the source rule name.
+def umin_umin_const_fold_pattern (swaps : Nat) : Pattern OpCode := reassoc_const_i_umin_pattern swaps
+
 def umin_umin_const_fold : Array (CompiledPattern OpCode) := reassoc_const_i_umin
 
 -- InstCombineSimplifyRules.td:12103
-def umax_smax_nonnegative_constants_fold : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def umax_smax_nonnegative_constants_fold_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -7302,9 +8187,12 @@ def umax_smax_nonnegative_constants_fold : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def umax_smax_nonnegative_constants_fold : Array (CompiledPattern OpCode) :=
+  compileVariants 2 umax_smax_nonnegative_constants_fold_pattern
+
 -- InstCombineSimplifyRules.td:12113
-def smin_umin_nonnegative_constants_fold : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
+def smin_umin_nonnegative_constants_fold_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let x3 ← MatchProg.value t0
@@ -7323,6 +8211,9 @@ def smin_umin_nonnegative_constants_fold : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def smin_umin_nonnegative_constants_fold : Array (CompiledPattern OpCode) :=
+  compileVariants 2 smin_umin_nonnegative_constants_fold_pattern
+
 -- umax_xor_pow2_to_or (InstCombineSimplifyRules.td:12133): not ported.
 -- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
 -- existing VeIR constant/modular analyses do not supply this contract.
@@ -7332,8 +8223,8 @@ def smin_umin_nonnegative_constants_fold : Array (CompiledPattern OpCode) :=
 -- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:12150
-def bitreverse_zext_i1_to_select : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bitreverse_zext_i1_to_select_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t3 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -7352,9 +8243,12 @@ def bitreverse_zext_i1_to_select : Array (CompiledPattern OpCode) :=
       return new4.res[0]!)
     (fun result => result)
 
+def bitreverse_zext_i1_to_select : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bitreverse_zext_i1_to_select_pattern
+
 -- InstCombineSimplifyRules.td:12158
-def bitreverse_zext_i1_not_sign_extract : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def bitreverse_zext_i1_not_sign_extract_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
@@ -7378,9 +8272,12 @@ def bitreverse_zext_i1_not_sign_extract : Array (CompiledPattern OpCode) :=
       return new9.res[0]!)
     (fun result => result)
 
+def bitreverse_zext_i1_not_sign_extract : Array (CompiledPattern OpCode) :=
+  compileVariants 1 bitreverse_zext_i1_not_sign_extract_pattern
+
 -- InstCombineSimplifyRules.td:12165
-def bitreverse_i1_select_not_sign_extract : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def bitreverse_i1_select_not_sign_extract_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -7404,9 +8301,12 @@ def bitreverse_i1_select_not_sign_extract : Array (CompiledPattern OpCode) :=
       return new8.res[0]!)
     (fun result => result)
 
+def bitreverse_i1_select_not_sign_extract : Array (CompiledPattern OpCode) :=
+  compileVariants 0 bitreverse_i1_select_not_sign_extract_pattern
+
 -- InstCombineSimplifyRules.td:12170
-def usub_sat_nuwsub_const : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def usub_sat_nuwsub_const_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
@@ -7423,9 +8323,12 @@ def usub_sat_nuwsub_const : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def usub_sat_nuwsub_const : Array (CompiledPattern OpCode) :=
+  compileVariants 0 usub_sat_nuwsub_const_pattern
+
 -- InstCombineSimplifyRules.td:12177
-def select_nested_same_cond_false : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_nested_same_cond_false_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t7 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -7441,9 +8344,12 @@ def select_nested_same_cond_false : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def select_nested_same_cond_false : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_nested_same_cond_false_pattern
+
 -- InstCombineSimplifyRules.td:12179
-def select_nested_same_cond_true : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def select_nested_same_cond_true_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t7 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -7459,6 +8365,9 @@ def select_nested_same_cond_true : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def select_nested_same_cond_true : Array (CompiledPattern OpCode) :=
+  compileVariants 0 select_nested_same_cond_true_pattern
+
 -- gep_infer_inbounds_and_nuw_from_dereferenceable_object (InstCombineSimplifyRules.td:12227): not ported.
 -- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
 -- helpers do not supply these target-independent source-type and flag contracts.
@@ -7472,8 +8381,8 @@ def select_nested_same_cond_true : Array (CompiledPattern OpCode) :=
 -- helpers do not supply these target-independent source-type and flag contracts.
 
 -- InstCombineSimplifyRules.td:12564
-def usub_sat_nuwsub_constant_lanes : Array (CompiledPattern OpCode) :=
-  compileVariants 0 fun swaps => Pattern.Builder
+def usub_sat_nuwsub_constant_lanes_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let op3 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
@@ -7490,9 +8399,12 @@ def usub_sat_nuwsub_constant_lanes : Array (CompiledPattern OpCode) :=
       return new6.res[0]!)
     (fun result => result)
 
+def usub_sat_nuwsub_constant_lanes : Array (CompiledPattern OpCode) :=
+  compileVariants 0 usub_sat_nuwsub_constant_lanes_pattern
+
 -- InstCombineSimplifyRules.td:12574
-def usub_sat_select_one_zext_not_condition : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def usub_sat_select_one_zext_not_condition_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
@@ -7512,6 +8424,9 @@ def usub_sat_select_one_zext_not_condition : Array (CompiledPattern OpCode) :=
       let new9 ← CreateProg.operation (.llvm .select) #[cond3, x4, k10.res[0]!] #[t0]
       return new9.res[0]!)
     (fun result => result)
+
+def usub_sat_select_one_zext_not_condition : Array (CompiledPattern OpCode) :=
+  compileVariants 1 usub_sat_select_one_zext_not_condition_pattern
 
 -- smax_xor_nonnegative_pow2_to_or (InstCombineSimplifyRules.td:12582): not ported.
 -- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
@@ -7534,8 +8449,8 @@ def usub_sat_select_one_zext_not_condition : Array (CompiledPattern OpCode) :=
 -- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:12632
-def umin_nuw_shl_common_lhs_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_nuw_shl_common_lhs_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let base3 ← MatchProg.value t0
@@ -7552,10 +8467,13 @@ def umin_nuw_shl_common_lhs_dist : Array (CompiledPattern OpCode) :=
       let new7 ← CreateProg.operation (.llvm .shl) #[base3, new8.res[0]!] #[t0] (.inl { nsw := false, nuw := true })
       return new7.res[0]!)
     (fun result => result)
+
+def umin_nuw_shl_common_lhs_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_nuw_shl_common_lhs_dist_pattern
 
 -- InstCombineSimplifyRules.td:12632
-def umin_nuw_shl_common_lhs_dist_nsw : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umin_nuw_shl_common_lhs_dist_nsw_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let base3 ← MatchProg.value t0
@@ -7573,9 +8491,12 @@ def umin_nuw_shl_common_lhs_dist_nsw : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umin_nuw_shl_common_lhs_dist_nsw : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umin_nuw_shl_common_lhs_dist_nsw_pattern
+
 -- InstCombineSimplifyRules.td:12634
-def umax_nuw_shl_common_lhs_dist : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umax_nuw_shl_common_lhs_dist_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let base3 ← MatchProg.value t0
@@ -7593,9 +8514,12 @@ def umax_nuw_shl_common_lhs_dist : Array (CompiledPattern OpCode) :=
       return new7.res[0]!)
     (fun result => result)
 
+def umax_nuw_shl_common_lhs_dist : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umax_nuw_shl_common_lhs_dist_pattern
+
 -- InstCombineSimplifyRules.td:12634
-def umax_nuw_shl_common_lhs_dist_nsw : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
+def umax_nuw_shl_common_lhs_dist_nsw_pattern (swaps : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
       let base3 ← MatchProg.value t0
@@ -7612,6 +8536,9 @@ def umax_nuw_shl_common_lhs_dist_nsw : Array (CompiledPattern OpCode) :=
       let new7 ← CreateProg.operation (.llvm .shl) #[base3, new8.res[0]!] #[t0] (.inl { nsw := true, nuw := true })
       return new7.res[0]!)
     (fun result => result)
+
+def umax_nuw_shl_common_lhs_dist_nsw : Array (CompiledPattern OpCode) :=
+  compileVariants 1 umax_nuw_shl_common_lhs_dist_nsw_pattern
 
 /-- Imported families in textual source order. -/
 def namedPatterns : Array (String × Array (CompiledPattern OpCode)) := #[
