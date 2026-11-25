@@ -5,6 +5,9 @@
 // remaining value a virtual register; the precoloured values keep theirs.
 //
 // The only physical register the pipeline assigns before precolouring is x0.
+//
+// Precolouring runs as rewrite patterns, whose driver erases dead operations, so every value in
+// these functions is used.
 
 "builtin.module"() ({
   // Non-function operations and declarations are passed over.
@@ -28,32 +31,36 @@
   // CHECK-NEXT:  "riscv_cf.return"() : () -> ()
 
   // Virtual registers are reused once a value dies, and numbering restarts at j0 in each function.
-  "riscv_cf.func"() <{sym_name = "arithmetic", function_type = () -> ()}> ({
+  "riscv_cf.func"() <{sym_name = "arithmetic", function_type = () -> !riscv.reg}> ({
     %a = "riscv.li"() <{value = 5 : i64}> : () -> !riscv.reg
     %b = "riscv.li"() <{value = 7 : i64}> : () -> !riscv.reg
     %sum = "riscv.add"(%a, %b) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-    "riscv_cf.return"() : () -> ()
+    "riscv_cf.return"(%sum) : (!riscv.reg) -> ()
   }) : () -> ()
 
   // CHECK-LABEL: "sym_name" = "arithmetic"
   // CHECK-NEXT:  ^{{[^ ]+}}():
   // CHECK-NEXT:  [[A:%[^ ]+]] = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg<j0>
   // CHECK-NEXT:  [[B:%[^ ]+]] = "riscv.li"() <{"value" = 7 : i64}> : () -> !riscv.reg<j1>
-  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.add"([[A]], [[B]]) : (!riscv.reg<j0>, !riscv.reg<j1>) -> !riscv.reg<j0>
-  // CHECK-NEXT:  "riscv_cf.return"() : () -> ()
+  // CHECK-NEXT:  [[S:%[^ ]+]] = "riscv.add"([[A]], [[B]]) : (!riscv.reg<j0>, !riscv.reg<j1>) -> !riscv.reg<j0>
+  // CHECK-NEXT:  [[R:%[^ ]+]] = "riscv.mv"([[S]]) : (!riscv.reg<j0>) -> !riscv.reg<x10>
+  // CHECK-NEXT:  "riscv_cf.return"([[R]]) : (!riscv.reg<x10>) -> ()
 
-  // A fixed x0 is left alone.
-  "riscv_cf.func"() <{sym_name = "fixed_zero", function_type = () -> ()}> ({
+  // A fixed x0 operand is left alone.
+  "riscv_cf.func"() <{sym_name = "fixed_zero", function_type = () -> !riscv.reg}> ({
     %a = "riscv.li"() <{value = 5 : i64}> : () -> !riscv.reg
     %zero = "rv64.get_register"() : () -> !riscv.reg<x0>
-    "riscv_cf.return"() : () -> ()
+    %sum = "riscv.add"(%a, %zero) : (!riscv.reg, !riscv.reg<x0>) -> !riscv.reg
+    "riscv_cf.return"(%sum) : (!riscv.reg) -> ()
   }) : () -> ()
 
   // CHECK-LABEL: "sym_name" = "fixed_zero"
   // CHECK-NEXT:  ^{{[^ ]+}}():
-  // CHECK-NEXT:  "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg<j0>
-  // CHECK-NEXT:  "rv64.get_register"() : () -> !riscv.reg<x0>
-  // CHECK-NEXT:  "riscv_cf.return"() : () -> ()
+  // CHECK-NEXT:  [[A:%[^ ]+]] = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg<j0>
+  // CHECK-NEXT:  [[Z:%[^ ]+]] = "rv64.get_register"() : () -> !riscv.reg<x0>
+  // CHECK-NEXT:  [[S:%[^ ]+]] = "riscv.add"([[A]], [[Z]]) : (!riscv.reg<j0>, !riscv.reg<x0>) -> !riscv.reg<j0>
+  // CHECK-NEXT:  [[R:%[^ ]+]] = "riscv.mv"([[S]]) : (!riscv.reg<j0>) -> !riscv.reg<x10>
+  // CHECK-NEXT:  "riscv_cf.return"([[R]]) : (!riscv.reg<x10>) -> ()
 
   // Argument i is pinned to a<i> and copied into a fresh value; an unused argument is pinned
   // but not copied. The result is copied into its return value in a0. The signature follows

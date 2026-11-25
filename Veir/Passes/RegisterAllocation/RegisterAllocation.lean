@@ -10,17 +10,15 @@ namespace Veir
 /--
 Assign registers to the functions of the module `op`.
 
-Every function is collected and checked by `allocatableBlocks` and `checkPrecolouredArguments`
-(`Helper.lean`) before any is rewritten, so the pass either allocates all of them or leaves the
-module untouched. Function arguments must be precoloured by `register-precolouring-riscv64`.
+Every function is collected and checked by `allocatableFunctions` (`Helper.lean`) before any is
+rewritten, so the pass either allocates all of them or leaves the module untouched.
 -/
 def RegisterAllocationPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-    let entries ← allocatableBlocks ctx op
-    for entry in entries do
-        checkPrecolouredArguments ctx entry
+    let funcs ← allocatableFunctions ctx op
     let mut ctx := ctx
-    for entry in entries do
+    for f in funcs do
+        let some entry := functionEntry? ctx f | continue
         ctx ← allocateBlock ctx entry
     return ctx
 
