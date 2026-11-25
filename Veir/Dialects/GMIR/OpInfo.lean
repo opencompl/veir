@@ -10,9 +10,11 @@ public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
 public import Veir.Data.LLVM.Int.Basic
-public import Veir.Dialects.GMIR.Semantics
+public import Veir.Data.GMIR.Basic
 import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
+
+open Veir.Data.GMIR
 
 namespace Veir
 
@@ -84,6 +86,7 @@ inductive GMIR where
 | g_rotr
 | g_poison
 | g_freeze
+| g_global_value
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, implicit_reducible, properties_of]
@@ -95,6 +98,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_zext => NnegProperties
   | .g_sext_inreg => SextInRegProperties
   | .g_constant => GMIRConstantProperties
+  | .g_global_value => LLVMAddressOfProperties
   | .g_load | .g_store => MachineMemOperand
   | .g_brcond => GMIRBrCondProperties
   | .g_select | .g_anyext | .g_sext
@@ -119,6 +123,7 @@ def GMIR.fromAttrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
   case g_sext_inreg => exact SextInRegProperties.fromAttrDict attrDict
   case g_constant => exact GMIRConstantProperties.fromAttrDict attrDict
+  case g_global_value => exact LLVMAddressOfProperties.fromAttrDict attrDict
   case g_load => exact MachineMemOperand.fromAttrDict "gmir.g_load" attrDict
   case g_store => exact MachineMemOperand.fromAttrDict "gmir.g_store" attrDict
   case g_brcond => exact GMIRBrCondProperties.fromAttrDict attrDict
@@ -161,6 +166,9 @@ def GMIR.toAttrDict
   | .g_zext => props.toAttrDict
   | .g_sext_inreg => (Std.HashMap.emptyWithCapacity 1).insert "sz".toUTF8 (i64Attr props.sz)
   | .g_constant => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (.integerAttr props.value)
+  | .g_global_value =>
+    (Std.HashMap.ofList props.extra.entries.toList).insert "global_name".toUTF8
+      (.flatSymbolRefAttr props.global_name)
   | .g_load | .g_store => props.toAttrDict
   | .g_brcond => (Std.HashMap.emptyWithCapacity 1).insert
       "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
@@ -232,7 +240,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_bswap | .g_bitreverse | .g_brev8 | .g_abs | .g_sext_inreg | .g_freeze =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0] }
-  | .g_constant | .g_poison =>
+  | .g_constant | .g_poison | .g_global_value =>
     { outOperandList := #[.type 0]
       inOperandList := #[] }
   | .g_load =>
@@ -308,77 +316,6 @@ private def OperationPtr.verifyGMIRSelect {OpInfo : Type} [IsOpCode OpInfo]
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerOrPointerType
     "gmir.g_select: Expected the selected values to have integer or pointer type"
 
-/--
-Converts a shift amount (type group 1) to the width `w` of the shifted value (type group 0).
-An amount that does not fit in `w` bits is out of range, so it is replaced by the all-ones value,
-which is also out of range and hence yields the same (poison) result.
--/
-private def shiftAmount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
-  | .val v => .val (if v.toNat < w then BitVec.ofNat w v.toNat else BitVec.allOnes w)
-  | .poison => .poison
-
-/-- Converts a bit count to the width `w` of the result (type group 0) of `g_ctlz`/`g_cttz`/`g_ctpop`. -/
-private def resizeCount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
-  | .val v => .val (BitVec.ofNat w v.toNat)
-  | .poison => .poison
-
-/--
-The `2 * w`-bit value whose low half is `lo` and whose high half is `hi`, as produced by gMIR's
-`g_merge_values`. If either half is poison, the result is poison.
--/
--- TODO: A poison half should not make the other half poison, so that a half padded with
--- `g_implicit_def` (as LLVM does when narrowing `g_anyext`) keeps the defined half.
-private def mergeValues {w : Nat} (lo hi : Data.LLVM.Int w) : Data.LLVM.Int (w + w) :=
-  match lo, hi with
-  | .val lo, .val hi => .val (hi ++ lo)
-  | _, _ => .poison
-
-/--
-The low and the high half of the `2 * w`-bit `x`, as produced by gMIR's `g_unmerge_values`.
-If `x` is poison, both halves are poison.
--/
-private def unmergeValues {w : Nat} (x : Data.LLVM.Int (w + w)) :
-    Data.LLVM.Int w × Data.LLVM.Int w :=
-  match x with
-  | .val x => (.val (x.truncate w), .val (x.extractLsb' w w))
-  | .poison => (.poison, .poison)
-
-/--
-The sum of `x`, `y` and the carry `c`, and the carry out, as produced by gMIR's `g_uadde`. The sum
-is taken modulo `2^w`, and the carry out is `1` if it does not fit in `w` bits. If any operand is
-poison, both results are poison.
--/
-private def uaddWithCarry {w : Nat} (x y : Data.LLVM.Int w) (c : Data.LLVM.Int 1) :
-    Data.LLVM.Int w × Data.LLVM.Int 1 :=
-  match x, y, c with
-  | .val x, .val y, .val c =>
-    let sum := x + y + c.zeroExtend w
-    -- `BitVec.carry w` is the carry out of a `w`-bit add, i.e. whether `x + y + c ≥ 2^w`.
-    (.val sum, .val (BitVec.ofBool (BitVec.carry w x y (c.getLsbD 0))))
-  | _, _, _ => (.poison, .poison)
-
-/--
-The difference of `x`, `y` and the borrow `b`, and the borrow out, as produced by gMIR's `g_usube`.
-The difference is taken modulo `2^w`, and the borrow out is `1` if `x < y + b` as unsigned integers.
-If any operand is poison, both results are poison.
--/
-private def usubWithBorrow {w : Nat} (x y : Data.LLVM.Int w) (b : Data.LLVM.Int 1) :
-    Data.LLVM.Int w × Data.LLVM.Int 1 :=
-  match x, y, b with
-  | .val x, .val y, .val b =>
-    -- `y + b` is at most `2^w`, so it fits in `w + 1` bits.
-    let borrow := (x.zeroExtend (w + 1)).ult (y.zeroExtend (w + 1) + b.zeroExtend (w + 1))
-    (.val (x - y - b.zeroExtend w), .val (BitVec.ofBool borrow))
-  | _, _, _ => (.poison, .poison)
-
-/--
-Reverses the bits within each byte of `x`, as RISC-V's `brev8` (LLVM's `RISCV::G_BREV8`).
-Reversing all bits also reverses the byte order, which `bswap` undoes. The verifier only accepts
-widths of 8, 16, 32 and 64 bits.
--/
-def brev8 {w : Nat} (x : Data.LLVM.Int w) : Data.LLVM.Int w :=
-  if w = 8 then Data.LLVM.Int.bitreverse x else Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)
-
 def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState)
@@ -410,7 +347,7 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let [.int _ cond, .int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (GMIR.selectNonzero cond lhs rhs)], mem, none)
+    return (#[.int bw (Data.GMIR.selectNonzero cond lhs rhs)], mem, none)
   | .g_sub => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -457,6 +394,9 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
   | .g_freeze => do
     let [.int w val] := operands.toList | none
     return (#[.int w val.freeze], mem, none)
+  | .g_global_value => do
+    let some p := mem.pointerToGlobal properties.global_name.value | none
+    return (#[.addr (.val p)], mem, none)
   | .g_mul => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -726,18 +666,18 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let [.int bw x, .int bw' y, .int _ z] := operands.toList | none
     if h : bw' ≠ bw then none else
     let y := y.cast (by simp at h; exact h)
-    return (#[.int bw (Data.LLVM.Int.fshl x y (GMIR.funnelShiftAmount bw z))], mem, none)
+    return (#[.int bw (Data.LLVM.Int.fshl x y (Data.GMIR.funnelShiftAmount bw z))], mem, none)
   | .g_fshr => do
     let [.int bw x, .int bw' y, .int _ z] := operands.toList | none
     if h : bw' ≠ bw then none else
     let y := y.cast (by simp at h; exact h)
-    return (#[.int bw (Data.LLVM.Int.fshr x y (GMIR.funnelShiftAmount bw z))], mem, none)
+    return (#[.int bw (Data.LLVM.Int.fshr x y (Data.GMIR.funnelShiftAmount bw z))], mem, none)
   | .g_rotl => do
     let [.int bw x, .int _ z] := operands.toList | none
-    return (#[.int bw (GMIR.rotl x z)], mem, none)
+    return (#[.int bw (Data.GMIR.rotl x z)], mem, none)
   | .g_rotr => do
     let [.int bw x, .int _ z] := operands.toList | none
-    return (#[.int bw (GMIR.rotr x z)], mem, none)
+    return (#[.int bw (Data.GMIR.rotr x z)], mem, none)
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -848,6 +788,10 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     opPtr.checkIsNonNullIntegerType ctx opIn
     ((opPtr.getResult 0).getType! ctx.raw).verifyIntegerOrPointerType
       "gmir.g_poison: Expected result to have integer or !llvm.ptr type"
+  | .g_global_value =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    ((opPtr.getResult 0).getType! ctx.raw).verifyLlvmPointerType
+      "gmir.g_global_value: Expected result to have !llvm.ptr type"
   | .g_select =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRSelect ctx
@@ -952,7 +896,8 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr => true
   -- Poison on the arm that `g_select` does not select does not reach its result.
-  | .g_select | .g_constant | .g_poison | .g_freeze | .g_load | .g_store | .g_br | .g_brcond => false
+  | .g_select | .g_constant | .g_poison | .g_freeze | .g_global_value | .g_load | .g_store | .g_br
+  | .g_brcond => false
 
 /--
 `g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and

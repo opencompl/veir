@@ -4,7 +4,7 @@ public import Veir.Data.LLVM.Int.Basic
 
 open Veir.Data.LLVM
 
-namespace Veir.GMIR_RISCV
+namespace Veir.Data.GMIR_RISCV
 
 public section
 
@@ -27,4 +27,4 @@ def wordShiftAmount (y : Int 32) : Int 32 :=
 
 end
 
-end Veir.GMIR_RISCV
+end Veir.Data.GMIR_RISCV

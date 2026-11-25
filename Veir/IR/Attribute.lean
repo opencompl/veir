@@ -115,12 +115,26 @@ end FloatType
 
 
 /--
-  A register type is an integer type with width 64;
-  Negative indices represent unbounded virtual registers;
-  non-negative indices `0–31` represent the 32 architectural registers.
+  There are different types of registers:
+  int: integer registers (x0 to x31)
+  stack: virtual type of register that represents a slot on the stack, eventually lowered to actual memory operations
+-/
+inductive RegisterClass where
+  | int
+  | stack
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- Registers hold 64 bit values.
+  Negative indices represent unbounded virtual registers.
+  Non-negative indices represent the architectural registers.
 -/
 structure RegisterType where
-  index: Option Int := none
+  /--
+  Currently, we chose int as default RegisterType, since VeIR only supports integer registers.
+  TODO: update when more registers are available.
+ -/
+  cls   : RegisterClass := .int
+  index : Option Int := none
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /-- The MLIR builtin `index` type. -/
@@ -1061,11 +1075,14 @@ instance : ToString FloatAttr where
 
 instance : ToString RegisterType where
   toString type :=
+    let name := match type.cls with
+      | .int => "riscv.reg"
+      | .stack => "riscv.stack"
     match type.index with
     -- unallocated
-    | none => s!"!riscv.reg"
+    | none => s!"!{name}"
     -- RV64 architectural (x<?>) or virtual register (j<?>)
-    | some i => if i >= 0 then s!"!riscv.reg<x{i}>" else s!"!riscv.reg<j{-(i + 1)}>"
+    | some i => if i >= 0 then s!"!{name}<x{i}>" else s!"!{name}<j{-(i + 1)}>"
 
 instance : ToString RegisterAttr where
   toString attr := s!"{attr.value} : !riscv.reg"
@@ -2362,8 +2379,8 @@ type_attribute_instance Seq.ClockType => Attribute.seqClockType
 type_attribute_instance Seq.FirMemType => Attribute.seqFirMemType
 type_attribute_instance SMT.SortType => Attribute.smtSortType
 
-instance : CoeDep (Option Int → RegisterType) RegisterType.mk TypeAttr where
-  coe := TypeAttr.of RegisterType (.mk none)
+instance : CoeDep (RegisterClass → Option Int → RegisterType) RegisterType.mk TypeAttr where
+  coe := TypeAttr.of RegisterType {}
 
 instance : IsTypeAttr TypeAttr where
   name := "TypeAttr"

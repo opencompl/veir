@@ -19,6 +19,9 @@
   "llvm.mlir.global"() <{global_type = !llvm.array<2 x i1>, linkage = #llvm.linkage<external>, sym_name = "bits", value = dense<[true, false]> : tensor<2xi1>}> ({}) : () -> ()
   "llvm.mlir.global"() <{global_type = !llvm.array<3 x i16>, linkage = #llvm.linkage<external>, sym_name = "raw", value = dense<"0xFFFF00803412"> : tensor<3xi16>}> ({}) : () -> ()
   "llvm.mlir.global"() <{global_type = !llvm.array<2 x i16>, linkage = #llvm.linkage<external>, sym_name = "raw_splat", value = dense<"0x3412"> : tensor<2xi16>}> ({}) : () -> ()
+  "llvm.mlir.global"() <{global_type = !llvm.array<2 x i17>, linkage = #llvm.linkage<external>, sym_name = "raw_i17", value = dense<"0xfdff01030001"> : tensor<2xi17>}> ({}) : () -> ()
+  "llvm.mlir.global"() <{global_type = !llvm.array<2 x i17>, linkage = #llvm.linkage<external>, sym_name = "raw_i17_splat", value = dense<"0xFDFF01"> : tensor<2xi17>}> ({}) : () -> ()
+  "llvm.mlir.global"() <{global_type = !llvm.array<2 x i1>, linkage = #llvm.linkage<external>, sym_name = "raw_bits", value = dense<"0x0100"> : tensor<2xi1>}> ({}) : () -> ()
   "llvm.func"() <{function_type = !llvm.func<i16 ()>, sym_name = "read_integer"}> ({
     %p = "llvm.mlir.addressof"() <{global_name = @integers}> : () -> !llvm.ptr
     %v = "llvm.load"(%p) : (!llvm.ptr) -> i16
@@ -37,3 +40,6 @@
 // CHECK-NEXT: @bits = global [2 x i1] [i1 1, i1 0]
 // CHECK-NEXT: @raw = global [3 x i16] [i16 65535, i16 32768, i16 4660]
 // CHECK-NEXT: @raw_splat = global [2 x i16] [i16 4660, i16 4660]
+// CHECK-NEXT: @raw_i17 = global [2 x i17] [i17 131069, i17 65539]
+// CHECK-NEXT: @raw_i17_splat = global [2 x i17] [i17 131069, i17 131069]
+// CHECK-NEXT: @raw_bits = global [2 x i1] [i1 1, i1 0]

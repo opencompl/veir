@@ -17,7 +17,8 @@ namespace CTree
 set_option linter.unusedVariables false in
 /--
 Interpret an opcode given its properties, result types, and runtime operands.
-Regions may be called using the `runRegion` function, which triggers a `RunRegionE` effect.
+Regions may be called using the `runRegion` function, which triggers a `RunRegionE` effect, and
+functions using `interpretCall`, which triggers a `CallE` effect.
 
 This calls the dialect-specific interpreters, which can be either CTree-based or Interp-based.
 -/
@@ -25,7 +26,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (blockOperands : Array BlockPtr) (mem : MemoryState)
     (regions : Array RegionPtr := #[])
-    : CTree ((ErrorE ⊕ₑ UBE)) FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+    : FunctionTree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .llvm opType =>
     Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem
@@ -35,6 +36,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     Riscv.interpretOpCTree opType properties resultTypes operands blockOperands mem
   | .builtin opType =>
     Builtin.interpretOpCTree opType properties resultTypes operands blockOperands mem
+  | .func .call => interpretCall Func.callInterface properties operands mem
+  | .riscv_cf .call => interpretCall Riscv_Cf.callInterface properties operands mem
   /- Other dialects rely on lifting the `Interp`-based interpreter. -/
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
@@ -44,7 +47,7 @@ end CTree
 /-- CTree counterpart of `OperationPtr.interpret`, with the operation's IR metadata fixed. -/
 def OperationPtr.interpretCTree {ctx : WfIRContext OpCode} (op : OperationPtr)
     (opIn : op.InBounds ctx.raw) (operands : Array RuntimeValue) (memory : MemoryState) :
-    Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+    FunctionTree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
   let code := op.getOpType ctx.raw opIn
   CTree.interpretOp' code (op.getProperties ctx.raw code) (op.getResultTypes ctx.raw)
     operands (op.getSuccessors ctx.raw) memory (op.getRegions ctx.raw)
@@ -164,16 +167,32 @@ def interpretRegion (region : RegionPtr) (values : Array RuntimeValue)
 /-- Interpret a function body with the given runtime arguments and initial memory. -/
 def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) (mem : MemoryState)
     {ctx : WfIRContext OpCode} (opIn : op.InBounds ctx.raw := by grind)
-    : CTree E FreezeC (Array RuntimeValue) := do
+    : CTree E FreezeC (MemoryState × Array RuntimeValue) := do
   let some funcOp := FunctionOp.of? op ctx.raw | fail
   if h : op.getNumRegions ctx.raw ≠ 1 then
     fail
   else
-    let (_, results) ← interpretRegion interp funcOp.getFunctionBody
+    let (state, results) ← interpretRegion interp funcOp.getFunctionBody
       values ⟨.empty ctx, mem⟩
-    return results
+    return (state.memory, results)
 
 end
+
+/-- Maps the symbol of each function, such as `@f`, to its function. -/
+abbrev FunctionMap := Std.HashMap String OperationPtr
+
+/--
+Interpret the function calls of `tree` by running the callees in `functions`. Calling a symbol
+that is not a function is undefined behavior.
+-/
+def resolveCalls (functions : FunctionMap) {ctx : WfIRContext OpCode}
+    (tree : FunctionTree α) : Tree α :=
+  CTree.interp_mrec (E := CallE) (fun ⟨callee, arguments, memory⟩ => do
+    let some funcPtr := functions[callee]? | ub
+    if h : funcPtr.InBounds ctx.raw then
+      interpretFunction @interpretOp' (ctx := ctx) funcPtr arguments memory
+    else
+      fail) tree
 
 end CTree
 end Veir
