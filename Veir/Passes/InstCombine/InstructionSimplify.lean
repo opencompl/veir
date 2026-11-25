@@ -7928,9 +7928,13 @@ def namedPatterns : Array (String × Array (CompiledPattern OpCode)) := #[
     ("umax_nuw_shl_common_lhs_dist", umax_nuw_shl_common_lhs_dist),
     ("umax_nuw_shl_common_lhs_dist_nsw", umax_nuw_shl_common_lhs_dist_nsw)]
 
+/-- Cache the callable array as data so mapping `.run` happens only once. -/
+private def rewritePatterns : Array (RewritePattern OpCode) :=
+  (namedPatterns.map (·.2)).flatten.map (·.run)
+
 /-- Try all imported rules in textual source order. -/
 def rewrite : RewritePattern OpCode :=
-  RewritePattern.GreedyRewritePattern ((namedPatterns.map (·.2)).flatten.map (·.run))
+  RewritePattern.GreedyRewritePattern rewritePatterns
 
 end
 
