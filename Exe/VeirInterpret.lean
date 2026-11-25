@@ -133,8 +133,8 @@ def initializeGlobal (ctx : WfIRContext OpCode) (functions : CTree.FunctionMap)
       | some _ => do
         let (state, results) ← expectOk name <|
           if useCTree then
-            CTree.resolveCalls (ctx := ctx) functions
-              (CTree.interpretRegion @CTree.interpretOp' region #[] ⟨.empty ctx, mem⟩) |>.run
+            Tree.run <| CTree.resolveCalls @CTree.interpretOp' (ctx := ctx) functions
+              (CTree.interpretRegion @CTree.interpretOp' region #[] ⟨.empty ctx, mem⟩)
           else interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩
         let some value := results[0]? | pure state.memory
         expectOk name (state.memory.llvmStore ptr value)
@@ -194,9 +194,9 @@ def main (args : List String) : IO Unit := do
     let (mem, functions) ← materializeGlobals ctx firstOp MemoryState.empty useCTree
     let result :=
       if useCTree then
-        CTree.resolveCalls (ctx := ctx) functions
+        Tree.run <| CTree.resolveCalls @CTree.interpretOp' (ctx := ctx) functions
           (CTree.interpretFunction @CTree.interpretOp' (ctx := ctx) mainOp.val #[] mem
-            (by sorry)) |>.run
+            (by sorry))
       else
         interpretFunction (ctx := ctx) mainFunc #[] mem (by sorry)
     let result := result.map (·.2)

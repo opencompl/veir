@@ -182,15 +182,16 @@ end
 abbrev FunctionMap := Std.HashMap String OperationPtr
 
 /--
-Interpret the function calls of `tree` by running the callees in `functions`. Calling a symbol
-that is not a function is undefined behavior.
+Interpret the function calls of `tree` by running the callees in `functions` with `interpOp`.
+Calling a symbol that is not a function is undefined behavior.
 -/
-def resolveCalls (functions : FunctionMap) {ctx : WfIRContext OpCode}
-    (tree : FunctionTree α) : Tree α :=
+def resolveCalls {EIn : Type} {E : EIn → Type} [ErrorE -< E] [UBE -< E]
+    (interpOp : OpInterpreter (CallE ⊕ₑ E)) (functions : FunctionMap)
+    {ctx : WfIRContext OpCode} (tree : CTree (CallE ⊕ₑ E) FreezeC α) : CTree E FreezeC α :=
   CTree.interp_mrec (E := CallE) (fun ⟨callee, arguments, memory⟩ => do
     let some funcPtr := functions[callee]? | ub
     if h : funcPtr.InBounds ctx.raw then
-      interpretFunction @interpretOp' (ctx := ctx) funcPtr arguments memory
+      interpretFunction interpOp (ctx := ctx) funcPtr arguments memory
     else
       fail) tree
 
