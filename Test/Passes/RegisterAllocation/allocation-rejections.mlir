@@ -1,4 +1,4 @@
-// RUN: not veir-opt %s -p=register-allocation-riscv64 2>&1 >/dev/null | filecheck %s
+// RUN: not veir-opt %s --split-input-file -p=register-allocation-riscv64 2>&1 >/dev/null | filecheck %s
 
 // Allocation-only rejections. The function shapes both register passes reject are in
 // `unsupported-functions.mlir`.
@@ -13,4 +13,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: register allocation requires precoloured function arguments; run register-precolouring-riscv64 first
+// CHECK:      register allocation requires argument 0 to be precoloured to !riscv.reg<x10>; run register-precolouring-riscv64 first

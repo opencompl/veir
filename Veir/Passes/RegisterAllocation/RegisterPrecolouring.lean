@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 import Veir.Passes.RegisterAllocation.Helper
 import Veir.Rewriter.WfRewriter
+import Veir.PatternRewriter.Basic
 
 namespace Veir
 
@@ -35,9 +36,6 @@ func.func @example(%a: !riscv.reg<x10>) -> !riscv.reg {
 ```
 -/
 
-/-- The ABI registers `a<i>` (`x(10+i)`) that hold function arguments and return values. -/
-def aRegister (i : Nat) : RegisterType := { cls := .int, index := some (10 + i) }
-
 /--
 The allocation state of a value at the function boundary, relative to its pinned register.
 
@@ -69,23 +67,27 @@ private def allocationState (ctx : WfIRContext OpCode) (v : ValuePtr) (reg : Reg
   | some _ => return .preallocated r
 
 /--
-Pin each argument of the entry block to its physical register `a<i>` (`x(10+i)`). Insert a `mv` at the
-start of the entry block to copy the argument into a fresh unassigned value, which takes over all of its uses.
+Pin each argument `i` of the function `func` to its register `a<i>` (`aRegister i`).
+
+The calling convention is part of the signature, so the assignment is updated there first and
+then passed down to the entry block's arguments. Each used argument is copied by a `mv` at the
+start of the entry block into a fresh unassigned value, which takes over all of its uses.
 -/
-def precolourArguments (ctx : WfIRContext OpCode) (entry : BlockPtr) :
+def precolourArguments (ctx : WfIRContext OpCode) (func : OperationPtr) :
     Except String (WfIRContext OpCode) := do
+  let some funcOp := FunctionOp.of? func ctx.raw
+    | throw "precolouring expects a function"
+  let some entry := funcOp.getEntryBlock? | return ctx
+  let n := funcOp.getNumArguments
+  let ctx := FunctionOp.setFunctionType! ctx funcOp
+    ((Array.range n).map (.registerType <| aRegister ·)) funcOp.getResultTypes
   let mut ctx := ctx
   -- Copies are inserted at the start of the block, so walk the arguments backwards to
   -- leave the copies in argument order.
-  for i in (List.range (entry.getNumArguments! ctx.raw)).reverse do
+  for i in (List.range n).reverse do
     let arg : BlockArgumentPtr := { block := entry, index := i }
     let arg' : ValuePtr := .blockArgument arg
     let reg := aRegister i
-    match ← allocationState ctx arg' reg s!"argument {i}" with
-    | .inTarget => continue
-    | .preallocated r => throw s!"illegal register allocation of function arguments: \
-          argument {i} cannot be passed in {r}, the calling convention passes it in {reg}"
-    | .unallocated => pure ()
     ctx := WfRewriter.setType! ctx arg' reg
     if (arg'.getFirstUse! ctx.raw).isNone then continue
     let some (ctx', copy) := WfRewriter.createOp! ctx Riscv.mv #[RegisterType.mk] #[] #[] #[] ()
@@ -96,8 +98,7 @@ def precolourArguments (ctx : WfIRContext OpCode) (entry : BlockPtr) :
   return ctx
 
 /--
-Copy each result of the function into its return value, right before the `riscv_cf.return`
-that ends `entry`:
+Copy each result returned by the `riscv_cf.return` `ret` into its return value:
 - A return value is the operand of `riscv_cf.return`, and must be in `a<i>` (`aRegister i`).
 - A result is the value the function computes. It may have a preallocated physical register,
   and is copied into its return value.
@@ -107,28 +108,16 @@ reads:
 - An unassigned result is safe: the physical renaming pass (later) excludes `a0`/`a1`.
 - A preallocated result can be overwritten. With at most two results, the only case is
   when result 0 is not preallocated to `a0` but result 1 preallocated to `a0`,
-  e.g. `return %b, %a` with `%a` in `a0` and `%b` in `a1`. This parallel copy is rejected.
+  e.g. `return %b, %a` with `%a` in `a0` and `%b` in `a1`. This parallel copy is rejected by
+  `checkPrecolourable`.
 -/
-def precolourResults (ctx : WfIRContext OpCode) (entry : BlockPtr) :
+def precolourReturn (ctx : WfIRContext OpCode) (ret : OperationPtr) :
     Except String (WfIRContext OpCode) := do
-  let some ret := entry.getLastOp! ctx.raw | return ctx
-  if ret.getOpType! ctx.raw != .riscv_cf .return then return ctx
   let operands := ret.getOperands! ctx.raw
-  if operands.size > maxRegisterResults then
-    throw s!"precolouring supports at most {maxRegisterResults} function results"
   let mut ctx := ctx
   for h : i in [0:operands.size] do
     let value := operands[i]
     let reg := aRegister i
-    match ← allocationState ctx value reg s!"result {i}" with
-    | .inTarget => continue
-    | .preallocated r =>
-      -- Only result 1 can be in a0 here (result 0 in a0 is `inTarget`). It is overwritten by the
-      -- copy of result 0 into a0, unless it is the same value, which then needs no copy.
-      if r == aRegister 0 && operands[0]? != some value then
-        throw s!"illegal register allocation of function results: result 1 cannot be returned \
-        from {r}, the copy of result 0 into it overwrites it"
-    | .unallocated => pure ()
     let some (ctx', copy) := WfRewriter.createOp! ctx Riscv.mv #[reg] #[value] #[] #[] ()
         (some (.before ret))
       | throw s!"precolouring could not copy result {i} into its return value"
@@ -136,33 +125,63 @@ def precolourResults (ctx : WfIRContext OpCode) (entry : BlockPtr) :
   return ctx
 
 /--
-Rewrite the signature of the function whose entry block is `entry` so that its argument
-types match those of the entry block's arguments.
+Check in `ctx` that precolouring can express the function `func`. A pattern fails without a message,
+so the pass runs this on every function before the patterns.
 -/
-def updateSignature (ctx : WfIRContext OpCode) (entry : BlockPtr) :
-    Except String (WfIRContext OpCode) := do
-  let some func := (entry.getParent! ctx.raw).bind (·.getParent! ctx.raw)
-    | throw "precolouring expects the entry block to belong to a function"
-  let some funcOp := FunctionOp.of? func ctx.raw
-    | throw "precolouring expects the entry block to belong to a function"
-  let inputs := (Array.range (entry.getNumArguments! ctx.raw)).map fun i =>
-    ((ValuePtr.blockArgument { block := entry, index := i }).getType! ctx.raw).val
-  return FunctionOp.setFunctionType! ctx funcOp inputs funcOp.getResultTypes
+def checkPrecolourable (ctx : WfIRContext OpCode) (func : OperationPtr) : Except String Unit := do
+  let some funcOp := FunctionOp.of? func ctx.raw | return
+  let some entry := funcOp.getEntryBlock? | return
+  checkCallingConvention funcOp
+  for i in [0:funcOp.getNumArguments] do
+    let reg := aRegister i
+    let arg : ValuePtr := .blockArgument { block := entry, index := i }
+    if let .preallocated r ← allocationState ctx arg reg s!"argument {i}" then
+      throw s!"illegal register allocation of function arguments: argument {i} cannot be passed \
+        in {r}, the calling convention passes it in {reg}"
+  let mut block? := funcOp.getFunctionBody!.getFirstBlock! ctx.raw
+  while let some block := block? do
+    block? := block.getNextBlock! ctx.raw
+    let some ret := block.getLastOp! ctx.raw | continue
+    if ret.getOpType! ctx.raw != .riscv_cf .return then continue
+    let operands := ret.getOperands! ctx.raw
+    for h : i in [0:operands.size] do
+      let value := operands[i]
+      if let .preallocated r ← allocationState ctx value (aRegister i) s!"result {i}" then
+        -- Only result 1 can be in a0 here (result 0 in a0 is `inTarget`). It is overwritten by the
+        -- copy of result 0 into a0, unless result 0 also is in a0, e.g. (return %a, %a).
+        if r == aRegister 0 && operands[0]? != some value then
+          throw s!"illegal register allocation of function results: result {i} cannot be returned \
+            from {r}, the copy of result 0 into it overwrites it"
 
-/-- Precolour the arguments and results of the function whose entry block is `entry`. -/
-def precolourFunction (ctx : WfIRContext OpCode) (entry : BlockPtr) :
-    Except String (WfIRContext OpCode) := do
-  let ctx ← precolourArguments ctx entry
-  let ctx ← precolourResults ctx entry
-  updateSignature ctx entry
+/-! ## Rewrite patterns
+-/
+
+/-- `precolourArguments` as a rewrite pattern on function ops with a body. -/
+def precolourArgumentsPattern : RewritePattern OpCode := fun rewriter op _ => do
+  let some funcOp := FunctionOp.of? op rewriter.ctx.raw | return rewriter
+  let some _ := funcOp.getEntryBlock? | return rewriter
+  if funcOp.getArgumentTypes.zipIdx.all (fun (t, i) => t == .registerType (aRegister i)) then
+    return rewriter
+  let ctx ← (precolourArguments rewriter.ctx op).toOption
+  return { rewriter with ctx, hasDoneAction := true }
+
+/-- `precolourReturn` as a rewrite pattern on `riscv_cf.return`. -/
+def precolourReturnPattern : RewritePattern OpCode := fun rewriter op _ => do
+  if op.getOpType! rewriter.ctx.raw != .riscv_cf .return then return rewriter
+  let operands := op.getOperands! rewriter.ctx.raw
+  if operands.zipIdx.all (fun (v, i) => (v.getType! rewriter.ctx.raw).val == .registerType (aRegister i)) then
+    return rewriter
+  let ctx ← (precolourReturn rewriter.ctx op).toOption
+  return { rewriter with ctx, hasDoneAction := true }
 
 def RegisterPrecolouringPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-  let entries ← allocatableBlocks ctx op
-  let mut ctx := ctx
-  for entry in entries do
-    ctx ← precolourFunction ctx entry
-  return ctx
+  for func in collectNestedFunctions ctx.raw op do
+    checkPrecolourable ctx func
+  let pattern := RewritePattern.GreedyRewritePattern #[precolourArgumentsPattern, precolourReturnPattern]
+  match pattern.applyInContext ctx op with
+  | none => throw "Error while applying register-precolouring-riscv64"
+  | some ctx => pure ctx
 
 public def RegisterPrecolouringPass : Pass OpCode :=
   { name := "register-precolouring-riscv64"
