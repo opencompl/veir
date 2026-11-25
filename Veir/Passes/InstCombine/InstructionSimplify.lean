@@ -89,10 +89,11 @@ private def compileVariants (commutativeNodes : Nat) (pattern : Nat → Pattern 
     Array (CompiledPattern OpCode) :=
   (Array.range (2 ^ commutativeNodes)).map fun swaps => (pattern swaps).compile
 
-set_option linter.unusedVariables false
+/-- A field path is a prefix when it selects a containing subaggregate. -/
+private def positionPrefix (a b : Array Int) : Bool :=
+  a.size ≤ b.size && a == b.extract 0 a.size
 
--- erase_unused_simplifiable_constrained_fp (InstCombineSimplifyRules.td:156): not ported.
--- graph effect or inherited rule program: InstSimplify
+set_option linter.unusedVariables false
 
 -- InstCombineSimplifyRules.td:165
 /-- Zero-length memory intrinsics have no accesses, including volatile ones. -/
@@ -111,799 +112,920 @@ def erase_zero_length_memory_intrinsic : Array (CompiledPattern OpCode) :=
       (fun _ => (#[] : Array (Handle OpCode .value)))).compile
 
 -- erase_invalid_length_#AtomicMemory.rule_id_component (InstCombineSimplifyRules.td:177): not ported.
--- TableGen family requires expansion: erase_invalid_length_#AtomicMemory.rule_id_component
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- erase_store_of_value_loaded_from_same_address (InstCombineSimplifyRules.td:194): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `store_is_unordered`); these are not available in this root-replacement port.
 
 -- erase_repeated_identical_local_store (InstCombineSimplifyRules.td:207): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `store_is_simple`); these are not available in this root-replacement port.
 
 -- erase_unordered_store_to_constant_memory (InstCombineSimplifyRules.td:224): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `store_is_unordered`); these are not available in this root-replacement port.
 
 -- canonicalize_poison_store_unreachable_region (InstCombineSimplifyRules.td:233): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- canonicalize_undef_pointer_store_unreachable_region (InstCombineSimplifyRules.td:248): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- rebase_dead_retyped_constant_alloca_transfer_before_erasure (InstCombineSimplifyRules.td:280): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- erase_dead_alloca_derived_write_graph (InstCombineSimplifyRules.td:296): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- fold_non_escaping_alloca_equality_comparisons (InstCombineSimplifyRules.td:307): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- erase_transfer_safe_instructions_before_unreachable (InstCombineSimplifyRules.td:320): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC effect `erase_transfer_safe_unreachable_prefix` and its analysis/property
+-- contract; this is not a supported root-value replacement.
 
 -- canonicalize_ # Operation # _uniform_phi_pair (InstCombineSimplifyRules.td:325): not ported.
--- TableGen family requires expansion: canonicalize_ # Operation # _uniform_phi_pair
+-- Requires LLVM PHI/incoming-edge rewrites; VeIR represents these with block arguments and Puddle
+-- cannot rewrite CFG edges.
 
 -- canonicalize_ # Operation # _swapped_select_pair (InstCombineSimplifyRules.td:330): not ported.
--- TableGen family requires expansion: canonicalize_ # Operation # _swapped_select_pair
+-- Family requires TIC descriptor `canonicalize_commutative_binop_root_pair`, whose contextual
+-- matching/effects have no VeIR equivalent.
 
 -- canonicalize_commutative_intrinsic_uniform_phi_pair (InstCombineSimplifyRules.td:338): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM PHI/incoming-edge rewrites; VeIR represents these with block arguments and Puddle
+-- cannot rewrite CFG edges.
 
 -- canonicalize_commutative_intrinsic_swapped_select_pair (InstCombineSimplifyRules.td:342): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires inherited TIC descriptor `canonicalize_commutative_intrinsic_root_pair`; its
+-- contextual matching/effects have no VeIR equivalent.
 
 -- fold_undefined_freeze_with_user_consensus (InstCombineSimplifyRules.td:431): not ported.
--- unsupported replacement operator `value_users_shared_choice_consensus_or`
+-- Requires use-graph/dominance facts and coordinated sharing of an undef choice; a root-local
+-- replacement cannot implement that policy.
 
 -- lower_false_assume (InstCombineSimplifyRules.td:448): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- lower_undef_or_poison_assume (InstCombineSimplifyRules.td:455): not ported.
--- unsupported match operator `llvm_assume`
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- evaluate_object_size_intrinsic (InstCombineSimplifyRules.td:466): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC effect `evaluate_object_size` and its analysis/property contract; this is not a
+-- supported root-value replacement.
 
 -- infer_memory_intrinsic_destination_alignment (InstCombineSimplifyRules.td:474): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_memory_intrinsic_is_nonvolatile`); these are not available in this root-
+-- replacement port.
 
 -- scalarize_constant_memcpy (InstCombineSimplifyRules.td:482): not ported.
--- unsupported match operator `llvm_memcpy`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `power_of_2`); these are not available in this root-replacement port.
 
 -- scalarize_single_access_memcpy (InstCombineSimplifyRules.td:495): not ported.
--- unsupported match operator `llvm_memcpy`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `power_of_2`); these are not available in this root-replacement port.
 
 -- memcpy_same_source_and_destination (InstCombineSimplifyRules.td:514): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- VeIR memory intrinsics have no per-call memory_effects_none property; this is an effect update,
+-- not a value replacement.
 
 -- memcpy_source_addrspacecast_of_destination_is_noop (InstCombineSimplifyRules.td:523): not ported.
--- graph effect or inherited rule program: transfer_source_addrspacecast_of_destination_is_noop<llvm_memcpy>
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates; these
+-- are not available in this root-replacement port.
 
 -- memmove_source_addrspacecast_of_destination_is_noop (InstCombineSimplifyRules.td:525): not ported.
--- graph effect or inherited rule program: transfer_source_addrspacecast_of_destination_is_noop<llvm_memmove>
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates; these
+-- are not available in this root-replacement port.
 
 -- erase_#Transfer.rule_id_component#_from_never_initialized_alloca (InstCombineSimplifyRules.td:533): not ported.
--- TableGen family requires expansion: erase_#Transfer.rule_id_component#_from_never_initialized_alloca
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- zero_initialized_allocation_memcpy_to_memset (InstCombineSimplifyRules.td:542): not ported.
--- graph effect or inherited rule program: zero_initialized_allocation_transfer_to_memset<llvm_memcpy>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- zero_initialized_allocation_memmove_to_memset (InstCombineSimplifyRules.td:544): not ported.
--- graph effect or inherited rule program: zero_initialized_allocation_transfer_to_memset<llvm_memmove>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- memcpy_to_unmodifiable_destination (InstCombineSimplifyRules.td:549): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- VeIR memory intrinsics have no per-call memory_effects_none property; this is an effect update,
+-- not a value replacement.
 
 -- memset_to_unmodifiable_destination (InstCombineSimplifyRules.td:554): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- VeIR memory intrinsics have no per-call memory_effects_none property; this is an effect update,
+-- not a value replacement.
 
 -- memset_undef_or_poison_value (InstCombineSimplifyRules.td:561): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- VeIR memory intrinsics have no per-call memory_effects_none property; this is an effect update,
+-- not a value replacement.
 
 -- scalarize_constant_memset (InstCombineSimplifyRules.td:568): not ported.
--- unsupported match operator `llvm_memset`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `power_of_2`); these are not available in this root-replacement port.
 
 -- scalarize_constant_element_atomic_memset (InstCombineSimplifyRules.td:582): not ported.
--- unsupported match operator `llvm_memset_element_unordered_atomic`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `power_of_2`); these are not available in this root-replacement port.
 
 -- scalarize_single_access_#AtomicTransfer.rule_id_component (InstCombineSimplifyRules.td:601): not ported.
--- TableGen family requires expansion: scalarize_single_access_#AtomicTransfer.rule_id_component
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `power_of_2`); these are not available in this root-replacement port.
 
 -- erase_same_source_and_destination_#AtomicTransfer.rule_id_component (InstCombineSimplifyRules.td:628): not ported.
--- TableGen family requires expansion: erase_same_source_and_destination_#AtomicTransfer.rule_id_component
+-- Family requires contextual descriptors/effects `AtomicTransfer`, `erase_root`; no corresponding
+-- VeIR matcher/effect interface is available.
 
 -- fold_add_of_#Splice.rule_id_component (InstCombineSimplifyRules.td:741): not ported.
--- TableGen family requires expansion: fold_add_of_#Splice.rule_id_component
+-- Family requires TIC descriptor `binop_of_vector_splice`, whose contextual matching/effects have
+-- no VeIR equivalent.
 
--- reconstruct_two_element_aggregate (InstCombineSimplifyRules.td:794): not ported.
--- unsupported match operator `insertvalue`
+-- InstCombineSimplifyRules.td:794
+def reconstruct_two_element_aggregate : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fun _ => Pattern.Builder
+    (do
+      let aggregateType ← MatchProg.type (Attr := TypeAttr) fun t =>
+        match t.val with
+        | .llvmArrayType a => a.size == 2
+        | .llvmStructType s => s.body.size == 2
+        | _ => false
+      let firstType ← MatchProg.type (Attr := TypeAttr)
+      let secondType ← MatchProg.type (Attr := TypeAttr)
+      let aggregate ← MatchProg.value aggregateType
+      let undef ← MatchProg.operation (.llvm .mlir__undef) #[] #[aggregateType]
+      let first ← MatchProg.operation (.llvm .extractvalue) #[aggregate] #[firstType]
+        (fun p => p.position.values == #[0])
+      let second ← MatchProg.operation (.llvm .extractvalue) #[aggregate] #[secondType]
+        (fun p => p.position.values == #[1])
+      let insertion ← MatchProg.operation (.llvm .insertvalue) #[undef.res[0]!, first.res[0]!] #[aggregateType]
+        (fun p => p.position.values == #[0])
+      let _ ← MatchProg.root (.llvm .insertvalue) #[insertion.res[0]!, second.res[0]!] #[aggregateType]
+        (fun p => p.position.values == #[1])
+      return aggregate)
+    pure
+    (fun aggregate => aggregate)
 
--- extract_value_from_identical_aggregate_insert_path (InstCombineSimplifyRules.td:813): not ported.
--- unsupported match operator `aggregate_extract`
+-- InstCombineSimplifyRules.td:813
+def extract_value_from_identical_aggregate_insert_path : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fun _ => Pattern.Builder
+    (do
+      let aggregateType ← MatchProg.type (Attr := TypeAttr)
+      let insertedType ← MatchProg.type (Attr := TypeAttr)
+      let aggregate ← MatchProg.value aggregateType
+      let inserted ← MatchProg.value insertedType
+      let insertion ← MatchProg.operation (.llvm .insertvalue) #[aggregate, inserted] #[aggregateType]
+      let extraction ← MatchProg.root (.llvm .extractvalue) #[insertion.res[0]!] #[insertedType]
+      let () ← MatchProg.matchNative (extraction.properties, insertion.properties) fun (ep, ip) =>
+        ep.position.values == ip.position.values
+      return inserted)
+    pure
+    (fun inserted => inserted)
 
--- extract_prefix_of_aggregate_insert_path (InstCombineSimplifyRules.td:821): not ported.
--- unsupported match operator `aggregate_extract`
+-- InstCombineSimplifyRules.td:821
+def extract_prefix_of_aggregate_insert_path : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fun _ => Pattern.Builder
+    (do
+      let aggregateType ← MatchProg.type (Attr := TypeAttr)
+      let insertedType ← MatchProg.type (Attr := TypeAttr)
+      let resultType ← MatchProg.type (Attr := TypeAttr)
+      let aggregate ← MatchProg.value aggregateType
+      let inserted ← MatchProg.value insertedType
+      let insertion ← MatchProg.operation (.llvm .insertvalue) #[aggregate, inserted] #[aggregateType]
+      let extraction ← MatchProg.root (.llvm .extractvalue) #[insertion.res[0]!] #[resultType]
+      let () ← MatchProg.matchNative (extraction.properties, insertion.properties) fun (ep, ip) =>
+        positionPrefix ep.position.values ip.position.values && ep.position.values.size < ip.position.values.size
+      return (resultType, aggregate, inserted, extraction.properties, insertion.properties))
+    (fun (resultType, aggregate, inserted, ep, ip) => do
+      let projected ← CreateProg.operation (.llvm .extractvalue) #[aggregate] #[resultType] (.inr ep)
+      let suffix ← CreateProg.applyNative (ep, ip) fun (ep, ip) =>
+        some ({ position := { ip.position with values := ip.position.values.extract ep.position.values.size } } : LLVMPositionProperties)
+      let result ← CreateProg.operation (.llvm .insertvalue) #[projected.res[0]!, inserted] #[resultType] (.inr suffix)
+      return result.res[0]!)
+    (fun result => result)
 
--- aggregate_insert_path_prefix_of_extract (InstCombineSimplifyRules.td:831): not ported.
--- unsupported match operator `aggregate_extract`
+-- InstCombineSimplifyRules.td:831
+def aggregate_insert_path_prefix_of_extract : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fun _ => Pattern.Builder
+    (do
+      let aggregateType ← MatchProg.type (Attr := TypeAttr)
+      let insertedType ← MatchProg.type (Attr := TypeAttr)
+      let resultType ← MatchProg.type (Attr := TypeAttr)
+      let aggregate ← MatchProg.value aggregateType
+      let inserted ← MatchProg.value insertedType
+      let insertion ← MatchProg.operation (.llvm .insertvalue) #[aggregate, inserted] #[aggregateType]
+      let extraction ← MatchProg.root (.llvm .extractvalue) #[insertion.res[0]!] #[resultType]
+      let () ← MatchProg.matchNative (extraction.properties, insertion.properties) fun (ep, ip) =>
+        positionPrefix ip.position.values ep.position.values && ip.position.values.size < ep.position.values.size
+      return (resultType, aggregate, inserted, extraction.properties, insertion.properties))
+    (fun (resultType, aggregate, inserted, ep, ip) => do
+      let suffix ← CreateProg.applyNative (ep, ip) fun (ep, ip) =>
+        some ({ position := { ep.position with values := ep.position.values.extract ip.position.values.size } } : LLVMPositionProperties)
+      let result ← CreateProg.operation (.llvm .extractvalue) #[inserted] #[resultType] (.inr suffix)
+      return result.res[0]!)
+    (fun result => result)
 
--- bypass_aggregate_insert_on_diverging_extract_path (InstCombineSimplifyRules.td:844): not ported.
--- unsupported match operator `aggregate_extract`
+-- InstCombineSimplifyRules.td:844
+def bypass_aggregate_insert_on_diverging_extract_path : Array (CompiledPattern OpCode) :=
+  compileVariants 0 fun _ => Pattern.Builder
+    (do
+      let aggregateType ← MatchProg.type (Attr := TypeAttr)
+      let insertedType ← MatchProg.type (Attr := TypeAttr)
+      let resultType ← MatchProg.type (Attr := TypeAttr)
+      let aggregate ← MatchProg.value aggregateType
+      let inserted ← MatchProg.value insertedType
+      let insertion ← MatchProg.operation (.llvm .insertvalue) #[aggregate, inserted] #[aggregateType]
+      let extraction ← MatchProg.root (.llvm .extractvalue) #[insertion.res[0]!] #[resultType]
+      let () ← MatchProg.matchNative (extraction.properties, insertion.properties) fun (ep, ip) =>
+        !positionPrefix ip.position.values ep.position.values && !positionPrefix ep.position.values ip.position.values
+      return (resultType, aggregate, inserted, extraction.properties, insertion.properties))
+    (fun (resultType, aggregate, inserted, ep, ip) => do
+      let result ← CreateProg.operation (.llvm .extractvalue) #[aggregate] #[resultType] (.inr ep)
+      return result.res[0]!)
+    (fun result => result)
 
 -- remove_overwritten_aggregate_insert (InstCombineSimplifyRules.td:855): not ported.
--- unsupported match operator `aggregate_insert`
+-- Requires scanning an arbitrary single-use aggregate insertion chain for a later covering
+-- overwrite; this root-local port does not perform that use-graph analysis.
 
 -- strengthen_memory_transfer_source_alignment (InstCombineSimplifyRules.td:864): not ported.
--- graph effect or inherited rule program: call_argument_attribute_inference_rule< (memory_transfer_source_access $Src
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_memory_intrinsic_is_nonvolatile`); these are not available in this root-
+-- replacement port.
 
 -- scalarize_single_access_memmove (InstCombineSimplifyRules.td:876): not ported.
--- unsupported match operator `llvm_memmove`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `power_of_2`); these are not available in this root-replacement port.
 
 -- memmove_same_source_and_destination (InstCombineSimplifyRules.td:892): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- VeIR memory intrinsics have no per-call memory_effects_none property; this is an effect update,
+-- not a value replacement.
 
 -- memmove_to_unmodifiable_destination (InstCombineSimplifyRules.td:896): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- VeIR memory intrinsics have no per-call memory_effects_none property; this is an effect update,
+-- not a value replacement.
 
 -- memmove_from_constant_global_to_memcpy (InstCombineSimplifyRules.td:903): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `is_constant_global`); these are not available in this root-replacement port.
 
 -- element_atomic_memmove_from_constant_global_to_memcpy (InstCombineSimplifyRules.td:916): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `is_constant_global`); these are not available in this root-replacement port.
 
 -- invalid_null_memory_intrinsic_destination_requires_zero_length (InstCombineSimplifyRules.td:931): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_memory_intrinsic_is_nonvolatile`); these are not available in this root-
+-- replacement port.
 
 -- invalid_null_memory_transfer_source_requires_zero_length (InstCombineSimplifyRules.td:946): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_memory_intrinsic_is_nonvolatile`); these are not available in this root-
+-- replacement port.
 
 -- null_callee_call_is_unreachable (InstCombineSimplifyRules.td:957): not ported.
--- unsupported match operator `generic_call`
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- null_callee_call_result_is_poison (InstCombineSimplifyRules.td:965): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- undef_callee_call_is_unreachable (InstCombineSimplifyRules.td:977): not ported.
--- unsupported match operator `generic_call`
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- undef_callee_call_result_is_poison (InstCombineSimplifyRules.td:984): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- null_callee_invoke_result_is_poison (InstCombineSimplifyRules.td:997): not ported.
--- unsupported match operator `generic_invoke`
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- undef_callee_invoke_result_is_poison (InstCombineSimplifyRules.td:1006): not ported.
--- unsupported match operator `generic_invoke`
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- unused_removable_allocation_invoke_to_donothing (InstCombineSimplifyRules.td:1019): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_call_result_with_returned_argument (InstCombineSimplifyRules.td:1029): not ported.
--- unsupported match operator `generic_call`
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- order_commutative_intrinsic_operands (InstCombineSimplifyRules.td:1037): not ported.
--- graph effect or inherited rule program: InstSimplify
-
--- AES.rule_id_component#_absorb_xor_with_zero_rhs (InstCombineSimplifyRules.td:1054): not ported.
--- TableGen family requires expansion: AES.rule_id_component#_absorb_xor_with_zero_rhs
-
--- AES.rule_id_component#_absorb_xor_with_zero_lhs (InstCombineSimplifyRules.td:1061): not ported.
--- TableGen family requires expansion: AES.rule_id_component#_absorb_xor_with_zero_lhs
-
--- Abs.rule_id_component#_srshl_undef_inactive_to_lsl (InstCombineSimplifyRules.td:1106): not ported.
--- TableGen family requires expansion: Abs.rule_id_component#_srshl_undef_inactive_to_lsl
-
--- Abs.rule_id_component#_srshl_nonnegative_inactive_to_lsl (InstCombineSimplifyRules.td:1114): not ported.
--- TableGen family requires expansion: Abs.rule_id_component#_srshl_nonnegative_inactive_to_lsl
-
--- Abs.rule_id_component#_srshl_all_active_to_lsl (InstCombineSimplifyRules.td:1122): not ported.
--- TableGen family requires expansion: Abs.rule_id_component#_srshl_all_active_to_lsl
-
--- Abs.rule_id_component#_srshl_same_predicate_to_lsl (InstCombineSimplifyRules.td:1128): not ported.
--- TableGen family requires expansion: Abs.rule_id_component#_srshl_same_predicate_to_lsl
-
--- Case.name (InstCombineSimplifyRules.td:1246): not ported.
--- TableGen family requires expansion: Case.name
-
--- Case.name (InstCombineSimplifyRules.td:1251): not ported.
--- TableGen family requires expansion: Case.name
-
--- Mapping[0].rule_id_component#_constant (InstCombineSimplifyRules.td:1269): not ported.
--- TableGen family requires expansion: Mapping[0].rule_id_component#_constant
-
--- WideningMul.rule_id_component#_simplify (InstCombineSimplifyRules.td:1279): not ported.
--- TableGen family requires expansion: WideningMul.rule_id_component#_simplify
-
--- WideningMul.rule_id_component#_simplify (InstCombineSimplifyRules.td:1282): not ported.
--- TableGen family requires expansion: WideningMul.rule_id_component#_simplify
-
--- Intrinsic.rule_id_component#_zero (InstCombineSimplifyRules.td:1288): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_zero
-
--- Intrinsic.rule_id_component#_in_range (InstCombineSimplifyRules.td:1292): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_in_range
-
--- Intrinsic.rule_id_component#_out_of_range (InstCombineSimplifyRules.td:1298): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_out_of_range
-
--- Intrinsic.rule_id_component#_out_of_range (InstCombineSimplifyRules.td:1303): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_out_of_range
-
--- Intrinsic.rule_id_component#_constant_zero (InstCombineSimplifyRules.td:1315): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_constant_zero
-
--- Intrinsic.rule_id_component#_constant_in_range (InstCombineSimplifyRules.td:1322): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_constant_in_range
-
--- Intrinsic.rule_id_component#_constant_out_of_range (InstCombineSimplifyRules.td:1336): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_constant_out_of_range
-
--- Intrinsic.rule_id_component#_constant_out_of_range (InstCombineSimplifyRules.td:1344): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_constant_out_of_range
-
--- Intrinsic.rule_id_component#_no_active_zero (InstCombineSimplifyRules.td:1459): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active_zero
-
--- Intrinsic.rule_id_component#_no_active_zero (InstCombineSimplifyRules.td:1464): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active_zero
-
--- Intrinsic.rule_id_component#_no_active_zero (InstCombineSimplifyRules.td:1469): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active_zero
-
--- Intrinsic.rule_id_component#_no_active_zero (InstCombineSimplifyRules.td:1477): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active_zero
-
--- Intrinsic.rule_id_component#_no_active (InstCombineSimplifyRules.td:1493): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active
-
--- Intrinsic.rule_id_component#_no_active (InstCombineSimplifyRules.td:1498): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active
-
--- Intrinsic.rule_id_component#_no_active (InstCombineSimplifyRules.td:1503): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active
-
--- Intrinsic.rule_id_component#_no_active (InstCombineSimplifyRules.td:1508): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active
-
--- Intrinsic.rule_id_component#_no_active (InstCombineSimplifyRules.td:1513): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active
-
--- Intrinsic.rule_id_component#_no_active (InstCombineSimplifyRules.td:1518): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active
-
--- Mapping[0].rule_id_component#_simplify (InstCombineSimplifyRules.td:1527): not ported.
--- TableGen family requires expansion: Mapping[0].rule_id_component#_simplify
-
--- Last.rule_id_component#_splat (InstCombineSimplifyRules.td:1554): not ported.
--- TableGen family requires expansion: Last.rule_id_component#_splat
-
--- Last.rule_id_component#_#Op#_rhs_splat (InstCombineSimplifyRules.td:1563): not ported.
--- TableGen family requires expansion: Last.rule_id_component#_#Op#_rhs_splat
-
--- Last.rule_id_component#_#Op#_lhs_splat (InstCombineSimplifyRules.td:1565): not ported.
--- TableGen family requires expansion: Last.rule_id_component#_#Op#_lhs_splat
-
--- Intrinsic.rule_id_component#_all_active_undef_inactive (InstCombineSimplifyRules.td:1582): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_all_active_undef_inactive
-
--- Intrinsic.rule_id_component#_no_active_returns_inactive (InstCombineSimplifyRules.td:1589): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active_returns_inactive
-
--- Intrinsic.rule_id_component#_no_active_returns_inactive (InstCombineSimplifyRules.td:1594): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active_returns_inactive
-
--- Intrinsic.rule_id_component#_no_active_returns_inactive (InstCombineSimplifyRules.td:1599): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_no_active_returns_inactive
-
--- Intrinsic.rule_id_component#_constant_to_rhs (InstCombineSimplifyRules.td:1696): not ported.
--- TableGen family requires expansion: Intrinsic.rule_id_component#_constant_to_rhs
-
--- Case.name (InstCombineSimplifyRules.td:1732): not ported.
--- TableGen family requires expansion: Case.name
-
--- Case.name (InstCombineSimplifyRules.td:1742): not ported.
--- TableGen family requires expansion: Case.name
-
--- Case.name (InstCombineSimplifyRules.td:1752): not ported.
--- TableGen family requires expansion: Case.name
-
--- Case.name (InstCombineSimplifyRules.td:1757): not ported.
--- TableGen family requires expansion: Case.name
-
--- Mapping[0].rule_id_component#_all_active_to_u (InstCombineSimplifyRules.td:1801): not ported.
--- TableGen family requires expansion: Mapping[0].rule_id_component#_all_active_to_u
-
--- Mapping[0].rule_id_component#_all_active_to_u (InstCombineSimplifyRules.td:1806): not ported.
--- TableGen family requires expansion: Mapping[0].rule_id_component#_all_active_to_u
-
--- Mapping[0].rule_id_component#_to_and (InstCombineSimplifyRules.td:1813): not ported.
--- TableGen family requires expansion: Mapping[0].rule_id_component#_to_and
-
--- Mapping[0].rule_id_component#_splat (InstCombineSimplifyRules.td:1892): not ported.
--- TableGen family requires expansion: Mapping[0].rule_id_component#_splat
-
--- Compare.rule_id_component#_dupq_all_zero (InstCombineSimplifyRules.td:1942): not ported.
--- TableGen family requires expansion: Compare.rule_id_component#_dupq_all_zero
-
--- Compare.rule_id_component#_dupq_regular_nonzero (InstCombineSimplifyRules.td:1944): not ported.
--- TableGen family requires expansion: Compare.rule_id_component#_dupq_regular_nonzero
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- enforce_constant_source_alignment_for_read_only_alloca_#Transfer.rule_id_component (InstCombineSimplifyRules.td:1990): not ported.
--- TableGen family requires expansion: enforce_constant_source_alignment_for_read_only_alloca_#Transfer.rule_id_component
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_undef_read_only_alloca_zero_memcpy_with_constant_source (InstCombineSimplifyRules.td:2005): not ported.
--- graph effect or inherited rule program: replace_undef_read_only_alloca_zero_transfer_with_constant_source< llvm_memcpy>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_undef_read_only_alloca_zero_memmove_with_constant_source (InstCombineSimplifyRules.td:2008): not ported.
--- graph effect or inherited rule program: replace_undef_read_only_alloca_zero_transfer_with_constant_source< llvm_memmove>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_casted_same_type_read_only_alloca_memcpy_with_constant_source (InstCombineSimplifyRules.td:2015): not ported.
--- graph effect or inherited rule program: replace_casted_same_type_read_only_alloca_transfer_with_constant_source< llvm_memcpy>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_casted_same_type_read_only_alloca_memmove_with_constant_source (InstCombineSimplifyRules.td:2018): not ported.
--- graph effect or inherited rule program: replace_casted_same_type_read_only_alloca_transfer_with_constant_source< llvm_memmove>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_closed_retyped_read_only_alloca_memcpy_with_constant_source (InstCombineSimplifyRules.td:2021): not ported.
--- graph effect or inherited rule program: replace_closed_retyped_read_only_alloca_transfer_with_constant_source< llvm_memcpy>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_closed_retyped_read_only_alloca_memmove_with_constant_source (InstCombineSimplifyRules.td:2024): not ported.
--- graph effect or inherited rule program: replace_closed_retyped_read_only_alloca_transfer_with_constant_source< llvm_memmove>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_same_type_read_only_alloca_memcpy_with_casted_constant_source (InstCombineSimplifyRules.td:2031): not ported.
--- graph effect or inherited rule program: replace_same_type_read_only_alloca_transfer_with_casted_constant_source< llvm_memcpy>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_same_type_read_only_alloca_memmove_with_casted_constant_source (InstCombineSimplifyRules.td:2034): not ported.
--- graph effect or inherited rule program: replace_same_type_read_only_alloca_transfer_with_casted_constant_source< llvm_memmove>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_same_type_read_only_alloca_memcpy_with_constant_source (InstCombineSimplifyRules.td:2037): not ported.
--- graph effect or inherited rule program: replace_same_type_read_only_alloca_transfer_with_constant_source<llvm_memcpy>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_same_type_read_only_alloca_memmove_with_constant_source (InstCombineSimplifyRules.td:2039): not ported.
--- graph effect or inherited rule program: replace_same_type_read_only_alloca_transfer_with_constant_source<llvm_memmove>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_read_only_alloca_memcpy_with_addrspacecast_constant_source (InstCombineSimplifyRules.td:2045): not ported.
--- graph effect or inherited rule program: replace_read_only_alloca_transfer_with_addrspacecast_constant_source< llvm_memcpy>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_read_only_alloca_memmove_with_addrspacecast_constant_source (InstCombineSimplifyRules.td:2048): not ported.
--- graph effect or inherited rule program: replace_read_only_alloca_transfer_with_addrspacecast_constant_source< llvm_memmove>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_read_only_alloca_memcpy_with_constant_source (InstCombineSimplifyRules.td:2055): not ported.
--- graph effect or inherited rule program: replace_read_only_alloca_transfer_with_constant_source<llvm_memcpy>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_read_only_alloca_memmove_with_constant_source (InstCombineSimplifyRules.td:2057): not ported.
--- graph effect or inherited rule program: replace_read_only_alloca_transfer_with_constant_source<llvm_memmove>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_masked_read_only_alloca_memcpy_with_constant_source (InstCombineSimplifyRules.td:2067): not ported.
--- graph effect or inherited rule program: replace_read_only_alloca_masked_transfer_with_constant_source<llvm_memcpy>
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- replace_masked_read_only_alloca_memmove_with_constant_source (InstCombineSimplifyRules.td:2069): not ported.
--- graph effect or inherited rule program: replace_read_only_alloca_masked_transfer_with_constant_source<llvm_memmove>
-
--- reuse_preceding_#Operation.tag#_for_splat_projection (InstCombineSimplifyRules.td:2643): not ported.
--- TableGen family requires expansion: reuse_preceding_#Operation.tag#_for_splat_projection
-
--- reuse_preceding_#Operation.tag#_for_extract_projection (InstCombineSimplifyRules.td:2646): not ported.
--- TableGen family requires expansion: reuse_preceding_#Operation.tag#_for_extract_projection
-
--- reassociate_#Op#_equal_index_splats (InstCombineSimplifyRules.td:2694): not ported.
--- TableGen family requires expansion: reassociate_#Op#_equal_index_splats
-
--- reassociate_#Op#_scalar_splat (InstCombineSimplifyRules.td:2698): not ported.
--- TableGen family requires expansion: reassociate_#Op#_scalar_splat
-
--- reassociate_#Op#_equal_index_splats (InstCombineSimplifyRules.td:2702): not ported.
--- TableGen family requires expansion: reassociate_#Op#_equal_index_splats
-
--- reassociate_#Op#_scalar_splat (InstCombineSimplifyRules.td:2706): not ported.
--- TableGen family requires expansion: reassociate_#Op#_scalar_splat
-
--- commute_#Op#_over_common_vp_reverses (InstCombineSimplifyRules.td:2781): not ported.
--- TableGen family requires expansion: commute_#Op#_over_common_vp_reverses
-
--- cancel_equal_all_active_vp_reverses (InstCombineSimplifyRules.td:2785): not ported.
--- unsupported match operator `llvm_experimental_vp_reverse`
-
--- cancel_vp_reverse_around_#Op#_splat (InstCombineSimplifyRules.td:2797): not ported.
--- TableGen family requires expansion: cancel_vp_reverse_around_#Op#_splat
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- forward_same_block_available_load (InstCombineSimplifyRules.td:2808): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `load_is_unordered`); these are not available in this root-replacement port.
 
 -- split_one_element_struct_load (InstCombineSimplifyRules.td:2846): not ported.
--- unsupported match operator `load_pointer`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `load_is_simple`); these are not available in this root-replacement port.
 
 -- split_two_element_stride_struct_load (InstCombineSimplifyRules.td:2867): not ported.
--- unsupported match operator `load_pointer`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- split_padding_free_struct_load_fields (InstCombineSimplifyRules.td:2903): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `load_is_simple`); these are not available in this root-replacement port.
 
 -- split_bounded_array_load_fields (InstCombineSimplifyRules.td:2915): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `load_is_simple`); these are not available in this root-replacement port.
 
 -- split_padding_free_struct_store_fields (InstCombineSimplifyRules.td:2933): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_store_is_simple`); these are not available in this root-replacement port.
 
 -- split_bounded_array_store_fields (InstCombineSimplifyRules.td:2947): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_store_is_simple`); these are not available in this root-replacement port.
 
 -- load_extract_first_aggregate_element (InstCombineSimplifyRules.td:2964): not ported.
--- unsupported match operator `load_pointer`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `load_is_simple`); these are not available in this root-replacement port.
 
 -- store_two_values_from_complete_array (InstCombineSimplifyRules.td:3017): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates; these
+-- are not available in this root-replacement port.
 
 -- store_two_values_from_complete_stride_struct (InstCombineSimplifyRules.td:3024): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `all_of`); these are not available in this root-replacement port.
 
 -- load_proves_first_nonzero_gep_index_zero_for_all_uses (InstCombineSimplifyRules.td:3051): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- store_proves_first_nonzero_gep_index_zero_for_all_uses (InstCombineSimplifyRules.td:3064): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- load_proves_first_nonzero_gep_index_zero (InstCombineSimplifyRules.td:3076): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- store_proves_first_nonzero_gep_index_zero (InstCombineSimplifyRules.td:3082): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- load_of_select_to_select_of_safe_loads (InstCombineSimplifyRules.td:3092): not ported.
--- unsupported match operator `load_pointer`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `load_is_unordered`); these are not available in this root-replacement port.
 
 -- load_of_addrspacecast_select_to_select_of_safe_loads (InstCombineSimplifyRules.td:3123): not ported.
--- unsupported match operator `load_pointer`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `load_is_unordered`); these are not available in this root-replacement port.
 
 -- load_protected_field_pointer (InstCombineSimplifyRules.td:3165): not ported.
--- unsupported match operator `load_pointer`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `load_is_unordered`); these are not available in this root-replacement port.
 
 -- store_protected_field_pointer (InstCombineSimplifyRules.td:3188): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_store_is_unordered`); these are not available in this root-replacement port.
 
 -- fold_alloca_constant_array_size (InstCombineSimplifyRules.td:3215): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- canonicalize_alloca_array_size_index_type (InstCombineSimplifyRules.td:3224): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- canonicalize_unit_alloca_array_size (InstCombineSimplifyRules.td:3235): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- alloca_poison_array_size_to_poison (InstCombineSimplifyRules.td:3246): not ported.
--- unsupported match operator `generic_alloca`
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- merge_zero_sized_alloca_with_entry_alloca (InstCombineSimplifyRules.td:3255): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- move_first_zero_sized_alloca_to_entry (InstCombineSimplifyRules.td:3268): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- canonicalize_byte_constant_store_value (InstCombineSimplifyRules.td:3284): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates; these
+-- are not available in this root-replacement port.
 
 -- store_consume_bitcast_value (InstCombineSimplifyRules.td:3290): not ported.
--- unsupported match operator `store_value`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `store_can_consume_bitcast`); these are not available in this root-replacement port.
 
 -- erase_preceding_overwritten_unordered_store (InstCombineSimplifyRules.td:3301): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `store_is_unordered`); these are not available in this root-replacement port.
 
 -- erase_undef_store_to_defined_pointer (InstCombineSimplifyRules.td:3323): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_store_is_unordered`); these are not available in this root-replacement port.
 
 -- erase_poison_store_to_defined_pointer (InstCombineSimplifyRules.td:3336): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_store_is_unordered`); these are not available in this root-replacement port.
 
 -- store_to_undefined_null_uses_poison_value (InstCombineSimplifyRules.td:3348): not ported.
--- unsupported match operator `store_value`
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_store_is_unordered`); these are not available in this root-replacement port.
 
 -- store_dereference_removes_false_null_select (InstCombineSimplifyRules.td:3360): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_store_is_unordered`); these are not available in this root-replacement port.
 
 -- store_dereference_removes_true_null_select (InstCombineSimplifyRules.td:3372): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_store_is_unordered`); these are not available in this root-replacement port.
 
 -- load_dereference_removes_false_null_select (InstCombineSimplifyRules.td:3387): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `null_pointer_is_undefined`); these are not available in this root-replacement port.
 
 -- load_dereference_removes_true_null_select (InstCombineSimplifyRules.td:3393): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `null_pointer_is_undefined`); these are not available in this root-replacement port.
 
 -- store_dereference_removes_null_select_from_gep_base (InstCombineSimplifyRules.td:3399): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- store_dereference_removes_null_select_from_gep_base_commuted (InstCombineSimplifyRules.td:3413): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- load_from_undefined_null_is_unreachable (InstCombineSimplifyRules.td:3432): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- observed_nonnull_removes_private_false_null_select (InstCombineSimplifyRules.td:3454): not ported.
--- graph effect or inherited rule program: observed_nonnull_removes_private_null_select< (select $Condition
+-- Requires inherited TIC descriptor `observed_nonnull_removes_private_null_select`; its
+-- contextual matching/effects have no VeIR equivalent.
 
 -- observed_nonnull_removes_private_true_null_select (InstCombineSimplifyRules.td:3458): not ported.
--- graph effect or inherited rule program: observed_nonnull_removes_private_null_select< (select $Condition
+-- Requires inherited TIC descriptor `observed_nonnull_removes_private_null_select`; its
+-- contextual matching/effects have no VeIR equivalent.
 
 -- observed_nonnull_removes_private_gep_false_null_select (InstCombineSimplifyRules.td:3482): not ported.
--- graph effect or inherited rule program: observed_nonnull_removes_private_gep_null_select< (gep_base (select $Condition
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- observed_nonnull_removes_private_gep_true_null_select (InstCombineSimplifyRules.td:3488): not ported.
--- graph effect or inherited rule program: observed_nonnull_removes_private_gep_null_select< (gep_base (select $Condition
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- load_dereference_removes_null_select_from_gep_base (InstCombineSimplifyRules.td:3499): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- load_dereference_removes_null_select_from_gep_chain2 (InstCombineSimplifyRules.td:3512): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- load_dereference_removes_null_select_from_gep_chain3 (InstCombineSimplifyRules.td:3526): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- load_dereference_removes_null_select_from_gep_base_phi (InstCombineSimplifyRules.td:3545): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM PHI/incoming-edge rewrites; VeIR represents these with block arguments and Puddle
+-- cannot rewrite CFG edges.
 
 -- load_from_undef_or_poison_pointer_is_unreachable (InstCombineSimplifyRules.td:3563): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM's non-terminating UB marker and/or unreachable-region surgery, outside Puddle's
+-- root-replacement model.
 
 -- load_from_uninitialized_alloca_is_undef (InstCombineSimplifyRules.td:3577): not ported.
--- unsupported match operator `load_pointer`
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- load_from_write_free_zero_initialized_allocation (InstCombineSimplifyRules.td:3586): not ported.
--- unsupported match operator `load_pointer`
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- load_through_gep_from_write_free_undef_initialized_allocation_is_undef (InstCombineSimplifyRules.td:3601): not ported.
--- unsupported match operator `load_pointer`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- infer_known_nonnull_call_arguments (InstCombineSimplifyRules.td:3617): not ported.
--- graph effect or inherited rule program: read_only_call_prefix
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `root_is_not_object_size_query`); these are not available in this root-replacement
+-- port.
 
 -- infer_known_nonnull_invoke_arguments (InstCombineSimplifyRules.td:3634): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_threadlocal_address_return_alignment (InstCombineSimplifyRules.td:3643): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_call_nounwind_from_caller (InstCombineSimplifyRules.td:3651): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_inline_asm_call_nounwind (InstCombineSimplifyRules.td:3658): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_inline_asm_invoke_nounwind (InstCombineSimplifyRules.td:3665): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- remove_redundant_convergent_call_site (InstCombineSimplifyRules.td:3672): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_printf_format_argument_attributes (InstCombineSimplifyRules.td:3676): not ported.
--- graph effect or inherited rule program: call_argument_attribute_inference_rule<(generic_call)>
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_strlen_string_argument_attributes (InstCombineSimplifyRules.td:3681): not ported.
--- graph effect or inherited rule program: call_argument_attribute_inference_rule<(generic_call)>
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_infer_strcmp_lhs_access_attributes (InstCombineSimplifyRules.td:3686): not ported.
--- graph effect or inherited rule program: infer_fixed_libcall_argument_access_rule<LibFunc_strcmp
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_infer_strcmp_rhs_access_attributes (InstCombineSimplifyRules.td:3688): not ported.
--- graph effect or inherited rule program: infer_fixed_libcall_argument_access_rule<LibFunc_strcmp
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_infer_memcmp_lhs_access_attributes (InstCombineSimplifyRules.td:3691): not ported.
--- graph effect or inherited rule program: infer_sized_libcall_argument_access_rule<LibFunc_memcmp
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_infer_memcmp_rhs_access_attributes (InstCombineSimplifyRules.td:3693): not ported.
--- graph effect or inherited rule program: infer_sized_libcall_argument_access_rule<LibFunc_memcmp
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_infer_strnlen_string_access_attributes (InstCombineSimplifyRules.td:3696): not ported.
--- graph effect or inherited rule program: infer_nonzero_sized_libcall_argument_access_rule<LibFunc_strnlen
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_infer_memchr_access_attributes (InstCombineSimplifyRules.td:3698): not ported.
--- graph effect or inherited rule program: infer_nonzero_sized_libcall_argument_access_rule<LibFunc_memchr
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_infer_memrchr_access_attributes (InstCombineSimplifyRules.td:3700): not ported.
--- graph effect or inherited rule program: infer_nonzero_sized_libcall_argument_access_rule<LibFunc_memrchr
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_infer_memintrinsic_argument_access_attributes (InstCombineSimplifyRules.td:3703): not ported.
--- graph effect or inherited rule program: call_argument_attribute_inference_rule< (memory_intrinsic_destination_access $Destination
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates; these
+-- are not available in this root-replacement port.
 
 -- infer_nonnull_destination_i_element_atomic_memset (InstCombineSimplifyRules.td:3708): not ported.
--- graph effect or inherited rule program: call_argument_attribute_inference_rule< (llvm_memset_element_unordered_atomic $Destination
+-- Requires LLVM memory-access/alias/ordering analysis or access metadata and graph updates
+-- (notably `known_non_zero`); these are not available in this root-replacement port.
 
 -- infer_nonnull_destination_#AtomicTransfer.rule_id_component (InstCombineSimplifyRules.td:3716): not ported.
--- TableGen family requires expansion: infer_nonnull_destination_#AtomicTransfer.rule_id_component
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_nonnull_source_#AtomicTransfer.rule_id_component (InstCombineSimplifyRules.td:3728): not ported.
--- TableGen family requires expansion: infer_nonnull_source_#AtomicTransfer.rule_id_component
+-- Requires LLVM call-site/library attributes, intrinsic schemas, or invoke effects that VeIR does
+-- not model through a corresponding Puddle interface.
 
 -- infer_call_allocation_result_attributes (InstCombineSimplifyRules.td:3734): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- infer_invoke_allocation_result_attributes (InstCombineSimplifyRules.td:3738): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires allocation escape/initialization analysis or rewriting the allocation's users; neither
+-- contract is exposed to these Puddle patterns.
 
 -- ptrtoint_wider_than_native_width (InstCombineSimplifyRules.td:3743): not ported.
--- unsupported match operator `ptrtoint`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- ptrtoint_narrower_than_native_width (InstCombineSimplifyRules.td:3749): not ported.
--- unsupported match operator `ptrtoint`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- inttoptr_native_width (InstCombineSimplifyRules.td:3755): not ported.
--- unsupported match operator `inttoptr`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- inttoptr_add_of_ptrtoint_to_byte_gep (InstCombineSimplifyRules.td:3766): not ported.
--- unsupported match operator `inttoptr`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- ptrtoint_one_use_null_gep (InstCombineSimplifyRules.td:3783): not ported.
--- unsupported match operator `ptrtoint`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_null_gep2 (InstCombineSimplifyRules.td:3791): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_null_gep_indices< (gep_indices (null_ptr)
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_null_gep3 (InstCombineSimplifyRules.td:3793): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_null_gep_indices< (gep_indices (null_ptr)
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_null_gep4 (InstCombineSimplifyRules.td:3795): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_null_gep_indices< (gep_indices (null_ptr)
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_null_gep5 (InstCombineSimplifyRules.td:3797): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_null_gep_indices< (gep_indices (null_ptr)
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_null_gep_chain2 (InstCombineSimplifyRules.td:3800): not ported.
--- unsupported match operator `ptrtoint`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_null_gep_chain3_nuw (InstCombineSimplifyRules.td:3810): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_null_gep_chain3_impl< (add (gep_offset $InnerGEP)
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_null_gep_chain3 (InstCombineSimplifyRules.td:3816): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_null_gep_chain3_impl< (add (gep_offset $InnerGEP)
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_null_gep_narrow_index (InstCombineSimplifyRules.td:3824): not ported.
--- unsupported match operator `ptrtoint`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- ptrtoint_one_use_gep_from_inttoptr_nuw (InstCombineSimplifyRules.td:3835): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_gep_from_inttoptr_impl< (add $BaseInteger
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_gep_from_inttoptr (InstCombineSimplifyRules.td:3842): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_gep_from_inttoptr_impl< (add $BaseInteger
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_gep_chain2_from_inttoptr_nuw (InstCombineSimplifyRules.td:3852): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_gep_chain2_from_inttoptr_impl< (add $BaseInteger
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_gep_chain2_from_inttoptr (InstCombineSimplifyRules.td:3859): not ported.
--- graph effect or inherited rule program: ptrtoint_one_use_gep_chain2_from_inttoptr_impl< (add $BaseInteger
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoint_one_use_ptrmask (InstCombineSimplifyRules.td:3869): not ported.
--- unsupported match operator `ptrtoint`
+-- VeIR has no llvm.ptrmask operation or pointer-mask property/analysis interface.
 
 -- ptrtoaddr_one_use_ptrmask (InstCombineSimplifyRules.td:3878): not ported.
--- unsupported match operator `ptrtoaddr`
+-- VeIR has no llvm.ptrmask operation or pointer-mask property/analysis interface.
 
 -- ptrtoaddr_one_use_null_gep (InstCombineSimplifyRules.td:3887): not ported.
--- unsupported match operator `ptrtoaddr`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- ptrtoaddr_one_use_gep_from_inttoptr_nuw (InstCombineSimplifyRules.td:3897): not ported.
--- graph effect or inherited rule program: ptrtoaddr_one_use_gep_from_inttoptr_impl< (add $BaseInteger
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- ptrtoaddr_one_use_gep_from_inttoptr (InstCombineSimplifyRules.td:3904): not ported.
--- graph effect or inherited rule program: ptrtoaddr_one_use_gep_from_inttoptr_impl< (add $BaseInteger
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_sub_pointer_observations_rewrite_address_users (InstCombineSimplifyRules.td:3914): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- icmp_#Cmp#_ptrtoint_pair (InstCombineSimplifyRules.td:3927): not ported.
--- TableGen family requires expansion: icmp_#Cmp#_ptrtoint_pair
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- icmp_#Cmp#_inttoptr_ptrtoint_roundtrip (InstCombineSimplifyRules.td:3958): not ported.
--- TableGen family requires expansion: icmp_#Cmp#_inttoptr_ptrtoint_roundtrip
+-- Family requires contextual descriptors/effects `Cmp`, `replace_root_operand`; no corresponding
+-- VeIR matcher/effect interface is available.
 
 -- icmp_#Cmp#_inttoptr_null (InstCombineSimplifyRules.td:3968): not ported.
--- TableGen family requires expansion: icmp_#Cmp#_inttoptr_null
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- icmp_#Cmp#_native_inttoptr_pair (InstCombineSimplifyRules.td:3974): not ported.
--- TableGen family requires expansion: icmp_#Cmp#_native_inttoptr_pair
+-- Family requires contextual descriptors/effects `Cmp`; no corresponding VeIR matcher/effect
+-- interface is available.
 
 -- icmp_#Cmp#_native_inttoptr_constant (InstCombineSimplifyRules.td:3984): not ported.
--- TableGen family requires expansion: icmp_#Cmp#_native_inttoptr_constant
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- icmp_#Cmp#_ptrtoint_zero (InstCombineSimplifyRules.td:4002): not ported.
--- TableGen family requires expansion: icmp_#Cmp#_ptrtoint_zero
+-- Family requires contextual descriptors/effects `Cmp`; no corresponding VeIR matcher/effect
+-- interface is available.
 
 -- sub_gep_base_root_nuw_nusw (InstCombineSimplifyRules.td:4014): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep_base_#Policy.tag (InstCombineSimplifyRules.td:4022): not ported.
--- TableGen family requires expansion: sub_gep_base_#Policy.tag
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep_base_native (InstCombineSimplifyRules.td:4030): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_base_gep_inbounds (InstCombineSimplifyRules.td:4045): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_base_gep_#Policy.tag (InstCombineSimplifyRules.td:4054): not ported.
--- TableGen family requires expansion: sub_base_gep_#Policy.tag
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_base_gep_native (InstCombineSimplifyRules.td:4062): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- return_sub_gep_base_#Policy.tag (InstCombineSimplifyRules.td:4080): not ported.
--- TableGen family requires expansion: return_sub_gep_base_#Policy.tag
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- return_sub_gep_base_native (InstCombineSimplifyRules.td:4096): not ported.
--- unsupported match operator `value_return`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep2_base_root_nuw_nusw (InstCombineSimplifyRules.td:4115): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep2_base_#Policy.tag (InstCombineSimplifyRules.td:4123): not ported.
--- TableGen family requires expansion: sub_gep2_base_#Policy.tag
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep2_base_native (InstCombineSimplifyRules.td:4131): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_base_gep2_inbounds (InstCombineSimplifyRules.td:4143): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_base_gep2_#Policy.tag (InstCombineSimplifyRules.td:4152): not ported.
--- TableGen family requires expansion: sub_base_gep2_#Policy.tag
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_base_gep2_native (InstCombineSimplifyRules.td:4160): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep_chain2_base_nusw (InstCombineSimplifyRules.td:4174): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep_chain2_base_native (InstCombineSimplifyRules.td:4185): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_base_gep_chain2_nusw (InstCombineSimplifyRules.td:4197): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_base_gep_chain2_native (InstCombineSimplifyRules.td:4208): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep_chain2_common_link_native (InstCombineSimplifyRules.td:4225): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep_chain2_gep_native (InstCombineSimplifyRules.td:4245): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep_gep_chain2_native (InstCombineSimplifyRules.td:4260): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_rewrite_left_shared_chain2_gep_difference_inbounds (InstCombineSimplifyRules.td:4281): not ported.
--- graph effect or inherited rule program: sub_rewrite_left_shared_chain2_gep_difference< rewrite_left_shared_chain2_inbounds_gep_difference
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- sub_rewrite_right_shared_chain2_gep_difference_inbounds (InstCombineSimplifyRules.td:4286): not ported.
--- graph effect or inherited rule program: sub_rewrite_right_shared_chain2_gep_difference< rewrite_right_shared_chain2_inbounds_gep_difference
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- sub_rewrite_left_shared_chain2_gep_difference_nuw (InstCombineSimplifyRules.td:4291): not ported.
--- graph effect or inherited rule program: sub_rewrite_left_shared_chain2_gep_difference< rewrite_left_shared_chain2_nuw_gep_difference
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- sub_rewrite_right_shared_chain2_gep_difference_nuw (InstCombineSimplifyRules.td:4296): not ported.
--- graph effect or inherited rule program: sub_rewrite_right_shared_chain2_gep_difference< rewrite_right_shared_chain2_nuw_gep_difference
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- sub_rewrite_right_shared_prefixed_chain2_gep_difference_plain (InstCombineSimplifyRules.td:4301): not ported.
--- graph effect or inherited rule program: sub_rewrite_right_shared_prefixed_chain2_gep_difference
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- sub_two_geps_nusw (InstCombineSimplifyRules.td:4304): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_two_geps_native (InstCombineSimplifyRules.td:4316): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_gep_constant_gep_inbounds_native (InstCombineSimplifyRules.td:4336): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_two_gep2_nusw (InstCombineSimplifyRules.td:4351): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- sub_two_gep2_native (InstCombineSimplifyRules.td:4363): not ported.
--- unsupported match operator `pointer_integer_observation`
+-- Requires target/address-space pointer representation and index-width contracts. Existing GEP
+-- lowering is RV64-specific; this pass has no target data-layout parameter.
 
 -- InstCombineSimplifyRules.td:4383
 def select_poison_cond : Array (CompiledPattern OpCode) :=
   compileVariants 0 fun swaps => Pattern.Builder
     (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let op2 ← MatchProg.operation (.llvm .mlir__poison) #[] #[t1]
       let x3 ← MatchProg.value t0
@@ -914,9 +1036,6 @@ def select_poison_cond : Array (CompiledPattern OpCode) :=
       let new5 ← CreateProg.operation (.llvm .mlir__poison) #[] #[t0]
       return new5.res[0]!)
     (fun result => result)
-
--- DIVREM#_constant_poison_lane_to_poison (InstCombineSimplifyRules.td:4390): not ported.
--- TableGen family requires expansion: DIVREM#_constant_poison_lane_to_poison
 
 -- InstCombineSimplifyRules.td:4398
 def nsw_mul_neg_one : Array (CompiledPattern OpCode) :=
@@ -1100,7 +1219,7 @@ def and_not_or4_contains : Array (CompiledPattern OpCode) :=
 def select_true : Array (CompiledPattern OpCode) :=
   compileVariants 0 fun swaps => Pattern.Builder
     (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let op2 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t1] (constantIs (1))
       let x3 ← MatchProg.value t0
@@ -1115,7 +1234,7 @@ def select_true : Array (CompiledPattern OpCode) :=
 def select_false : Array (CompiledPattern OpCode) :=
   compileVariants 0 fun swaps => Pattern.Builder
     (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let op2 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t1] (constantIs (0))
       let x3 ← MatchProg.value t0
@@ -1130,7 +1249,7 @@ def select_false : Array (CompiledPattern OpCode) :=
 def select_same : Array (CompiledPattern OpCode) :=
   compileVariants 0 fun swaps => Pattern.Builder
     (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let c2 ← MatchProg.value t1
       let x3 ← MatchProg.value t0
@@ -1141,7 +1260,8 @@ def select_same : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- canonicalize_icmp_ne_with_invertible_users (InstCombineSimplifyRules.td:4471): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires coordinated inversion of the comparison and its users; Puddle replaces only the
+-- matched root.
 
 -- InstCombineSimplifyRules.td:4493
 def add_i1_to_xor : Array (CompiledPattern OpCode) :=
@@ -1200,22 +1320,28 @@ def select_true_false : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- select_logical_and_keep_condition_when_it_implies_rhs (InstCombineSimplifyRules.td:4519): not ported.
--- condition `condition_true_implies_true` needs an analysis/descriptor implementation
+-- Requires LLVM boolean implication and poison-speculation facts, which VeIR does not currently
+-- compute.
 
 -- select_logical_or_keep_condition_when_false_implies_rhs_false (InstCombineSimplifyRules.td:4524): not ported.
--- condition `condition_false_implies_false` needs an analysis/descriptor implementation
+-- Requires LLVM boolean implication and poison-speculation facts, which VeIR does not currently
+-- compute.
 
 -- select_logical_and_keep_#P#_rhs_when_rhs_implies_condition (InstCombineSimplifyRules.td:4537): not ported.
--- TableGen family requires expansion: select_logical_and_keep_#P#_rhs_when_rhs_implies_condition
+-- Requires LLVM boolean implication and poison-speculation facts, which VeIR does not currently
+-- compute.
 
 -- select_logical_or_keep_#P#_rhs_when_rhs_false_implies_condition_false (InstCombineSimplifyRules.td:4550): not ported.
--- TableGen family requires expansion: select_logical_or_keep_#P#_rhs_when_rhs_false_implies_condition_false
+-- Requires LLVM boolean implication and poison-speculation facts, which VeIR does not currently
+-- compute.
 
 -- bitwise_and_keep_rhs_when_rhs_implies_lhs (InstCombineSimplifyRules.td:4567): not ported.
--- unsupported match operator `logical_and_match`
+-- Requires LLVM boolean implication and poison-speculation facts, which VeIR does not currently
+-- compute.
 
 -- bitwise_or_keep_rhs_when_rhs_false_implies_lhs_false (InstCombineSimplifyRules.td:4574): not ported.
--- unsupported match operator `logical_or_match`
+-- Requires LLVM boolean implication and poison-speculation facts, which VeIR does not currently
+-- compute.
 
 -- InstCombineSimplifyRules.td:4582
 def umax_shl_nuw_scale_inc : Array (CompiledPattern OpCode) :=
@@ -1245,31 +1371,8 @@ def umax_shl_nuw_scale_inc : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- InstCombineSimplifyRules.td:4590
-def umax_shl_nuw_scale_inc_commuted : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
-    (do
-      let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t5
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t5] (constantIs (1))
-      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 x3 op4.res[0]!) #[t5]
-      let op6 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t5] isIntegerConstant
-      let op5 ← MatchProg.operation (.llvm .shl) #[x3, op6.res[0]!] #[t5] (fun p => p.nuw)
-      let op1 ← MatchProg.root (.llvm .intr__umax) (orient swaps 1 op2.res[0]! op5.res[0]!) #[t5]
-      let () ← requireUses op2.op 1
-      let () ← MatchProg.matchNative (t5, op6.properties) fun (m0, m1) => (((constantBits m0 m1) != (BitVec.ofInt (bitwidth m0) (0))))
-      return (t5, x3, op5, op6))
-    (fun (t5, x3, op5, op6) => do
-      let t4 ← CreateProg.type (IntegerType.signless 1)
-      let k9Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t5, op6.properties) fun (m0, m1) => some (integerConstant m0 (BitVec.ofInt (bitwidth m0) (0)).toInt)
-      let k9 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t5] (.inr k9Props)
-      let new8 ← CreateProg.operation (.llvm .icmp) #[x3, k9.res[0]!] #[t4] (.inl { predicate := .eq })
-      let k10Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t5, op6.properties) fun (m0, m1) => some (integerConstant m0 (BitVec.ofInt (bitwidth m0) (1)).toInt)
-      let k10 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t5] (.inr k10Props)
-      let new7 ← CreateProg.operation (.llvm .select) #[new8.res[0]!, k10.res[0]!, op5.res[0]!] #[t5]
-      return new7.res[0]!)
-    (fun result => result)
+-- Same scalar pattern as `umax_shl_nuw_scale_inc`; keep the source rule name.
+def umax_shl_nuw_scale_inc_commuted : Array (CompiledPattern OpCode) := umax_shl_nuw_scale_inc
 
 -- InstCombineSimplifyRules.td:4598
 def umax_mul_nuw_scale_inc : Array (CompiledPattern OpCode) :=
@@ -1299,31 +1402,8 @@ def umax_mul_nuw_scale_inc : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- InstCombineSimplifyRules.td:4608
-def umax_mul_nuw_scale_inc_commuted : Array (CompiledPattern OpCode) :=
-  compileVariants 3 fun swaps => Pattern.Builder
-    (do
-      let t5 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t5
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t5] (constantIs (1))
-      let op2 ← MatchProg.operation (.llvm .add) (orient swaps 0 x3 op4.res[0]!) #[t5]
-      let op6 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t5] isIntegerConstant
-      let op5 ← MatchProg.operation (.llvm .mul) (orient swaps 1 x3 op6.res[0]!) #[t5] (fun p => p.nuw)
-      let op1 ← MatchProg.root (.llvm .intr__umax) (orient swaps 2 op2.res[0]! op5.res[0]!) #[t5]
-      let () ← requireUses op2.op 1
-      let () ← MatchProg.matchNative (t5, op6.properties) fun (m0, m1) => (((constantBits m0 m1) != (BitVec.ofInt (bitwidth m0) (0))) && ((constantBits m0 m1) != (BitVec.ofInt (bitwidth m0) (1))))
-      return (t5, x3, op5, op6))
-    (fun (t5, x3, op5, op6) => do
-      let t4 ← CreateProg.type (IntegerType.signless 1)
-      let k9Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t5, op6.properties) fun (m0, m1) => some (integerConstant m0 (BitVec.ofInt (bitwidth m0) (0)).toInt)
-      let k9 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t5] (.inr k9Props)
-      let new8 ← CreateProg.operation (.llvm .icmp) #[x3, k9.res[0]!] #[t4] (.inl { predicate := .eq })
-      let k10Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t5, op6.properties) fun (m0, m1) => some (integerConstant m0 (BitVec.ofInt (bitwidth m0) (1)).toInt)
-      let k10 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t5] (.inr k10Props)
-      let new7 ← CreateProg.operation (.llvm .select) #[new8.res[0]!, k10.res[0]!, op5.res[0]!] #[t5]
-      return new7.res[0]!)
-    (fun result => result)
+-- Same scalar pattern as `umax_mul_nuw_scale_inc`; keep the source rule name.
+def umax_mul_nuw_scale_inc_commuted : Array (CompiledPattern OpCode) := umax_mul_nuw_scale_inc
 
 -- InstCombineSimplifyRules.td:4622
 def umin_i1 : Array (CompiledPattern OpCode) :=
@@ -1414,7 +1494,8 @@ def select_ne_zero_self : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- canonicalize_icmp_eq_and1_one_with_invertible_users (InstCombineSimplifyRules.td:4643): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires coordinated inversion of the comparison and its users; Puddle replaces only the
+-- matched root.
 
 -- InstCombineSimplifyRules.td:4653
 def shl_oob_poison : Array (CompiledPattern OpCode) :=
@@ -1776,7 +1857,8 @@ def select_ugt_const_add_to_umin_add : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- select_ult_const_add_to_decremented_umax_add (InstCombineSimplifyRules.td:4843): not ported.
--- Source counterexample (i8): X=Bound=Selected=0, Addend=1 gives 1 before and 0 after; Bound-1 wraps.
+-- Source counterexample (i8): X=Bound=Selected=0, Addend=1 gives 1 before and 0 after; Bound-1
+-- wraps.
 
 -- InstCombineSimplifyRules.td:4855
 def select_ugt_const_mul_to_umin_mul : Array (CompiledPattern OpCode) :=
@@ -1801,7 +1883,8 @@ def select_ugt_const_mul_to_umin_mul : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- select_sgt_const_mul_to_incremented_smin_mul (InstCombineSimplifyRules.td:4863): not ported.
--- Source counterexample (i8): X=0, Bound=127, Factor=1, Selected=-128 gives 0 before and -128 after; Bound+1 wraps.
+-- Source counterexample (i8): X=0, Bound=127, Factor=1, Selected=-128 gives 0 before and -128
+-- after; Bound+1 wraps.
 
 -- InstCombineSimplifyRules.td:4872
 def select_ult_const_nsw_nuw_mul_to_umax_nsw_nuw_mul : Array (CompiledPattern OpCode) :=
@@ -2196,52 +2279,60 @@ def correlated_unsigned_clamp_upper_less : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- add_udiv_remainder_bit_to_unsigned_divceil (InstCombineSimplifyRules.td:5061): not ported.
--- condition `unsigned_add_rhs_minus_one_never_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- add_zext_udiv_remainder_bit_to_unsigned_divceil (InstCombineSimplifyRules.td:5074): not ported.
--- condition `unsigned_add_rhs_minus_one_never_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- map_#Rotate.rule_id_component#_over_one_use_select (InstCombineSimplifyRules.td:5091): not ported.
--- TableGen family requires expansion: map_#Rotate.rule_id_component#_over_one_use_select
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_aggregate_extract_over_select (InstCombineSimplifyRules.td:5106): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_#Predicate#_over_constant_and_common_select_arms (InstCombineSimplifyRules.td:5120): not ported.
--- TableGen family requires expansion: map_#Predicate#_over_constant_and_common_select_arms
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_#Predicate#_over_one_use_nonboolean_select_with_constant (InstCombineSimplifyRules.td:5165): not ported.
--- TableGen family requires expansion: map_#Predicate#_over_one_use_nonboolean_select_with_constant
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_#Operation.tag#_over_one_use_select (InstCombineSimplifyRules.td:5174): not ported.
--- TableGen family requires expansion: map_#Operation.tag#_over_one_use_select
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_ctpop_over_one_use_select (InstCombineSimplifyRules.td:5176): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_#Operation.tag#_lhs_over_one_use_select (InstCombineSimplifyRules.td:5184): not ported.
--- TableGen family requires expansion: map_#Operation.tag#_lhs_over_one_use_select
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_#Operation.tag#_rhs_over_one_use_select (InstCombineSimplifyRules.td:5186): not ported.
--- TableGen family requires expansion: map_#Operation.tag#_rhs_over_one_use_select
-
--- map_#Operation.tag#_over_one_use_select (InstCombineSimplifyRules.td:5192): not ported.
--- TableGen family requires expansion: map_#Operation.tag#_over_one_use_select
-
--- map_active_lane_mask_bound_over_one_use_select (InstCombineSimplifyRules.td:5198): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_uadd_with_overflow_lhs_over_one_use_select (InstCombineSimplifyRules.td:5209): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_and_over_one_use_nonboolean_select_with_constant (InstCombineSimplifyRules.td:5215): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_mul_lhs_over_one_use_select_when_both_arms_simplify (InstCombineSimplifyRules.td:5222): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- map_ashr_rhs_over_one_use_select_when_both_arms_simplify (InstCombineSimplifyRules.td:5228): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- InstCombineSimplifyRules.td:5256
 def xor_one_use_select_constant_zero_same_constant_true : Array (CompiledPattern OpCode) :=
@@ -2286,13 +2377,8 @@ def xor_one_use_select_zero_constant_same_constant_false : Array (CompiledPatter
     (fun result => result)
 
 -- map_#Predicate#_over_aligned_selects (InstCombineSimplifyRules.td:5279): not ported.
--- TableGen family requires expansion: map_#Predicate#_over_aligned_selects
-
--- map_#Operation#_over_constant_select_arms (InstCombineSimplifyRules.td:5294): not ported.
--- TableGen family requires expansion: map_#Operation#_over_constant_select_arms
-
--- map_#Operation#_over_aligned_selects (InstCombineSimplifyRules.td:5309): not ported.
--- TableGen family requires expansion: map_#Operation#_over_aligned_selects
+-- Requires TIC's select-arm simplification query and clone policy; Puddle has no branch-local
+-- simplifier.
 
 -- InstCombineSimplifyRules.td:5324
 def bswap_bswap : Array (CompiledPattern OpCode) :=
@@ -2308,10 +2394,12 @@ def bswap_bswap : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- bswap_one_use_shl_byte_aligned (InstCombineSimplifyRules.td:5333): not ported.
--- constant transform `known_trailing_zero_count`
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- bswap_one_use_lshr_byte_aligned (InstCombineSimplifyRules.td:5338): not ported.
--- constant transform `known_trailing_zero_count`
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:5346
 def bswap_shl_to_single_low_byte : Array (CompiledPattern OpCode) :=
@@ -2476,7 +2564,8 @@ def select_eq_zero_add_identity : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- narrow_truncated_smax_smin_sext_constants_at_call (InstCombineSimplifyRules.td:5422): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC effect `replace_truncating_users_and_erase`, `erase_root` and its
+-- analysis/property contract; this is not a supported root-value replacement.
 
 -- InstCombineSimplifyRules.td:5448
 def xor_pair_common_operand_cancel : Array (CompiledPattern OpCode) :=
@@ -2498,43 +2587,56 @@ def xor_pair_common_operand_cancel : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- umin_known_unsigned_upper_bound (InstCombineSimplifyRules.td:5459): not ported.
--- condition `known_unsigned_at_most` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- umin_known_unsigned_lower_bound (InstCombineSimplifyRules.td:5468): not ported.
--- constant transform `known_ones`
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- sadd_sat_no_signed_or_unsigned_overflow_to_add (InstCombineSimplifyRules.td:5481): not ported.
--- condition `signed_add_never_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- sadd_sat_no_signed_overflow_to_add (InstCombineSimplifyRules.td:5488): not ported.
--- condition `signed_add_never_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- uadd_sat_no_unsigned_overflow_to_add (InstCombineSimplifyRules.td:5496): not ported.
--- condition `unsigned_add_never_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- usub_sat_no_unsigned_overflow_to_sub (InstCombineSimplifyRules.td:5501): not ported.
--- condition `unsigned_sub_never_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- ssub_sat_no_signed_overflow_to_sub (InstCombineSimplifyRules.td:5506): not ported.
--- condition `signed_sub_never_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- uadd_sat_always_overflows_to_max (InstCombineSimplifyRules.td:5515): not ported.
--- condition `unsigned_add_always_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- usub_sat_always_overflows_to_zero (InstCombineSimplifyRules.td:5520): not ported.
--- unsupported replacement operator `null_of`
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- sadd_sat_always_overflows_low_to_min (InstCombineSimplifyRules.td:5525): not ported.
--- condition `signed_add_always_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- sadd_sat_always_overflows_high_to_max (InstCombineSimplifyRules.td:5533): not ported.
--- condition `signed_add_always_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- ssub_sat_always_overflows_low_to_min (InstCombineSimplifyRules.td:5541): not ported.
--- condition `signed_sub_always_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- ssub_sat_always_overflows_high_to_max (InstCombineSimplifyRules.td:5549): not ported.
--- condition `signed_sub_always_overflows` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:5561
 def uadd_sat_nested_constants : Array (CompiledPattern OpCode) :=
@@ -2693,7 +2795,8 @@ def select_ne_pick_lhs : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- fshr_self_const_to_fshl (InstCombineSimplifyRules.td:5628): not ported.
--- Source counterexample with APInt arithmetic (i3): X=1, C=4 rotates right to 4, but (3-4)%3 wraps to 1 and rotates left to 2.
+-- Source counterexample with APInt arithmetic (i3): X=1, C=4 rotates right to 4, but (3-4)%3
+-- wraps to 1 and rotates left to 2.
 
 -- InstCombineSimplifyRules.td:5640
 def smax_smin_val : Array (CompiledPattern OpCode) :=
@@ -2819,73 +2922,96 @@ def nsw_add_neg_slt_self : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- select_i1_false_to_and (InstCombineSimplifyRules.td:5709): not ported.
--- condition `boolean_arm_safe_to_speculate` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- select_i1_true_to_or (InstCombineSimplifyRules.td:5723): not ported.
--- condition `boolean_arm_safe_to_speculate` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- select_i1_false_arm_to_andn (InstCombineSimplifyRules.td:5734): not ported.
--- condition `no_undef_or_poison` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- select_i1_true_arm_to_orn (InstCombineSimplifyRules.td:5742): not ported.
--- condition `no_undef_or_poison` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- gep_select_predecessor_index_factor_common_offset (InstCombineSimplifyRules.td:7643): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_scalar_constant_offset_to_ptradd_1 (InstCombineSimplifyRules.td:7754): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- gep_scalar_constant_offset_to_ptradd_2 (InstCombineSimplifyRules.td:7765): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- gep_scalar_constant_offset_to_ptradd_3 (InstCombineSimplifyRules.td:7776): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- gep_scalar_constant_offset_to_ptradd_4 (InstCombineSimplifyRules.td:7787): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- gep_scalar_constant_offset_to_ptradd_5 (InstCombineSimplifyRules.td:7799): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- gep_factor_first_variable_constant_tail_2 (InstCombineSimplifyRules.td:7814): not ported.
--- graph effect or inherited rule program: gep_factor_first_variable_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_factor_first_variable_constant_tail_3 (InstCombineSimplifyRules.td:7817): not ported.
--- graph effect or inherited rule program: gep_factor_first_variable_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_factor_first_variable_constant_tail_4 (InstCombineSimplifyRules.td:7820): not ported.
--- graph effect or inherited rule program: gep_factor_first_variable_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_factor_first_variable_constant_tail_5 (InstCombineSimplifyRules.td:7823): not ported.
--- graph effect or inherited rule program: gep_factor_first_variable_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_factor_first_variable_constant_tail_6 (InstCombineSimplifyRules.td:7826): not ported.
--- graph effect or inherited rule program: gep_factor_first_variable_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_factor_first_variable_constant_tail_7 (InstCombineSimplifyRules.td:7829): not ported.
--- graph effect or inherited rule program: gep_factor_first_variable_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_factor_first_variable_negative_array_tail_2 (InstCombineSimplifyRules.td:7834): not ported.
--- graph effect or inherited rule program: gep_factor_first_variable_negative_array_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_linearize_first_variable_array_constant_tail_2 (InstCombineSimplifyRules.td:7838): not ported.
--- graph effect or inherited rule program: gep_linearize_first_variable_array_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_linearize_first_variable_array_constant_tail_3 (InstCombineSimplifyRules.td:7841): not ported.
--- graph effect or inherited rule program: gep_linearize_first_variable_array_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_linearize_first_variable_array_constant_tail_4 (InstCombineSimplifyRules.td:7844): not ported.
--- graph effect or inherited rule program: gep_linearize_first_variable_array_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_linearize_first_variable_array_constant_tail_5 (InstCombineSimplifyRules.td:7847): not ported.
--- graph effect or inherited rule program: gep_linearize_first_variable_array_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_linearize_first_variable_array_constant_tail_6 (InstCombineSimplifyRules.td:7850): not ported.
--- graph effect or inherited rule program: gep_linearize_first_variable_array_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_linearize_first_variable_array_constant_tail_7 (InstCombineSimplifyRules.td:7853): not ported.
--- graph effect or inherited rule program: gep_linearize_first_variable_array_constant_tail< (gep_indices $P
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- InstCombineSimplifyRules.td:7857
 /-- A single zero GEP index, either encoded as an attribute or an SSA operand. -/
@@ -2907,232 +3033,308 @@ def gep_zero_index : Array (CompiledPattern OpCode) :=
       (fun pointer => pointer)).compile
 
 -- gep_canonicalize_source_to_byte_array (InstCombineSimplifyRules.td:7866): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_constant_over_undef_gep_canonicalize_source (InstCombineSimplifyRules.td:7896): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_scalable_source_to_ptradd (InstCombineSimplifyRules.td:7907): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_scaled_mul_byte_array_to_ptradd (InstCombineSimplifyRules.td:7918): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_scaled_shl_byte_array_to_ptradd (InstCombineSimplifyRules.td:7927): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_constant_offset_to_ptradd (InstCombineSimplifyRules.td:7956): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- gep_constant_base_nonzero_index_to_ptradd_2 (InstCombineSimplifyRules.td:7986): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_constant_base_nonzero_index_to_ptradd_3 (InstCombineSimplifyRules.td:7999): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_constant_base_nonzero_index_to_ptradd_4 (InstCombineSimplifyRules.td:8012): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_constant_base_nonzero_index_to_ptradd_5 (InstCombineSimplifyRules.td:8025): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_const_i8_base_addlike_reassociate_inbounds_nuw (InstCombineSimplifyRules.td:8046): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_const_i8_base_addlike_reassociate_nuw (InstCombineSimplifyRules.td:8073): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_const_i8_base_addlike_reassociate_drop_flags (InstCombineSimplifyRules.td:8098): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_strip_trailing_zero_2 (InstCombineSimplifyRules.td:8125): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_strip_trailing_zero_3 (InstCombineSimplifyRules.td:8129): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_strip_trailing_zero_4 (InstCombineSimplifyRules.td:8133): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_strip_trailing_zero_5 (InstCombineSimplifyRules.td:8137): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_constant_prefix_3_leading_zero (InstCombineSimplifyRules.td:8145): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_constant_prefix_3_nonzero_first (InstCombineSimplifyRules.td:8157): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_constant_prefix_4_leading_zero (InstCombineSimplifyRules.td:8170): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_constant_prefix_4_nonzero_first (InstCombineSimplifyRules.td:8182): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_constant_prefix_5_leading_zero (InstCombineSimplifyRules.td:8196): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_constant_prefix_5_nonzero_first (InstCombineSimplifyRules.td:8209): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_second_nonzero_3_leading_zero (InstCombineSimplifyRules.td:8229): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_second_nonzero_4_leading_zero (InstCombineSimplifyRules.td:8242): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_strip_redundant_leading_zero_2_terminal (InstCombineSimplifyRules.td:8260): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM PHI/incoming-edge rewrites; VeIR represents these with block arguments and Puddle
+-- cannot rewrite CFG edges.
 
 -- gep_strip_redundant_leading_zero_2 (InstCombineSimplifyRules.td:8276): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_two_indices_fold_constant_terms_before_dynamic_suffix (InstCombineSimplifyRules.td:8287): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_two_indices_split_sequential_nonzero_components (InstCombineSimplifyRules.td:8316): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_two_indices_split_struct_nonzero_components (InstCombineSimplifyRules.td:8335): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_single_unit_offset_2 (InstCombineSimplifyRules.td:8352): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_single_unit_offset_3 (InstCombineSimplifyRules.td:8359): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_single_unit_offset_4 (InstCombineSimplifyRules.td:8366): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_single_unit_offset_5 (InstCombineSimplifyRules.td:8373): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_two_indices_canonicalize_first_index_sext (InstCombineSimplifyRules.td:8384): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_two_indices_canonicalize_first_index_zext (InstCombineSimplifyRules.td:8390): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_two_indices_canonicalize_first_index_trunc (InstCombineSimplifyRules.td:8396): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_two_indices_canonicalize_second_index_sext (InstCombineSimplifyRules.td:8402): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_two_indices_canonicalize_second_index_zext (InstCombineSimplifyRules.td:8410): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_two_indices_canonicalize_second_index_trunc (InstCombineSimplifyRules.td:8418): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_three_indices_canonicalize_second_index_trunc (InstCombineSimplifyRules.td:8426): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_four_indices_canonicalize_second_index_trunc (InstCombineSimplifyRules.td:8432): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_five_indices_canonicalize_second_index_trunc (InstCombineSimplifyRules.td:8438): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_canonicalize_single_index_sext (InstCombineSimplifyRules.td:8448): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_canonicalize_single_index_zext (InstCombineSimplifyRules.td:8454): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_canonicalize_single_index_trunc (InstCombineSimplifyRules.td:8460): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_one_index_factor_phi_incoming_geps_varying_arg0 (InstCombineSimplifyRules.td:8480): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM PHI/incoming-edge rewrites; VeIR represents these with block arguments and Puddle
+-- cannot rewrite CFG edges.
 
 -- gep_one_index_factor_phi_incoming_geps_varying_arg1 (InstCombineSimplifyRules.td:8501): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM PHI/incoming-edge rewrites; VeIR represents these with block arguments and Puddle
+-- cannot rewrite CFG edges.
 
 -- gep_two_indices_factor_phi_incoming_geps_varying_arg0 (InstCombineSimplifyRules.td:8525): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM PHI/incoming-edge rewrites; VeIR represents these with block arguments and Puddle
+-- cannot rewrite CFG edges.
 
 -- gep_two_indices_factor_phi_incoming_geps_varying_arg1 (InstCombineSimplifyRules.td:8548): not ported.
--- unsupported match operator `gep_indices`
+-- Requires LLVM PHI/incoming-edge rewrites; VeIR represents these with block arguments and Puddle
+-- cannot rewrite CFG edges.
 
 -- gep_split_one_use_sext_nsw_add_constant (InstCombineSimplifyRules.td:8575): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_one_use_nneg_zext_nsw_nuw_add_constant_preserve_flags (InstCombineSimplifyRules.td:8588): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_one_use_nneg_zext_nsw_add_constant_drop_flags (InstCombineSimplifyRules.td:8612): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_one_use_nneg_zext_disjoint_or_constant_preserve_flags (InstCombineSimplifyRules.td:8632): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_one_use_nneg_zext_disjoint_or_constant_drop_flags (InstCombineSimplifyRules.td:8652): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_one_use_nuw_addlike_index_preserve_flags (InstCombineSimplifyRules.td:8673): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_one_use_disjoint_or_index_dropping_flags (InstCombineSimplifyRules.td:8694): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_one_use_add_constant_index_dropping_flags (InstCombineSimplifyRules.td:8719): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_split_one_use_add_index_dropping_flags (InstCombineSimplifyRules.td:8735): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_gep_const_fold (InstCombineSimplifyRules.td:8749): not ported.
--- unsupported match operator `gep_i8`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_chain_cancel_outer_subtrahend (InstCombineSimplifyRules.td:8768): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_chain_cancel_inner_subtrahend (InstCombineSimplifyRules.td:8777): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_chain_index_plus_complement (InstCombineSimplifyRules.td:8786): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_chain_negated_index_plus_add (InstCombineSimplifyRules.td:8795): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_exact_sdiv_cancels_source_stride (InstCombineSimplifyRules.td:8810): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_exact_udiv_cancels_source_stride (InstCombineSimplifyRules.td:8819): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_exact_sdiv_factor_source_stride (InstCombineSimplifyRules.td:8832): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_exact_udiv_factor_source_stride (InstCombineSimplifyRules.td:8851): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_exact_lshr_cancels_source_stride (InstCombineSimplifyRules.td:8870): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_exact_ashr_cancels_source_stride (InstCombineSimplifyRules.td:8880): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_exact_lshr_factor_source_stride (InstCombineSimplifyRules.td:8890): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_exact_ashr_factor_source_stride (InstCombineSimplifyRules.td:8907): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_one_constant_index_through_constant_pointer_select (InstCombineSimplifyRules.td:8929): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_gep_inner_const_select_fold (InstCombineSimplifyRules.td:8947): not ported.
--- unsupported match operator `gep_i8`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_gep_outer_const_select_fold (InstCombineSimplifyRules.td:8964): not ported.
--- unsupported match operator `gep_i8`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_reassociate_constants_across_one_use_scaled_index (InstCombineSimplifyRules.td:8992): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- InstCombineSimplifyRules.td:9018
 def add_select_consts_fold : Array (CompiledPattern OpCode) :=
@@ -3161,37 +3363,48 @@ def add_select_consts_fold : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- select_one_index_geps_common_base (InstCombineSimplifyRules.td:9036): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- select_one_index_geps_common_index (InstCombineSimplifyRules.td:9055): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- select_one_index_gep_or_base (InstCombineSimplifyRules.td:9074): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- select_base_or_one_index_gep (InstCombineSimplifyRules.td:9087): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- icmp_#Comparison#_geps_same_constant_offset (InstCombineSimplifyRules.td:9103): not ported.
--- TableGen family requires expansion: icmp_#Comparison#_geps_same_constant_offset
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- icmp_eq_identical_single_index_geps (InstCombineSimplifyRules.td:9112): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- icmp_#Comparison#_same_base_single_index_gep_offsets (InstCombineSimplifyRules.td:9123): not ported.
--- TableGen family requires expansion: icmp_#Comparison#_same_base_single_index_gep_offsets
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- icmp_#Comparison#_inbounds_gep_null (InstCombineSimplifyRules.td:9137): not ported.
--- TableGen family requires expansion: icmp_#Comparison#_inbounds_gep_null
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- icmp_#CMP#_inbounds_two_index_gep_null (InstCombineSimplifyRules.td:9150): not ported.
--- TableGen family requires expansion: icmp_#CMP#_inbounds_two_index_gep_null
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- icmp_#Comparison#_inbounds_gep_addrspacecast_null (InstCombineSimplifyRules.td:9164): not ported.
--- TableGen family requires expansion: icmp_#Comparison#_inbounds_gep_addrspacecast_null
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_srem_positive_pow2_to_mask (InstCombineSimplifyRules.td:9175): not ported.
--- unsupported match operator `gep_indices`
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- InstCombineSimplifyRules.td:9190
 def uadd_overflow_zero : Array (CompiledPattern OpCode) :=
@@ -3345,7 +3558,8 @@ def smul_overflow_one : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- smul_overflow_one_flag (InstCombineSimplifyRules.td:9190): not ported.
--- Source counterexample (i1): literal 1 is signed -1; multiplying X=-1 by it overflows, so the flag is not always false.
+-- Source counterexample (i1): literal 1 is signed -1; multiplying X=-1 by it overflows, so the
+-- flag is not always false.
 
 -- InstCombineSimplifyRules.td:9206
 def uadd_overflow_constant_flag : Array (CompiledPattern OpCode) :=
@@ -3392,10 +3606,12 @@ def umul_overflow_constant_flag : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- smul_overflow_constant_half_range_flag (InstCombineSimplifyRules.td:9225): not ported.
--- unsupported replacement operator `smul_no_wrap_lower_bound`
+-- Requires the signed-multiply no-wrap interval calculator, including negative constants and
+-- directed rounding.
 
 -- smul_overflow_constant_interval_flag (InstCombineSimplifyRules.td:9235): not ported.
--- unsupported replacement operator `smul_no_wrap_lower_bound`
+-- Requires the signed-multiply no-wrap interval calculator, including negative constants and
+-- directed rounding.
 
 -- InstCombineSimplifyRules.td:9247
 def umul_overflow_i1_value : Array (CompiledPattern OpCode) :=
@@ -3452,7 +3668,8 @@ def ssub_overflow_constant_to_sadd : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- sadd_overflow_one_flag (InstCombineSimplifyRules.td:9267): not ported.
--- Source counterexample (i1): literal 1 is signed -1; X=0 does not overflow, but X==INT_MAX is true.
+-- Source counterexample (i1): literal 1 is signed -1; X=0 does not overflow, but X==INT_MAX is
+-- true.
 
 -- InstCombineSimplifyRules.td:9272
 def sadd_overflow_minus_one_flag : Array (CompiledPattern OpCode) :=
@@ -3780,27 +3997,8 @@ def umin_cttz_constant_cap : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- InstCombineSimplifyRules.td:9389
-def umin_constant_cttz_cap : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let op2 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let x4 ← MatchProg.value t0
-      let op3 ← MatchProg.operation (.llvm .intr__cttz) #[x4] #[t0]
-      let op1 ← MatchProg.root (.llvm .intr__umin) (orient swaps 0 op2.res[0]! op3.res[0]!) #[t0]
-      let () ← requireUses op3.op 1
-      let () ← MatchProg.matchNative (t0, op2.properties) fun (m0, m1) => ((decide ((constantBits m0 m1).toNat < (bitwidth m0))))
-      return (t0, x4, op2))
-    (fun (t0, x4, op2) => do
-      let props6 : Handle OpCode (.prop (.llvm .intr__cttz)) ←
-        CreateProg.applyNative (t0, op2.properties) fun (m0, m1) => some { is_zero_poison := true }
-      let k8Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t0, op2.properties) fun (m0, m1) => some (integerConstant m0 ((BitVec.ofNat (bitwidth m0) 1) <<< (constantBits m0 m1).toNat).toInt)
-      let k8 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k8Props)
-      let new7 ← CreateProg.operation (.llvm .or) #[x4, k8.res[0]!] #[t0]
-      let new5 ← CreateProg.operation (.llvm .intr__cttz) #[new7.res[0]!] #[t0] (.inr props6)
-      return new5.res[0]!)
-    (fun result => result)
+-- Same scalar pattern as `umin_cttz_constant_cap`; keep the source rule name.
+def umin_constant_cttz_cap : Array (CompiledPattern OpCode) := umin_cttz_constant_cap
 
 -- InstCombineSimplifyRules.td:9396
 def umin_ctlz_constant_cap : Array (CompiledPattern OpCode) :=
@@ -3826,27 +4024,8 @@ def umin_ctlz_constant_cap : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- InstCombineSimplifyRules.td:9402
-def umin_constant_ctlz_cap : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let op2 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let x4 ← MatchProg.value t0
-      let op3 ← MatchProg.operation (.llvm .intr__ctlz) #[x4] #[t0]
-      let op1 ← MatchProg.root (.llvm .intr__umin) (orient swaps 0 op2.res[0]! op3.res[0]!) #[t0]
-      let () ← requireUses op3.op 1
-      let () ← MatchProg.matchNative (t0, op2.properties) fun (m0, m1) => ((decide ((constantBits m0 m1).toNat < (bitwidth m0))))
-      return (t0, x4, op2))
-    (fun (t0, x4, op2) => do
-      let props6 : Handle OpCode (.prop (.llvm .intr__ctlz)) ←
-        CreateProg.applyNative (t0, op2.properties) fun (m0, m1) => some { is_zero_poison := true }
-      let k8Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t0, op2.properties) fun (m0, m1) => some (integerConstant m0 ((BitVec.ofNat (bitwidth m0) 1) <<< ((bitwidth m0) - 1 - (constantBits m0 m1).toNat)).toInt)
-      let k8 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k8Props)
-      let new7 ← CreateProg.operation (.llvm .or) #[x4, k8.res[0]!] #[t0]
-      let new5 ← CreateProg.operation (.llvm .intr__ctlz) #[new7.res[0]!] #[t0] (.inr props6)
-      return new5.res[0]!)
-    (fun result => result)
+-- Same scalar pattern as `umin_ctlz_constant_cap`; keep the source rule name.
+def umin_constant_ctlz_cap : Array (CompiledPattern OpCode) := umin_ctlz_constant_cap
 
 -- InstCombineSimplifyRules.td:9414
 def i_cttz_with_poison_i1_zero_defined : Array (CompiledPattern OpCode) :=
@@ -4154,7 +4333,8 @@ def or_bitreverse_const_distribute : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- bitreverse_and_mask_or_high_mask (InstCombineSimplifyRules.td:9473): not ported.
--- Source counterexample (i8): X=64, C=K=128 satisfies the leading-one guards, but gives 128 before and 130 after.
+-- Source counterexample (i8): X=64, C=K=128 satisfies the leading-one guards, but gives 128
+-- before and 130 after.
 
 -- InstCombineSimplifyRules.td:9487
 def abs_sext_to_zext_abs : Array (CompiledPattern OpCode) :=
@@ -4177,34 +4357,44 @@ def abs_sext_to_zext_abs : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- abs_plain_known_nonnegative (InstCombineSimplifyRules.td:9494): not ported.
--- condition `known_non_negative` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- abs_nsw_known_nonnegative (InstCombineSimplifyRules.td:9499): not ported.
--- condition `known_non_negative` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- abs_plain_neg_one_minus_zext (InstCombineSimplifyRules.td:9508): not ported.
--- Source counterexample: zext i7 127 to i8 gives abs(-128,false)=-128, but the replacement add nsw 127,1 is poison.
+-- Source counterexample: zext i7 127 to i8 gives abs(-128,false)=-128, but the replacement add
+-- nsw 127,1 is poison.
 
 -- abs_plain_not_zext (InstCombineSimplifyRules.td:9518): not ported.
--- Source counterexample: zext i7 127 to i8 gives abs(~127,false)=-128, but the replacement add nsw 127,1 is poison.
+-- Source counterexample: zext i7 127 to i8 gives abs(~127,false)=-128, but the replacement add
+-- nsw 127,1 is poison.
 
 -- abs_plain_known_negative (InstCombineSimplifyRules.td:9527): not ported.
--- condition `known_negative` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- abs_nsw_known_negative (InstCombineSimplifyRules.td:9532): not ported.
--- condition `known_negative` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- abs_plain_known_nonpositive (InstCombineSimplifyRules.td:9541): not ported.
--- condition `icmp_sle_is_known_true` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- abs_nsw_known_nonpositive (InstCombineSimplifyRules.td:9547): not ported.
--- condition `icmp_sle_is_known_true` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- abs_plain_sub_with_known_reversed_order (InstCombineSimplifyRules.td:9556): not ported.
--- condition `icmp_sge_is_known_true` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- abs_nsw_sub_with_known_reversed_order (InstCombineSimplifyRules.td:9563): not ported.
--- condition `icmp_sge_is_known_true` needs an analysis/descriptor implementation
+-- Requires LLVM signed/unsigned range and overflow proofs for unknown operands; no equivalent
+-- LLVM value analysis is available in VeIR.
 
 -- InstCombineSimplifyRules.td:9594
 def fshl_drop_redundant_first_input_mask_for_rotate : Array (CompiledPattern OpCode) :=
@@ -4224,7 +4414,8 @@ def fshl_drop_redundant_first_input_mask_for_rotate : Array (CompiledPattern OpC
     (fun result => result)
 
 -- fshl_rotate_exact_high_mask_to_lshr (InstCombineSimplifyRules.td:9608): not ported.
--- Source permits Shift=0 and Mask=0, then creates lshr X,bitwidth (poison) from a defined zero result.
+-- Source permits Shift=0 and Mask=0, then creates lshr X,bitwidth (poison) from a defined zero
+-- result.
 
 -- InstCombineSimplifyRules.td:9621
 def fshl_rotate_exact_low_mask_to_shl : Array (CompiledPattern OpCode) :=
@@ -4281,13 +4472,16 @@ def fshl_rotate_or_exact_high_mask : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- fshl_first_mask_contributes_nothing (InstCombineSimplifyRules.td:9665): not ported.
--- Source permits Shift=0 and FirstMask=0, then creates lshr X,bitwidth (poison) from a defined zero result.
+-- Source permits Shift=0 and FirstMask=0, then creates lshr X,bitwidth (poison) from a defined
+-- zero result.
 
 -- fshl_zext_masked_narrow_amount (InstCombineSimplifyRules.td:9684): not ported.
--- Source lacks a power-of-two width premise: for i5 and an i4 amount, Mask=4 passes Mask+1=5 but AND 4 is not reduction modulo 5.
+-- Source lacks a power-of-two width premise: for i5 and an i4 amount, Mask=4 passes Mask+1=5 but
+-- AND 4 is not reduction modulo 5.
 
 -- fshr_zext_masked_narrow_amount (InstCombineSimplifyRules.td:9689): not ported.
--- Source lacks a power-of-two width premise: for i5 and an i4 amount, Mask=4 passes Mask+1=5 but AND 4 is not reduction modulo 5.
+-- Source lacks a power-of-two width premise: for i5 and an i4 amount, Mask=4 passes Mask+1=5 but
+-- AND 4 is not reduction modulo 5.
 
 -- InstCombineSimplifyRules.td:9696
 def fshl_zero_lo_to_shl : Array (CompiledPattern OpCode) :=
@@ -4448,55 +4642,10 @@ def ssub_sat_to_sadd_sat : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- infer_ptrmask_return_alignment (InstCombineSimplifyRules.td:9845): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- VeIR has no llvm.ptrmask operation or pointer-mask property/analysis interface.
 
 -- ptrmask_ptrmask (InstCombineSimplifyRules.td:9854): not ported.
--- graph effect or inherited rule program: InstSimplify
-
--- ceil (InstCombineSimplifyRules.td:9873): not ported.
--- graph effect or inherited rule program: unary_floating_libcall_to_intrinsic< call_is_ceil_library_function
-
--- floor (InstCombineSimplifyRules.td:9877): not ported.
--- graph effect or inherited rule program: unary_floating_libcall_to_intrinsic< call_is_floor_library_function
-
--- round (InstCombineSimplifyRules.td:9881): not ported.
--- graph effect or inherited rule program: unary_floating_libcall_to_intrinsic< call_is_round_library_function
-
--- roundeven (InstCombineSimplifyRules.td:9885): not ported.
--- graph effect or inherited rule program: unary_floating_libcall_to_intrinsic< call_is_roundeven_library_function
-
--- nearbyint (InstCombineSimplifyRules.td:9889): not ported.
--- graph effect or inherited rule program: unary_floating_libcall_to_intrinsic< call_is_nearbyint_library_function
-
--- rint (InstCombineSimplifyRules.td:9893): not ported.
--- graph effect or inherited rule program: unary_floating_libcall_to_intrinsic< call_is_rint_library_function
-
--- trunc (InstCombineSimplifyRules.td:9897): not ported.
--- graph effect or inherited rule program: unary_floating_libcall_to_intrinsic< call_is_trunc_library_function
-
--- fminimum_num_libcall_to_intrinsic (InstCombineSimplifyRules.td:9907): not ported.
--- graph effect or inherited rule program: InstSimplify
-
--- fmaximum_num_libcall_to_intrinsic (InstCombineSimplifyRules.td:9918): not ported.
--- graph effect or inherited rule program: InstSimplify
-
--- fmin (InstCombineSimplifyRules.td:9934): not ported.
--- graph effect or inherited rule program: binary_floating_libcall_to_nsz_intrinsic< call_is_fmin_library_function
-
--- fmax (InstCombineSimplifyRules.td:9939): not ported.
--- graph effect or inherited rule program: binary_floating_libcall_to_nsz_intrinsic< call_is_fmax_library_function
-
--- fdim_lhs_poison (InstCombineSimplifyRules.td:9949): not ported.
--- graph effect or inherited rule program: InstSimplify
-
--- fdim_rhs_poison (InstCombineSimplifyRules.td:9958): not ported.
--- graph effect or inherited rule program: InstSimplify
-
--- fdim_constants_to_positive_zero (InstCombineSimplifyRules.td:9967): not ported.
--- graph effect or inherited rule program: InstSimplify
-
--- Logarithm.tag#_of_power (InstCombineSimplifyRules.td:10419): not ported.
--- TableGen family requires expansion: Logarithm.tag#_of_power
+-- VeIR has no llvm.ptrmask operation or pointer-mask property/analysis interface.
 
 -- InstCombineSimplifyRules.td:10522
 def smax_nsw_neg_to_neg_smin : Array (CompiledPattern OpCode) :=
@@ -4649,9 +4798,6 @@ def smin_sext_sext : Array (CompiledPattern OpCode) :=
       let new6 ← CreateProg.operation (.llvm .sext) #[new7.res[0]!] #[t0]
       return new6.res[0]!)
     (fun result => result)
-
--- amdgcn_cos_fabs (InstCombineSimplifyRules.td:10596): not ported.
--- unsupported match operator `llvm_amdgcn_cos`
 
 -- InstCombineSimplifyRules.td:10630
 def extract_smul_ov_neg_one : Array (CompiledPattern OpCode) :=
@@ -4939,7 +5085,8 @@ def smax_smin_clamp_canon : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- signed_clamp_known_nonnegative_to_umin (InstCombineSimplifyRules.td:10875): not ported.
--- condition `known_non_negative` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:10885
 def umax_umin_clamp_canon : Array (CompiledPattern OpCode) :=
@@ -4959,12 +5106,6 @@ def umax_umin_clamp_canon : Array (CompiledPattern OpCode) :=
       let new6 ← CreateProg.operation (.llvm .intr__umin) #[new7.res[0]!, op4.res[0]!] #[t0]
       return new6.res[0]!)
     (fun result => result)
-
--- Fused.rule_id_component#_zero_product_lhs (InstCombineSimplifyRules.td:10956): not ported.
--- TableGen family requires expansion: Fused.rule_id_component#_zero_product_lhs
-
--- Fused.rule_id_component#_zero_product_rhs (InstCombineSimplifyRules.td:10963): not ported.
--- TableGen family requires expansion: Fused.rule_id_component#_zero_product_rhs
 
 -- InstCombineSimplifyRules.td:11086
 def ssub_ov_to_sadd_ov : Array (CompiledPattern OpCode) :=
@@ -6397,7 +6538,8 @@ def cttz_shl_const_zero_poison : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- lshr_nuw_shl_by_cttz_nuw_shl_pow2 (InstCombineSimplifyRules.td:11556): not ported.
--- condition `known_power_of_2` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- cttz_exact_lshr_const (InstCombineSimplifyRules.td:11568): not ported.
 -- Source counterexample: C = 0, X = 1, zero-defined cttz gives width, not width - 1.
@@ -6530,10 +6672,12 @@ def fshl_i16_rotate8_to_bswap : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- recognize_bswap_bitreverse_fshl_root (InstCombineSimplifyRules.td:11630): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM byte/bit permutation recognition over an expression DAG; VeIR has no equivalent
+-- recognizer.
 
 -- recognize_bswap_bitreverse_fshr_root (InstCombineSimplifyRules.td:11636): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires LLVM byte/bit permutation recognition over an expression DAG; VeIR has no equivalent
+-- recognizer.
 
 -- InstCombineSimplifyRules.td:11647
 def lshr_ctlz_log2bw_to_zext_eq_zero : Array (CompiledPattern OpCode) :=
@@ -6558,7 +6702,8 @@ def lshr_ctlz_log2bw_to_zext_eq_zero : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- fshr_const_to_fshl (InstCombineSimplifyRules.td:11655): not ported.
--- condition `no_undef_or_poison` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:11667
 def extract0_sole_use_umul_ov : Array (CompiledPattern OpCode) :=
@@ -6663,10 +6808,12 @@ def extract0_sole_use_smul_ov : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- freeze_push_to_unique_poison_source (InstCombineSimplifyRules.td:11702): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires use-graph/dominance facts and coordinated sharing of an undef choice; a root-local
+-- replacement cannot implement that policy.
 
 -- freeze_share_choice_with_dominated_uses (InstCombineSimplifyRules.td:11711): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires use-graph/dominance facts and coordinated sharing of an undef choice; a root-local
+-- replacement cannot implement that policy.
 
 -- InstCombineSimplifyRules.td:11717
 def ctpop_lshr_allones : Array (CompiledPattern OpCode) :=
@@ -6944,55 +7091,13 @@ def abs_zext_elim : Array (CompiledPattern OpCode) :=
       return op2.res[0]!)
     (fun result => result)
 
--- extract_sink_ # BOP (InstCombineSimplifyRules.td:11904): not ported.
--- TableGen family requires expansion: extract_sink_ # BOP
-
--- extract_sink_fp_ # BOP (InstCombineSimplifyRules.td:11907): not ported.
--- TableGen family requires expansion: extract_sink_fp_ # BOP
-
--- extract_sink_fp_ #FCMP.rule_id_component (InstCombineSimplifyRules.td:11914): not ported.
--- TableGen family requires expansion: extract_sink_fp_ #FCMP.rule_id_component
-
--- scalarize_extract_phi_recurrence_ # BOP (InstCombineSimplifyRules.td:11922): not ported.
--- TableGen family requires expansion: scalarize_extract_phi_recurrence_ # BOP
-
--- scalarize_extract_phi_recurrence_lhs_ # BOP (InstCombineSimplifyRules.td:11927): not ported.
--- TableGen family requires expansion: scalarize_extract_phi_recurrence_lhs_ # BOP
-
--- scalarize_extract_phi_recurrence_rhs_ # BOP (InstCombineSimplifyRules.td:11929): not ported.
--- TableGen family requires expansion: scalarize_extract_phi_recurrence_rhs_ # BOP
-
 -- InstCombineSimplifyRules.td:11975
-def select_eq_zero_identity : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
-      let x3 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
-      let op2 ← MatchProg.operation (.llvm .icmp) (orient swaps 0 x3 op4.res[0]!) #[t1] (fun p => p.predicate == .eq)
-      let op5 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
-      let op1 ← MatchProg.root (.llvm .select) #[op2.res[0]!, op5.res[0]!, x3] #[t0]
-      return (t0, t1, x3))
-    (fun (t0, t1, x3) => do
-      return x3)
-    (fun result => result)
+-- Same scalar pattern as `select_eq_zero_self`; keep the source rule name.
+def select_eq_zero_identity : Array (CompiledPattern OpCode) := select_eq_zero_self
 
 -- InstCombineSimplifyRules.td:11979
-def select_ne_zero_identity : Array (CompiledPattern OpCode) :=
-  compileVariants 1 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let t1 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
-      let x3 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
-      let op2 ← MatchProg.operation (.llvm .icmp) (orient swaps 0 x3 op4.res[0]!) #[t1] (fun p => p.predicate == .ne)
-      let op5 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] (constantIs (0))
-      let op1 ← MatchProg.root (.llvm .select) #[op2.res[0]!, x3, op5.res[0]!] #[t0]
-      return (t0, t1, x3))
-    (fun (t0, t1, x3) => do
-      return x3)
-    (fun result => result)
+-- Same scalar pattern as `select_ne_zero_self`; keep the source rule name.
+def select_ne_zero_identity : Array (CompiledPattern OpCode) := select_ne_zero_self
 
 -- InstCombineSimplifyRules.td:12011
 def select_eq_const_identity : Array (CompiledPattern OpCode) :=
@@ -7161,84 +7266,20 @@ def reassociate_three_umin_constants : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- InstCombineSimplifyRules.td:12070
-def smax_smax_const_fold : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let op2 ← MatchProg.operation (.llvm .intr__smax) (orient swaps 0 x3 op4.res[0]!) #[t0]
-      let op5 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let op1 ← MatchProg.root (.llvm .intr__smax) (orient swaps 1 op2.res[0]! op5.res[0]!) #[t0]
-      let () ← requireUses op2.op 1
-      return (t0, x3, op4, op5))
-    (fun (t0, x3, op4, op5) => do
-      let k7Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t0, op4.properties, op5.properties) fun (m0, m1, m2) => some (integerConstant m0 (if (constantBits m0 m1).toInt >= (constantBits m0 m2).toInt then (constantBits m0 m1) else (constantBits m0 m2)).toInt)
-      let k7 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k7Props)
-      let new6 ← CreateProg.operation (.llvm .intr__smax) #[x3, k7.res[0]!] #[t0]
-      return new6.res[0]!)
-    (fun result => result)
+-- Same scalar pattern as `reassoc_const_i_smax`; keep the source rule name.
+def smax_smax_const_fold : Array (CompiledPattern OpCode) := reassoc_const_i_smax
 
 -- InstCombineSimplifyRules.td:12077
-def smin_smin_const_fold : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let op2 ← MatchProg.operation (.llvm .intr__smin) (orient swaps 0 x3 op4.res[0]!) #[t0]
-      let op5 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let op1 ← MatchProg.root (.llvm .intr__smin) (orient swaps 1 op2.res[0]! op5.res[0]!) #[t0]
-      let () ← requireUses op2.op 1
-      return (t0, x3, op4, op5))
-    (fun (t0, x3, op4, op5) => do
-      let k7Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t0, op4.properties, op5.properties) fun (m0, m1, m2) => some (integerConstant m0 (if (constantBits m0 m1).toInt <= (constantBits m0 m2).toInt then (constantBits m0 m1) else (constantBits m0 m2)).toInt)
-      let k7 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k7Props)
-      let new6 ← CreateProg.operation (.llvm .intr__smin) #[x3, k7.res[0]!] #[t0]
-      return new6.res[0]!)
-    (fun result => result)
+-- Same scalar pattern as `reassoc_const_i_smin`; keep the source rule name.
+def smin_smin_const_fold : Array (CompiledPattern OpCode) := reassoc_const_i_smin
 
 -- InstCombineSimplifyRules.td:12084
-def umax_umax_const_fold : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let op2 ← MatchProg.operation (.llvm .intr__umax) (orient swaps 0 x3 op4.res[0]!) #[t0]
-      let op5 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let op1 ← MatchProg.root (.llvm .intr__umax) (orient swaps 1 op2.res[0]! op5.res[0]!) #[t0]
-      let () ← requireUses op2.op 1
-      return (t0, x3, op4, op5))
-    (fun (t0, x3, op4, op5) => do
-      let k7Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t0, op4.properties, op5.properties) fun (m0, m1, m2) => some (integerConstant m0 (if (constantBits m0 m1).toNat >= (constantBits m0 m2).toNat then (constantBits m0 m1) else (constantBits m0 m2)).toInt)
-      let k7 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k7Props)
-      let new6 ← CreateProg.operation (.llvm .intr__umax) #[x3, k7.res[0]!] #[t0]
-      return new6.res[0]!)
-    (fun result => result)
+-- Same scalar pattern as `reassoc_const_i_umax`; keep the source rule name.
+def umax_umax_const_fold : Array (CompiledPattern OpCode) := reassoc_const_i_umax
 
 -- InstCombineSimplifyRules.td:12091
-def umin_umin_const_fold : Array (CompiledPattern OpCode) :=
-  compileVariants 2 fun swaps => Pattern.Builder
-    (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
-      let x3 ← MatchProg.value t0
-      let op4 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let op2 ← MatchProg.operation (.llvm .intr__umin) (orient swaps 0 x3 op4.res[0]!) #[t0]
-      let op5 ← MatchProg.operation (.llvm .mlir__constant) #[] #[t0] isIntegerConstant
-      let op1 ← MatchProg.root (.llvm .intr__umin) (orient swaps 1 op2.res[0]! op5.res[0]!) #[t0]
-      let () ← requireUses op2.op 1
-      return (t0, x3, op4, op5))
-    (fun (t0, x3, op4, op5) => do
-      let k7Props : Handle OpCode (.prop (.llvm .mlir__constant)) ←
-        CreateProg.applyNative (t0, op4.properties, op5.properties) fun (m0, m1, m2) => some (integerConstant m0 (if (constantBits m0 m1).toNat <= (constantBits m0 m2).toNat then (constantBits m0 m1) else (constantBits m0 m2)).toInt)
-      let k7 ← CreateProg.operation (.llvm .mlir__constant) #[] #[t0] (.inr k7Props)
-      let new6 ← CreateProg.operation (.llvm .intr__umin) #[x3, k7.res[0]!] #[t0]
-      return new6.res[0]!)
-    (fun result => result)
+-- Same scalar pattern as `reassoc_const_i_umin`; keep the source rule name.
+def umin_umin_const_fold : Array (CompiledPattern OpCode) := reassoc_const_i_umin
 
 -- InstCombineSimplifyRules.td:12103
 def umax_smax_nonnegative_constants_fold : Array (CompiledPattern OpCode) :=
@@ -7283,10 +7324,12 @@ def smin_umin_nonnegative_constants_fold : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- umax_xor_pow2_to_or (InstCombineSimplifyRules.td:12133): not ported.
--- condition `power_of_2_or_zero` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- umin_xor_pow2_to_andn (InstCombineSimplifyRules.td:12138): not ported.
--- condition `power_of_2_or_zero` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:12150
 def bitreverse_zext_i1_to_select : Array (CompiledPattern OpCode) :=
@@ -7384,7 +7427,7 @@ def usub_sat_nuwsub_const : Array (CompiledPattern OpCode) :=
 def select_nested_same_cond_false : Array (CompiledPattern OpCode) :=
   compileVariants 0 fun swaps => Pattern.Builder
     (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t7 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let c2 ← MatchProg.value t7
       let x3 ← MatchProg.value t0
@@ -7402,7 +7445,7 @@ def select_nested_same_cond_false : Array (CompiledPattern OpCode) :=
 def select_nested_same_cond_true : Array (CompiledPattern OpCode) :=
   compileVariants 0 fun swaps => Pattern.Builder
     (do
-      let t0 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth > 0)
+      let t0 ← MatchProg.type (Attr := TypeAttr) (fun t => t.isa IntegerType || t.isa LLVM.PointerType)
       let t7 ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let c2 ← MatchProg.value t7
       let x4 ← MatchProg.value t0
@@ -7417,25 +7460,16 @@ def select_nested_same_cond_true : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- gep_infer_inbounds_and_nuw_from_dereferenceable_object (InstCombineSimplifyRules.td:12227): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_infer_nuw_from_nusw_nonnegative (InstCombineSimplifyRules.td:12236): not ported.
--- graph effect or inherited rule program: InstSimplify
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- gep_infer_inbounds_from_dereferenceable_object (InstCombineSimplifyRules.td:12244): not ported.
--- graph effect or inherited rule program: InstSimplify
-
--- distribute_#Op#_over_matching_concatenations (InstCombineSimplifyRules.td:12494): not ported.
--- TableGen family requires expansion: distribute_#Op#_over_matching_concatenations
-
--- simplify_#Op#_lane_zero_splat_operand (InstCombineSimplifyRules.td:12534): not ported.
--- TableGen family requires expansion: simplify_#Op#_lane_zero_splat_operand
-
--- simplify_#Op#_same_partial_splat_operand (InstCombineSimplifyRules.td:12540): not ported.
--- TableGen family requires expansion: simplify_#Op#_same_partial_splat_operand
-
--- FunnelShift.rule_id_component#_sext_amount_to_zext (InstCombineSimplifyRules.td:12556): not ported.
--- TableGen family requires expansion: FunnelShift.rule_id_component#_sext_amount_to_zext
+-- Requires TIC's typed GEP index/offset or no-wrap descriptor program. VeIR's RV64 lowering
+-- helpers do not supply these target-independent source-type and flag contracts.
 
 -- InstCombineSimplifyRules.td:12564
 def usub_sat_nuwsub_constant_lanes : Array (CompiledPattern OpCode) :=
@@ -7480,22 +7514,24 @@ def usub_sat_select_one_zext_not_condition : Array (CompiledPattern OpCode) :=
     (fun result => result)
 
 -- smax_xor_nonnegative_pow2_to_or (InstCombineSimplifyRules.td:12582): not ported.
--- condition `power_of_2_or_zero` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- smin_xor_nonnegative_pow2_to_andn (InstCombineSimplifyRules.td:12589): not ported.
--- condition `power_of_2_or_zero` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- smax_xor_proven_signed_min_to_andn (InstCombineSimplifyRules.td:12598): not ported.
--- condition `arg_is_scalar_integer` needs an analysis/descriptor implementation
+-- Requires path-sensitive signed-minimum inference from dominating conditions; the existing
+-- dominance analysis does not prove this value fact.
 
 -- smax_xor_negative_pow2_to_andn (InstCombineSimplifyRules.td:12605): not ported.
--- condition `power_of_2_or_zero` needs an analysis/descriptor implementation
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- smin_xor_negative_pow2_to_or (InstCombineSimplifyRules.td:12612): not ported.
--- condition `power_of_2_or_zero` needs an analysis/descriptor implementation
-
--- pull_add_through_#Splice.rule_id_component#_with_ordered_rhs_splat (InstCombineSimplifyRules.td:12623): not ported.
--- TableGen family requires expansion: pull_add_through_#Splice.rule_id_component#_with_ordered_rhs_splat
+-- Requires LLVM value-tracking facts (known bits/ranges or guaranteed non-poison values); the
+-- existing VeIR constant/modular analyses do not supply this contract.
 
 -- InstCombineSimplifyRules.td:12632
 def umin_nuw_shl_common_lhs_dist : Array (CompiledPattern OpCode) :=
@@ -7580,6 +7616,11 @@ def umax_nuw_shl_common_lhs_dist_nsw : Array (CompiledPattern OpCode) :=
 /-- Imported families in textual source order. -/
 def namedPatterns : Array (String × Array (CompiledPattern OpCode)) := #[
     ("erase_zero_length_memory_intrinsic", erase_zero_length_memory_intrinsic),
+    ("reconstruct_two_element_aggregate", reconstruct_two_element_aggregate),
+    ("extract_value_from_identical_aggregate_insert_path", extract_value_from_identical_aggregate_insert_path),
+    ("extract_prefix_of_aggregate_insert_path", extract_prefix_of_aggregate_insert_path),
+    ("aggregate_insert_path_prefix_of_extract", aggregate_insert_path_prefix_of_extract),
+    ("bypass_aggregate_insert_on_diverging_extract_path", bypass_aggregate_insert_on_diverging_extract_path),
     ("select_poison_cond", select_poison_cond),
     ("nsw_mul_neg_one", nsw_mul_neg_one),
     ("mul_neg_one", mul_neg_one),
@@ -7895,6 +7936,45 @@ private def rewritesFor : Llvm → RewritePattern OpCode
       erase_zero_length_memory_intrinsic].flatten.map (·.run))
   | .intr__memset => RewritePattern.GreedyRewritePattern (#[
       erase_zero_length_memory_intrinsic].flatten.map (·.run))
+  | .insertvalue => RewritePattern.GreedyRewritePattern (#[
+      reconstruct_two_element_aggregate].flatten.map (·.run))
+  | .extractvalue => RewritePattern.GreedyRewritePattern (#[
+      extract_value_from_identical_aggregate_insert_path,
+      extract_prefix_of_aggregate_insert_path,
+      aggregate_insert_path_prefix_of_extract,
+      bypass_aggregate_insert_on_diverging_extract_path,
+      uadd_overflow_zero,
+      uadd_overflow_zero_flag,
+      sadd_overflow_zero,
+      sadd_overflow_zero_flag,
+      usub_overflow_zero,
+      usub_overflow_zero_flag,
+      ssub_overflow_zero,
+      ssub_overflow_zero_flag,
+      smul_overflow_one,
+      uadd_overflow_constant_flag,
+      umul_overflow_constant_flag,
+      umul_overflow_i1_value,
+      umul_overflow_i1_flag,
+      sadd_overflow_minus_one_flag,
+      sadd_overflow_positive_constant_flag,
+      sadd_overflow_negative_constant_flag,
+      ssub_overflow_minus_one_flag,
+      ssub_overflow_positive_constant_flag,
+      ssub_overflow_negative_constant_flag,
+      extract_smul_ov_neg_one,
+      extract_umul_ov_neg_one,
+      extract_usubo_ov_to_ult,
+      extract_ov1_smul_i1,
+      extract_smul_ov_pow2,
+      extract_umul_ov_pow2,
+      extract_umul_self_overflow,
+      extract0_sole_use_umul_ov,
+      extract0_sole_use_uadd_ov,
+      extract0_sole_use_usub_ov,
+      extract0_sole_use_sadd_ov,
+      extract0_sole_use_ssub_ov,
+      extract0_sole_use_smul_ov].flatten.map (·.run))
   | .select => RewritePattern.GreedyRewritePattern (#[
       select_poison_cond,
       select_true,
@@ -8122,39 +8202,6 @@ private def rewritesFor : Llvm → RewritePattern OpCode
       nsw_add_neg_slt_self].flatten.map (·.run))
   | .getelementptr => RewritePattern.GreedyRewritePattern (#[
       gep_zero_index].flatten.map (·.run))
-  | .extractvalue => RewritePattern.GreedyRewritePattern (#[
-      uadd_overflow_zero,
-      uadd_overflow_zero_flag,
-      sadd_overflow_zero,
-      sadd_overflow_zero_flag,
-      usub_overflow_zero,
-      usub_overflow_zero_flag,
-      ssub_overflow_zero,
-      ssub_overflow_zero_flag,
-      smul_overflow_one,
-      uadd_overflow_constant_flag,
-      umul_overflow_constant_flag,
-      umul_overflow_i1_value,
-      umul_overflow_i1_flag,
-      sadd_overflow_minus_one_flag,
-      sadd_overflow_positive_constant_flag,
-      sadd_overflow_negative_constant_flag,
-      ssub_overflow_minus_one_flag,
-      ssub_overflow_positive_constant_flag,
-      ssub_overflow_negative_constant_flag,
-      extract_smul_ov_neg_one,
-      extract_umul_ov_neg_one,
-      extract_usubo_ov_to_ult,
-      extract_ov1_smul_i1,
-      extract_smul_ov_pow2,
-      extract_umul_ov_pow2,
-      extract_umul_self_overflow,
-      extract0_sole_use_umul_ov,
-      extract0_sole_use_uadd_ov,
-      extract0_sole_use_usub_ov,
-      extract0_sole_use_sadd_ov,
-      extract0_sole_use_ssub_ov,
-      extract0_sole_use_smul_ov].flatten.map (·.run))
   | .intr__ssub__with__overflow => RewritePattern.GreedyRewritePattern (#[
       ssub_overflow_constant_to_sadd,
       ssub_ov_to_sadd_ov].flatten.map (·.run))
