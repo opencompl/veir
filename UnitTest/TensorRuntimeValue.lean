@@ -1,14 +1,9 @@
 import Veir.Input
 import Veir.Interpreter.RuntimeValue
 import Veir.Dialects.Tensor.OpInfo
+import Veir.Dialects.Tensor.Properties
 import Veir.Interpreter.Refinement.Lemmas
 import UnitTest.Helpers
-
-/-!
-  Runtime representation of statically shaped tensors as `RuntimeValue.tensor`
-  (shape plus flat elements), and interpretation of `tensor.empty` via element
-  poison when the element type has one.
--/
 
 open Veir
 open Veir.Input
@@ -81,7 +76,6 @@ info: "ok"
 #guard_msgs in
 #eval testInterpretEmpty
 
-/-- Float has no poison, so `tensor.empty` of a float tensor fails. -/
 private def testInterpretEmptyFloat : String := Id.run do
   let .fail _ :=
       Tensor.interpretOp' .empty () #[floatTensorTy #[2]] #[] #[]
@@ -94,7 +88,6 @@ info: "ok"
 #guard_msgs in
 #eval testInterpretEmptyFloat
 
-/-- Pointwise `glb?` on tensors: meet of elements, or `none` on conflict / shape mismatch. -/
 private def testTensorGlb : String := Id.run do
   let some (.tensor shape elems) :=
       RuntimeValue.glb?
@@ -118,7 +111,6 @@ info: "ok"
 #guard_msgs in
 #eval testTensorGlb
 
-/-- Parse a module containing `tensor.empty` and interpret `main` end-to-end. -/
 private def emptyTensorModule : String :=
   "\"builtin.module\"() ({
     \"func.func\"() <{function_type = () -> tensor<2x2xi32>, sym_name = \"main\"}> ({
@@ -153,7 +145,53 @@ info: "ok"
 #guard_msgs in
 #eval testInterpretEmptyModule
 
-/-! Pointwise refinement of tensor values (same shape required). -/
+private def extractSliceProps (offsets sizes strides : Array Int) : ExtractSliceProperties :=
+  { static_offsets := DenseArrayAttr.mk (IntegerType.signless 64) offsets
+    static_sizes := DenseArrayAttr.mk (IntegerType.signless 64) sizes
+    static_strides := DenseArrayAttr.mk (IntegerType.signless 64) strides
+    operandSegmentSizes := DenseArrayAttr.mk (IntegerType.signless 32) #[1, 0, 0, 0] }
+
+private def testInterpretExtractSlice : String := Id.run do
+  let src := RuntimeValue.tensor #[2, 2] #[i32 0, i32 1, i32 7, i32 3]
+  let idProps := extractSliceProps #[0, 0] #[2, 2] #[1, 1]
+  let .ok (#[sliced], none) :=
+      Tensor.interpretOp' .extract_slice idProps #[integerTensorTy #[2, 2]]
+        #[src] #[]
+    | return "identity extract_slice failed"
+  if sliced ≠ src then
+    return "zero-offset full slice should equal the source"
+  let winProps := extractSliceProps #[1, 0] #[1, 1] #[1, 1]
+  let .ok (#[part], none) :=
+      Tensor.interpretOp' .extract_slice winProps #[integerTensorTy #[1, 1]]
+        #[src] #[]
+    | return "subwindow extract_slice failed"
+  let RuntimeValue.tensor shape elems := part | return "slice did not produce a tensor"
+  if shape ≠ #[1, 1] then
+    return "subwindow slice has the wrong shape"
+  if elems ≠ #[i32 7] then
+    return "subwindow slice has the wrong elements"
+  let strideProps := extractSliceProps #[0, 0] #[2, 1] #[1, 2]
+  let .ok (#[strided], none) :=
+      Tensor.interpretOp' .extract_slice strideProps #[integerTensorTy #[2, 1]]
+        #[src] #[]
+    | return "stride-2 extract_slice failed"
+  let RuntimeValue.tensor sShape sElems := strided | return "stride slice did not produce a tensor"
+  if sShape ≠ #[2, 1] then
+    return "stride-2 slice has the wrong shape"
+  if sElems ≠ #[i32 0, i32 7] then
+    return "stride-2 slice has the wrong elements"
+  let oobProps := extractSliceProps #[0, 0] #[3, 2] #[1, 1]
+  let .fail _ :=
+      Tensor.interpretOp' .extract_slice oobProps #[integerTensorTy #[3, 2]]
+        #[src] #[]
+    | return "out-of-bounds extract_slice should fail"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval testInterpretExtractSlice
 
 example : RuntimeValue.tensor #[2] #[.int 32 .poison, .int 32 .poison] ⊒
     .tensor #[2] #[.int 32 (.val (BitVec.ofInt 32 1)), .int 32 (.val (BitVec.ofInt 32 2))] := by

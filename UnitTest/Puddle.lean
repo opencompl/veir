@@ -1,3 +1,4 @@
+import UnitTest.Helpers
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 import Veir.PatternRewriter.Puddle.Validity
@@ -235,15 +236,6 @@ private def duplicateRootBuilder : MatchProg.Builder Unit := do
 
 /- ## Test pattern execution -/
 
-private structure BinaryProgram where
-  ctx : WfIRContext OpCode
-  moduleOp : OperationPtr
-
-/-- Parse a complete test module. -/
-private def parseBinaryProgram (source : String) : Option BinaryProgram := do
-  let (ctx, moduleOp, _) ← (parseSourceString source.toUTF8).toOption
-  return ⟨ctx, moduleOp⟩
-
 private def addZeroProgram := r#""builtin.module"() ({
   %input = "arith.constant"() <{ value = 42 : i32 }> : () -> i32
   %zero = "arith.constant"() <{ value = 0 : i32 }> : () -> i32
@@ -257,13 +249,6 @@ private def mulTwoProgram := r#""builtin.module"() ({
   %root = "arith.muli"(%input, %two) : (i32, i32) -> i32
   "test.test"(%root) : (i32) -> ()
 }) : () -> ()"#
-
-/-- Parse a program, apply a compiled Puddle pattern, and print the resulting module. -/
-private def rewriteAndPrint (source : String) (rule : Pattern OpCode) : IO Unit := do
-  let some program := parseBinaryProgram source | IO.println "parse failed"
-  let pattern := Pattern.compile rule
-  let some ctx := RewritePattern.applyInContext pattern.run program.ctx program.moduleOp | IO.println "rewrite failed"
-  Printer.printModule ctx.raw program.moduleOp
 
 /--
 info: "builtin.module"() ({

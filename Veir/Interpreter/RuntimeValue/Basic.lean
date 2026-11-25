@@ -25,8 +25,6 @@ inductive RuntimeValue where
 /--
   A ranked tensor: static shape together with elements flattened in row-major
   order. Well-formed values satisfy `elems.size = shape.foldl Nat.mul 1`.
-  The IR type still carries shape for typing; the value stores it so later
-  ops (e.g. extract/insert) can use it without operand types.
 -/
 | tensor (shape : Array Nat) (elems : Array RuntimeValue)
 deriving Inhabited, BEq
