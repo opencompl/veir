@@ -4,6 +4,7 @@ public import Veir.PatternRewriter.Puddle.Definitions
 public import Veir.PatternRewriter.Basic
 
 import all Veir.IR.Basic
+import all Veir.PatternRewriter.Basic
 
 /-!
 # Execution of Puddle Patterns
@@ -161,33 +162,31 @@ def bindProperty (assignment : Assignment OpInfo)
   Assignment.bind assignment handle (.property opCode value)
 
 /--
-Bind a list of value handles to values, or check that it already denotes the same values.
-Return `none` if the lists have different lengths.
+Bind arrays of value handles and values without allocating intermediate lists.
+Return `none` if the arrays have different sizes or an existing binding disagrees.
 -/
 @[expose, inline, specialize handles]
 def bindValues (assignment : Assignment OpInfo)
-    (handles : List (Handle OpInfo .value)) (values : List ValuePtr) :
-    Option (Assignment OpInfo) :=
-  match handles, values with
-  | [], [] => some assignment
-  | handle :: handles, value :: values => do
-    let assignment ← Assignment.bindValue assignment handle value
-    Assignment.bindValues assignment handles values
-  | _, _ => none
+    (handles : Array (Handle OpInfo .value)) (values : Array ValuePtr) :
+    Option (Assignment OpInfo) := do
+  guard (handles.size = values.size)
+  let mut assignment := assignment
+  for i in [:handles.size] do
+    assignment ← Assignment.bindValue assignment handles[i]! values[i]!
+  return assignment
 
 /--
-Bind a list of type handles to types, or check that it already denotes the same types.
-Return `none` if the lists have different lengths.
+Bind arrays of type handles and types without allocating intermediate lists.
+Return `none` if the arrays have different sizes or an existing binding disagrees.
 -/
 @[expose, inline, specialize handles]
 def bindTypes (assignment : Assignment OpInfo)
-    (handles : List (Handle OpInfo .type)) (types : List TypeAttr) : Option (Assignment OpInfo) :=
-  match handles, types with
-  | [], [] => some assignment
-  | handle :: handles, type :: types => do
-    let assignment ← Assignment.bindType assignment handle type
-    Assignment.bindTypes assignment handles types
-  | _, _ => none
+    (handles : Array (Handle OpInfo .type)) (types : Array TypeAttr) : Option (Assignment OpInfo) := do
+  guard (handles.size = types.size)
+  let mut assignment := assignment
+  for i in [:handles.size] do
+    assignment ← Assignment.bindType assignment handles[i]! types[i]!
+  return assignment
 
 /--
 Given a possibly bound operation handle and a list of possibly bound result handles, try to find
@@ -342,12 +341,12 @@ def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
   | .operation opCode operands resultTypes property propertyHandle opHandle results _ =>
     /- First, find the matched operation through its handle or one of its result handles. -/
     let matchedOp ← Assignment.findOp assignment opHandle results
+    /- Reject a different opcode before allocating bindings for this operation. -/
+    guard (matchedOp.getOpType! ctx = opCode)
     /- Then, bind the operation and result handles. -/
     let assignment ← Assignment.bindOp assignment opHandle matchedOp
     let assignment ←
-      Assignment.bindValues assignment results.toList (matchedOp.getResults! ctx).toList
-    /- Check that the opcode is valid. -/
-    guard (matchedOp.getOpType! ctx = opCode)
+      Assignment.bindValues assignment results (matchedOp.getResults! ctx)
     let actualProperties := matchedOp.getProperties! ctx opCode
     /- Check that the properties are valid, and bind them. -/
     guard (property actualProperties)
@@ -356,11 +355,11 @@ def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
     /- Check that the result types are valid and bind them. -/
     guard (actualResultTypes.size = resultTypes.size)
     let assignment ← Assignment.bindTypes assignment
-      resultTypes.toList actualResultTypes.toList
+      resultTypes actualResultTypes
     /- Check that the operands are valid and bind them. -/
     let actualOperands := matchedOp.getOperands! ctx
     guard (actualOperands.size = operands.size)
-    Assignment.bindValues assignment operands.toList actualOperands.toList
+    Assignment.bindValues assignment operands actualOperands
   | .value typeHandle valueHandle =>
     /- Get the value from the assignment (as it should already be bound), and bind its type. -/
     let value ← Assignment.getValue assignment valueHandle
@@ -403,8 +402,7 @@ match succeeds.
 def MatchProg.run (prog : MatchProg OpInfo α) (ctx : IRContext OpInfo)
     (root : OperationPtr) : Option (Assignment OpInfo) :=
   do
-    /- Early exit speeds things up substantially, but remove this when we get
-       per-opcode dispatch -/
+    /- Reject an incompatible root before allocating the assignment. -/
     if let .operation opCode .. :: _ := prog.decls then
       guard (root.getOpType! ctx = opCode)
     let assignment ← Assignment.bindOp
@@ -439,8 +437,7 @@ def CreateDecl.run (decl : CreateDecl OpInfo) (assignment : Assignment OpInfo)
       let (ctx, newOp) ←
         WfRewriter.createOp ctx opCode resultTypes operands #[] #[] properties none hoper
       let assignment ← Assignment.bindOp assignment opHandle newOp
-      let assignment ← Assignment.bindValues assignment resultHandles.toList
-        (newOp.getResults! ctx.raw).toList
+      let assignment ← Assignment.bindValues assignment resultHandles (newOp.getResults! ctx.raw)
       return (ctx, #[newOp], assignment)
     else
       none
@@ -477,6 +474,15 @@ def CreateProg.run (prog : CreateProg OpInfo α) (assignment : Assignment OpInfo
     Option (WfIRContext OpInfo × Array OperationPtr × Assignment OpInfo) :=
   CreateProg.runDecls prog.decls ctx assignment
 
+/-- Create a replacement after matching has succeeded. -/
+@[expose, specialize rule]
+def Pattern.applyMatch (rule : Pattern OpInfo) (assignment : Assignment OpInfo) :
+    LocalRewritePattern OpInfo :=
+  fun ctx _ => do
+    let (newCtx, newOps, assignment) ← rule.creation.run assignment ctx
+    let newValues ← assignment.getValues rule.replacement.values
+    return (newCtx, some (newOps, newValues))
+
 /-- Interpret a Puddle pattern.
 
 Matcher rejection returns a nonfatal no-match result. After matching succeeds, any failure
@@ -487,15 +493,7 @@ def Pattern.interpret (rule : Pattern OpInfo) : LocalRewritePattern OpInfo :=
     /- First, run the matcher. -/
     match rule.matcher.run ctx.raw root with
     | none => some (ctx, none)
-    | some assignment =>
-      /- If it succeeds, create the new operations. -/
-      match rule.creation.run assignment ctx with
-      | none => none
-      | some (newCtx, newOps, assignment) =>
-        /- Finally, extract the replacement values. -/
-        match assignment.getValues rule.replacement.values with
-        | none => none
-        | some newValues => some (newCtx, some (newOps, newValues))
+    | some assignment => rule.applyMatch assignment ctx root
 
 /--
 A compiled Puddle pattern stored as data rather than exposed directly as a function-valued
@@ -513,7 +511,20 @@ initialize things only once, rather than reinitializing them for each applicatio
 -/
 @[expose, specialize rule]
 def Pattern.compile (rule : Pattern OpInfo) : CompiledPattern OpInfo :=
-  ⟨RewritePattern.fromLocalRewrite (Pattern.interpret rule)⟩
+  ⟨fun rewriter root rootIn =>
+    -- Failed matches need neither the root-result snapshot nor the rewrite adapter.
+    match rule.matcher.run rewriter.ctx.raw root with
+    | none => some { rewriter with hasDoneAction := false }
+    | some assignment =>
+      RewritePattern.fromLocalRewrite (rule.applyMatch assignment) rewriter root rootIn⟩
+
+/-- Moving matching before the rewrite adapter preserves its exact result. -/
+theorem Pattern.compile_run_eq (rule : Pattern OpInfo) (rewriter : PatternRewriter OpInfo)
+    (root : OperationPtr) (rootIn : root.InBounds rewriter.ctx.raw) :
+    rule.compile.run rewriter root rootIn =
+      RewritePattern.fromLocalRewrite rule.interpret rewriter root rootIn := by
+  cases h : rule.matcher.run rewriter.ctx.raw root <;>
+    simp [Pattern.compile, Pattern.interpret, RewritePattern.fromLocalRewrite, h]
 
 end
 
