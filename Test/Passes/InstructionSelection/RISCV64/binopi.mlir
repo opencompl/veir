@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
+// RUN: RISCVTV
 
 // imm12 binops select directly to their immediate form when the constant is on
 // the right and fits a signed 12-bit field (PatGprSimm12<{add,or,and,xor}, ...>).

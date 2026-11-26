@@ -90,13 +90,13 @@
 
   "llvm.func"() <{sym_name = "caller", function_type = !llvm.func<void (i1, i8, i16, i32)>}> ({
   ^bb0(%b: i1, %c: i8, %s: i16, %i: i32):
-    %r1 = "llvm.call"(%b) <{callee = @ret_zext_i1, arg_attrs = [{llvm.zeroext}], res_attrs = [{llvm.zeroext}]}> : (i1) -> i1
-    %r2 = "llvm.call"(%b) <{callee = @ret_sext_i1, arg_attrs = [{llvm.signext}], res_attrs = [{llvm.signext}]}> : (i1) -> i1
-    %r3 = "llvm.call"(%c) <{callee = @ret_sext_i8, arg_attrs = [{llvm.signext}], res_attrs = [{llvm.signext}]}> : (i8) -> i8
-    %r4 = "llvm.call"(%c) <{callee = @ret_any_i8}> : (i8) -> i8
-    "llvm.call"(%c) <{callee = @take_sext_i8}> : (i8) -> ()
-    "llvm.call"(%s) <{callee = @take_zext_i16}> : (i16) -> ()
-    "llvm.call"(%i) <{callee = @arg_zext_i32, arg_attrs = [{llvm.zeroext}]}> : (i32) -> ()
+    %r1 = "llvm.call"(%b) <{callee = @ret_zext_i1, arg_attrs = [{llvm.zeroext}], res_attrs = [{llvm.zeroext}], op_bundle_sizes = array<i32>, operandSegmentSizes = array<i32: 1, 0>}> : (i1) -> i1
+    %r2 = "llvm.call"(%b) <{callee = @ret_sext_i1, arg_attrs = [{llvm.signext}], res_attrs = [{llvm.signext}], op_bundle_sizes = array<i32>, operandSegmentSizes = array<i32: 1, 0>}> : (i1) -> i1
+    %r3 = "llvm.call"(%c) <{callee = @ret_sext_i8, arg_attrs = [{llvm.signext}], res_attrs = [{llvm.signext}], op_bundle_sizes = array<i32>, operandSegmentSizes = array<i32: 1, 0>}> : (i8) -> i8
+    %r4 = "llvm.call"(%c) <{callee = @ret_any_i8, op_bundle_sizes = array<i32>, operandSegmentSizes = array<i32: 1, 0>}> : (i8) -> i8
+    "llvm.call"(%c) <{callee = @take_sext_i8, op_bundle_sizes = array<i32>, operandSegmentSizes = array<i32: 1, 0>}> : (i8) -> ()
+    "llvm.call"(%s) <{callee = @take_zext_i16, op_bundle_sizes = array<i32>, operandSegmentSizes = array<i32: 1, 0>}> : (i16) -> ()
+    "llvm.call"(%i) <{callee = @arg_zext_i32, arg_attrs = [{llvm.zeroext}], op_bundle_sizes = array<i32>, operandSegmentSizes = array<i32: 1, 0>}> : (i32) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
   // CHECK-LABEL: "sym_name" = "caller"

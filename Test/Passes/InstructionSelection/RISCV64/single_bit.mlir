@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
+// RUN: RISCVTV
 
 // Zbs single-bit immediate selection. `or`/`xor`/`and` against a constant whose
 // (complemented, for bclri) value is a single set bit selects to bseti/binvi/bclri,

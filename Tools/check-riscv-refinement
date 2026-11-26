@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""Prove VeIR's RV64 assembly refines the LLVM IR of an MLIR test.
+
+Uses vcc's production backend and backend-tv's assembly-input mode. VeIR's
+executables must already be built. Keep the source, assembly, and proof logs
+in --output-dir so a failing lit test can be reproduced outside lit.
+"""
+
+import argparse
+import importlib.machinery
+import importlib.util
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+
+TOOLS = Path(__file__).resolve().parent
+loader = importlib.machinery.SourceFileLoader("vcc", str(TOOLS / "vcc"))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+vcc = importlib.util.module_from_spec(spec)
+loader.exec_module(vcc)
+
+
+def proved(result: subprocess.CompletedProcess) -> bool:
+    # backend-tv can exit successfully on an incorrect or unproved lowering.
+    # Require one completed proof and no failures, not just a zero exit status.
+    return result.returncode == 0 and re.search(
+        r"(?m)^Summary:\s*\n"
+        r"\s*1 correct transformations\s*\n"
+        r"\s*0 incorrect transformations\s*\n"
+        r"\s*0 failed-to-prove transformations\s*\n"
+        r"\s*0 Alive2 errors\s*$", result.stdout
+    ) is not None
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input", type=Path, help="LLVM-dialect MLIR test")
+    parser.add_argument("functions", nargs="*",
+                        help="functions to prove (without @); defaults to every definition")
+    parser.add_argument("--output-dir", required=True, type=Path)
+    args = parser.parse_args()
+    vcc.check_tools(("mlir-opt", "mlir-translate", "llvm-extract", "llc", "backend-tv"))
+
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    module = args.output_dir / "module.ll"
+    # Some instruction-selection tests wrap LLVM operations in func.func.
+    # Convert just those boundaries for export. MLIR's exporter preserves
+    # LLVM flags and ABI attributes.
+    mlir = vcc.run(["mlir-opt", "--convert-func-to-llvm", "--mlir-print-op-generic",
+                    "--mlir-print-local-scope", str(args.input)])
+    module.write_bytes(vcc.translate_mlir_to_llvm(mlir, "module"))
+
+    functions = args.functions
+    if not functions:
+        # The LLVM exporter prints one definition header per line. Include
+        # quoted symbols and decode LLVM's hex escapes for --func/--fn.
+        for name in re.findall(rb'^define .*?@("(?:[^"\\]|\\[0-9A-Fa-f]{2})*"|[-\w.$]+)\(',
+                               module.read_bytes(), re.M):
+            if name.startswith(b'"'):
+                name = re.sub(rb'\\([0-9A-Fa-f]{2})',
+                              lambda m: bytes.fromhex(m[1].decode()), name[1:-1])
+            functions.append(os.fsdecode(name))
+        if not functions:
+            parser.error("input contains no function definitions to prove")
+
+    for index, function in enumerate(functions):
+        workdir = args.output_dir / str(index)
+        workdir.mkdir(exist_ok=True)
+        source = workdir / "source.ll"
+        assembly = workdir / "target.s"
+        # --fn selects the source, but the assembly lifter starts at the first
+        # emitted function. Compile one definition at a time, using LLVM's
+        # extractor rather than trying to split MLIR or assembly ourselves.
+        vcc.run(["llvm-extract", f"--func={function}", "-S", str(module), "-o", str(source)])
+        imported = vcc.run(["mlir-translate", "--import-llvm", str(source)])
+        mlir = vcc.run(["mlir-opt", "--mlir-print-op-generic", "--mlir-print-local-scope"],
+                       stdin=imported)
+        (workdir / "source.mlir").write_bytes(mlir)
+        assembly.write_bytes(vcc.veir_backend_to_asm(mlir, "target"))
+        result = subprocess.run(
+            ["backend-tv", "--backend=riscv64", "--terse", f"--fn={function}",
+             f"--asm-input={assembly}", "--smt-to=300000", str(source)],
+            capture_output=True, text=True)
+        log = result.stdout + result.stderr
+        (workdir / "proof.log").write_text(log)
+        if not proved(result):
+            sys.stderr.write(log)
+            print(f"refinement not proved for @{function}; artifacts: {workdir}",
+                  file=sys.stderr)
+            return 1
+        print(f"@{function}: refinement proved")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
