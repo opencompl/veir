@@ -18,7 +18,7 @@ private theorem constant_iff (ty : IntegerType) (props : propertiesOf (.arith .c
     InterpretsTo (.arith .constant) props #[ty] #[] #[v] ↔
       ∃ attr, props = .int attr ∧ v = .int ty.bitwidth (.val (BitVec.ofInt ty.bitwidth attr.value)) := by
   cases props <;> simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
-    List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
+    List.length_nil, Nat.zero_add, Nat.lt_one_iff, List.getElem!_toArray,
     List.getElem!_eq_getElem?_getD, forall_eq, Nat.lt_add_one, getElem?_pos, List.getElem_cons_zero,
     Option.getD_some, true_and, interpretOp', Arith.interpretOp', List.getElem_toArray,
     TypeAttr.of_val, Attribute.of, Interp.pure_eq, reduceCtorEq, false_and, exists_false]
@@ -33,7 +33,7 @@ private theorem addi_iff {signedness : IntegerType.Signedness} (w : Nat) (props 
     InterpretsTo (.arith .addi) props #[IntegerType.mk w signedness] #[.int w x, .int w y] #[v] ↔
       v = .int w (LLVM.Int.add x y props.attr.nsw props.attr.nuw) := by
   simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
-    List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
+    List.length_nil, Nat.zero_add, Nat.lt_one_iff, List.getElem!_toArray,
     List.getElem!_eq_getElem?_getD, forall_eq, Nat.lt_add_one, getElem?_pos, List.getElem_cons_zero,
     Option.getD_some, true_and, interpretOp', Arith.interpretOp', ne_eq, not_true_eq_false,
     ↓reduceDIte, LLVM.Int.cast_self, Interp.pure_eq, Interp.bind_ok, Interp.ok.injEq, Prod.mk.injEq,
@@ -48,7 +48,7 @@ private theorem muli_iff {signedness : IntegerType.Signedness} (w : Nat) (props 
     InterpretsTo (.arith .muli) props #[IntegerType.mk w signedness] #[.int w x, .int w y] #[v] ↔
       v = .int w (LLVM.Int.mul x y props.attr.nsw props.attr.nuw) := by
   simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
-    List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
+    List.length_nil, Nat.zero_add, Nat.lt_one_iff, List.getElem!_toArray,
     List.getElem!_eq_getElem?_getD, forall_eq, Nat.lt_add_one, getElem?_pos, List.getElem_cons_zero,
     Option.getD_some, true_and, interpretOp', Arith.interpretOp', ne_eq, not_true_eq_false,
     ↓reduceDIte, LLVM.Int.cast_self, Interp.pure_eq, Interp.bind_ok, Interp.ok.injEq, Prod.mk.injEq,
@@ -57,13 +57,13 @@ private theorem muli_iff {signedness : IntegerType.Signedness} (w : Nat) (props 
 
 private theorem add_zero_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
     RuntimeValue.int w (LLVM.Int.add x (.val (BitVec.ofInt w 0)) nsw nuw) ⊒ .int w x := by
-  cases x <;> simp [RuntimeValue.isRefinedBy, LLVM.Int.add, LLVM.Int.isRefinedBy, Id.run, pure]
+  cases x <;> simp [LLVM.Int.add, LLVM.Int.isRefinedBy, Id.run, pure]
   grind
 
 private theorem mul_two_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
     RuntimeValue.int w (LLVM.Int.mul x (.val (BitVec.ofInt w 2)) nsw nuw) ⊒
       .int w (LLVM.Int.add x x) := by
-  cases x <;> simp [RuntimeValue.isRefinedBy, LLVM.Int.mul, LLVM.Int.add,
+  cases x <;> simp [LLVM.Int.mul, LLVM.Int.add,
     LLVM.Int.isRefinedBy, Id.run, pure, BitVec.mul_two]
   grind
 

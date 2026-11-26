@@ -1,18 +1,9 @@
 import Veir.Input
-
 import Veir.Interfaces.FoldInterfaces
+import UnitTest.Helpers
 
 open Veir
 open Veir.Input
-
-/-- Find the first in-bounds operation with the given opcode. -/
-private def findOp (ctx : IRContext OpCode) (opType : OpCode) :
-    Option { op : OperationPtr // op.InBounds ctx } := Id.run do
-  for op in ctx.operations.keys do
-    if op.getOpType! ctx = opType then
-      if h : op.InBounds ctx then
-        return some ⟨op, h⟩
-  return none
 
 private def foldDecisionTestModule : String :=
   "\"builtin.module\"() ({

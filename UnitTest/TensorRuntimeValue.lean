@@ -1,0 +1,172 @@
+import Veir.Input
+import Veir.Interpreter.RuntimeValue
+import Veir.Dialects.Tensor.OpInfo
+import Veir.Interpreter.Refinement.Lemmas
+import UnitTest.Helpers
+
+/-!
+  Runtime representation of statically shaped tensors as `RuntimeValue.tensor`
+  (shape plus flat elements), and interpretation of `tensor.empty` via element
+  poison when the element type has one.
+-/
+
+open Veir
+open Veir.Input
+
+private def i32ty : IntegerType := { bitwidth := 32 }
+
+private def f32ty : FloatType := { format := .f32 }
+
+private def i32Poison : RuntimeValue :=
+  .int 32 .poison
+
+private def i32 (n : Int) : RuntimeValue :=
+  .int 32 (.val (BitVec.ofInt 32 n))
+
+private def f32Zero : RuntimeValue :=
+  .float f32ty (Data.Float.FloatValue.positiveZero f32ty.format)
+
+private def integerTensorTy (shape : Array Nat) : TypeAttr :=
+  TypeAttr.of TensorType { shape := shape, elementType := .integerType i32ty }
+
+private def floatTensorTy (shape : Array Nat) : TypeAttr :=
+  TypeAttr.of TensorType { shape := shape, elementType := .floatType f32ty }
+
+private def testEmptyTensor : String := Id.run do
+  if TensorType.numElements { shape := #[], elementType := .integerType i32ty } ≠ 1 then
+    return "rank-0 tensor should have 1 element"
+  if TensorType.numElements { shape := #[2, 3], elementType := .integerType i32ty } ≠ 6 then
+    return "2x3 tensor should have 6 elements"
+  if TensorType.numElements { shape := #[0, 4], elementType := .integerType i32ty } ≠ 0 then
+    return "tensor with a zero dimension should have 0 elements"
+  let empty := RuntimeValue.emptyTensor { shape := #[2, 2], elementType := .integerType i32ty } i32Poison
+  let RuntimeValue.tensor shape elems := empty | return "emptyTensor did not produce a .tensor"
+  if shape ≠ #[2, 2] then
+    return "emptyTensor did not store the shape"
+  if elems ≠ #[i32Poison, i32Poison, i32Poison, i32Poison] then
+    return "emptyTensor did not fill with four element poisons"
+  if !(RuntimeValue.Conforms empty (integerTensorTy #[2, 2])) then
+    return "emptyTensor result does not conform to tensor<2x2xi32>"
+  if RuntimeValue.Conforms (.tensor #[2, 2] #[i32Poison, i32Poison]) (integerTensorTy #[2, 2]) then
+    return "2-element tensor incorrectly conforms to tensor<2x2xi32>"
+  if RuntimeValue.Conforms (.tensor #[2] #[f32Zero, f32Zero]) (integerTensorTy #[2]) then
+    return "f32 elements incorrectly conform to tensor<2xi32>"
+  if RuntimeValue.Conforms (.tensor #[3] #[i32Poison, i32Poison]) (integerTensorTy #[2]) then
+    return "wrong-shape tensor incorrectly conforms to tensor<2xi32>"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval testEmptyTensor
+
+private def testInterpretEmpty : String := Id.run do
+  let .ok (results, none) :=
+      Tensor.interpretOp' .empty () #[integerTensorTy #[2, 2]] #[] #[]
+    | return "tensor.empty of i32 did not succeed"
+  let some result := results[0]? | return "tensor.empty produced no result"
+  let RuntimeValue.tensor shape elems := result | return "tensor.empty did not produce a .tensor"
+  if shape ≠ #[2, 2] then
+    return "tensor.empty did not store the shape"
+  if elems ≠ #[i32Poison, i32Poison, i32Poison, i32Poison] then
+    return "tensor.empty did not fill with four element poisons"
+  if !(RuntimeValue.Conforms result (integerTensorTy #[2, 2])) then
+    return "tensor.empty result does not conform to tensor<2x2xi32>"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval testInterpretEmpty
+
+/-- Float has no poison, so `tensor.empty` of a float tensor fails. -/
+private def testInterpretEmptyFloat : String := Id.run do
+  let .fail _ :=
+      Tensor.interpretOp' .empty () #[floatTensorTy #[2]] #[] #[]
+    | return "tensor.empty of f32 succeeded, but f32 has no element poison"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval testInterpretEmptyFloat
+
+/-- Pointwise `glb?` on tensors: meet of elements, or `none` on conflict / shape mismatch. -/
+private def testTensorGlb : String := Id.run do
+  let some (.tensor shape elems) :=
+      RuntimeValue.glb?
+        (.tensor #[2] #[i32Poison, i32 2])
+        (.tensor #[2] #[i32 1, i32 2])
+    | return "glb? of poison/concrete with matching concrete failed"
+  if shape ≠ #[2] then
+    return "glb? did not preserve the shape"
+  if elems ≠ #[i32 1, i32 2] then
+    return "glb? did not take the pointwise meet"
+  let none := RuntimeValue.glb? (.tensor #[1] #[i32 1]) (.tensor #[1] #[i32 2])
+    | return "glb? of conflicting concrete elements should be none"
+  let none := RuntimeValue.glb?
+      (.tensor #[1] #[i32Poison]) (.tensor #[2] #[i32Poison, i32Poison])
+    | return "glb? of differently shaped tensors should be none"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval testTensorGlb
+
+/-- Parse a module containing `tensor.empty` and interpret `main` end-to-end. -/
+private def emptyTensorModule : String :=
+  "\"builtin.module\"() ({
+    \"func.func\"() <{function_type = () -> tensor<2x2xi32>, sym_name = \"main\"}> ({
+      %0 = \"tensor.empty\"() : () -> tensor<2x2xi32>
+      \"func.return\"(%0) : (tensor<2x2xi32>) -> ()
+    }) : () -> ()
+  }) : () -> ()"
+
+private def testInterpretEmptyModule : String := Id.run do
+  match parseSourceString emptyTensorModule.toUTF8 with
+  | .error e => return s!"parse error: {e}"
+  | .ok (ctx, _, _) =>
+    let some found := findOp ctx.raw (.func .func) | return "missing func.func"
+    let some funcOp := FunctionOp.of? found.val ctx.raw | return "func.func is not a FunctionOp"
+    match interpretFunction (ctx := ctx) funcOp #[] MemoryState.empty (opIn := found.property) with
+    | .ok (_, results) =>
+      let some result := results[0]? | return "main produced no result"
+      let RuntimeValue.tensor shape elems := result | return "main did not return a .tensor"
+      if shape ≠ #[2, 2] then
+        return "main did not return the expected shape"
+      if elems ≠ #[i32Poison, i32Poison, i32Poison, i32Poison] then
+        return "main did not return four element poisons"
+      if !(RuntimeValue.Conforms result (integerTensorTy #[2, 2])) then
+        return "main result does not conform to tensor<2x2xi32>"
+      return "ok"
+    | .fail _ => return "interpreting main failed"
+    | .ub _ => return "interpreting main reported UB"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval testInterpretEmptyModule
+
+/-! Pointwise refinement of tensor values (same shape required). -/
+
+example : RuntimeValue.tensor #[2] #[.int 32 .poison, .int 32 .poison] ⊒
+    .tensor #[2] #[.int 32 (.val (BitVec.ofInt 32 1)), .int 32 (.val (BitVec.ofInt 32 2))] := by
+  simp [Data.LLVM.Int.isRefinedBy_eq]
+
+example : ¬ (RuntimeValue.tensor #[2] #[.int 32 (.val (BitVec.ofInt 32 1)), .int 32 (.val (BitVec.ofInt 32 2))] ⊒
+    .tensor #[2] #[.int 32 .poison, .int 32 .poison]) := by
+  simp [Data.LLVM.Int.isRefinedBy_eq]
+
+example : RuntimeValue.tensor #[2] #[.int 32 .poison, .int 32 .poison] ⊒
+    .tensor #[2] #[.int 32 .poison, .int 32 .poison] := by
+  simp
+
+example : ¬ (RuntimeValue.tensor #[2] #[.int 32 .poison] ⊒
+    .tensor #[1] #[.int 32 .poison]) := by
+  simp
