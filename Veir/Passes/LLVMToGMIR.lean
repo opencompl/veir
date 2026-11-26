@@ -2,7 +2,6 @@ module
 
 public import Veir.Pass
 import Veir.Passes.Legalization.LegalizerHelper
-import Veir.Passes.Legalization.LegalizerInfo
 import Veir.DataLayout.RISCV64
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
