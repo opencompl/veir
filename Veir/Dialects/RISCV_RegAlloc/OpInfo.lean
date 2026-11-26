@@ -25,9 +25,8 @@ inductive Riscv_RegAlloc where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, implicit_reducible, properties_of]
-def Riscv_RegAlloc.propertiesOf (op : Riscv_RegAlloc) : Type :=
-match op with
-| _ => Unit
+def Riscv_RegAlloc.propertiesOf (_ : Riscv_RegAlloc) : Type :=
+Unit
 
 def Riscv_RegAlloc.fromAttrDict
     (op : Riscv_RegAlloc) (_attrDict : Std.HashMap ByteArray Attribute) :
