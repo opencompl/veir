@@ -392,6 +392,29 @@ theorem List.forM_except_ok {ε : Type u} {α : Type v} {l : List α} {f : α �
       · exact hb
       · exact ih h a ha
 
+/--
+A `for` loop over a list in `Except` that carries no state and never breaks, if it succeeds,
+establishes for every element what each of its successful steps establishes.
+-/
+theorem List.forIn_except_ok {ε : Type u} {α : Type v} {l : List α}
+    {f : α → PUnit → Except ε (ForInStep PUnit)} (P : α → Prop)
+    (hf : ∀ a s, f a ⟨⟩ = .ok s → s = .yield ⟨⟩ ∧ P a)
+    (h : forIn l ⟨⟩ f = .ok ⟨⟩) : ∀ a ∈ l, P a := by
+  induction l with
+  | nil => simp
+  | cons a l ih =>
+    simp only [List.forIn_cons, Except.bind_eq_ok] at h
+    grind
+
+/-- `List.forIn_except_ok` for a loop over the range `[0:n]`. -/
+theorem Std.Legacy.Range.forIn_except_ok {ε : Type u} {n : Nat}
+    {f : Nat → PUnit → Except ε (ForInStep PUnit)} (P : Nat → Prop)
+    (hf : ∀ a s, f a ⟨⟩ = .ok s → s = .yield ⟨⟩ ∧ P a)
+    (h : forIn [0:n] ⟨⟩ f = .ok ⟨⟩) : ∀ i < n, P i := by
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range'] at h
+  intro i hi
+  exact List.forIn_except_ok P hf h i (by simp [List.mem_range'_1]; omega)
+
 /-- A `forKeysDepM` in `Except` that succeeds ran its body successfully on every key. -/
 theorem Std.HashMap.forKeysDepM_except_ok [BEq α] [Hashable α] [LawfulBEq α] {ε : Type}
     {b : Std.HashMap α β} {f : ∀ (a : α), a ∈ b → Except ε PUnit}

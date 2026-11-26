@@ -44,6 +44,13 @@ theorem OperationPtr.verifyTerminatorCounts_eq_ok {op : OperationPtr}
     op.getNumResults! ctx.raw = 0 :=
   OperationPtr.verifyNonOperandCounts_eq_ok h
 
+/-- A successful `verifyPlainOpCounts` pins the number of results. -/
+theorem OperationPtr.verifyPlainOpCounts_eq_ok {op : OperationPtr}
+    {ctx : WfIRContext OpInfo} {opIn : op.InBounds ctx.raw} {operands results : Nat}
+    (h : op.verifyPlainOpCounts ctx opIn operands results = .ok ()) :
+    op.getNumResults! ctx.raw = results := by
+  grind [verifyPlainOpCounts, verifyOpCounts, → verifyNonOperandCounts_eq_ok, Except.bind_eq_ok]
+
 /-- Extract structural facts from a successful `verifyIntegerBinop` check. -/
 theorem OperationPtr.verifyIntegerBinop_eq_ok
     {ctx : WfIRContext OpInfo} {op : OperationPtr}

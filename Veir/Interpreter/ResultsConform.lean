@@ -41,6 +41,43 @@ theorem OpCode.resultsConform_def {opType : OpCode} :
   Iff.rfl
 
 /--
+Unfold `OpCode.ResultsConform` onto the `CTree.interpretOp'` of the opcode and the `!`-accessors of
+the operation, which is the form a dialect proves.
+-/
+theorem OpCode.resultsConform_def! {opType : OpCode} :
+    opType.ResultsConform ↔
+      ∀ (ctx : WfIRContext OpCode) (op : OperationPtr) (opIn : op.InBounds ctx.raw),
+        op.getOpType! ctx.raw = opType →
+        op.Verified ctx opIn →
+        ∀ (operands : Array RuntimeValue) (mem : MemoryState),
+          RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
+          ∀ (results : Array RuntimeValue) (mem' : MemoryState) (act : Option ControlFlowAction),
+            CTree.MayReturn (CTree.interpretOp' opType (op.getProperties! ctx.raw opType)
+              (op.getResultTypes! ctx.raw) operands (op.getSuccessors! ctx.raw) mem
+              (op.getRegions! ctx.raw)) (results, mem', act) →
+            RuntimeValue.ArrayConforms results (op.getResultTypes! ctx.raw) := by
+  refine resultsConform_def.trans ⟨fun h ctx op opIn hType => ?_, fun h ctx op opIn hType => ?_⟩
+  · subst hType
+    simpa only [OperationPtr.interpretCTree_def!] using
+      h ctx op opIn (OperationPtr.getOpType!_eq_getOpType opIn).symm
+  · have hType! := (OperationPtr.getOpType!_eq_getOpType opIn).trans hType
+    subst hType!
+    simpa only [OperationPtr.interpretCTree_def!] using h ctx op opIn rfl
+
+/--
+Values, as many as the operation has results, conform to the result types of the operation when
+each conforms to the type of its result.
+-/
+theorem RuntimeValue.ArrayConforms.of_getResult {OpInfo : Type} [HasOpInfo OpInfo]
+    {ctx : WfIRContext OpInfo} {op : OperationPtr} {vals : Array RuntimeValue}
+    (hs : vals.size = op.getNumResults! ctx.raw)
+    (h : ∀ i (hi : i < vals.size), vals[i].Conforms ((op.getResult i).getType! ctx.raw)) :
+    RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) := by
+  refine ⟨by rw [OperationPtr.getResultTypes!.size_eq_getNumResults!, hs], fun i hi => ?_⟩
+  rw [getElem!_pos vals i hi, OperationPtr.getResultTypes!.getElem!_eq (hs ▸ hi)]
+  exact h i hi
+
+/--
 `ResultsConform opType` holds when every verified operation of opcode `opType` only yields results
 that conform to its declared result types, as `OpCode.ResultsConform` states it.
 -/

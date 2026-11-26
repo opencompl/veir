@@ -1,6 +1,7 @@
 module
 
 public import Veir.Dialects.Cf.ResultsConform
+public import Veir.Dialects.RISCV.ResultsConform
 
 public section
 

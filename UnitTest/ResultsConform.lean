@@ -13,4 +13,13 @@ info: 'Veir.cf_resultsConform_not_assumed' depends on axioms: [propext, Classica
 #guard_msgs in
 #print axioms cf_resultsConform_not_assumed
 
+theorem riscv_resultsConform_not_assumed (op : Riscv) : ResultsConform (.riscv op) :=
+  inferInstance
+
+/--
+info: 'Veir.riscv_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms riscv_resultsConform_not_assumed
+
 end Veir
