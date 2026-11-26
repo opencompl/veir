@@ -8,6 +8,24 @@ public section
 
 namespace Veir.Buffed
 
+theorem IRBufContext.alloc_read64_new {b b' : IRBufContext} {n addr : UInt64}
+    (ha : b.alloc n = some b') (lo : b.mem.size ≤ addr.toNat)
+    (hi : addr.toNat + 8 ≤ b.mem.size + n.toNat) : b'.mem.read64! addr = 0 := by
+  unfold alloc at ha
+  split at ha
+  · cases ha
+    exact ExArray.read64!_extend_new _ _ _ _ lo hi
+  · contradiction
+
+theorem IRBufContext.reserve_read64_new {b b' : IRBufContext} {size start ptr : UInt64}
+    (h : b.reserve size = some (b', start))
+    (lo : start.toNat ≤ ptr.toNat) (hi : ptr.toNat + 8 ≤ start.toNat + size.toNat) :
+    b'.mem.read64! ptr = 0 := by
+  obtain ⟨_, ha, he⟩ := Option.map_eq_some_iff.mp h
+  cases he
+  simp only [IRBufContext.usize_toNat, IRBufContext.size_def] at lo hi
+  exact alloc_read64_new ha lo hi
+
 section range
 
 variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo] {bctx : IRBufContext}

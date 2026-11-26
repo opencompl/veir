@@ -2,7 +2,7 @@ module
 
 public import Veir.Rewriter.GetSet
 public import Veir.IR.WellFormed
-public import Veir.Rewriter.WellFormed.BlockConstruction
+public import Veir.IR.Grind
 
 public section
 
@@ -81,10 +81,10 @@ theorem BlockPtr.allocEmptyAtAddress_preserves_blockChain
   refine ⟨array, ?_⟩
   apply RegionPtr.blockChain_unchanged harray <;> grind [Block.empty]
 
-theorem BlockPtr.allocEmptyAtAddress_constructionWellFormed
+theorem BlockPtr.allocEmptyAtAddress_wellFormed
     (wf : ctx.WellFormed)
     (halloc : BlockPtr.allocEmptyAtAddress ctx ca addr = some (ctx', newBlock)) :
-    BlockConstructionWellFormed ctx' newBlock ∅ ∅ := by
+    ctx'.WellFormed := by
   have hfields : ctx'.FieldsInBounds := BlockPtr.allocEmptyAtAddress_fieldsInBounds halloc wf.inBounds
   refine ⟨hfields, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simpa only [Std.ExtHashSet.filter_empty] using
@@ -98,26 +98,25 @@ theorem BlockPtr.allocEmptyAtAddress_constructionWellFormed
     by_cases h : block = newBlock
     · subst block
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> grind [Block.empty]
-    · exact BlockPtr.BlockConstructionWellFormed.of_wellFormed
-        (allocEmptyAtAddress_preserves_block_wellFormed wf hfields halloc block hb h)
+    · exact allocEmptyAtAddress_preserves_block_wellFormed wf hfields halloc block hb h
   · exact allocEmptyAtAddress_preserves_region_wellFormed wf hfields halloc
 
-theorem Sim.BlockPtr.allocEmpty_constructionWellFormed
+theorem Sim.BlockPtr.allocEmpty_wellFormed
     [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
     {ctx ctx' : Sim.IRContext OpInfo}
     (wf : ctx.spec.WellFormed)
     (halloc : Sim.BlockPtr.allocEmpty ctx ca = some (newBlock, ctx')) :
-    BlockConstructionWellFormed ctx'.spec newBlock.spec ∅ ∅ := by
-  exact BlockPtr.allocEmptyAtAddress_constructionWellFormed wf
+    ctx'.spec.WellFormed := by
+  exact BlockPtr.allocEmptyAtAddress_wellFormed wf
     (Sim.BlockPtr.allocEmpty_spec' ca halloc)
 
-theorem Sim.BlockPtr.allocFresh_constructionWellFormed
+theorem Sim.BlockPtr.allocFresh_wellFormed
     [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
     {ctx ctx' : Sim.IRContext OpInfo}
     (wf : ctx.spec.WellFormed)
     (halloc : Sim.BlockPtr.allocFresh ctx ca = some (newBlock, ctx')) :
-    BlockConstructionWellFormed ctx'.spec newBlock.spec ∅ ∅ := by
-  exact BlockPtr.allocEmptyAtAddress_constructionWellFormed wf
+    ctx'.spec.WellFormed := by
+  exact BlockPtr.allocEmptyAtAddress_wellFormed wf
     (Sim.BlockPtr.allocFresh_spec' ca halloc)
 
 end Veir

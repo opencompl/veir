@@ -20,6 +20,7 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
     (hdisj : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
       (p.range ctx.spec).upper ≤ ptrImpl.toNat ∨
         (ptrImpl.toNat : Int) + (64 + numArgs.toNat * 40) ≤ (p.range ctx.spec).lower)
+    (hcount : Buffed.BlockMPtr.readCountArguments! ctxBuf ptrImpl = 0)
     (hnum : Buffed.BlockMPtr.readNumArguments! ctxBuf ptrImpl = numArgs)
     (huse : Buffed.BlockMPtr.readFirstUse! ctxBuf ptrImpl = Buffed.BlockOperandOPtr.none)
     (hprev : Buffed.BlockMPtr.readPrev! ctxBuf ptrImpl = Buffed.BlockOPtr.none)
@@ -116,6 +117,8 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
     · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · exact OperationPtr.numBlockOperands_frame ctx op holdib henc.numBlockOperands
           (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
+      · exact OperationPtr.countBlockOperands_frame ctx op holdib henc.countBlockOperands
+          (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
       · intro bo boIb heq
         have hboIb : bo.InBounds ctx.spec := by
           have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.blockOperand bo) hspec).mp (by simpa using boIb)
@@ -127,6 +130,8 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
           (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) hlay (by grind) boIb
     · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · exact OperationPtr.numRegions_frame ctx op holdib henc.numRegions
+          (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
+      · exact OperationPtr.countRegions_frame ctx op holdib henc.countRegions
           (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
       · intro idx idxIn
         have hnr : idx < op.getNumRegions! ctx.spec := by grind
@@ -141,6 +146,8 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
     · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · exact OperationPtr.numOperands_frame ctx op holdib henc.numOperands
           (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
+      · exact OperationPtr.countOperands_frame ctx op holdib henc.countOperands
+          (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
       · intro oper operIb heq
         have hooIb : oper.InBounds ctx.spec := by
           have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.opOperand oper) hspec).mp (by simpa using operIb)
@@ -152,6 +159,8 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
           (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) hlay (by grind) operIb
     · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · exact OperationPtr.numResults_frame ctx op holdib henc.numResults
+          (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
+      · exact OperationPtr.countResults_frame ctx op holdib henc.countResults
           (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
       · intro res resIb heq
         have hresIb : res.InBounds ctx.spec := by
@@ -178,6 +187,8 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact BlockPtr.numArguments_frame ctx blk holdib henc.numArguments
             (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
+        · exact BlockPtr.countArguments_frame ctx blk holdib henc.countArguments
+            (hagree.mono (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat]) (by grind [TopLevelPtr.range, IsIncludedI, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat])) (by rw [hget])
         · intro arg argIn heq
           have hargIb : arg.InBounds ctx.spec := by
             have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.blockArgument arg) hspec).mp (by simpa using argIn)
@@ -200,6 +211,7 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
         · simpa [Sim.OptionOperationPtr.Sim_def, Sim.OptionOperationPtr.spec, hgetNew, Block.empty, htoM, Veir.BlockOperandPtr.toO, Veir.BlockPtr.toO, Veir.OperationPtr.toO, Veir.RegionPtr.toO] using hlast.symm
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · simpa [hgetNew, Block.empty, htoM, Veir.BlockOperandPtr.toO, Veir.BlockPtr.toO, Veir.OperationPtr.toO, Veir.RegionPtr.toO] using (congrArg UInt64.toNat hnum).symm
+        · simp [hgetNew, Block.empty, htoM, hcount]
         · intro arg harg heq
           grind [Veir.BlockArgumentPtr.InBounds, Veir.BlockPtr.getNumArguments!]
     · exact absurd hfu (by simp)

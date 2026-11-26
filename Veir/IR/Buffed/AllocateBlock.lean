@@ -5,6 +5,7 @@ public import Veir.IR.Buffed.ReservedBlock
 public import Veir.IR.Buffed.ContainerInitialization
 public import Veir.IR.Buffed.Allocation
 public import Veir.IR.Buffed.InBounds
+import Veir.IR.Buffed.RawAccessorsLemmas
 import all Veir.IR.Buffed.Basic
 
 @[expose] public section
@@ -47,10 +48,13 @@ theorem Sim.BlockPtr.allocFresh_sim {ctx : Sim.IRContext OpInfo}
   have hattr : (Buffed.BlockMPtr.initialize b ptr numArgs hb).attributes = ctx.buf.attributes := by
     rw [Buffed.BlockMPtr.initialize_attributes, Buffed.IRBufContext.reserve_attributes hres]
   have hdisj := ctx.reservation_disjoint hres
-  obtain ⟨hnum, huse, hprev, hnext, hparent, hfirst, hlast⟩ := Buffed.BlockMPtr.initialize_reads b ptr numArgs hb
+  obtain ⟨hnum, hc, huse, hprev, hnext, hparent, hfirst, hlast⟩ := Buffed.BlockMPtr.initialize_reads b ptr numArgs hb
+  have hz : b.mem.read64! (ptr + Buffed.Block.Offsets.countArguments) = 0 := by
+    apply Buffed.IRBufContext.reserve_read64_new hres <;>
+      have := b.mem.fits_in_memory <;> rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
   apply allocReserved_sim ctx numArgs hnumArgs (by rw [hsize]; exact hbounds.1)
     (by rw [hsize]; rw [hcompute] at hbounds; exact hbounds.2) hattr ?_
-    (by simpa [hcompute] using hdisj) hnum huse hprev hnext hparent hfirst hlast hspec
+    (by simpa [hcompute] using hdisj) (hc.trans hz) hnum huse hprev hnext hparent hfirst hlast hspec
   · intro p hp
     have hd := hdisj p hp
     have hin := ctx.sim.in_bounds p hp

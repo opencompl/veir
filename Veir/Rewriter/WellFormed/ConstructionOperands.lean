@@ -2,7 +2,7 @@ module
 
 public import Veir.Rewriter.Basic
 public import Veir.IR.WellFormed
-public import Veir.Rewriter.WellFormed.Construction
+public import Veir.IR.Grind
 import all Veir.Rewriter.Basic
 import Veir.Rewriter.GetSet
 import Veir.Rewriter.LinkedList.WellFormed
@@ -74,39 +74,39 @@ theorem Rewriter.pushOperandAt_valueDefUse
     · simpa using ValuePtr.DefUse.pushOperand_self (op := op.spec) (hop := hop.ib) hb
 
 set_option maxHeartbeats 1000000 in
-theorem Rewriter.pushOperandAt_constructionWellFormed
+theorem Rewriter.pushOperandAt_wellFormed
     {off idx value hop hv hi hc ho}
-    (wf : ConstructionWellFormed ctx.spec op.spec ∅ ∅) :
-    ConstructionWellFormed (Rewriter.pushOperandAt op ctx off idx value hop hv hi hc ho).spec op.spec ∅ ∅ := by
+    (wf : ctx.spec.WellFormed) :
+    (Rewriter.pushOperandAt op ctx off idx value hop hv hi hc ho).spec.WellFormed := by
   refine ⟨by grind, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro v hv
     simp only [Std.ExtHashSet.filter_empty]
     apply pushOperandAt_valueDefUse
     · intro v hv
-      simpa using IRContext.ConstructionWellFormed.valueDefUseChains wf v hv
+      simpa using IRContext.WellFormed.valueDefUseChains wf v hv
     · grind
   all_goals simp only [Rewriter.pushOperandAt.unfold]
   · intros blockPtr blockPtrInBounds
-    have ⟨array, arrayWf⟩ := IRContext.ConstructionWellFormed.blockDefUseChains wf blockPtr (by grind)
+    have ⟨array, arrayWf⟩ := IRContext.WellFormed.blockDefUseChains wf blockPtr (by grind)
     exists array
     apply Sim.BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
     simp only [Rewriter.pushOperandAtUninserted_spec]
     apply BlockPtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
   · intros blockPtr blockPtrInBounds
-    have ⟨array, arrayWf⟩ := IRContext.ConstructionWellFormed.opChain wf blockPtr (by grind)
+    have ⟨array, arrayWf⟩ := IRContext.WellFormed.opChain wf blockPtr (by grind)
     exists array
     apply Sim.BlockPtr.opChain_OpOperandPtr_insertIntoCurrent
     simp only [Rewriter.pushOperandAtUninserted_spec]
     apply BlockPtr.OpChain_unchanged (ctx := ctx.spec) <;> grind
   · intros reg hreg
-    have ⟨array, arrayWf⟩ := IRContext.ConstructionWellFormed.blockChain wf reg (by grind)
+    have ⟨array, arrayWf⟩ := IRContext.WellFormed.blockChain wf reg (by grind)
     exists array
     apply Sim.RegionPtr.blockChain_OpOperandPtr_insertIntoCurrent
     simp only [Rewriter.pushOperandAtUninserted_spec]
     apply RegionPtr.blockChain_unchanged (ctx := ctx.spec) <;> grind
   · intros opPtr' opPtrInBounds
     have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂⟩ :=
-      IRContext.ConstructionWellFormed.operations wf opPtr' (by grind)
+      IRContext.WellFormed.operations wf opPtr' (by grind)
     refine ⟨by grind, by grind, by grind, ?_, by grind, by grind, ?_, by grind,
       by grind, by grind, by grind, by grind⟩
     · intro i hi
@@ -115,10 +115,10 @@ theorem Rewriter.pushOperandAt_constructionWellFormed
     · intro r hr
       simpa using h₇ r (by grind)
   · intros bl hbl
-    have ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ := IRContext.ConstructionWellFormed.blocks wf bl (by grind)
+    have ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ := IRContext.WellFormed.blocks wf bl (by grind)
     constructor <;> grind
   · intros reg hreg
-    have ⟨h₁, h₂⟩ := IRContext.ConstructionWellFormed.regions wf reg (by grind)
+    have ⟨h₁, h₂⟩ := IRContext.WellFormed.regions wf reg (by grind)
     constructor
     · grind
     · intro parent hp
@@ -126,11 +126,11 @@ theorem Rewriter.pushOperandAt_constructionWellFormed
       exists i
       simpa using hi
 
-theorem Rewriter.initOpOperands.loop_constructionWellFormed
+theorem Rewriter.initOpOperands.loop_wellFormed
     {ctx' : Sim.IRContext OpInfo} {hop operands hv off index hi hc ho}
-    (wf : ConstructionWellFormed ctx.spec op.spec ∅ ∅)
+    (wf : ctx.spec.WellFormed)
     (heq : initOpOperands.loop op ctx hop operands hv off index hi hc ho = ctx') :
-    ConstructionWellFormed ctx'.spec op.spec ∅ ∅ := by
+    ctx'.spec.WellFormed := by
   simp only [initOpOperands.loop.eq_sim] at *
   fun_induction initOpOperands.loopSim
   case case1 =>
@@ -138,18 +138,18 @@ theorem Rewriter.initOpOperands.loop_constructionWellFormed
     exact wf
   case case2 ctx0 hop0 hv0 index0 hi0 hc0 ho0 h value0 nextCtx ih =>
     apply ih _ heq
-    exact pushOperandAt_constructionWellFormed wf
+    exact pushOperandAt_wellFormed wf
 
-theorem Rewriter.initOpOperands_constructionWellFormed
+theorem Rewriter.initOpOperands_wellFormed
     {ctx' : Sim.IRContext OpInfo} {hop operands hv index hi hc}
-    (wf : ConstructionWellFormed ctx.spec op.spec ∅ ∅)
+    (wf : ctx.spec.WellFormed)
     (heq : initOpOperands op ctx hop operands hv index hi hc = ctx') :
-    ConstructionWellFormed ctx'.spec op.spec ∅ ∅ := by
+    ctx'.spec.WellFormed := by
   simp only [initOpOperands.unfold] at heq
   split at heq
   · cases heq
     exact wf
-  · exact initOpOperands.loop_constructionWellFormed wf heq
+  · exact initOpOperands.loop_wellFormed wf heq
 
 end Sim
 end Veir

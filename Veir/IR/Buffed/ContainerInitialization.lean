@@ -36,6 +36,7 @@ theorem BlockMPtr.initialize_attributes (b : IRBufContext) (ptr : BlockMPtr) (na
 
 theorem BlockMPtr.initialize_reads (b : IRBufContext) (ptr : BlockMPtr) (na : UInt64) (hb) :
     BlockMPtr.readNumArguments! (ptr.initialize b na hb) ptr = na ∧
+    BlockMPtr.readCountArguments! (ptr.initialize b na hb) ptr = BlockMPtr.readCountArguments! b ptr ∧
     BlockMPtr.readFirstUse! (ptr.initialize b na hb) ptr = BlockOperandOPtr.none ∧
     BlockMPtr.readPrev! (ptr.initialize b na hb) ptr = BlockOPtr.none ∧
     BlockMPtr.readNext! (ptr.initialize b na hb) ptr = BlockOPtr.none ∧
@@ -43,7 +44,7 @@ theorem BlockMPtr.initialize_reads (b : IRBufContext) (ptr : BlockMPtr) (na : UI
     BlockMPtr.readFirstOp! (ptr.initialize b na hb) ptr = OperationOPtr.none ∧
     BlockMPtr.readLastOp! (ptr.initialize b na hb) ptr = OperationOPtr.none := by
   have hf := b.mem.fits_in_memory
-  have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 48 →
+  have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 56 →
       (ptr + k).toNat = ptr.toNat + kn := by
     intro k kn hkn hk
     rw [UInt64.toNat_add, hkn]
@@ -56,9 +57,10 @@ theorem BlockMPtr.initialize_reads (b : IRBufContext) (ptr : BlockMPtr) (na : UI
   have h32 := hstep 32 32 rfl (by omega)
   have h40 := hstep 40 40 rfl (by omega)
   have h48 := hstep 48 48 rfl (by omega)
+  have h56 := hstep 56 56 rfl (by omega)
   clear hstep
-  simp only [BlockMPtr.initialize, BlockMPtr.writeNumArguments, BlockMPtr.writeFirstUse, BlockMPtr.writePrev, BlockMPtr.writeNext, BlockMPtr.writeParent, BlockMPtr.writeFirstOp, BlockMPtr.writeLastOp, BlockMPtr.readNumArguments!, BlockMPtr.readFirstUse!, BlockMPtr.readPrev!, BlockMPtr.readNext!, BlockMPtr.readParent!, BlockMPtr.readFirstOp!, BlockMPtr.readLastOp!]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+  simp only [BlockMPtr.initialize, BlockMPtr.writeNumArguments, BlockMPtr.writeFirstUse, BlockMPtr.writePrev, BlockMPtr.writeNext, BlockMPtr.writeParent, BlockMPtr.writeFirstOp, BlockMPtr.writeLastOp, BlockMPtr.readNumArguments!, BlockMPtr.readCountArguments!, BlockMPtr.readFirstUse!, BlockMPtr.readPrev!, BlockMPtr.readNext!, BlockMPtr.readParent!, BlockMPtr.readFirstOp!, BlockMPtr.readLastOp!]
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     grind (gen := 20) (splits := 30) [IsDisjoint, IsIncluded]
 
 theorem BlockMPtr.initialize_read_disjoint (b : IRBufContext) (ptr : BlockMPtr) (na : UInt64)

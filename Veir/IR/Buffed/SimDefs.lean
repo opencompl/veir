@@ -938,6 +938,7 @@ structure BlockPtr.MatchesBase (ctx : Sim.RawIRContext OpInfo) (block : BlockPtr
 
 structure BlockPtr.MatchesArguments (ctx : Sim.RawIRContext OpInfo) (res : BlockPtr) where
   numArguments : (res.get! ctx.spec).capArguments = (BlockMPtr.readNumArguments! ctx.buf (res.toM)).toNat
+  countArguments : (res.get! ctx.spec).arguments.size = (BlockMPtr.readCountArguments! ctx.buf (res.toM)).toNat
   arguments (arg : BlockArgumentPtr) (ib : arg.InBounds ctx.spec) : arg.block = res → arg.Matches ctx ib
 
 structure BlockPtr.Matches (ctx : Sim.RawIRContext OpInfo) (block : BlockPtr) (ib : block.InBounds ctx.spec) extends
@@ -967,19 +968,23 @@ structure OperationPtr.MatchesBase (ctx : Sim.RawIRContext OpInfo) (op : Operati
 
 structure OperationPtr.MatchesResults (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) (ib : op.InBounds ctx.spec) where
   numResults : (op.get! ctx.spec).capResults = (op.toM.readNumResults! ctx.buf).toNat
+  countResults : (op.get! ctx.spec).results.size = (op.toM.readCountResults! ctx.buf).toNat
   results (res : OpResultPtr) (hin : res.InBounds ctx.spec) : res.op = op → res.Matches ctx hin
 
 structure OperationPtr.MatchesBlockOperands (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) (ib : op.InBounds ctx.spec) where
   numBlockOperands : (op.get! ctx.spec).capBlockOperands = (op.toM.readNumBlockOperands! ctx.buf).toNat
+  countBlockOperands : (op.get! ctx.spec).blockOperands.size = (op.toM.readCountBlockOperands! ctx.buf).toNat
   blockOperands (bo : BlockOperandPtr) (hin : bo.InBounds ctx.spec) : bo.op = op → bo.Matches ctx hin
 
 structure OperationPtr.MatchesRegions (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) where
   numRegions : (op.get! ctx.spec).capRegions = (op.toM.readNumRegions! ctx.buf).toNat
+  countRegions : (op.get! ctx.spec).regions.size = (op.toM.readCountRegions! ctx.buf).toNat
   regions  idx (hin : idx < (op.getNumRegions! ctx.spec)) :
     Sim.RegionPtr.Sim ⟨op.toM.readNthRegion! (OpInfo := OpInfo) ctx.buf idx.toUInt64, .mk <| op.getRegion! ctx.spec idx⟩
 
 structure OperationPtr.MatchesOperands (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) where
   numOperands : (op.get! ctx.spec).capOperands = (op.toM.readNumOperands! ctx.buf).toNat
+  countOperands : (op.get! ctx.spec).operands.size = (op.toM.readCountOperands! ctx.buf).toNat
   operands (oper : OpOperandPtr) (hin : oper.InBounds ctx.spec) : oper.op = op → oper.Matches ctx hin
 
 structure OperationPtr.Capacities (ctx : IRContext OpInfo) (op : OperationPtr) where
@@ -1022,6 +1027,31 @@ structure Sim (ctx : Sim.RawIRContext OpInfo) where
   /-- Attribute-table slot 0 canonically holds the empty dictionary, so the zero-initialized `attrs` field of a freshly allocated operation denotes the empty dictionary. -/
   attr_empty : ctx.buf.attributes[0]? = some (.dictionaryAttr DictionaryAttr.empty)
 
+/-- Correspondence for a preallocated array. The logical length is independent of
+its capacity: even the empty and exactly-full cases are valid encodings. -/
+structure Sim.ArraySizeMatch (size capacity : Nat) (count maximum : UInt64) : Prop where
+  live : count.toNat = size
+  bounded : size ≤ capacity
+  reserved : capacity = maximum.toNat
+
+/-- The array headers of every live operation and block encode their abstract arrays. -/
+structure Sim.CountsMatch (ctx : Sim.RawIRContext OpInfo) : Prop where
+  results (op : Veir.OperationPtr) (_ : op.InBounds ctx.spec) :
+    Sim.ArraySizeMatch (op.getNumResults! ctx.spec) (op.get! ctx.spec).capResults
+      (op.toM.readCountResults! ctx.buf) (op.toM.readNumResults! ctx.buf)
+  operands (op : Veir.OperationPtr) (_ : op.InBounds ctx.spec) :
+    Sim.ArraySizeMatch (op.getNumOperands! ctx.spec) (op.get! ctx.spec).capOperands
+      (op.toM.readCountOperands! ctx.buf) (op.toM.readNumOperands! ctx.buf)
+  blockOperands (op : Veir.OperationPtr) (_ : op.InBounds ctx.spec) :
+    Sim.ArraySizeMatch (op.getNumSuccessors! ctx.spec) (op.get! ctx.spec).capBlockOperands
+      (op.toM.readCountBlockOperands! ctx.buf) (op.toM.readNumBlockOperands! ctx.buf)
+  regions (op : Veir.OperationPtr) (_ : op.InBounds ctx.spec) :
+    Sim.ArraySizeMatch (op.getNumRegions! ctx.spec) (op.get! ctx.spec).capRegions
+      (op.toM.readCountRegions! ctx.buf) (op.toM.readNumRegions! ctx.buf)
+  arguments (bl : Veir.BlockPtr) (_ : bl.InBounds ctx.spec) :
+    Sim.ArraySizeMatch (bl.getNumArguments! ctx.spec) (bl.get! ctx.spec).capArguments
+      (bl.toM.readCountArguments! ctx.buf) (bl.toM.readNumArguments! ctx.buf)
+
 variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo] in
 structure Sim.IRContext where
   buf : IRBufContext
@@ -1051,6 +1081,26 @@ def Sim.IRContext.inner (ctx : IRContext OpInfo) : RawIRContext OpInfo := ⟨ctx
 
 @[grind =]
 theorem Sim.IRContext.inner_def (ctx : IRContext OpInfo) : ctx.inner = ⟨ctx.buf, ctx.spec'⟩ := rfl
+
+/-- The array-header correspondence follows directly from the per-object matches. -/
+theorem Sim.IRContext.countsMatch (ctx : Sim.IRContext OpInfo) : Sim.CountsMatch ctx.inner := by
+  rw [inner_def]
+  constructor
+  · intro p h
+    have m := ctx.sim.encoding_op p h
+    exact ⟨m.countResults.symm, (ctx.sim.repr.operations_indices p h).capResults, m.numResults⟩
+  · intro p h
+    have m := ctx.sim.encoding_op p h
+    exact ⟨m.countOperands.symm, (ctx.sim.repr.operations_indices p h).capOperands, m.numOperands⟩
+  · intro p h
+    have m := ctx.sim.encoding_op p h
+    exact ⟨m.countBlockOperands.symm, (ctx.sim.repr.operations_indices p h).capBlockOperands, m.numBlockOperands⟩
+  · intro p h
+    have m := ctx.sim.encoding_op p h
+    exact ⟨m.countRegions.symm, (ctx.sim.repr.operations_indices p h).capRegions, m.numRegions⟩
+  · intro p h
+    have m := ctx.sim.encoding_block p h
+    exact ⟨m.countArguments.symm, (ctx.sim.repr.blocks_indices p h).capArguments, m.numArguments⟩
 
 @[grind .]
 theorem Sim.IRContext.isRepr (ctx : IRContext OpInfo) : ctx.spec.IsRepr := ctx.sim.repr

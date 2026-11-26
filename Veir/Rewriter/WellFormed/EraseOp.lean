@@ -957,15 +957,15 @@ theorem Rewriter.detachOp_WellFormed
           simpa [heq] using hnone
         have hold := hWf.opChain_of_parent_none hOldParent
         grind [BlockPtr.OpChain_next_ne, BlockPtr.OpChain_prev_ne]
-    case capResults_eq_numResults => simpa using hWf.capResults_eq_numResults
-    case capRegions_eq_numRegions => simpa using hWf.capRegions_eq_numRegions
-    case capOperands_eq_numOperands =>
+    case capResults_ge_numResults => simpa using hWf.capResults_ge_numResults
+    case capRegions_ge_numRegions => simpa using hWf.capRegions_ge_numRegions
+    case capOperands_ge_numOperands =>
       simpa only [Rewriter.detachOp_preserves_capOperands hctx,
-        Rewriter.detachOp_preserves_numOperands hctx] using hWf.capOperands_eq_numOperands
-    case capBlockOperands_eq_numSuccessors =>
+        Rewriter.detachOp_preserves_numOperands hctx] using hWf.capOperands_ge_numOperands
+    case capBlockOperands_ge_numSuccessors =>
       simpa only [Rewriter.detachOp_preserves_capBlockOperands hctx,
         Rewriter.detachOp_preserves_numSuccessors hctx] using
-          hWf.capBlockOperands_eq_numSuccessors
+          hWf.capBlockOperands_ge_numSuccessors
   case blocks =>
     intro block hblock
     have hWf := wf.blocks block (by grind)
@@ -990,7 +990,7 @@ theorem Rewriter.detachOpIfAttached_WellFormed
 theorem Rewriter.detachOperands_wellFormed
     (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hCtx : ctx.spec.FieldsInBounds) (hOp : op.InBounds ctx)
-    (hCap : (op.spec.get! ctx.spec).capOperands =
+    (hCap : (op.spec.get! ctx.spec).capOperands ≥
       op.spec.getNumOperands! ctx.spec)
     (wf : ctx.spec.WellFormed missingOperands missingSuccessors)
     (hMissing : ∀ i, OpOperandPtr.mk op.spec i ∉ missingOperands) :
@@ -1000,15 +1000,8 @@ theorem Rewriter.detachOperands_wellFormed
           (fun i => OpOperandPtr.mk op.spec i)))
       missingSuccessors := by
   let numOperands := op.getNumOperands ctx hOp
-  have hNumLt : op.spec.getNumOperands! ctx.spec < UInt64.size := by
-    have henc := ctx.sim.encoding_op op.spec hOp.ib
-    rw [← hCap, henc.numOperands]
-    exact UInt64.toNat_lt _
-  have hNum : numOperands.toNat = op.spec.getNumOperands! ctx.spec := by
-    dsimp [numOperands]
-    rw [Sim.OperationPtr.getNumOperands_eq_getNumOperands! ctx op hOp,
-      Sim.OperationPtr.getNumOperands!_spec (ctx := ctx) op (ib := hOp), hCap]
-    exact UInt64.toNat_ofNat_of_lt hNumLt
+  have hNum : numOperands.toNat = op.spec.getNumOperands! ctx.spec :=
+    Sim.OperationPtr.getNumOperands_toNat ctx op hOp
   simp only [Rewriter.detachOperands.unfold]
   split
   next hz =>
@@ -1134,7 +1127,7 @@ theorem Rewriter.detachBlockOperands.loop_wellFormed
 theorem Rewriter.detachBlockOperands_wellFormed
     (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hCtx : ctx.spec.FieldsInBounds) (hOp : op.InBounds ctx)
-    (hCap : (op.spec.get! ctx.spec).capBlockOperands =
+    (hCap : (op.spec.get! ctx.spec).capBlockOperands ≥
       op.spec.getNumSuccessors! ctx.spec)
     (wf : ctx.spec.WellFormed missingOperands missingSuccessors)
     (hMissing : ∀ i, BlockOperandPtr.mk op.spec i ∉ missingSuccessors) :
@@ -1144,15 +1137,8 @@ theorem Rewriter.detachBlockOperands_wellFormed
         ((0...op.spec.getNumSuccessors! ctx.spec).toList.map
           (fun i => BlockOperandPtr.mk op.spec i))) := by
   let numSuccessors := op.getNumSuccessors ctx hOp
-  have hNumLt : op.spec.getNumSuccessors! ctx.spec < UInt64.size := by
-    have henc := ctx.sim.encoding_op op.spec hOp.ib
-    rw [← hCap, henc.numBlockOperands]
-    exact UInt64.toNat_lt _
-  have hNum : numSuccessors.toNat = op.spec.getNumSuccessors! ctx.spec := by
-    dsimp [numSuccessors]
-    rw [Sim.OperationPtr.getNumSuccessors_eq_getNumSuccessors! ctx op hOp,
-      Sim.OperationPtr.getNumSuccessors!_spec (ctx := ctx) op (ib := hOp), hCap]
-    exact UInt64.toNat_ofNat_of_lt hNumLt
+  have hNum : numSuccessors.toNat = op.spec.getNumSuccessors! ctx.spec :=
+    Sim.OperationPtr.getNumSuccessors_toNat ctx op hOp
   simp only [Rewriter.detachBlockOperands.unfold]
   split
   next hz =>
@@ -1303,7 +1289,7 @@ theorem OpResultPtr.firstUse!_detachOperands_eq_none_of_firstUse!_eq_none
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (result : Veir.OpResultPtr)
     (hCtx : ctx.spec.FieldsInBounds) (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capOperands =
+    (hCap : (operation.spec.get! ctx.spec).capOperands ≥
       operation.spec.getNumOperands! ctx.spec)
     (hctx : ctx.spec.WellFormed missingUses missingSuccessors)
     (hMissingUses : ∀ i, OpOperandPtr.mk operation.spec i ∉ missingUses)
@@ -1311,15 +1297,8 @@ theorem OpResultPtr.firstUse!_detachOperands_eq_none_of_firstUse!_eq_none
     (h : (result.get! ctx.spec).firstUse = none) :
     (result.get! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec).firstUse = none := by
   let numOperands := operation.getNumOperands ctx hOp
-  have hNumLt : operation.spec.getNumOperands! ctx.spec < UInt64.size := by
-    have henc := ctx.sim.encoding_op operation.spec hOp.ib
-    rw [← hCap, henc.numOperands]
-    exact UInt64.toNat_lt _
-  have hNum : numOperands.toNat = operation.spec.getNumOperands! ctx.spec := by
-    dsimp [numOperands]
-    rw [Sim.OperationPtr.getNumOperands_eq_getNumOperands! ctx operation hOp,
-      Sim.OperationPtr.getNumOperands!_spec (ctx := ctx) operation (ib := hOp), hCap]
-    exact UInt64.toNat_ofNat_of_lt hNumLt
+  have hNum : numOperands.toNat = operation.spec.getNumOperands! ctx.spec :=
+    Sim.OperationPtr.getNumOperands_toNat ctx operation hOp
   simp only [Rewriter.detachOperands.unfold]
   split
   · exact h
@@ -1352,7 +1331,7 @@ theorem OpResultPtr.firstUse!_detachBlockOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (result : Veir.OpResultPtr)
     (hCtx : ctx.spec.FieldsInBounds) (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capBlockOperands =
+    (hCap : (operation.spec.get! ctx.spec).capBlockOperands ≥
       operation.spec.getNumSuccessors! ctx.spec) :
     (result.get! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec).firstUse =
       (result.get! ctx.spec).firstUse := by
@@ -1405,7 +1384,7 @@ theorem OperationPtr.getNumResults!_detachOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (op' : Veir.OperationPtr) (hCtx : ctx.spec.FieldsInBounds)
     (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capOperands =
+    (hCap : (operation.spec.get! ctx.spec).capOperands ≥
       operation.spec.getNumOperands! ctx.spec) :
     op'.getNumResults! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumResults! ctx.spec := by
@@ -1436,7 +1415,7 @@ theorem OperationPtr.getNumResults!_detachBlockOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (op' : Veir.OperationPtr) (hCtx : ctx.spec.FieldsInBounds)
     (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capBlockOperands =
+    (hCap : (operation.spec.get! ctx.spec).capBlockOperands ≥
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumResults! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumResults! ctx.spec := by
@@ -1460,7 +1439,7 @@ theorem OperationPtr.getNumOperands!_detachOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (op' : Veir.OperationPtr) (hCtx : ctx.spec.FieldsInBounds)
     (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capOperands =
+    (hCap : (operation.spec.get! ctx.spec).capOperands ≥
       operation.spec.getNumOperands! ctx.spec) :
     op'.getNumOperands! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumOperands! ctx.spec := by
@@ -1483,7 +1462,7 @@ theorem OperationPtr.getNumOperands!_detachBlockOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (op' : Veir.OperationPtr) (hCtx : ctx.spec.FieldsInBounds)
     (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capBlockOperands =
+    (hCap : (operation.spec.get! ctx.spec).capBlockOperands ≥
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumOperands! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumOperands! ctx.spec := by
@@ -1506,7 +1485,7 @@ theorem OperationPtr.getNumSuccessors!_detachBlockOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (op' : Veir.OperationPtr) (hCtx : ctx.spec.FieldsInBounds)
     (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capBlockOperands =
+    (hCap : (operation.spec.get! ctx.spec).capBlockOperands ≥
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumSuccessors! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumSuccessors! ctx.spec := by
@@ -1545,7 +1524,7 @@ theorem OperationPtr.parent!_detachOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (op' : Veir.OperationPtr) (hCtx : ctx.spec.FieldsInBounds)
     (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capOperands =
+    (hCap : (operation.spec.get! ctx.spec).capOperands ≥
       operation.spec.getNumOperands! ctx.spec) :
     (op'.get! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec).parent =
       (op'.get! ctx.spec).parent := by
@@ -1571,7 +1550,7 @@ theorem OperationPtr.parent!_detachBlockOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (op' : Veir.OperationPtr) (hCtx : ctx.spec.FieldsInBounds)
     (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capBlockOperands =
+    (hCap : (operation.spec.get! ctx.spec).capBlockOperands ≥
       operation.spec.getNumSuccessors! ctx.spec) :
     (op'.get! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec).parent =
       (op'.get! ctx.spec).parent := by
@@ -1598,7 +1577,7 @@ theorem OperationPtr.getNumRegions!_detachOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (op' : Veir.OperationPtr) (hCtx : ctx.spec.FieldsInBounds)
     (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capOperands =
+    (hCap : (operation.spec.get! ctx.spec).capOperands ≥
       operation.spec.getNumOperands! ctx.spec) :
     op'.getNumRegions! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumRegions! ctx.spec := by
@@ -1621,7 +1600,7 @@ theorem OperationPtr.getNumRegions!_detachBlockOperands
     (ctx : Sim.IRContext OpInfo) (operation : Sim.OperationPtr)
     (op' : Veir.OperationPtr) (hCtx : ctx.spec.FieldsInBounds)
     (hOp : operation.InBounds ctx)
-    (hCap : (operation.spec.get! ctx.spec).capBlockOperands =
+    (hCap : (operation.spec.get! ctx.spec).capBlockOperands ≥
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumRegions! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumRegions! ctx.spec := by
@@ -1640,9 +1619,9 @@ theorem Rewriter.eraseOpDeallocatedSpec_wellFormed
     (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (wf : ctx.spec.WellFormed)
     (hCtx : ctx.spec.FieldsInBounds) (hOp : op.InBounds ctx)
-    (hOpers : (op.spec.get! ctx.spec).capOperands =
+    (hOpers : (op.spec.get! ctx.spec).capOperands ≥
       op.spec.getNumOperands! ctx.spec)
-    (hBlOpers : (op.spec.get! ctx.spec).capBlockOperands =
+    (hBlOpers : (op.spec.get! ctx.spec).capBlockOperands ≥
       op.spec.getNumSuccessors! ctx.spec)
     (noRegions : op.spec.getNumRegions! ctx.spec = 0)
     (noUses : op.spec.hasUses! ctx.spec = false) :
@@ -1658,9 +1637,9 @@ theorem Rewriter.eraseOpDeallocatedSpec_wellFormed
   have wf₀ : ctx₀.spec.WellFormed := by
     exact Rewriter.detachOpIfAttached_WellFormed ctx wf hCtx op hOp
   have hOp₀ : op.InBounds ctx₀ := by grind [generic_ptr_grind]
-  have hCap₀ : (op.spec.get! ctx₀.spec).capOperands =
+  have hCap₀ : (op.spec.get! ctx₀.spec).capOperands ≥
       op.spec.getNumOperands! ctx₀.spec := by
-    exact (wf₀.operations op.spec hOp₀.ib).capOperands_eq_numOperands
+    exact (wf₀.operations op.spec hOp₀.ib).capOperands_ge_numOperands
   let ctx₁ := Rewriter.detachOperands ctx₀ op wf₀.inBounds hOp₀ hCap₀
   have wf₁ : ctx₁.spec.WellFormed
       ((∅ : Std.ExtHashSet OpOperandPtr).insertMany
@@ -1669,9 +1648,9 @@ theorem Rewriter.eraseOpDeallocatedSpec_wellFormed
     exact Rewriter.detachOperands_wellFormed ctx₀ op wf₀.inBounds hOp₀ hCap₀
       wf₀ (by simp)
   have hOp₁ : op.InBounds ctx₁ := by grind [generic_ptr_grind]
-  have hCap₁ : (op.spec.get! ctx₁.spec).capBlockOperands =
+  have hCap₁ : (op.spec.get! ctx₁.spec).capBlockOperands ≥
       op.spec.getNumSuccessors! ctx₁.spec := by
-    exact (wf₁.operations op.spec hOp₁.ib).capBlockOperands_eq_numSuccessors
+    exact (wf₁.operations op.spec hOp₁.ib).capBlockOperands_ge_numSuccessors
   let ctx₂ := Rewriter.detachBlockOperands ctx₁ op wf₁.inBounds hOp₁ hCap₁
   have wf₂ : ctx₂.spec.WellFormed
       ((∅ : Std.ExtHashSet OpOperandPtr).insertMany
@@ -1745,9 +1724,9 @@ theorem Rewriter.eraseOp_WellFormed
     (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (wf : ctx.spec.WellFormed)
     (hCtx : ctx.spec.FieldsInBounds) (hOp : op.InBounds ctx)
-    (hOpers : (op.spec.get! ctx.spec).capOperands =
+    (hOpers : (op.spec.get! ctx.spec).capOperands ≥
       op.spec.getNumOperands! ctx.spec)
-    (hBlOpers : (op.spec.get! ctx.spec).capBlockOperands =
+    (hBlOpers : (op.spec.get! ctx.spec).capBlockOperands ≥
       op.spec.getNumSuccessors! ctx.spec)
     (noRegions : op.spec.getNumRegions! ctx.spec = 0)
     (noUses : op.spec.hasUses! ctx.spec = false)

@@ -645,10 +645,10 @@ structure OperationPtr.WellFormed (ctx : IRContext OpInfo) (opPtr : OperationPtr
     (region.get! ctx).parent = some opPtr
   opChain_of_parent_none : (opPtr.get! ctx).parent = none →
     (opPtr.get! ctx).prev = none ∧ (opPtr.get! ctx).next = none
-  capResults_eq_numResults : (opPtr.get! ctx).capResults = opPtr.getNumResults! ctx
-  capRegions_eq_numRegions : (opPtr.get! ctx).capRegions = opPtr.getNumRegions! ctx
-  capOperands_eq_numOperands : (opPtr.get! ctx).capOperands = opPtr.getNumOperands! ctx
-  capBlockOperands_eq_numSuccessors : (opPtr.get! ctx).capBlockOperands = opPtr.getNumSuccessors! ctx
+  capResults_ge_numResults : (opPtr.get! ctx).capResults ≥ opPtr.getNumResults! ctx
+  capRegions_ge_numRegions : (opPtr.get! ctx).capRegions ≥ opPtr.getNumRegions! ctx
+  capOperands_ge_numOperands : (opPtr.get! ctx).capOperands ≥ opPtr.getNumOperands! ctx
+  capBlockOperands_ge_numSuccessors : (opPtr.get! ctx).capBlockOperands ≥ opPtr.getNumSuccessors! ctx
 
 structure BlockPtr.WellFormed (ctx : IRContext OpInfo) (blockPtr : BlockPtr) hbl : Prop where
   inBounds : Block.FieldsInBounds blockPtr ctx hbl
@@ -658,7 +658,7 @@ structure BlockPtr.WellFormed (ctx : IRContext OpInfo) (blockPtr : BlockPtr) hbl
     (blockPtr.get! ctx).prev = none
   next_eq_of_parent_eq_none : (blockPtr.get! ctx).parent = none →
     (blockPtr.get! ctx).next = none
-  capBlockArguments_eq_numBlockArguments : (blockPtr.get! ctx).capArguments = blockPtr.getNumArguments! ctx
+  capBlockArguments_ge_numBlockArguments : (blockPtr.get! ctx).capArguments ≥ blockPtr.getNumArguments! ctx
 
 structure RegionPtr.WellFormed (ctx : IRContext OpInfo) (regionPtr : RegionPtr) where
   inBounds : (regionPtr.get! ctx).FieldsInBounds ctx
@@ -1381,27 +1381,25 @@ theorem OperationPtr.WellFormed.region_parent.unchanged
     (region.get! ctx').parent = some opPtr := by
   simp only [h_getRegion, h_numRegions, h_parent, h_wf]
 
-theorem OperationPtr.WellFormed.numOperands_eq_capOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capOperands = opPtr.getNumOperands! ctx :=
-  fun h => h.capOperands_eq_numOperands
-grind_pattern OperationPtr.WellFormed.numOperands_eq_capOperands => opPtr.WellFormed ctx, (opPtr.get! ctx).capOperands
+theorem OperationPtr.WellFormed.numOperands_le_capOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capOperands ≥ opPtr.getNumOperands! ctx :=
+  fun h => h.capOperands_ge_numOperands
+grind_pattern OperationPtr.WellFormed.numOperands_le_capOperands => opPtr.WellFormed ctx, (opPtr.get! ctx).capOperands
 
-theorem OperationPtr.WellFormed.numSuccessors_eq_capBlockOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capBlockOperands = opPtr.getNumSuccessors! ctx :=
-  fun h => h.capBlockOperands_eq_numSuccessors
-grind_pattern OperationPtr.WellFormed.numSuccessors_eq_capBlockOperands => opPtr.WellFormed ctx, (opPtr.get! ctx).capBlockOperands
+theorem OperationPtr.WellFormed.numSuccessors_le_capBlockOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capBlockOperands ≥ opPtr.getNumSuccessors! ctx :=
+  fun h => h.capBlockOperands_ge_numSuccessors
+grind_pattern OperationPtr.WellFormed.numSuccessors_le_capBlockOperands => opPtr.WellFormed ctx, (opPtr.get! ctx).capBlockOperands
 
-@[grind =]
-theorem OperationPtr.WellFormed.numRegions_eq_capRegions {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capRegions = opPtr.getNumRegions! ctx :=
-  fun h => h.capRegions_eq_numRegions
-grind_pattern OperationPtr.WellFormed.numRegions_eq_capRegions => opPtr.WellFormed ctx ib, (opPtr.get! ctx).capRegions
+theorem OperationPtr.WellFormed.numRegions_le_capRegions {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capRegions ≥ opPtr.getNumRegions! ctx :=
+  fun h => h.capRegions_ge_numRegions
+grind_pattern OperationPtr.WellFormed.numRegions_le_capRegions => opPtr.WellFormed ctx ib, (opPtr.get! ctx).capRegions
 
-@[grind =]
-theorem OperationPtr.WellFormed.numResults_eq_capResults {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capResults = opPtr.getNumResults! ctx :=
-  fun h => h.capResults_eq_numResults
-grind_pattern OperationPtr.WellFormed.numResults_eq_capResults => opPtr.WellFormed ctx ib, (opPtr.get! ctx).capResults
+theorem OperationPtr.WellFormed.numResults_le_capResults {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capResults ≥ opPtr.getNumResults! ctx :=
+  fun h => h.capResults_ge_numResults
+grind_pattern OperationPtr.WellFormed.numResults_le_capResults => opPtr.WellFormed ctx ib, (opPtr.get! ctx).capResults
 
 /-- An IR context that also carries its well-formedness proof. -/
 structure WfIRContext (OpInfo : Type) [HasOpInfo OpInfo] where

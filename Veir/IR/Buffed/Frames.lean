@@ -636,6 +636,76 @@ theorem BlockPtr.numArguments_frame (ctx : Sim.IRContext OpInfo)
   have h := hagree.read64 (bl.toM + Buffed.Block.Offsets.numArguments) (by grind [Veir.BlockPtr.toM]) (by grind [Veir.BlockPtr.toM])
   grind [Buffed.BlockMPtr.readNumArguments!]
 
+theorem OperationPtr.countBlockOperands_frame (ctx : Sim.IRContext OpInfo)
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
+    (op : OperationPtr) (ib : op.InBounds ctx.spec)
+    (hm : (op.get! ctx.spec).blockOperands.size = (op.toM.readCountBlockOperands! ctx.buf).toNat)
+    (hagree : Buffed.AgreesOn buf' ctx.buf (op.id + Operation.Offsets.countBlockOperandsInt.toNat)
+      (op.id + Operation.Offsets.countBlockOperandsInt.toNat + 8))
+    (hcap : (op.get! spec').blockOperands.size = (op.get! ctx.spec).blockOperands.size) :
+    (op.get! spec').blockOperands.size = (op.toM.readCountBlockOperands! buf').toNat := by
+  have hrepr := ctx.sim.repr.operations op ib
+  have hrange := Sim.OperationPtr.range_linear op ib
+  have hsize := Sim.IRContext.mem_size_lt ctx
+  have h := hagree.read64 (op.toM + Buffed.Operation.Offsets.countBlockOperands) (by grind [Veir.OperationPtr.toM]) (by grind [Veir.OperationPtr.toM])
+  grind [Buffed.OperationMPtr.readCountBlockOperands!]
+
+theorem OperationPtr.countOperands_frame (ctx : Sim.IRContext OpInfo)
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
+    (op : OperationPtr) (ib : op.InBounds ctx.spec)
+    (hm : (op.get! ctx.spec).operands.size = (op.toM.readCountOperands! ctx.buf).toNat)
+    (hagree : Buffed.AgreesOn buf' ctx.buf (op.id + Operation.Offsets.countOperandsInt.toNat)
+      (op.id + Operation.Offsets.countOperandsInt.toNat + 8))
+    (hcap : (op.get! spec').operands.size = (op.get! ctx.spec).operands.size) :
+    (op.get! spec').operands.size = (op.toM.readCountOperands! buf').toNat := by
+  have hrepr := ctx.sim.repr.operations op ib
+  have hrange := Sim.OperationPtr.range_linear op ib
+  have hsize := Sim.IRContext.mem_size_lt ctx
+  have h := hagree.read64 (op.toM + Buffed.Operation.Offsets.countOperands) (by grind [Veir.OperationPtr.toM]) (by grind [Veir.OperationPtr.toM])
+  grind [Buffed.OperationMPtr.readCountOperands!]
+
+theorem OperationPtr.countResults_frame (ctx : Sim.IRContext OpInfo)
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
+    (op : OperationPtr) (ib : op.InBounds ctx.spec)
+    (hm : (op.get! ctx.spec).results.size = (op.toM.readCountResults! ctx.buf).toNat)
+    (hagree : Buffed.AgreesOn buf' ctx.buf (op.id + Operation.Offsets.countResultsInt.toNat)
+      (op.id + Operation.Offsets.countResultsInt.toNat + 8))
+    (hcap : (op.get! spec').results.size = (op.get! ctx.spec).results.size) :
+    (op.get! spec').results.size = (op.toM.readCountResults! buf').toNat := by
+  have hrepr := ctx.sim.repr.operations op ib
+  have hrange := Sim.OperationPtr.range_linear op ib
+  have hsize := Sim.IRContext.mem_size_lt ctx
+  have h := hagree.read64 (op.toM + Buffed.Operation.Offsets.countResults) (by grind [Veir.OperationPtr.toM]) (by grind [Veir.OperationPtr.toM])
+  grind [Buffed.OperationMPtr.readCountResults!]
+
+theorem BlockPtr.countArguments_frame (ctx : Sim.IRContext OpInfo)
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
+    (bl : BlockPtr) (ib : bl.InBounds ctx.spec)
+    (hm : (bl.get! ctx.spec).arguments.size = (Buffed.BlockMPtr.readCountArguments! ctx.buf bl.toM).toNat)
+    (hagree : Buffed.AgreesOn buf' ctx.buf (bl.id + Block.Offsets.countArgumentsInt.toNat)
+      (bl.id + Block.Offsets.countArgumentsInt.toNat + 8))
+    (hcap : (bl.get! spec').arguments.size = (bl.get! ctx.spec).arguments.size) :
+    (bl.get! spec').arguments.size = (Buffed.BlockMPtr.readCountArguments! buf' bl.toM).toNat := by
+  have hrepr := ctx.sim.repr.blocks bl ib
+  have hrange := Sim.BlockPtr.range_linear bl ib
+  have hsize := Sim.IRContext.mem_size_lt ctx
+  have h := hagree.read64 (bl.toM + Buffed.Block.Offsets.countArguments) (by grind [Veir.BlockPtr.toM]) (by grind [Veir.BlockPtr.toM])
+  grind [Buffed.BlockMPtr.readCountArguments!]
+
+theorem OperationPtr.countRegions_frame (ctx : Sim.IRContext OpInfo)
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
+    (op : OperationPtr) (ib : op.InBounds ctx.spec)
+    (hm : (op.get! ctx.spec).regions.size = (op.toM.readCountRegions! ctx.buf).toNat)
+    (hagree : Buffed.AgreesOn buf' ctx.buf (op.id + Operation.Offsets.countRegionsInt.toNat)
+      (op.id + Operation.Offsets.countRegionsInt.toNat + 8))
+    (hcap : (op.get! spec').regions.size = (op.get! ctx.spec).regions.size) :
+    (op.get! spec').regions.size = (op.toM.readCountRegions! buf').toNat := by
+  have hrepr := ctx.sim.repr.operations op ib
+  have hrange := Sim.OperationPtr.range_linear op ib
+  have hsize := Sim.IRContext.mem_size_lt ctx
+  have h := hagree.read64 (op.toM + Buffed.Operation.Offsets.countRegions) (by grind [Veir.OperationPtr.toM]) (by grind [Veir.OperationPtr.toM])
+  grind [Buffed.OperationMPtr.readCountRegions!]
+
 /-! ## The region-array slot (dynamic offset computed from header reads) -/
 
 /-- The `idx`-th region link survives any buffer change that agrees on the three header

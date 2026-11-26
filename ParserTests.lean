@@ -280,16 +280,31 @@ private def checkResultGroups : IO Unit := do
     ensure (((user.getOperandPtr! ctx i.toUInt64).getValue! ctx).impl == (IR.opResult ctx definition i.toUInt64).impl)
       "large placeholder group lost a reference"
 
+/-- Spare region, result, operand, and argument slots are not live IR. In particular
+none of them may make the erase guards reject a freshly reserved object. -/
+private def eraseReserved : Option Bool := do
+  rlet hop : (op, c) ← Sim.OperationPtr.allocFresh StaticIR.empty.raw (.builtin .unrealized_conversion_cast) ()
+    3 2 1 4 (by decide) (by decide) (by decide) (by decide)
+  let reserved : StaticIR.Context := ⟨c, Sim.OperationPtr.allocFresh_wellFormed StaticIR.empty.wellFormed hop⟩
+  rlet _he : erased ← StaticIR.eraseOp reserved op (Sim.OperationPtr.allocFresh_newBlock_inBounds hop)
+  rlet hbl : (bl, c') ← Sim.BlockPtr.allocFresh erased.ctx.raw 3
+  let reservedBlock : StaticIR.Context := ⟨c', Sim.BlockPtr.allocFresh_wellFormed erased.ctx.wellFormed hbl⟩
+  pure (StaticIR.eraseBlock reservedBlock bl (Sim.BlockPtr.allocFresh_newBlock_inBounds hbl)).isSome
+
 private def checkDeletionGuards : IO Unit := do
+  ensure (eraseReserved == some true) "unused reserved storage blocked erasure"
   let ty : TypeAttr := IntegerType.mk 32
   for types in #[#[], #[ty], #[ty, ty]] do
     let op ← requireSome
       (StaticIR.createOp StaticIR.empty (.builtin .unrealized_conversion_cast) types #[] #[] #[] () none
         (by simp) (by simp) (by simp) (by simp) (by simp)) "unused operation allocation failed"
+    ensure (op.pointer.impl.readCountResults! op.ctx.raw.buf == types.size.toUInt64 &&
+      op.pointer.impl.readNumResults! op.ctx.raw.buf == types.size.toUInt64) "incorrect result header"
     ensure (StaticIR.eraseOp op.ctx op.pointer op.inBounds).isSome "unused operation was not erasable"
   let block ← requireSome (StaticIR.createBlock StaticIR.empty #[] none (by simp) (by simp)) "block allocation failed"
   ensure (StaticIR.eraseBlock block.ctx block.pointer block.inBounds).isSome "empty block was not erasable"
   let argBlock ← requireSome (StaticIR.createBlock StaticIR.empty #[ty] none (by simp) (by simp)) "argument allocation failed"
+  ensure (argBlock.pointer.impl.readCountArguments! argBlock.ctx.raw.buf == 1) "missing block argument count"
   ensure (StaticIR.eraseBlock argBlock.ctx argBlock.pointer argBlock.inBounds).isNone "argument block was erased"
   for index in List.finRange 2 do
     let definition ← requireSome
@@ -300,6 +315,8 @@ private def checkDeletionGuards : IO Unit := do
       (StaticIR.createOp definition.ctx (.builtin .unrealized_conversion_cast) #[] #[value.val] #[] #[] () none
         (by intro i hi; have := value.property.1; simp_all) (by simp) (by simp) (by simp) (by simp))
       "consumer allocation failed"
+    ensure (user.pointer.impl.readCountOperands! user.ctx.raw.buf == 1 &&
+      definition.pointer.impl.readCountResults! user.ctx.raw.buf == 2) "incorrect counts after operand insertion"
     ensure (StaticIR.eraseOp user.ctx definition.pointer (user.preserves.operation definition.inBounds)).isNone
       "operation with live uses was erased"
   let region ← requireSome (StaticIR.createRegion StaticIR.empty) "region allocation failed"
@@ -312,11 +329,13 @@ private def checkDeletionGuards : IO Unit := do
     (StaticIR.createOp attached.ctx (.builtin .unrealized_conversion_cast) #[] #[] #[] #[region.pointer] () none
       (by simp) (by simp) (by intro i hi; have := attached.preserves.region region.inBounds; simp_all)
       (by simp) (by simp)) "region owner allocation failed"
+  ensure (root.pointer.impl.readCountRegions! root.ctx.raw.buf == 1) "missing region count"
   ensure (StaticIR.eraseOp root.ctx root.pointer root.inBounds).isNone "region owner was erased"
   let use ← requireSome
     (StaticIR.createOp block.ctx (.builtin .unrealized_conversion_cast) #[] #[] #[block.pointer] #[] () none
       (by simp) (by intro i hi; have := block.inBounds; simp_all) (by simp) (by simp) (by simp))
     "successor allocation failed"
+  ensure (use.pointer.impl.readCountBlockOperands! use.ctx.raw.buf == 1) "missing successor count"
   have hb := use.preserves.block block.inBounds
   let redirected ← requireSome (StaticIR.replaceBlockUses use.ctx block.pointer block.pointer hb hb)
     "self replacement failed"

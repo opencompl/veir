@@ -678,7 +678,10 @@ theorem BlockOperandMPtr.readValue_eq_readValue! {ptr : BlockOperandMPtr} {h} :
     ptr.readValue bctx h = ptr.readValue! bctx := by
   simp [BlockOperandMPtr.readValue, BlockOperandMPtr.readValue!]
 
-/-! ## Raw accessors for `Operation` -/
+/-! ## Raw accessors for `Operation`
+
+`numX` is the allocated capacity; it determines array offsets and does not change on
+push. `countX` is the number of live elements, initially zero in a fresh allocation. -/
 
 @[inline]
 def OperationMPtr.readNumResults (ptr : OperationMPtr)
@@ -698,6 +701,25 @@ def OperationMPtr.readNumResults! (ptr : OperationMPtr) : UInt64 :=
 theorem OperationMPtr.readNumResults_eq_readNumResults! {ptr : OperationMPtr} {h} :
     ptr.readNumResults bctx h = ptr.readNumResults! bctx := by
   simp [OperationMPtr.readNumResults, OperationMPtr.readNumResults!]
+
+@[inline]
+def OperationMPtr.readCountResults (ptr : OperationMPtr)
+    (h : (ptr + Operation.Offsets.countResults).toInt + Operation.Sizes.countResults.toInt ≤ bctx.size) : UInt64 :=
+  bctx.mem.read64 (ptr + Operation.Offsets.countResults) (by grind)
+
+@[inline]
+def OperationMPtr.writeCountResults (ptr : OperationMPtr) (val : UInt64)
+    (h : (ptr + Operation.Offsets.countResults).toInt + Operation.Sizes.countResults.toInt ≤ bctx.size) : IRBufContext :=
+  { bctx with mem := bctx.mem.blit64 (ptr + Operation.Offsets.countResults) val (by grind) }
+
+@[inline]
+def OperationMPtr.readCountResults! (ptr : OperationMPtr) : UInt64 :=
+  bctx.mem.read64! (ptr + Operation.Offsets.countResults)
+
+@[simp, grind =]
+theorem OperationMPtr.readCountResults_eq_readCountResults! {ptr : OperationMPtr} {h} :
+    ptr.readCountResults bctx h = ptr.readCountResults! bctx := by
+  simp [OperationMPtr.readCountResults, OperationMPtr.readCountResults!]
 
 @[inline]
 def OperationMPtr.readPrev (ptr : OperationMPtr)
@@ -795,6 +817,25 @@ theorem OperationMPtr.readNumBlockOperands_eq_readNumBlockOperands! {ptr : Opera
   simp [OperationMPtr.readNumBlockOperands, OperationMPtr.readNumBlockOperands!]
 
 @[inline]
+def OperationMPtr.readCountBlockOperands (ptr : OperationMPtr)
+    (h : (ptr + Operation.Offsets.countBlockOperands).toInt + Operation.Sizes.countBlockOperands.toInt ≤ bctx.size) : UInt64 :=
+  bctx.mem.read64 (ptr + Operation.Offsets.countBlockOperands) (by grind)
+
+@[inline]
+def OperationMPtr.writeCountBlockOperands (ptr : OperationMPtr) (val : UInt64)
+    (h : (ptr + Operation.Offsets.countBlockOperands).toInt + Operation.Sizes.countBlockOperands.toInt ≤ bctx.size) : IRBufContext :=
+  { bctx with mem := bctx.mem.blit64 (ptr + Operation.Offsets.countBlockOperands) val (by grind) }
+
+@[inline]
+def OperationMPtr.readCountBlockOperands! (ptr : OperationMPtr) : UInt64 :=
+  bctx.mem.read64! (ptr + Operation.Offsets.countBlockOperands)
+
+@[simp, grind =]
+theorem OperationMPtr.readCountBlockOperands_eq_readCountBlockOperands! {ptr : OperationMPtr} {h} :
+    ptr.readCountBlockOperands bctx h = ptr.readCountBlockOperands! bctx := by
+  simp [OperationMPtr.readCountBlockOperands, OperationMPtr.readCountBlockOperands!]
+
+@[inline]
 def OperationMPtr.readNumRegions (ptr : OperationMPtr)
     (h : (ptr + Operation.Offsets.numRegions).toInt + Operation.Sizes.numRegions.toInt ≤ bctx.size) : UInt64 :=
   bctx.mem.read64 (ptr + Operation.Offsets.numRegions) (by grind)
@@ -814,6 +855,25 @@ theorem OperationMPtr.readNumRegions_eq_readNumRegions! {ptr : OperationMPtr} {h
   simp [OperationMPtr.readNumRegions, OperationMPtr.readNumRegions!]
 
 @[inline]
+def OperationMPtr.readCountRegions (ptr : OperationMPtr)
+    (h : (ptr + Operation.Offsets.countRegions).toInt + Operation.Sizes.countRegions.toInt ≤ bctx.size) : UInt64 :=
+  bctx.mem.read64 (ptr + Operation.Offsets.countRegions) (by grind)
+
+@[inline]
+def OperationMPtr.writeCountRegions (ptr : OperationMPtr) (val : UInt64)
+    (h : (ptr + Operation.Offsets.countRegions).toInt + Operation.Sizes.countRegions.toInt ≤ bctx.size) : IRBufContext :=
+  { bctx with mem := bctx.mem.blit64 (ptr + Operation.Offsets.countRegions) val (by grind) }
+
+@[inline]
+def OperationMPtr.readCountRegions! (ptr : OperationMPtr) : UInt64 :=
+  bctx.mem.read64! (ptr + Operation.Offsets.countRegions)
+
+@[simp, grind =]
+theorem OperationMPtr.readCountRegions_eq_readCountRegions! {ptr : OperationMPtr} {h} :
+    ptr.readCountRegions bctx h = ptr.readCountRegions! bctx := by
+  simp [OperationMPtr.readCountRegions, OperationMPtr.readCountRegions!]
+
+@[inline]
 def OperationMPtr.readNumOperands (ptr : OperationMPtr)
     (h : (ptr + Operation.Offsets.numOperands).toInt + Operation.Sizes.numOperands.toInt ≤ bctx.size) : UInt64 :=
   bctx.mem.read64 (ptr + Operation.Offsets.numOperands) (by grind)
@@ -831,6 +891,25 @@ def OperationMPtr.readNumOperands! (ptr : OperationMPtr) : UInt64 :=
 theorem OperationMPtr.readNumOperands_eq_readNumOperands! {ptr : OperationMPtr} {h} :
     ptr.readNumOperands bctx h = ptr.readNumOperands! bctx := by
   simp [OperationMPtr.readNumOperands, OperationMPtr.readNumOperands!]
+
+@[inline]
+def OperationMPtr.readCountOperands (ptr : OperationMPtr)
+    (h : (ptr + Operation.Offsets.countOperands).toInt + Operation.Sizes.countOperands.toInt ≤ bctx.size) : UInt64 :=
+  bctx.mem.read64 (ptr + Operation.Offsets.countOperands) (by grind)
+
+@[inline]
+def OperationMPtr.writeCountOperands (ptr : OperationMPtr) (val : UInt64)
+    (h : (ptr + Operation.Offsets.countOperands).toInt + Operation.Sizes.countOperands.toInt ≤ bctx.size) : IRBufContext :=
+  { bctx with mem := bctx.mem.blit64 (ptr + Operation.Offsets.countOperands) val (by grind) }
+
+@[inline]
+def OperationMPtr.readCountOperands! (ptr : OperationMPtr) : UInt64 :=
+  bctx.mem.read64! (ptr + Operation.Offsets.countOperands)
+
+@[simp, grind =]
+theorem OperationMPtr.readCountOperands_eq_readCountOperands! {ptr : OperationMPtr} {h} :
+    ptr.readCountOperands bctx h = ptr.readCountOperands! bctx := by
+  simp [OperationMPtr.readCountOperands, OperationMPtr.readCountOperands!]
 
 @[inline]
 def OperationMPtr.readAttrs (ptr : OperationMPtr)
@@ -957,14 +1036,14 @@ theorem OperationMPtr.header_field_bound {ptr : OperationMPtr} {off : Int64} {sz
 def OperationMPtr.computeBlockOperandsOffset (ptr : OperationMPtr)
     (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size) : Int64 :=
   let offset := ptr.computeOperandsOffset (OpInfo := OpInfo) bctx (OperationMPtr.header_field_bound bctx h)
-  let count := ptr.readNumOperands bctx (OperationMPtr.header_field_bound bctx h)
-  offset + (OpOperand.size * count)
+  let capacity := ptr.readNumOperands bctx (OperationMPtr.header_field_bound bctx h)
+  offset + (OpOperand.size * capacity)
 
 @[inline]
 def OperationMPtr.computeBlockOperandsOffset! (ptr : OperationMPtr) : Int64 :=
   let offset := ptr.computeOperandsOffset! (OpInfo := OpInfo) bctx
-  let count := ptr.readNumOperands! bctx
-  offset + (OpOperand.size * count)
+  let capacity := ptr.readNumOperands! bctx
+  offset + (OpOperand.size * capacity)
 
 @[simp, grind =]
 theorem OperationMPtr.computeBlockOperandsOffset_eq_computeBlockOperandsOffset! {ptr : OperationMPtr} {h} :
@@ -1048,14 +1127,14 @@ theorem OperationMPtr.readNthBlockOperand_eq_readNthBlockOperand! {ptr : Operati
 def OperationMPtr.computeRegionsOffset (ptr : OperationMPtr)
     (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size) : Int64 :=
   let offset := ptr.computeBlockOperandsOffset (OpInfo := OpInfo) bctx h
-  let count := ptr.readNumBlockOperands bctx (OperationMPtr.header_field_bound bctx h)
-  offset + (BlockOperand.size * count)
+  let capacity := ptr.readNumBlockOperands bctx (OperationMPtr.header_field_bound bctx h)
+  offset + (BlockOperand.size * capacity)
 
 @[inline]
 def OperationMPtr.computeRegionsOffset! (ptr : OperationMPtr) : Int64 :=
   let offset := ptr.computeBlockOperandsOffset! (OpInfo := OpInfo) bctx
-  let count := ptr.readNumBlockOperands! bctx
-  offset + (BlockOperand.size * count)
+  let capacity := ptr.readNumBlockOperands! bctx
+  offset + (BlockOperand.size * capacity)
 
 @[simp, grind =]
 theorem OperationMPtr.computeRegionsOffset_eq_computeRegionsOffset! {ptr : OperationMPtr} {h} :
@@ -1235,6 +1314,25 @@ theorem BlockMPtr.readNumArguments_eq_readNumArguments! {ptr : BlockMPtr} {h} :
   simp [BlockMPtr.readNumArguments, BlockMPtr.readNumArguments!]
 
 @[inline]
+def BlockMPtr.readCountArguments (ptr : BlockMPtr)
+    (h : (ptr + Block.Offsets.countArguments).toInt + Block.Sizes.countArguments.toInt ≤ bctx.size) : UInt64 :=
+  bctx.mem.read64 (ptr + Block.Offsets.countArguments) (by grind)
+
+@[inline]
+def BlockMPtr.writeCountArguments (ptr : BlockMPtr) (val : UInt64)
+    (h : (ptr + Block.Offsets.countArguments).toInt + Block.Sizes.countArguments.toInt ≤ bctx.size) : IRBufContext :=
+  { bctx with mem := bctx.mem.blit64 (ptr + Block.Offsets.countArguments) val (by grind) }
+
+@[inline]
+def BlockMPtr.readCountArguments! (ptr : BlockMPtr) : UInt64 :=
+  bctx.mem.read64! (ptr + Block.Offsets.countArguments)
+
+@[simp, grind =]
+theorem BlockMPtr.readCountArguments_eq_readCountArguments! {ptr : BlockMPtr} {h} :
+    ptr.readCountArguments bctx h = ptr.readCountArguments! bctx := by
+  simp [BlockMPtr.readCountArguments, BlockMPtr.readCountArguments!]
+
+@[inline]
 def BlockMPtr.computeArgumentOffset (idx : UInt64) : Int64 :=
   Block.Offsets.arguments + (BlockArgument.size * idx)
 
@@ -1259,6 +1357,100 @@ def BlockMPtr.getArgumentPtr! (ptr : BlockMPtr) (idx : UInt64) : BlockArgumentMP
 theorem BlockMPtr.getArgumentPtr_eq_getArgumentPtr! {ptr : BlockMPtr} {idx : UInt64} :
     ptr.getArgumentPtr idx = ptr.getArgumentPtr! idx := by
   simp [BlockMPtr.getArgumentPtr, BlockMPtr.getArgumentPtr!]
+
+/-! ## Push into preallocated arrays
+
+Write the supplied raw fields to the next slot, then publish it by incrementing the
+live count. The enclosing pointer determines the owner, and the old count determines
+the index. As in `IR.Basic`, appending an operand does not modify other use-list nodes. -/
+
+section
+
+local macro "push_bounds" : tactic => `(tactic|
+  (simp only [IRBufContext.size_def] at *
+   grind [UInt64.uint64_add_int64_toInt_lt,
+     OpResultMPtr.writeKind, OpResultMPtr.writeType, OpResultMPtr.writeFirstUse,
+     OpResultMPtr.writeIndex, OpResultMPtr.writeOwner,
+     BlockArgumentMPtr.writeKind, BlockArgumentMPtr.writeType, BlockArgumentMPtr.writeFirstUse,
+     BlockArgumentMPtr.writeIndex, BlockArgumentMPtr.writeOwner,
+     OpOperandMPtr.writeNextUse, OpOperandMPtr.writeBack, OpOperandMPtr.writeOwner, OpOperandMPtr.writeValue,
+     BlockOperandMPtr.writeNextUse, BlockOperandMPtr.writeBack, BlockOperandMPtr.writeOwner, BlockOperandMPtr.writeValue]))
+
+@[inline]
+def OperationMPtr.pushResult (ptr : OperationMPtr) (typeIdx : UInt64) (firstUse : OpOperandOPtr)
+    (header : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size)
+    (_room : ptr.readCountResults! bctx < ptr.readNumResults! bctx)
+    (hslot : (ptr.getResultPtr! bctx (ptr.readCountResults! bctx)).toNat + OpResult.sizeNat ≤ bctx.size) : IRBufContext :=
+  let i := ptr.readCountResults bctx (OperationMPtr.header_field_bound bctx header)
+  let slot := ptr.getResultPtr bctx i (OperationMPtr.header_field_bound bctx header)
+  have hs : slot.toNat + OpResult.sizeNat ≤ bctx.size := by simpa [slot, i] using hslot
+  have hf := bctx.mem.fits_in_memory
+  let b1 := OpResultMPtr.writeKind bctx slot ValueImpl.kindResult (by push_bounds)
+  let b2 := OpResultMPtr.writeType b1 slot typeIdx (by push_bounds)
+  let b3 := OpResultMPtr.writeFirstUse b2 slot firstUse (by push_bounds)
+  let b4 := OpResultMPtr.writeIndex b3 slot i (by push_bounds)
+  let b5 := OpResultMPtr.writeOwner b4 slot ptr (by push_bounds)
+  ptr.writeCountResults b5 (i + 1) (by push_bounds)
+
+@[inline]
+def OperationMPtr.pushOperand (ptr : OperationMPtr) (value : ValueImplMPtr) (nextUse : OpOperandOPtr) (back : OpOperandPtrMPtr)
+    (header : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size)
+    (_room : ptr.readCountOperands! bctx < ptr.readNumOperands! bctx)
+    (hslot : (ptr + ptr.computeOperandOffset! (OpInfo := OpInfo) bctx (ptr.readCountOperands! bctx)).toNat + OpOperand.sizeNat ≤ bctx.size) : IRBufContext :=
+  let i := ptr.readCountOperands bctx (OperationMPtr.header_field_bound bctx header)
+  let slot := ptr + ptr.computeOperandOffset (OpInfo := OpInfo) bctx i (OperationMPtr.header_field_bound bctx header)
+  have hs : slot.toNat + OpOperand.sizeNat ≤ bctx.size := by simpa [slot, i] using hslot
+  have hf := bctx.mem.fits_in_memory
+  let b1 := OpOperandMPtr.writeNextUse bctx slot nextUse (by push_bounds)
+  let b2 := OpOperandMPtr.writeBack b1 slot back (by push_bounds)
+  let b3 := OpOperandMPtr.writeOwner b2 slot ptr (by push_bounds)
+  let b4 := OpOperandMPtr.writeValue b3 slot value (by push_bounds)
+  ptr.writeCountOperands b4 (i + 1) (by push_bounds)
+
+@[inline]
+def OperationMPtr.pushBlockOperand (ptr : OperationMPtr) (value : BlockMPtr) (nextUse : BlockOperandOPtr) (back : BlockOperandPtrMPtr)
+    (header : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size)
+    (_room : ptr.readCountBlockOperands! bctx < ptr.readNumBlockOperands! bctx)
+    (hslot : (ptr.readNthBlockOperand! (OpInfo := OpInfo) bctx (ptr.readCountBlockOperands! bctx)).toNat + BlockOperand.sizeNat ≤ bctx.size) : IRBufContext :=
+  let i := ptr.readCountBlockOperands bctx (OperationMPtr.header_field_bound bctx header)
+  let slot := ptr.readNthBlockOperand (OpInfo := OpInfo) bctx i header
+  have hs : slot.toNat + BlockOperand.sizeNat ≤ bctx.size := by simpa [slot, i] using hslot
+  have hf := bctx.mem.fits_in_memory
+  let b1 := BlockOperandMPtr.writeNextUse bctx slot nextUse (by push_bounds)
+  let b2 := BlockOperandMPtr.writeBack b1 slot back (by push_bounds)
+  let b3 := BlockOperandMPtr.writeOwner b2 slot ptr (by push_bounds)
+  let b4 := BlockOperandMPtr.writeValue b3 slot value (by push_bounds)
+  ptr.writeCountBlockOperands b4 (i + 1) (by push_bounds)
+
+@[inline]
+def BlockMPtr.pushArgument (ptr : BlockMPtr) (typeIdx : UInt64) (firstUse : OpOperandOPtr)
+    (header : ptr.toNat + Block.sizeBaseNat ≤ bctx.size)
+    (_room : ptr.readCountArguments! bctx < ptr.readNumArguments! bctx)
+    (hslot : (ptr.getArgumentPtr (ptr.readCountArguments! bctx)).toNat + BlockArgument.sizeNat ≤ bctx.size) : IRBufContext :=
+  have hf := bctx.mem.fits_in_memory
+  let i := ptr.readCountArguments bctx (by push_bounds)
+  let slot := ptr.getArgumentPtr i
+  have hs : slot.toNat + BlockArgument.sizeNat ≤ bctx.size := by simpa [slot, i] using hslot
+  let b1 := BlockArgumentMPtr.writeKind bctx slot ValueImpl.kindArgument (by push_bounds)
+  let b2 := BlockArgumentMPtr.writeType b1 slot typeIdx (by push_bounds)
+  let b3 := BlockArgumentMPtr.writeFirstUse b2 slot firstUse (by push_bounds)
+  let b4 := BlockArgumentMPtr.writeIndex b3 slot i (by push_bounds)
+  let b5 := BlockArgumentMPtr.writeOwner b4 slot ptr (by push_bounds)
+  ptr.writeCountArguments b5 (i + 1) (by push_bounds)
+
+end
+
+@[inline]
+def OperationMPtr.pushRegion (ptr : OperationMPtr) (val : RegionMPtr)
+    (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size)
+    (_room : ptr.readCountRegions! bctx < ptr.readNumRegions! bctx)
+    (hslot : (ptr + ptr.computeRegionOffset (OpInfo := OpInfo) bctx (ptr.readCountRegions! bctx) h).toInt + ptrSize.toInt ≤ bctx.size) : IRBufContext :=
+  let i := ptr.readCountRegions bctx (OperationMPtr.header_field_bound bctx h)
+  let b := ptr.writeNthRegion (OpInfo := OpInfo) bctx i val h (by simpa [i] using hslot)
+  ptr.writeCountRegions b (i + 1) (by
+    simpa [b, OperationMPtr.writeNthRegion, IRBufContext.size_def] using
+      (OperationMPtr.header_field_bound (off := Operation.Offsets.countRegions)
+        (sz := Operation.Sizes.countRegions) bctx h))
 
 /-! ## Raw accessors for `Region` -/
 
@@ -1346,10 +1538,10 @@ def OperationMPtr.dump (ptr : OperationMPtr) (bctx : IRBufContext) : String := I
   let numRegions := ptr.readNumRegions! bctx
   let size := Buffed.OperationMPtr.computeOperationSize numResults numOperands numBlockOperands numRegions (Operation.propertySize (OpInfo := OpInfo) (SerializableOpInfo.decode opType))
   let mut regions := ""
-  for i in [0: numRegions.toNat] do
+  for i in [0: (ptr.readCountRegions! bctx).toNat] do
     let region := ptr.readNthRegion! (OpInfo := OpInfo) bctx i.toUInt64
     regions := regions ++ s!"{i} = {printO region}, "
-  s!"Operation(opType={opType}, next={printO next}, prev={printO prev}, parent={printO parent}, numResults={numResults}, numOperands={numOperands}, numBlockOperands={numBlockOperands}, numRegions={numRegions}[{regions}]) [Note: addr={ptr}, size={size}, memSize={memSize}, regionsOffset={ptr.computeRegionsOffset! (OpInfo := OpInfo) bctx}, blockOperandsOffset={ptr.computeBlockOperandsOffset! (OpInfo := OpInfo) bctx}, operandsOffset={ptr.computeOperandsOffset! (OpInfo := OpInfo) bctx}]"
+  s!"Operation(opType={opType}, next={printO next}, prev={printO prev}, parent={printO parent}, countResults={ptr.readCountResults! bctx}/{numResults}, countOperands={ptr.readCountOperands! bctx}/{numOperands}, countBlockOperands={ptr.readCountBlockOperands! bctx}/{numBlockOperands}, countRegions={ptr.readCountRegions! bctx}/{numRegions}[{regions}]) [Note: addr={ptr}, size={size}, memSize={memSize}, regionsOffset={ptr.computeRegionsOffset! (OpInfo := OpInfo) bctx}, blockOperandsOffset={ptr.computeBlockOperandsOffset! (OpInfo := OpInfo) bctx}, operandsOffset={ptr.computeOperandsOffset! (OpInfo := OpInfo) bctx}]"
 
 def RegionMPtr.dump (ptr : RegionMPtr) (bctx : IRBufContext) : String :=
   let memSize := bctx.mem.size
@@ -1367,7 +1559,7 @@ def BlockMPtr.dump (ptr : BlockMPtr) (bctx : IRBufContext) : String :=
   let firstOp := ptr.readFirstOp! bctx
   let lastOp := ptr.readLastOp! bctx
   let numArguments := ptr.readNumArguments! bctx
-  s!"Block(firstUse={printO firstUse}, prev={printO prev}, next={printO next}, parent={printO parent}, firstOp={printO firstOp}, lastOp={printO lastOp}, numArguments={numArguments}) [Note: addr={ptr}, memSize={memSize}]"
+  s!"Block(firstUse={printO firstUse}, prev={printO prev}, next={printO next}, parent={printO parent}, firstOp={printO firstOp}, lastOp={printO lastOp}, countArguments={ptr.readCountArguments! bctx}/{numArguments}) [Note: addr={ptr}, memSize={memSize}]"
 
 def ValueImplMPtr.dump (ptr : ValueImplMPtr) (bctx : IRBufContext) : String :=
   let memSize := bctx.mem.size

@@ -3,6 +3,7 @@ module
 public import Veir.Parser.MlirParser
 public import Veir.Parser.PrintIR
 public import Veir.Rewriter.WellFormed
+public import Veir.IR.Buffed.PushCounts
 
 /-!
 The buffer-backed IR, verified rewriter, and static construction parser.

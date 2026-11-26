@@ -529,11 +529,15 @@ def Sim.OperationPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Operation
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
          · rw [hget]
            exact henc.numBlockOperands
+         · rw [hget]
+           exact henc.countBlockOperands
          · intro bo hbo _
            exact BlockOperandPtr.matches_OperationPtr_dealloc ptr ib fib bo hbo
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
          · rw [hget]
            exact henc.numRegions
+         · rw [hget]
+           exact henc.countRegions
          · intro idx hidx
            have hnum : op.getNumRegions! (ptr.spec.dealloc ctx.spec ib.ib) =
                op.getNumRegions! ctx.spec := by grind
@@ -544,11 +548,15 @@ def Sim.OperationPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Operation
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
          · rw [hget]
            exact henc.numOperands
+         · rw [hget]
+           exact henc.countOperands
          · intro oper hoper _
            exact OpOperandPtr.matches_OperationPtr_dealloc ptr ib fib oper hoper
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
          · rw [hget]
            exact henc.numResults
+         · rw [hget]
+           exact henc.countResults
          · intro res hres _
            exact OpResultPtr.matches_OperationPtr_dealloc ptr ib fib res hres
      case encoding_block =>
@@ -574,6 +582,8 @@ def Sim.OperationPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Operation
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
          · rw [hget]
            exact henc.numArguments
+         · rw [hget]
+           exact henc.countArguments
          · intro arg harg _
            exact BlockArgumentPtr.matches_OperationPtr_dealloc ptr ib fib arg harg
      case encoding_region =>
@@ -1003,6 +1013,12 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
             Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
             _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
             _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
+       · refine OperationPtr.countBlockOperands_frame ctx op hopin' this.countBlockOperands (hagreeD _ _ ?_)
+           (by grind only [Erased.out_mk, OperationPtr.get!_OperationPtr_setAttributes])
+         grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+            Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
+            _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
+            _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
        · intros bo boIb heq
          simp only [Sim.RawIRContext.spec] at *
          have hboIb : bo.InBounds ctx.spec := by grind
@@ -1017,6 +1033,12 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
             _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
      · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
        · refine OperationPtr.numRegions_frame ctx op hopin' this.numRegions (hagreeD _ _ ?_)
+           (by grind only [Erased.out_mk, OperationPtr.get!_OperationPtr_setAttributes])
+         grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+            Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
+            _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
+            _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
+       · refine OperationPtr.countRegions_frame ctx op hopin' this.countRegions (hagreeD _ _ ?_)
            (by grind only [Erased.out_mk, OperationPtr.get!_OperationPtr_setAttributes])
          grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
             Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
@@ -1051,6 +1073,12 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
             Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
             _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
             _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
+       · refine OperationPtr.countOperands_frame ctx op hopin' this.countOperands (hagreeD _ _ ?_)
+           (by grind only [Erased.out_mk, OperationPtr.get!_OperationPtr_setAttributes])
+         grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+            Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
+            _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
+            _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
        · intros oper operIb heq
          simp only [Sim.RawIRContext.spec] at *
          have hooIb : oper.InBounds ctx.spec := by grind
@@ -1065,6 +1093,12 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
             _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
      · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
        · refine OperationPtr.numResults_frame ctx op hopin' this.numResults (hagreeD _ _ ?_)
+           (by grind only [Erased.out_mk, OperationPtr.get!_OperationPtr_setAttributes])
+         grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+            Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
+            _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
+            _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
+       · refine OperationPtr.countResults_frame ctx op hopin' this.countResults (hagreeD _ _ ?_)
            (by grind only [Erased.out_mk, OperationPtr.get!_OperationPtr_setAttributes])
          grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
             Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
@@ -1103,6 +1137,12 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
             _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
      · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
        · refine BlockPtr.numArguments_frame ctx blk hblin' henc.numArguments (hagreeD _ _ ?_)
+           (by grind only [Erased.out_mk, BlockPtr.get!_OperationPtr_setAttributes])
+         grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+            Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
+            _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
+            _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
+       · refine BlockPtr.countArguments_frame ctx blk hblin' henc.countArguments (hagreeD _ _ ?_)
            (by grind only [Erased.out_mk, BlockPtr.get!_OperationPtr_setAttributes])
          grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
             Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
@@ -1301,11 +1341,11 @@ theorem Sim.OperationPtr.getBlockOperandPtr_eq_getBlockOperandPtr! (ctx : IRCont
 
 @[inline]
 def Sim.OperationPtr.getNumOperands (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (_ib : ptr.InBounds ctx) : UInt64 :=
-  ptr.impl.readNumOperands ctx.buf (by prove_setLinkBoundsOp ctx ptr)
+  ptr.impl.readCountOperands ctx.buf (by prove_setLinkBoundsOp ctx ptr)
 
 @[inline]
 def Sim.OperationPtr.getNumOperands! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : UInt64 :=
-  ptr.impl.readNumOperands! ctx.buf
+  ptr.impl.readCountOperands! ctx.buf
 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getNumOperands_eq_getNumOperands! (ctx : IRContext OpInfo) ptr ib :
@@ -1313,23 +1353,29 @@ theorem Sim.OperationPtr.getNumOperands_eq_getNumOperands! (ctx : IRContext OpIn
   simp [getNumOperands, getNumOperands!]
 
 @[grind =]
-theorem Sim.OperationPtr.getNumOperands!_spec (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} :
-    (getNumOperands! ctx ptr) = (ptr.spec.get! ctx.spec).capOperands.toUInt64 := by
-  have := (ctx.sim.encoding_op ptr.spec (by grind)).numOperands
-  simp [getNumOperands!] <;> grind
+theorem Sim.OperationPtr.getNumOperands_toNat (ctx : IRContext OpInfo) ptr (ib : ptr.InBounds ctx) :
+    (getNumOperands ctx ptr ib).toNat = ptr.spec.getNumOperands! ctx.spec := by
+  simpa only [getNumOperands, Buffed.OperationMPtr.readCountOperands_eq_readCountOperands!,
+    ← ib.sim.out, Sim.IRContext.inner_def, Sim.IRContext.spec, Sim.RawIRContext.spec]
+    using (ctx.countsMatch.operands ptr.spec ib.ib).live
 
 @[grind =]
-theorem Sim.OperationPtr.getNumOperands!_spec_of_wf (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} (wf : ctx.spec.WellFormed) :
+theorem Sim.OperationPtr.getNumOperands!_spec (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} :
     (getNumOperands! ctx ptr) = (ptr.spec.getNumOperands! ctx.spec).toUInt64 := by
-  grind [wf.operations ptr.spec, OperationPtr.WellFormed.numOperands_eq_capOperands]
+  simpa only [getNumOperands_eq_getNumOperands! ctx ptr ib, Nat.toUInt64_eq, UInt64.ofNat_toNat]
+    using congrArg Nat.toUInt64 (getNumOperands_toNat ctx ptr ib)
+
+/-- Kept for callers already carrying a well-formedness proof; the count match suffices. -/
+theorem Sim.OperationPtr.getNumOperands!_spec_of_wf (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} (_wf : ctx.spec.WellFormed) :
+    getNumOperands! ctx ptr = (ptr.spec.getNumOperands! ctx.spec).toUInt64 := getNumOperands!_spec ctx ptr (ib := ib)
 
 @[inline]
 def Sim.OperationPtr.getNumSuccessors (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (_ib : ptr.InBounds ctx) : UInt64 :=
-  ptr.impl.readNumBlockOperands ctx.buf (by prove_setLinkBoundsOp ctx ptr)
+  ptr.impl.readCountBlockOperands ctx.buf (by prove_setLinkBoundsOp ctx ptr)
 
 @[inline]
 def Sim.OperationPtr.getNumSuccessors! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : UInt64 :=
-  ptr.impl.readNumBlockOperands! ctx.buf
+  ptr.impl.readCountBlockOperands! ctx.buf
 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getNumSuccessors_eq_getNumSuccessors! (ctx : IRContext OpInfo) ptr ib :
@@ -1337,23 +1383,29 @@ theorem Sim.OperationPtr.getNumSuccessors_eq_getNumSuccessors! (ctx : IRContext 
   simp [getNumSuccessors, getNumSuccessors!]
 
 @[grind =]
-theorem Sim.OperationPtr.getNumSuccessors!_spec (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} :
-    (getNumSuccessors! ctx ptr) = (ptr.spec.get! ctx.spec).capBlockOperands.toUInt64 := by
-  have := (ctx.sim.encoding_op ptr.spec (by grind)).numBlockOperands
-  simp [getNumSuccessors!] <;> grind
+theorem Sim.OperationPtr.getNumSuccessors_toNat (ctx : IRContext OpInfo) ptr (ib : ptr.InBounds ctx) :
+    (getNumSuccessors ctx ptr ib).toNat = ptr.spec.getNumSuccessors! ctx.spec := by
+  simpa only [getNumSuccessors, Buffed.OperationMPtr.readCountBlockOperands_eq_readCountBlockOperands!,
+    ← ib.sim.out, Sim.IRContext.inner_def, Sim.IRContext.spec, Sim.RawIRContext.spec]
+    using (ctx.countsMatch.blockOperands ptr.spec ib.ib).live
 
 @[grind =]
-theorem Sim.OperationPtr.getNumSuccessors!_spec_of_wf (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} (wf : ctx.spec.WellFormed) :
+theorem Sim.OperationPtr.getNumSuccessors!_spec (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} :
     (getNumSuccessors! ctx ptr) = (ptr.spec.getNumSuccessors! ctx.spec).toUInt64 := by
-  grind [wf.operations ptr.spec, OperationPtr.WellFormed.numSuccessors_eq_capBlockOperands]
+  simpa only [getNumSuccessors_eq_getNumSuccessors! ctx ptr ib, Nat.toUInt64_eq, UInt64.ofNat_toNat]
+    using congrArg Nat.toUInt64 (getNumSuccessors_toNat ctx ptr ib)
+
+/-- Kept for callers already carrying a well-formedness proof; the count match suffices. -/
+theorem Sim.OperationPtr.getNumSuccessors!_spec_of_wf (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} (_wf : ctx.spec.WellFormed) :
+    getNumSuccessors! ctx ptr = (ptr.spec.getNumSuccessors! ctx.spec).toUInt64 := getNumSuccessors!_spec ctx ptr (ib := ib)
 
 @[inline]
 def Sim.OperationPtr.getNumResults (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (_ib : ptr.InBounds ctx) : UInt64 :=
-  ptr.impl.readNumResults ctx.buf (by prove_setLinkBoundsOp ctx ptr)
+  ptr.impl.readCountResults ctx.buf (by prove_setLinkBoundsOp ctx ptr)
 
 @[inline]
 def Sim.OperationPtr.getNumResults! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : UInt64 :=
-  ptr.impl.readNumResults! ctx.buf
+  ptr.impl.readCountResults! ctx.buf
 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getNumResults_eq_getNumResults! (ctx : IRContext OpInfo) ptr ib :
@@ -1361,23 +1413,29 @@ theorem Sim.OperationPtr.getNumResults_eq_getNumResults! (ctx : IRContext OpInfo
   simp [getNumResults, getNumResults!]
 
 @[grind =]
-theorem Sim.OperationPtr.getNumResults!_spec (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} :
-    (getNumResults! ctx ptr) = (ptr.spec.get! ctx.spec).capResults.toUInt64 := by
-  have := (ctx.sim.encoding_op ptr.spec (by grind)).numResults
-  simp [getNumResults!] <;> grind
+theorem Sim.OperationPtr.getNumResults_toNat (ctx : IRContext OpInfo) ptr (ib : ptr.InBounds ctx) :
+    (getNumResults ctx ptr ib).toNat = ptr.spec.getNumResults! ctx.spec := by
+  simpa only [getNumResults, Buffed.OperationMPtr.readCountResults_eq_readCountResults!,
+    ← ib.sim.out, Sim.IRContext.inner_def, Sim.IRContext.spec, Sim.RawIRContext.spec]
+    using (ctx.countsMatch.results ptr.spec ib.ib).live
 
 @[grind =]
-theorem Sim.OperationPtr.getNumResults!_spec_of_wf (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} (wf : ctx.spec.WellFormed) :
+theorem Sim.OperationPtr.getNumResults!_spec (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} :
     (getNumResults! ctx ptr) = (ptr.spec.getNumResults! ctx.spec).toUInt64 := by
-  grind [IRContext.WellFormed.operations]
+  simpa only [getNumResults_eq_getNumResults! ctx ptr ib, Nat.toUInt64_eq, UInt64.ofNat_toNat]
+    using congrArg Nat.toUInt64 (getNumResults_toNat ctx ptr ib)
+
+/-- Kept for callers already carrying a well-formedness proof; the count match suffices. -/
+theorem Sim.OperationPtr.getNumResults!_spec_of_wf (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} (_wf : ctx.spec.WellFormed) :
+    getNumResults! ctx ptr = (ptr.spec.getNumResults! ctx.spec).toUInt64 := getNumResults!_spec ctx ptr (ib := ib)
 
 @[inline]
 def Sim.OperationPtr.getNumRegions (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (_ib : ptr.InBounds ctx) : UInt64 :=
-  ptr.impl.readNumRegions ctx.buf (by prove_setLinkBoundsOp ctx ptr)
+  ptr.impl.readCountRegions ctx.buf (by prove_setLinkBoundsOp ctx ptr)
 
 @[inline]
 def Sim.OperationPtr.getNumRegions! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : UInt64 :=
-  ptr.impl.readNumRegions! ctx.buf
+  ptr.impl.readCountRegions! ctx.buf
 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getNumRegions_eq_getNumRegions! (ctx : IRContext OpInfo) ptr ib :
@@ -1385,15 +1443,21 @@ theorem Sim.OperationPtr.getNumRegions_eq_getNumRegions! (ctx : IRContext OpInfo
   simp [getNumRegions, getNumRegions!]
 
 @[grind =]
-theorem Sim.OperationPtr.getNumRegions!_spec (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} :
-    (getNumRegions! ctx ptr) = (ptr.spec.get! ctx.spec).capRegions.toUInt64 := by
-  have := (ctx.sim.encoding_op ptr.spec (by grind)).numRegions
-  simp [getNumRegions!] <;> grind
+theorem Sim.OperationPtr.getNumRegions_toNat (ctx : IRContext OpInfo) ptr (ib : ptr.InBounds ctx) :
+    (getNumRegions ctx ptr ib).toNat = ptr.spec.getNumRegions! ctx.spec := by
+  simpa only [getNumRegions, Buffed.OperationMPtr.readCountRegions_eq_readCountRegions!,
+    ← ib.sim.out, Sim.IRContext.inner_def, Sim.IRContext.spec, Sim.RawIRContext.spec]
+    using (ctx.countsMatch.regions ptr.spec ib.ib).live
 
 @[grind =]
-theorem Sim.OperationPtr.getNumRegions!_spec_of_wf (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} (wf : ctx.spec.WellFormed) :
+theorem Sim.OperationPtr.getNumRegions!_spec (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} :
     (getNumRegions! ctx ptr) = (ptr.spec.getNumRegions! ctx.spec).toUInt64 := by
-  grind [IRContext.WellFormed.operations]
+  simpa only [getNumRegions_eq_getNumRegions! ctx ptr ib, Nat.toUInt64_eq, UInt64.ofNat_toNat]
+    using congrArg Nat.toUInt64 (getNumRegions_toNat ctx ptr ib)
+
+/-- Kept for callers already carrying a well-formedness proof; the count match suffices. -/
+theorem Sim.OperationPtr.getNumRegions!_spec_of_wf (ctx : IRContext OpInfo) ptr {ib : ptr.InBounds ctx} (_wf : ctx.spec.WellFormed) :
+    getNumRegions! ctx ptr = (ptr.spec.getNumRegions! ctx.spec).toUInt64 := getNumRegions!_spec ctx ptr (ib := ib)
 
 @[inline]
 buffed (inline := true)
@@ -2629,6 +2693,8 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numBlockOperands_frame ctx op holdib henc.numBlockOperands
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+        · exact OperationPtr.countBlockOperands_frame ctx op holdib henc.countBlockOperands
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
         · intro bo boIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           have hboIb : bo.InBounds ctx.spec := by
@@ -2641,6 +2707,8 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
             (hagree.mono (Nat.zero_le _) (by grind [IsIncludedI])) hlay (by grind) boIb
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numRegions_frame ctx op holdib henc.numRegions
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+        · exact OperationPtr.countRegions_frame ctx op holdib henc.countRegions
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
         · intro idx idxIn
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -2656,6 +2724,8 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numOperands_frame ctx op holdib henc.numOperands
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+        · exact OperationPtr.countOperands_frame ctx op holdib henc.countOperands
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
         · intro oper operIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           have hooIb : oper.InBounds ctx.spec := by
@@ -2668,6 +2738,8 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
             (hagree.mono (Nat.zero_le _) (by grind [IsIncludedI])) hlay (by grind) operIb
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numResults_frame ctx op holdib henc.numResults
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+        · exact OperationPtr.countResults_frame ctx op holdib henc.countResults
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
         · intro res resIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -2696,6 +2768,8 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
             (by rw [hget]) (by rw [hget]) (by rw [hget]) (by rw [hget]) blkIb
         · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
           · exact BlockPtr.numArguments_frame ctx blk holdib henc.numArguments
+              (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+          · exact BlockPtr.countArguments_frame ctx blk holdib henc.countArguments
               (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
           · intro arg argIn heq
             try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -2805,6 +2879,16 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
               ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
               ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
               ExArray.read64!_blit64_self]
+          · have a56 : (ctx.buf.usize + Buffed.Block.Offsets.countArguments).toNat = ctx.buf.usize.toNat + 56 := by
+              rw [UInt64.uint64_add_int64_toNat_lt] <;> (clear hctxBuf; grind)
+            simp only [← hctxBuf, hget, Block.empty, Buffed.BlockMPtr.readCountArguments!,
+              Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
+              Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
+              Buffed.BlockMPtr.writeNumArguments, htoM]
+            repeat' rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega)]
+            rw [Buffed.IRBufContext.alloc_read64_new halloc (by omega) (by
+              simp only [Buffed.Block.sizeBaseNat] at hbsize; omega)]
+            rfl
           · -- arguments loop: no in-bounds argument exists in an empty block.
             intro arg argIn heq
             try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -3337,18 +3421,19 @@ theorem Sim.BlockPtr.getPrevBlock_eq_getPrevBlock! (ctx : IRContext OpInfo) ptr 
 @[inline]
 def Sim.BlockPtr.getNumArguments (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (_ib : ptr.InBounds ctx) : UInt64 :=
-  ptr.impl.readNumArguments ctx.buf (by prove_setLinkBoundsBlock ctx ptr)
+  ptr.impl.readCountArguments ctx.buf (by prove_setLinkBoundsBlock ctx ptr)
 
 @[inline]
 def Sim.BlockPtr.getNumArguments! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : UInt64 :=
-  ptr.impl.readNumArguments! ctx.buf
+  ptr.impl.readCountArguments! ctx.buf
 
 @[simp, grind =]
 theorem Sim.BlockPtr.getNumArguments_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
-    (getNumArguments ctx ptr ib).toNat = (ptr.spec.get! ctx.spec).capArguments := by
-  have := (ctx.sim.encoding_block ptr.spec (by grind)).numArguments
-  grind [getNumArguments]
+    (getNumArguments ctx ptr ib).toNat = ptr.spec.getNumArguments! ctx.spec := by
+  simpa only [getNumArguments, Buffed.BlockMPtr.readCountArguments_eq_readCountArguments!,
+    ← ib.sim.out, Sim.IRContext.inner_def, Sim.IRContext.spec, Sim.RawIRContext.spec]
+    using (ctx.countsMatch.arguments ptr.spec ib.ib).live
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.getNumArguments_eq_getNumArguments! (ctx : IRContext OpInfo) ptr ib :
@@ -4003,6 +4088,8 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numBlockOperands_frame ctx op holdib henc.numBlockOperands
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+        · exact OperationPtr.countBlockOperands_frame ctx op holdib henc.countBlockOperands
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
         · intro bo boIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           have hboIb : bo.InBounds ctx.spec := by
@@ -4015,6 +4102,8 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
             (hagree.mono (Nat.zero_le _) (by grind [IsIncludedI])) hlay (by grind) boIb
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numRegions_frame ctx op holdib henc.numRegions
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+        · exact OperationPtr.countRegions_frame ctx op holdib henc.countRegions
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
         · intro idx idxIn
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -4030,6 +4119,8 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numOperands_frame ctx op holdib henc.numOperands
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+        · exact OperationPtr.countOperands_frame ctx op holdib henc.countOperands
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
         · intro oper operIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           have hooIb : oper.InBounds ctx.spec := by
@@ -4042,6 +4133,8 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
             (hagree.mono (Nat.zero_le _) (by grind [IsIncludedI])) hlay (by grind) operIb
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numResults_frame ctx op holdib henc.numResults
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+        · exact OperationPtr.countResults_frame ctx op holdib henc.countResults
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
         · intro res resIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -4068,6 +4161,8 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
           (by rw [hget]) (by rw [hget]) (by rw [hget]) (by rw [hget]) blkIb
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact BlockPtr.numArguments_frame ctx blk holdib henc.numArguments
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
+        · exact BlockPtr.countArguments_frame ctx blk holdib henc.countArguments
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget])
         · intro arg argIn heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -4471,6 +4566,10 @@ theorem Sim.OperationPtr.allocEmptyHeaderImpl_new_op_reads {ctx₀ : Buffed.IRBu
     Buffed.OperationMPtr.readNext! ctxBuf ptrImpl = Buffed.OperationOPtr.none ∧
     Buffed.OperationMPtr.readParent! ctxBuf ptrImpl = Buffed.BlockOPtr.none ∧
     Buffed.OperationMPtr.readOpType! ctxBuf ptrImpl = opType ∧
+    Buffed.OperationMPtr.readCountResults! ctxBuf ptrImpl = 0 ∧
+    Buffed.OperationMPtr.readCountOperands! ctxBuf ptrImpl = 0 ∧
+    Buffed.OperationMPtr.readCountBlockOperands! ctxBuf ptrImpl = 0 ∧
+    Buffed.OperationMPtr.readCountRegions! ctxBuf ptrImpl = 0 ∧
     Buffed.OperationMPtr.readAttrs! ctxBuf ptrImpl = 0 := by
   have hptr := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_ge h
   have hptn := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_toNat h
@@ -4508,17 +4607,25 @@ theorem Sim.OperationPtr.allocEmptyHeaderImpl_new_op_reads {ctx₀ : Buffed.IRBu
       have h64 := hstep 64 64 rfl (by omega)
       have h80 := hstep 80 80 rfl (by omega)
       have h96 := hstep 96 96 rfl (by omega)
+      have h8 := hstep 8 8 rfl (by omega)
+      have h88 := hstep 88 88 rfl (by omega)
+      have h56 := hstep 56 56 rfl (by omega)
+      have h72 := hstep 72 72 rfl (by omega)
       clear hstep
       simp only [Buffed.OperationMPtr.readNumResults!, Buffed.OperationMPtr.readNumOperands!,
         Buffed.OperationMPtr.readNumBlockOperands!, Buffed.OperationMPtr.readNumRegions!,
         Buffed.OperationMPtr.readPrev!, Buffed.OperationMPtr.readNext!,
         Buffed.OperationMPtr.readParent!, Buffed.OperationMPtr.readOpType!,
+        Buffed.OperationMPtr.readCountResults!,
+        Buffed.OperationMPtr.readCountOperands!,
+        Buffed.OperationMPtr.readCountBlockOperands!,
+        Buffed.OperationMPtr.readCountRegions!,
         Buffed.OperationMPtr.readAttrs!,
         Buffed.OperationMPtr.writeOpType, Buffed.OperationMPtr.writePrev,
         Buffed.OperationMPtr.writeNext, Buffed.OperationMPtr.writeParent,
         Buffed.OperationMPtr.writeNumRegions, Buffed.OperationMPtr.writeNumBlockOperands,
         Buffed.OperationMPtr.writeNumResults, Buffed.OperationMPtr.writeNumOperands]
-      refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
         grind (gen := 20) (splits := 30) [IsDisjoint, IsIncluded, ExArray.read64!_extend_new]
     · exact absurd halloc (by simp)
 
@@ -4747,9 +4854,13 @@ theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {opCode : OpInfo}
     Buffed.OperationMPtr.readNext! ctxBuf ptrImpl = Buffed.OperationOPtr.none ∧
     Buffed.OperationMPtr.readParent! ctxBuf ptrImpl = Buffed.BlockOPtr.none ∧
     Buffed.OperationMPtr.readOpType! ctxBuf ptrImpl = opType ∧
+    Buffed.OperationMPtr.readCountResults! ctxBuf ptrImpl = 0 ∧
+    Buffed.OperationMPtr.readCountOperands! ctxBuf ptrImpl = 0 ∧
+    Buffed.OperationMPtr.readCountBlockOperands! ctxBuf ptrImpl = 0 ∧
+    Buffed.OperationMPtr.readCountRegions! ctxBuf ptrImpl = 0 ∧
     Buffed.OperationMPtr.readAttrs! ctxBuf ptrImpl = 0 := by
   obtain ⟨ctxH, hH, h₁, h₂, rfl⟩ := allocEmptyImpl_eq h
-  obtain ⟨hnr', hno', hnb', hnrg', hprev', hnext', hpar', hty', hattrs'⟩ :=
+  obtain ⟨hnr', hno', hnb', hnrg', hprev', hnext', hpar', hty', hc0, hc1, hc2, hc3, hattrs'⟩ :=
     allocEmptyHeaderImpl_new_op_reads hH
   have hstep := allocEmptyHeaderImpl_properties_toNat hH
   have haddr := hstep Buffed.Operation.Offsets.properties 104 (by decide) (by omega)
@@ -4762,7 +4873,11 @@ theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {opCode : OpInfo}
   have h64 := hstep Buffed.Operation.Offsets.numRegions 64 (by decide) (by omega)
   have h80 := hstep Buffed.Operation.Offsets.numOperands 80 (by decide) (by omega)
   have h96 := hstep Buffed.Operation.Offsets.attrs 96 (by decide) (by omega)
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  have h8 := hstep Buffed.Operation.Offsets.countResults 8 (by decide) (by omega)
+  have h88 := hstep Buffed.Operation.Offsets.countOperands 88 (by decide) (by omega)
+  have h56 := hstep Buffed.Operation.Offsets.countBlockOperands 56 (by decide) (by omega)
+  have h72 := hstep Buffed.Operation.Offsets.countRegions 72 (by decide) (by omega)
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp only [Buffed.OperationMPtr.readNumResults!] at hnr' ⊢
     rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
       (show (ptrImpl + Buffed.Operation.Offsets.numResults).toNat + 8
@@ -4803,6 +4918,26 @@ theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {opCode : OpInfo}
       (show (ptrImpl + Buffed.Operation.Offsets.opType).toNat + 4
         ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
     exact hty'
+  · simp only [Buffed.OperationMPtr.readCountResults!] at hc0 ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.countResults).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hc0
+  · simp only [Buffed.OperationMPtr.readCountOperands!] at hc1 ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.countOperands).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hc1
+  · simp only [Buffed.OperationMPtr.readCountBlockOperands!] at hc2 ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.countBlockOperands).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hc2
+  · simp only [Buffed.OperationMPtr.readCountRegions!] at hc3 ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.countRegions).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hc3
   · simp only [Buffed.OperationMPtr.readAttrs!] at hattrs' ⊢
     rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
       (show (ptrImpl + Buffed.Operation.Offsets.attrs).toNat + 8
@@ -4959,7 +5094,7 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
   have hro := Sim.OperationPtr.allocEmptyImpl_read_old heqImpl
   have hagree : Buffed.AgreesOn ctxBuf ctx.buf 0 ctx.buf.mem.size :=
     ⟨by omega, fun w a len _ ha => hro w a len ha, fun _ _ h => hattrs h⟩
-  obtain ⟨hRnr, hRno, hRnb, hRnrg, hRprev, hRnext, hRpar, hRty, hRattrs⟩ :=
+  obtain ⟨hRnr, hRno, hRnb, hRnrg, hRprev, hRnext, hRpar, hRty, hCountResults, hCountOperands, hCountBlockOperands, hCountRegions, hRattrs⟩ :=
     Sim.OperationPtr.allocEmptyImpl_new_op_reads heqImpl
   have hnew : ptrSpec = ⟨ptrImpl.toNat⟩ := Veir.OperationPtr.allocEmptyAt_ptr_eq heqSpec
   subst hnew
@@ -5093,6 +5228,8 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numBlockOperands_frame ctx op hold henc.numBlockOperands
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
+        · exact OperationPtr.countBlockOperands_frame ctx op hold henc.countBlockOperands
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
         · intro bo boIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           have hboIb : bo.InBounds ctx.spec := by grind [Veir.BlockOperandPtr.inBounds_def]
@@ -5103,6 +5240,8 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
             (hagree.mono (Nat.zero_le _) (by grind [IsIncludedI])) hlp (by grind [layout_grind]) boIb
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numRegions_frame ctx op hold henc.numRegions
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
+        · exact OperationPtr.countRegions_frame ctx op hold henc.countRegions
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
         · intro idx idxIn
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -5119,6 +5258,8 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numOperands_frame ctx op hold henc.numOperands
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
+        · exact OperationPtr.countOperands_frame ctx op hold henc.countOperands
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
         · intro oper operIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           have hooIb : oper.InBounds ctx.spec := by grind [Veir.OpOperandPtr.inBounds_def]
@@ -5129,6 +5270,8 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
             (hagree.mono (Nat.zero_le _) (by grind [IsIncludedI])) hlp (by grind [layout_grind]) operIb
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · exact OperationPtr.numResults_frame ctx op hold henc.numResults
+            (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
+        · exact OperationPtr.countResults_frame ctx op hold henc.countResults
             (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
         · intro res resIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -5163,21 +5306,25 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
           exact hrp
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · grind
+        · simp [hget, hnewToM, hCountResults, hCountOperands, hCountBlockOperands, hCountRegions, Veir.Operation.empty]
         · intro bo boIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           exact absurd boIb (Veir.BlockOperandPtr.allocEmptyAt_no_operands heqSpec heq)
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · grind
+        · simp [hget, hnewToM, hCountResults, hCountOperands, hCountBlockOperands, hCountRegions, Veir.Operation.empty]
         · intro idx idxIn
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           grind
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · grind
+        · simp [hget, hnewToM, hCountResults, hCountOperands, hCountBlockOperands, hCountRegions, Veir.Operation.empty]
         · intro oper operIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           exact absurd operIb (Veir.OpOperandPtr.allocEmptyAt_no_operands heqSpec heq)
       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
         · grind
+        · simp [hget, hnewToM, hCountResults, hCountOperands, hCountBlockOperands, hCountRegions, Veir.Operation.empty]
         · intro res resIb heq
           try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
           exact absurd resIb (Veir.OpResultPtr.allocEmptyAt_no_results heqSpec heq)
@@ -5197,6 +5344,8 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
         (by rw [hget2]) (by rw [hget2]) (by rw [hget2]) (by rw [hget2]) blkIb
     · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · exact BlockPtr.numArguments_frame ctx blk hold henc.numArguments
+          (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
+      · exact BlockPtr.countArguments_frame ctx blk hold henc.countArguments
           (hagree.mono (Nat.zero_le _) (by grind)) (by rw [hget2])
       · intro arg argIn heq
         try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *

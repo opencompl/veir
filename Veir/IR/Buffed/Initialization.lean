@@ -46,6 +46,10 @@ theorem OperationMPtr.initialize_attributes (b : IRBufContext) (ptr : OperationM
 theorem OperationMPtr.initialize_reads (b : IRBufContext) (ptr : OperationMPtr)
     (nr no nb ng : UInt64) (ty : UInt32) (hb) :
     OperationMPtr.readNumOperands! (ptr.initialize b nr no nb ng ty hb) ptr = no ∧
+    OperationMPtr.readCountResults! (ptr.initialize b nr no nb ng ty hb) ptr = OperationMPtr.readCountResults! b ptr ∧
+    OperationMPtr.readCountOperands! (ptr.initialize b nr no nb ng ty hb) ptr = OperationMPtr.readCountOperands! b ptr ∧
+    OperationMPtr.readCountBlockOperands! (ptr.initialize b nr no nb ng ty hb) ptr = OperationMPtr.readCountBlockOperands! b ptr ∧
+    OperationMPtr.readCountRegions! (ptr.initialize b nr no nb ng ty hb) ptr = OperationMPtr.readCountRegions! b ptr ∧
     OperationMPtr.readNumResults! (ptr.initialize b nr no nb ng ty hb) ptr = nr ∧
     OperationMPtr.readNumBlockOperands! (ptr.initialize b nr no nb ng ty hb) ptr = nb ∧
     OperationMPtr.readNumRegions! (ptr.initialize b nr no nb ng ty hb) ptr = ng ∧
@@ -70,9 +74,13 @@ theorem OperationMPtr.initialize_reads (b : IRBufContext) (ptr : OperationMPtr)
   have h64 := hstep 64 64 rfl (by omega)
   have h80 := hstep 80 80 rfl (by omega)
   have h96 := hstep 96 96 rfl (by omega)
+  have h8 := hstep 8 8 rfl (by omega)
+  have h56 := hstep 56 56 rfl (by omega)
+  have h72 := hstep 72 72 rfl (by omega)
+  have h88 := hstep 88 88 rfl (by omega)
   clear hstep
-  simp only [OperationMPtr.initialize, OperationMPtr.writeNumOperands, OperationMPtr.writeNumResults, OperationMPtr.writeNumBlockOperands, OperationMPtr.writeNumRegions, OperationMPtr.writeParent, OperationMPtr.writeNext, OperationMPtr.writePrev, OperationMPtr.writeOpType, OperationMPtr.writeAttrs, OperationMPtr.readNumOperands!, OperationMPtr.readNumResults!, OperationMPtr.readNumBlockOperands!, OperationMPtr.readNumRegions!, OperationMPtr.readParent!, OperationMPtr.readNext!, OperationMPtr.readPrev!, OperationMPtr.readOpType!, OperationMPtr.readAttrs!]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+  simp only [OperationMPtr.initialize, OperationMPtr.writeNumOperands, OperationMPtr.writeNumResults, OperationMPtr.writeNumBlockOperands, OperationMPtr.writeNumRegions, OperationMPtr.writeParent, OperationMPtr.writeNext, OperationMPtr.writePrev, OperationMPtr.writeOpType, OperationMPtr.writeAttrs, OperationMPtr.readCountResults!, OperationMPtr.readCountOperands!, OperationMPtr.readCountBlockOperands!, OperationMPtr.readCountRegions!, OperationMPtr.readNumOperands!, OperationMPtr.readNumResults!, OperationMPtr.readNumBlockOperands!, OperationMPtr.readNumRegions!, OperationMPtr.readParent!, OperationMPtr.readNext!, OperationMPtr.readPrev!, OperationMPtr.readOpType!, OperationMPtr.readAttrs!]
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     grind (gen := 20) (splits := 30) [IsDisjoint, IsIncluded]
 
 theorem OperationMPtr.initialize_read_disjoint (b : IRBufContext) (ptr : OperationMPtr)
@@ -159,6 +167,10 @@ theorem OperationMPtr.initializeOp_read_disjoint (b : IRBufContext) (ptr : Opera
 theorem OperationMPtr.initializeOp_reads (b : IRBufContext) (ptr : OperationMPtr)
     (nr no nb ng : UInt64) (op : OpInfo) (props : HasOpInfo.propertiesOf op) (hb ha) :
     OperationMPtr.readNumOperands! (ptr.initializeOp b nr no nb ng op props hb ha) ptr = no ∧
+    OperationMPtr.readCountResults! (ptr.initializeOp b nr no nb ng op props hb ha) ptr = OperationMPtr.readCountResults! b ptr ∧
+    OperationMPtr.readCountOperands! (ptr.initializeOp b nr no nb ng op props hb ha) ptr = OperationMPtr.readCountOperands! b ptr ∧
+    OperationMPtr.readCountBlockOperands! (ptr.initializeOp b nr no nb ng op props hb ha) ptr = OperationMPtr.readCountBlockOperands! b ptr ∧
+    OperationMPtr.readCountRegions! (ptr.initializeOp b nr no nb ng op props hb ha) ptr = OperationMPtr.readCountRegions! b ptr ∧
     OperationMPtr.readNumResults! (ptr.initializeOp b nr no nb ng op props hb ha) ptr = nr ∧
     OperationMPtr.readNumBlockOperands! (ptr.initializeOp b nr no nb ng op props hb ha) ptr = nb ∧
     OperationMPtr.readNumRegions! (ptr.initializeOp b nr no nb ng op props hb ha) ptr = ng ∧
@@ -185,8 +197,12 @@ theorem OperationMPtr.initializeOp_reads (b : IRBufContext) (ptr : OperationMPtr
   have h64 := hstep 64 64 rfl (by omega)
   have h80 := hstep 80 80 rfl (by omega)
   have h96 := hstep 96 96 rfl (by omega)
+  have h8 := hstep 8 8 rfl (by omega)
+  have h56 := hstep 56 56 rfl (by omega)
+  have h72 := hstep 72 72 rfl (by omega)
+  have h88 := hstep 88 88 rfl (by omega)
   clear hstep
-  simp only [OperationMPtr.readNumOperands!, OperationMPtr.readNumResults!, OperationMPtr.readNumBlockOperands!, OperationMPtr.readNumRegions!, OperationMPtr.readParent!, OperationMPtr.readNext!, OperationMPtr.readPrev!, OperationMPtr.readOpType!, OperationMPtr.readAttrs!,
+  simp only [OperationMPtr.readCountResults!, OperationMPtr.readCountOperands!, OperationMPtr.readCountBlockOperands!, OperationMPtr.readCountRegions!, OperationMPtr.readNumOperands!, OperationMPtr.readNumResults!, OperationMPtr.readNumBlockOperands!, OperationMPtr.readNumRegions!, OperationMPtr.readParent!, OperationMPtr.readNext!, OperationMPtr.readPrev!, OperationMPtr.readOpType!, OperationMPtr.readAttrs!,
     ExArray.read64!_eq_read!, ExArray.read32!_eq_read!] at hreads ⊢
   unfold initializeOp
   simpa (disch := (simp only [IsDisjoint]; grind)) only

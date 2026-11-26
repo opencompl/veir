@@ -1,5 +1,7 @@
 module
 
+public import Veir.IR.Buffed.PushPublish
+
 public import Veir.IR
 public import Veir.Rewriter.LinkedList.Basic
 public import Veir.Rewriter.LinkedList.GetSet
@@ -22,7 +24,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuff
 variable {ctx : Sim.IRContext OpInfo}
 
 @[inline]
-protected def Rewriter.setBlockOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
+protected def Rewriter.blockOperandPayload (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
     (hnum : opPtr.toNat + Buffed.Operation.sizeBaseNat ≤ ctx₀.size)
     (hslot : (opPtr + opPtr.computeBlockOperandOffset (OpInfo := OpInfo) ctx₀ idx hnum).toNat + Buffed.BlockOperand.size.toNat ≤ ctx₀.size)
     (value : Buffed.BlockMPtr) : Buffed.IRBufContext :=
@@ -45,15 +47,15 @@ protected def Rewriter.pushBlockOperand (ctx : IRContext OpInfo) (opPtr : Operat
   opPtr.pushBlockOperand ctx operand (by grind)
 
 set_option maxHeartbeats 1000000000 in
-/-- The `Sim` relation survives writing a fresh block operand into slot `idx` of `opPtr`'s (pre-allocated) block-operand array while the spec pushes the corresponding `BlockOperand`. -/
-theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
+/-- The payload matches after writing a fresh block operand into slot `idx` of `opPtr`'s (pre-allocated) block-operand array while the spec pushes the corresponding `BlockOperand`. -/
+theorem Rewriter.blockOperandPayload_matches (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (blockPtr : Sim.BlockPtr)
     (opPtrInBounds : opPtr.InBounds ctx) (blockInBounds : blockPtr.InBounds ctx)
     (hidx : idx.toNat = opPtr.spec.getNumSuccessors! ctx.spec)
     (hcap : idx.toNat < (opPtr.spec.get! ctx.spec).capBlockOperands)
     (hnum : opPtr.impl.toNat + Buffed.Operation.sizeBaseNat ≤ ctx.buf.size)
     (hslot : (opPtr.impl + Buffed.OperationMPtr.computeBlockOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + Buffed.BlockOperand.size.toNat ≤ ctx.buf.size) :
-    Veir.Sim ⟨Rewriter.setBlockOperand opPtr.impl ctx.buf idx hnum hslot blockPtr.impl,
+    Sim.Publication.Payload ⟨Rewriter.blockOperandPayload opPtr.impl ctx.buf idx hnum hslot blockPtr.impl,
               .mk (Rewriter.pushBlockOperand ctx.spec opPtr.spec blockPtr.spec (by grind) (by grind))⟩ := by
   have hin := ctx.sim.in_bounds (.operation opPtr.spec) (by grind)
   have hsz : ctx.buf.mem.size < 2^63 := by grind
@@ -84,9 +86,9 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
   have hread : ∀ (w : Nat) (a len : UInt64),
       (a.toNat + len.toNat ≤ (opPtr.impl + Buffed.OperationMPtr.computeBlockOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
        ∨ (opPtr.impl + Buffed.OperationMPtr.computeBlockOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ a.toNat) →
-      (Rewriter.setBlockOperand opPtr.impl ctx.buf idx hnum hslot blockPtr.impl).mem.read! (w := w) a len = ctx.buf.mem.read! a len := by
+      (Rewriter.blockOperandPayload opPtr.impl ctx.buf idx hnum hslot blockPtr.impl).mem.read! (w := w) a len = ctx.buf.mem.read! a len := by
     intro w a len ha
-    simp only [Rewriter.setBlockOperand, Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
+    simp only [Rewriter.blockOperandPayload, Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
       Buffed.BlockOperandMPtr.writeBack, Buffed.BlockOperandMPtr.writeNextUse]
     rw [ExArray.read!_blit64_disjoint _ _ _ _ _
         (by simp only [IsDisjoint]; have := ek Buffed.BlockOperand.Offsets.value 24 (by decide) (by decide); omega),
@@ -96,12 +98,12 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
         (by simp only [IsDisjoint]; have := ek Buffed.BlockOperand.Offsets.back 8 (by decide) (by decide); omega),
       ExArray.read!_blit64_disjoint _ _ _ _ _
         (by simp only [IsDisjoint]; have := ek Buffed.BlockOperand.Offsets.nextUse 0 (by decide) (by decide); omega)]
-  have hsizele : ctx.buf.mem.size ≤ (Rewriter.setBlockOperand opPtr.impl ctx.buf idx hnum hslot blockPtr.impl).mem.size := by
-    simp only [Rewriter.setBlockOperand, Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
+  have hsizele : ctx.buf.mem.size ≤ (Rewriter.blockOperandPayload opPtr.impl ctx.buf idx hnum hslot blockPtr.impl).mem.size := by
+    simp only [Rewriter.blockOperandPayload, Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
       Buffed.BlockOperandMPtr.writeBack, Buffed.BlockOperandMPtr.writeNextUse]
     grind [ExArray.blit64_size]
-  have hattr : (Rewriter.setBlockOperand opPtr.impl ctx.buf idx hnum hslot blockPtr.impl).attributes = ctx.buf.attributes := by
-    simp only [Rewriter.setBlockOperand, Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
+  have hattr : (Rewriter.blockOperandPayload opPtr.impl ctx.buf idx hnum hslot blockPtr.impl).attributes = ctx.buf.attributes := by
+    simp only [Rewriter.blockOperandPayload, Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
       Buffed.BlockOperandMPtr.writeBack, Buffed.BlockOperandMPtr.writeNextUse]
   have hlay : ctx.spec.LayoutPreserved (Rewriter.pushBlockOperand ctx.spec opPtr.spec blockPtr.spec (by grind) (by grind)) :=
     IRContext.LayoutPreserved.of_layoutUnchanged_ltr (by grind [Rewriter.pushBlockOperand])
@@ -109,7 +111,7 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
   have hagreeD : ∀ lo hi : Nat,
       (hi ≤ (opPtr.impl + Buffed.OperationMPtr.computeBlockOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
        ∨ (opPtr.impl + Buffed.OperationMPtr.computeBlockOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ lo) →
-      Buffed.AgreesOn (Rewriter.setBlockOperand opPtr.impl ctx.buf idx hnum hslot blockPtr.impl) ctx.buf lo hi :=
+      Buffed.AgreesOn (Rewriter.blockOperandPayload opPtr.impl ctx.buf idx hnum hslot blockPtr.impl) ctx.buf lo hi :=
     fun lo hi hd => ⟨hsizele, fun w a len h1 h2 => hread w a len (by omega), fun _ _ h => by simp only [hattr]; exact h⟩
   constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
   · -- fieldsInBounds
@@ -126,7 +128,7 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
     intros gptr gptrIb
     clear hread hattr ek hagreeD
     have := ctx.sim.in_bounds gptr (by grind [Rewriter.pushBlockOperand])
-    grind [TopLevelPtr, Rewriter.pushBlockOperand, Rewriter.setBlockOperand]
+    grind [TopLevelPtr, Rewriter.pushBlockOperand, Rewriter.blockOperandPayload]
   · -- disjoint_allocs
     clear hread hattr ek hagreeD
     have := ctx.sim.disjoint_allocs
@@ -230,7 +232,7 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
             grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', UInt64.ofNat_toNat]
           constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
           · -- nextUse
-            simp only [Buffed.BlockOperandMPtr.readNextUse!, hnMeq, hnget, Rewriter.setBlockOperand,
+            simp only [Buffed.BlockOperandMPtr.readNextUse!, hnMeq, hnget, Rewriter.blockOperandPayload,
               Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
               Buffed.BlockOperandMPtr.writeBack, Buffed.BlockOperandMPtr.writeNextUse]
             rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.BlockOperand.Offsets.value 24 (by decide) (by decide); have h2 := ek Buffed.BlockOperand.Offsets.nextUse 0 (by decide) (by decide); omega),
@@ -239,7 +241,7 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
               ExArray.read64!_blit64_self]
             simp [Sim.OptionBlockOperandPtr.Sim_def, Sim.OptionBlockOperandPtr.spec, Veir.BlockOperandPtr.toO]
           · -- back
-            simp only [Buffed.BlockOperandMPtr.readBack!, hnMeq, hnget, Rewriter.setBlockOperand,
+            simp only [Buffed.BlockOperandMPtr.readBack!, hnMeq, hnget, Rewriter.blockOperandPayload,
               Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
               Buffed.BlockOperandMPtr.writeBack, Buffed.BlockOperandMPtr.writeNextUse]
             rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.BlockOperand.Offsets.value 24 (by decide) (by decide); have h2 := ek Buffed.BlockOperand.Offsets.back 8 (by decide) (by decide); omega),
@@ -270,7 +272,7 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
             (try dsimp only)
             exact hbackM
           · -- owner
-            simp only [Buffed.BlockOperandMPtr.readOwner!, hnMeq, hnget, Rewriter.setBlockOperand,
+            simp only [Buffed.BlockOperandMPtr.readOwner!, hnMeq, hnget, Rewriter.blockOperandPayload,
               Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
               Buffed.BlockOperandMPtr.writeBack, Buffed.BlockOperandMPtr.writeNextUse]
             rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.BlockOperand.Offsets.value 24 (by decide) (by decide); have h2 := ek Buffed.BlockOperand.Offsets.owner 16 (by decide) (by decide); omega),
@@ -280,7 +282,7 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
             (try clear hro8 hro4); (try clear hslot hnum)
             grind [Rewriter.pushBlockOperand]
           · -- value
-            simp only [Buffed.BlockOperandMPtr.readValue!, hnMeq, hnget, Rewriter.setBlockOperand,
+            simp only [Buffed.BlockOperandMPtr.readValue!, hnMeq, hnget, Rewriter.blockOperandPayload,
               Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
               Buffed.BlockOperandMPtr.writeBack, Buffed.BlockOperandMPtr.writeNextUse]
             rw [ExArray.read64!_blit64_self]

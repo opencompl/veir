@@ -15,7 +15,6 @@ private def hasUsesFrom (ctx : IRContext OpInfo) (op : OperationPtr) (ib : op.In
     have := UInt64.toNat_lt (op.getNumResults ctx ib)
     simp only [Nat.toUInt64_eq, UInt64.toNat_ofNat']
     omega
-  have hop := wf.operations op.spec ib.ib
   let result := op.getResultPtr ctx index.toUInt64 (by grind)
   match (result.getFirstUse ctx (by grind)).toOption with
   | some _ => true
@@ -41,7 +40,6 @@ private theorem firstUse_none_iff (ctx : IRContext OpInfo) (op : OperationPtr)
 private theorem hasUsesFrom_spec (ctx : IRContext OpInfo) (op : OperationPtr) (ib : op.InBounds ctx)
     (wf : ctx.spec.WellFormed) (index : Nat) (hi : index < (op.getNumResults ctx ib).toNat) :
     hasUsesFrom ctx op ib wf index hi = Veir.OperationPtr.hasUses!.loop op.spec ctx.spec index := by
-  have hcap := (wf.operations op.spec ib.ib).capResults_eq_numResults
   induction index with
   | zero =>
     have := firstUse_none_iff ctx op ib 0 (by grind)
@@ -70,9 +68,7 @@ def OperationPtr.hasUses (ctx : IRContext OpInfo) (op : OperationPtr) (ib : op.I
 theorem OperationPtr.hasUses_spec (ctx : IRContext OpInfo) (op : OperationPtr) (ib : op.InBounds ctx)
     (wf : ctx.spec.WellFormed) : op.hasUses ctx ib wf = op.spec.hasUses! ctx.spec := by
   simp only [hasUses, Veir.OperationPtr.hasUses!]
-  have hop := (wf.operations op.spec ib.ib).capResults_eq_numResults
-  have hrepr := ctx.isRepr.operations_indices op.spec ib.ib
-  have heq : (op.getNumResults ctx ib).toNat = op.spec.getNumResults! ctx.spec := by grind
+  have heq := OperationPtr.getNumResults_toNat ctx op ib
   split
   · grind
   · rw [hasUsesFrom_spec]

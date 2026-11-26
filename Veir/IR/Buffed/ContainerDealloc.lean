@@ -209,11 +209,15 @@ def Sim.BlockPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numBlockOperands
+         · rw [hget]
+           exact henc.countBlockOperands
          · intro bo hbo _
            exact BlockOperandPtr.matches_BlockPtr_dealloc ptr ib fib bo hbo
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numRegions
+         · rw [hget]
+           exact henc.countRegions
          · intro idx hidx
            have hnum : op.getNumRegions! (ptr.spec.dealloc ctx.spec) =
                op.getNumRegions! ctx.spec := by grind
@@ -224,11 +228,15 @@ def Sim.BlockPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numOperands
+         · rw [hget]
+           exact henc.countOperands
          · intro oper hoper _
            exact OpOperandPtr.matches_BlockPtr_dealloc ptr ib fib oper hoper
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numResults
+         · rw [hget]
+           exact henc.countResults
          · intro res hres _
            exact OpResultPtr.matches_BlockPtr_dealloc ptr ib fib res hres
      case encoding_block =>
@@ -253,6 +261,8 @@ def Sim.BlockPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numArguments
+         · rw [hget]
+           exact henc.countArguments
          · intro arg harg _
            exact BlockArgumentPtr.matches_BlockPtr_dealloc ptr ib fib arg harg
      case encoding_region =>
@@ -451,11 +461,15 @@ def Sim.RegionPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numBlockOperands
+         · rw [hget]
+           exact henc.countBlockOperands
          · intro bo hbo _
            exact BlockOperandPtr.matches_RegionPtr_dealloc ptr ib fib bo hbo
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numRegions
+         · rw [hget]
+           exact henc.countRegions
          · intro idx hidx
            have hnum : op.getNumRegions! (ptr.spec.dealloc ctx.spec) =
                op.getNumRegions! ctx.spec := by grind
@@ -466,11 +480,15 @@ def Sim.RegionPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numOperands
+         · rw [hget]
+           exact henc.countOperands
          · intro oper hoper _
            exact OpOperandPtr.matches_RegionPtr_dealloc ptr ib fib oper hoper
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numResults
+         · rw [hget]
+           exact henc.countResults
          · intro res hres _
            exact OpResultPtr.matches_RegionPtr_dealloc ptr ib fib res hres
      case encoding_block =>
@@ -495,6 +513,8 @@ def Sim.RegionPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
        · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numArguments
+         · rw [hget]
+           exact henc.countArguments
          · intro arg harg _
            exact BlockArgumentPtr.matches_RegionPtr_dealloc ptr ib fib arg harg
      case encoding_region =>

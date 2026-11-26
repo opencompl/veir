@@ -3,6 +3,7 @@ module
 
 public import Veir.IR.Buffed.Allocation
 public import Veir.IR.Buffed.InBounds
+import Veir.IR.Buffed.RawAccessorsLemmas
 import all Veir.IR.Buffed.Basic
 
 @[expose] public section
@@ -81,12 +82,22 @@ theorem Sim.OperationPtr.allocFresh_sim
   have hattrs := Buffed.IRBufContext.reserve_attributes hres
   have hdisj := ctx.reservation_disjoint hres
   have hsize := Buffed.OperationMPtr.initializeOp_size b ptr nr no nb ng op props hb ha
-  obtain ⟨hno, hnr, hnb, hng, hpar, hnext, hprev, hty, hattr⟩ :=
+  obtain ⟨hno, hcr, hco, hcb, hcg, hnr, hnb, hng, hpar, hnext, hprev, hty, hattr⟩ :=
     Buffed.OperationMPtr.initializeOp_reads b ptr nr no nb ng op props hb ha
+  have zero (off : Int64) (low : 0 ≤ off.toInt) (high : off.toInt + 8 ≤ 104) :
+      b.mem.read64! (ptr + off) = 0 := by
+    have haddr : (ptr + off).toNat = (ptr.toNat + off.toInt).toNat := by
+      rw [UInt64.uint64_add_int64_toNat_lt] <;> have := b.mem.fits_in_memory <;> grind
+    have hbase : ptr.toNat = address.toNat + nr.toNat * 40 := hptr
+    simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
+      show Buffed.Operation.sizeBase.toNat = 104 from rfl] at hcompute
+    apply Buffed.IRBufContext.reserve_read64_new hres <;> omega
   apply allocReserved_sim (h₁ := hr) (h₂ := ho) (h₃ := hbo) (h₄ := hg)
     (start := address.toNat) hptr (by rw [hsize]; exact hbounds.1)
     (by rw [hsize]; exact hbounds.2) ?_ ?_ hdisj
-    hnr hno hnb hng hprev hnext hpar hty hattr
+    hnr hno hnb hng
+    (hcr.trans (zero Buffed.Operation.Offsets.countResults (by decide) (by decide))) (hco.trans (zero Buffed.Operation.Offsets.countOperands (by decide) (by decide))) (hcb.trans (zero Buffed.Operation.Offsets.countBlockOperands (by decide) (by decide))) (hcg.trans (zero Buffed.Operation.Offsets.countRegions (by decide) (by decide)))
+    hprev hnext hpar hty hattr
     (Buffed.OperationMPtr.initializeOp_property b ptr nr no nb ng op props hb ha)
     hspec
   · intro i a hi

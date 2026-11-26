@@ -2,7 +2,7 @@ module
 
 public import Veir.Rewriter.GetSet
 public import Veir.IR.WellFormed
-public import Veir.Rewriter.WellFormed.Construction
+public import Veir.IR.Grind
 
 public section
 
@@ -73,10 +73,10 @@ theorem OperationPtr.allocEmptyAt_preserves_blockChain
   refine ⟨array, ?_⟩
   apply RegionPtr.blockChain_unchanged harray <;> grind
 
-theorem OperationPtr.allocEmptyAt_constructionWellFormed
+theorem OperationPtr.allocEmptyAt_wellFormed
     (wf : ctx.WellFormed) (hfields : ctx'.FieldsInBounds)
     (halloc : OperationPtr.allocEmptyAt ctx ty properties cr cb cg co addr = some (ctx', newOp)) :
-    ConstructionWellFormed ctx' newOp ∅ ∅ := by
+    ctx'.WellFormed := by
   refine ⟨hfields, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simpa only [Std.ExtHashSet.filter_empty] using
       allocEmptyAt_preserves_valueDefUse wf halloc
@@ -89,27 +89,26 @@ theorem OperationPtr.allocEmptyAt_constructionWellFormed
     · subst op
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
         grind [Operation.empty]
-    · exact OperationPtr.ConstructionWellFormed.of_wellFormed
-        (allocEmptyAt_preserves_operation_wellFormed wf hfields halloc op hop h)
+    · exact allocEmptyAt_preserves_operation_wellFormed wf hfields halloc op hop h
   · exact allocEmptyAt_preserves_block_wellFormed wf hfields halloc
   · exact allocEmptyAt_preserves_region_wellFormed wf hfields halloc
 
-theorem Sim.OperationPtr.allocEmpty_constructionWellFormed
+theorem Sim.OperationPtr.allocEmpty_wellFormed
     [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
     {ctx ctx' : Sim.IRContext OpInfo}
     (wf : ctx.spec.WellFormed)
     (halloc : Sim.OperationPtr.allocEmpty ctx ty properties cr co cb cg h₁ h₂ h₃ h₄ = some (newOp, ctx')) :
-    ConstructionWellFormed ctx'.spec newOp.spec ∅ ∅ := by
-  exact OperationPtr.allocEmptyAt_constructionWellFormed wf ctx'.sim.fieldsInBounds
+    ctx'.spec.WellFormed := by
+  exact OperationPtr.allocEmptyAt_wellFormed wf ctx'.sim.fieldsInBounds
     (Sim.OperationPtr.allocEmpty_spec' halloc)
 
-theorem Sim.OperationPtr.allocFresh_constructionWellFormed
+theorem Sim.OperationPtr.allocFresh_wellFormed
     [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
     {ctx ctx' : Sim.IRContext OpInfo}
     (wf : ctx.spec.WellFormed)
     (halloc : Sim.OperationPtr.allocFresh ctx ty properties cr co cb cg h₁ h₂ h₃ h₄ = some (newOp, ctx')) :
-    ConstructionWellFormed ctx'.spec newOp.spec ∅ ∅ := by
-  exact OperationPtr.allocEmptyAt_constructionWellFormed wf ctx'.sim.fieldsInBounds
+    ctx'.spec.WellFormed := by
+  exact OperationPtr.allocEmptyAt_wellFormed wf ctx'.sim.fieldsInBounds
     (Sim.OperationPtr.allocFresh_spec' halloc)
 
 end Veir

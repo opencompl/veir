@@ -289,17 +289,16 @@ def eraseOp (ctx : Context) (op : IR.Op) :
     if hregions : op.getNumRegions raw hib = 0 then
       if huses : op.hasUses raw hib wf = false then
         have hwf := wf.operations op.spec hib.ib
-        have hrepr := raw.isRepr.operations_indices op.spec hib.ib
         have noRegions : op.spec.getNumRegions! raw.spec = 0 := by
-          have := hwf.capRegions_eq_numRegions
-          grind
+          rw [← Sim.OperationPtr.getNumRegions_toNat raw op hib, hregions]
+          decide
         have noUses : op.spec.hasUses! raw.spec = false := by
           rwa [Sim.OperationPtr.hasUses_spec] at huses
         have hd := Rewriter.eraseOp_deallocFieldsInBounds raw op wf noRegions noUses
-        let next := Rewriter.eraseOp raw op raw.fieldsInBounds hib hwf.capOperands_eq_numOperands
-          hwf.capBlockOperands_eq_numSuccessors hd
+        let next := Rewriter.eraseOp raw op raw.fieldsInBounds hib hwf.capOperands_ge_numOperands
+          hwf.capBlockOperands_ge_numSuccessors hd
         some ⟨⟨next, Rewriter.eraseOp_WellFormed raw op wf raw.fieldsInBounds hib
-            hwf.capOperands_eq_numOperands hwf.capBlockOperands_eq_numSuccessors noRegions noUses hd⟩,
+            hwf.capOperands_ge_numOperands hwf.capBlockOperands_ge_numSuccessors noRegions noUses hd⟩,
           fun _ hp hn => Rewriter.eraseOp_operation_inBounds hp hn,
           fun _ hp => Rewriter.eraseOp_block_inBounds hp,
           fun _ hp => Rewriter.eraseOp_region_inBounds hp,
@@ -339,7 +338,6 @@ def eraseBlock (ctx : Context) (block : IR.Block) :
               have := (Sim.OptionBlockOperandPtr.toOption_none_iff_spec_none (ctx := raw) (by grind)).mp hu
               grind
             have args : block.spec.getNumArguments! raw.spec = 0 := by
-              have := (wf.blocks block.spec hib.ib).capBlockArguments_eq_numBlockArguments
               have := Sim.BlockPtr.getNumArguments_spec raw block hib
               grind
             have hd := IRContext.fieldsInBounds_deallocEmptyBlock block.spec hib.ib wf parent args ops uses

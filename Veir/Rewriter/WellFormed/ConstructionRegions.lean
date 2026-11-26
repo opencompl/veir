@@ -1,7 +1,7 @@
 module
 
 public import Veir.Rewriter.Basic
-public import Veir.Rewriter.WellFormed.Construction
+public import Veir.IR.Grind
 import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.GetSet
@@ -13,30 +13,31 @@ variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuff
 
 set_option maxHeartbeats 1000000 in
 omit [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo] in
-theorem Rewriter.pushRegion_constructionWellFormed
-    {ctx : IRContext OpInfo} {op region hop hregion hregionParent}
-    (wf : ConstructionWellFormed ctx op ∅ ∅) :
-    ConstructionWellFormed (Rewriter.pushRegion ctx op region hop hregion hregionParent) op ∅ ∅ := by
+theorem Rewriter.pushRegion_wellFormed
+    {ctx : IRContext OpInfo} {op : OperationPtr} {region hop hregion hregionParent}
+    (room : op.getNumRegions! ctx < (op.get! ctx).capRegions)
+    (wf : ctx.WellFormed) :
+    (Rewriter.pushRegion ctx op region hop hregion hregionParent).WellFormed := by
   refine ⟨by grind, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intros valuePtr valuePtrInBounds
-    have ⟨array, arrayWf⟩ := IRContext.ConstructionWellFormed.valueDefUseChains wf valuePtr (by grind)
+    have ⟨array, arrayWf⟩ := IRContext.WellFormed.valueDefUseChains wf valuePtr (by grind)
     exists array
     apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
   · intros blockPtr blockPtrInBounds
-    have ⟨array, arrayWf⟩ := IRContext.ConstructionWellFormed.blockDefUseChains wf blockPtr (by grind)
+    have ⟨array, arrayWf⟩ := IRContext.WellFormed.blockDefUseChains wf blockPtr (by grind)
     exists array
     apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
   · intros blockPtr blockPtrInBounds
-    have ⟨array, arrayWf⟩ := IRContext.ConstructionWellFormed.opChain wf blockPtr (by grind)
+    have ⟨array, arrayWf⟩ := IRContext.WellFormed.opChain wf blockPtr (by grind)
     exists array
     apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
   · intros reg hreg
-    have ⟨array, arrayWf⟩ := IRContext.ConstructionWellFormed.blockChain wf reg (by grind)
+    have ⟨array, arrayWf⟩ := IRContext.WellFormed.blockChain wf reg (by grind)
     exists array
     apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
   · intros opPtr' opPtrInBounds
     have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂⟩ :=
-      IRContext.ConstructionWellFormed.operations wf opPtr' (by grind)
+      IRContext.WellFormed.operations wf opPtr' (by grind)
     refine ⟨by grind, by grind, by grind, by grind, by grind, by grind, ?_, by grind,
       by grind, by grind, by grind, by grind⟩
     intros region' region'InBounds
@@ -50,10 +51,10 @@ theorem Rewriter.pushRegion_constructionWellFormed
         exists op.getNumRegions! ctx
         grind
   · intros bl hbl
-    have ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ := IRContext.ConstructionWellFormed.blocks wf bl (by grind)
+    have ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ := IRContext.WellFormed.blocks wf bl (by grind)
     constructor <;> grind
   · intros reg hreg
-    have ⟨h₁, h₂⟩ := IRContext.ConstructionWellFormed.regions wf reg (by grind)
+    have ⟨h₁, h₂⟩ := IRContext.WellFormed.regions wf reg (by grind)
     constructor
     · grind
     · simp only [RegionPtr.parent!_pushRegion]
@@ -66,11 +67,11 @@ theorem Rewriter.pushRegion_constructionWellFormed
         simp only [OperationPtr.getRegion!_pushRegion]
         grind
 
-theorem Rewriter.initOpRegions_constructionWellFormed
+theorem Rewriter.initOpRegions_wellFormed
     {opPtr : Sim.OperationPtr} {ctx ctx' : Sim.IRContext OpInfo} {regions index h₁ h₂ h₃ h₄ h₅}
-    (wf : ConstructionWellFormed ctx.spec opPtr.spec ∅ ∅)
+    (wf : ctx.spec.WellFormed)
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
-    ConstructionWellFormed ctx'.spec opPtr.spec ∅ ∅ := by
+    ctx'.spec.WellFormed := by
   simp only [initOpRegions.eq_sim] at *
   fun_induction initOpRegionsSim
   case case1 =>
@@ -79,7 +80,7 @@ theorem Rewriter.initOpRegions_constructionWellFormed
   case case2 ctx0 index0 hop hregions hctx hn hcap h region hParent nextCtx ih =>
     apply ih _ heq
     simp only [nextCtx, pushRegionAt.unfold, Erased.map_mk, Sim.IRContext.spec, Erased.out_mk]
-    exact pushRegion_constructionWellFormed wf
+    exact pushRegion_wellFormed (by grind [Array.usize_toUInt64_toNat]) wf
   case case3 => simp at heq
 
 @[grind .]

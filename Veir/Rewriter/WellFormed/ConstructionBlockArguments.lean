@@ -1,6 +1,6 @@
 module
 
-public import Veir.Rewriter.WellFormed.BlockConstruction
+public import Veir.IR.Grind
 public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
@@ -52,9 +52,10 @@ theorem pushBlockArgument_fieldsInBounds (hctx : ctx.FieldsInBounds) :
   · constructor <;> grind
   · exact hctx
 
-theorem pushBlockArgument_constructionWellFormed
-    (wf : BlockConstructionWellFormed ctx block ∅ ∅) :
-    BlockConstructionWellFormed (Rewriter.pushBlockArgument ctx block type hblock) block ∅ ∅ := by
+theorem pushBlockArgument_wellFormed {block : BlockPtr} {hblock : block.InBounds ctx}
+    (room : block.getNumArguments! ctx < (block.get! ctx).capArguments)
+    (wf : ctx.WellFormed) :
+    (Rewriter.pushBlockArgument ctx block type hblock).WellFormed := by
   have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := wf
   have hfib := pushBlockArgument_fieldsInBounds (block := block) (type := type) (hblock := hblock) h₁
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -90,34 +91,34 @@ theorem pushBlockArgument_constructionWellFormed
 end Construction
 variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
-theorem Rewriter.pushBlockArgumentAt_constructionWellFormed {blockPtr : Sim.BlockPtr}
+theorem Rewriter.pushBlockArgumentAt_wellFormed {blockPtr : Sim.BlockPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {index type h₁ h₂ h₃}
-    (wf : BlockConstructionWellFormed ctx.spec blockPtr.spec ∅ ∅)
+    (wf : ctx.spec.WellFormed)
     (heq : Rewriter.pushBlockArgumentAt blockPtr ctx index type h₁ h₂ h₃ = some ctx') :
-    BlockConstructionWellFormed ctx'.spec blockPtr.spec ∅ ∅ := by
+    ctx'.spec.WellFormed := by
   rw [pushBlockArgumentAt_spec heq]
-  exact Construction.pushBlockArgument_constructionWellFormed wf
+  exact Construction.pushBlockArgument_wellFormed (by omega) wf
 
-theorem Rewriter.initBlockArgumentsLoop_constructionWellFormed {blockPtr : Sim.BlockPtr}
+theorem Rewriter.initBlockArgumentsLoop_wellFormed {blockPtr : Sim.BlockPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {types index h₁ h₂ h₃ h₄}
-    (wf : BlockConstructionWellFormed ctx.spec blockPtr.spec ∅ ∅)
+    (wf : ctx.spec.WellFormed)
     (heq : initBlockArgumentsLoop blockPtr ctx types index h₁ h₂ h₃ h₄ = some ctx') :
-    BlockConstructionWellFormed ctx'.spec blockPtr.spec ∅ ∅ := by
+    ctx'.spec.WellFormed := by
   simp only [initBlockArgumentsLoop.eq_sim] at *
   fun_induction initBlockArgumentsLoopSim
   · cases Option.some.inj heq
     exact wf
   · simp at heq
   · rename_i hpush ih
-    exact ih (pushBlockArgumentAt_constructionWellFormed wf hpush) heq
+    exact ih (pushBlockArgumentAt_wellFormed wf hpush) heq
 
-theorem Rewriter.initBlockArguments_constructionWellFormed {blockPtr : Sim.BlockPtr}
+theorem Rewriter.initBlockArguments_wellFormed {blockPtr : Sim.BlockPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {types index h₁ h₂ h₃ h₄}
-    (wf : BlockConstructionWellFormed ctx.spec blockPtr.spec ∅ ∅)
+    (wf : ctx.spec.WellFormed)
     (heq : initBlockArguments blockPtr ctx types index h₁ h₂ h₃ h₄ = some ctx') :
-    BlockConstructionWellFormed ctx'.spec blockPtr.spec ∅ ∅ := by
+    ctx'.spec.WellFormed := by
   simp only [initBlockArguments.unfold] at heq
-  exact initBlockArgumentsLoop_constructionWellFormed wf heq
+  exact initBlockArgumentsLoop_wellFormed wf heq
 
 theorem Rewriter.initBlockArguments_numArguments {blockPtr : Sim.BlockPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {types index h₁ h₂ h₃ h₄}
@@ -154,19 +155,5 @@ theorem Rewriter.initBlockArguments_preserves_parent (ptr : Veir.BlockPtr)
   · rename_i hpush ih
     rw [ih heq, Rewriter.pushBlockArgumentAt_spec hpush]
     grind [Rewriter.pushBlockArgument]
-
-/-- Filling the preallocated argument array restores full well-formedness. -/
-theorem Rewriter.initBlockArguments_wellFormed {blockPtr : Sim.BlockPtr}
-    {ctx ctx' : Sim.IRContext OpInfo} {types index h₁ h₂ h₃ h₄}
-    (wf : BlockConstructionWellFormed ctx.spec blockPtr.spec ∅ ∅)
-    (hcapacity : (blockPtr.spec.get! ctx.spec).capArguments = types.size)
-    (hindex : index.toNat ≤ types.size)
-    (heq : initBlockArguments blockPtr ctx types index h₁ h₂ h₃ h₄ = some ctx') :
-    ctx'.spec.WellFormed := by
-  apply IRContext.BlockConstructionWellFormed.to_wellFormed
-    (initBlockArguments_constructionWellFormed wf heq)
-  rw [initBlockArguments_preserves_capArguments blockPtr.spec heq,
-    initBlockArguments_numArguments heq hindex]
-  exact hcapacity
 
 end Veir

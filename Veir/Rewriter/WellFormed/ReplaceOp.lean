@@ -963,10 +963,8 @@ theorem OpResult.hasUses_replaceOpResults_self_ge
       exact hToI
     have hRec := ih wfNext heq i (by rw [hPred]; omega) hFromINext hToINext
     have hNumResultsLt : fromOp.spec.getNumResults! ctxCur.spec < UInt64.size := by
-      have hOpWf := wf.operations fromOp.spec fromInCur.ib
       have henc := ctxCur.sim.encoding_op fromOp.spec fromInCur.ib
-      rw [← hOpWf.capResults_eq_numResults, henc.numResults]
-      exact UInt64.toNat_lt _
+      exact Nat.lt_of_le_of_lt (Nat.le_of_eq henc.countResults) (UInt64.toNat_lt _)
     have hISize : i < UInt64.size := Nat.lt_trans hFromI hNumResultsLt
     have hIToNat : i.toUInt64.toNat = i := by
       change (UInt64.ofNat i).toNat = i
@@ -1174,14 +1172,7 @@ theorem Sim.IRContext.wellFormed_replaceOp?
       · apply OperationPtr.hasUses_replaceOpResults ctx oldOp newOp
             (oldOp.getNumResults ctx oldIn) oldIn newIn
             (by grind) (by grind) (by grind) wf neOps
-        · have hOldWf := wf.operations oldOp.spec oldIn.ib
-          have henc := ctx.sim.encoding_op oldOp.spec oldIn.ib
-          have hNumResultsLt : oldOp.spec.getNumResults! ctx.spec < UInt64.size := by
-            rw [← hOldWf.capResults_eq_numResults, henc.numResults]
-            exact UInt64.toNat_lt _
-          rw [Sim.OperationPtr.getNumResults_eq_getNumResults! ctx oldOp oldIn,
-            Sim.OperationPtr.getNumResults!_spec_of_wf ctx oldOp (ib := oldIn) wf]
-          exact UInt64.toNat_ofNat_of_lt hNumResultsLt
+        · exact Sim.OperationPtr.getNumResults_toNat ctx oldOp oldIn
         · exact hReplace
 
 theorem Sim.IRContext.fieldsInBounds_replaceOp?

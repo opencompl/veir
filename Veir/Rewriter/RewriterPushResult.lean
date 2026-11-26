@@ -1,5 +1,7 @@
 module
 
+public import Veir.IR.Buffed.PushPublish
+
 public import Veir.IR
 public import Veir.Rewriter.LinkedList.Basic
 public import Veir.Rewriter.LinkedList.GetSet
@@ -22,7 +24,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuff
 variable {ctx : Sim.IRContext OpInfo}
 
 @[inline]
-protected def Rewriter.setResult (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
+protected def Rewriter.resultPayload (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
     (hnum : (opPtr + Buffed.Operation.Offsets.numResults).toInt + Buffed.Operation.Sizes.numResults.toInt ≤ ctx₀.size)
     (hslot : (opPtr.getResultPtr ctx₀ idx hnum).toNat + Buffed.OpResult.size.toNat ≤ ctx₀.size)
     (type : TypeAttr)
@@ -49,8 +51,8 @@ def Rewriter.pushResult (ctx : IRContext OpInfo) (op : OperationPtr) (type : Typ
   op.pushResult ctx result (by grind)
 
 set_option maxHeartbeats 1000000000 in
-/-- The `Sim` relation survives writing a fresh result into slot `idx` of `opPtr`'s (pre-allocated, back-allocated) result array while the spec pushes the corresponding `OpResult`. -/
-theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
+/-- The payload matches after writing a fresh result into slot `idx` of `opPtr`'s (pre-allocated, back-allocated) result array while the spec pushes the corresponding `OpResult`. -/
+theorem Rewriter.resultPayload_matches (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (type : TypeAttr)
     (opPtrInBounds : opPtr.InBounds ctx)
     (hidx : idx.toNat = opPtr.spec.getNumResults! ctx.spec)
@@ -59,9 +61,9 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     (hslot : (Buffed.OperationMPtr.getResultPtr ctx.buf opPtr.impl idx hnum).toNat + Buffed.OpResult.size.toNat ≤ ctx.buf.size)
     (hattrs : ctx.buf.attributes.size < UInt64.size)
     {bufctx : Buffed.IRBufContext}
-    (heq : Rewriter.setResult opPtr.impl ctx.buf idx hnum hslot type hattrs = bufctx) :
-    Veir.Sim ⟨bufctx, .mk (Rewriter.pushResult ctx.spec opPtr.spec type (by grind))⟩ := by
-  simp only [Rewriter.setResult] at heq
+    (heq : Rewriter.resultPayload opPtr.impl ctx.buf idx hnum hslot type hattrs = bufctx) :
+    Sim.Publication.Payload ⟨bufctx, .mk (Rewriter.pushResult ctx.spec opPtr.spec type (by grind))⟩ := by
+  simp only [Rewriter.resultPayload] at heq
   simp only [Buffed.OperationMPtr.getResultPtr_eq_getResultPtr!] at heq
   have hslotB : (Buffed.OperationMPtr.getResultPtr! ctx.buf opPtr.impl idx).toNat + Buffed.OpResult.size.toNat ≤ ctx.buf.size := by
     rw [← Buffed.OperationMPtr.getResultPtr_eq_getResultPtr! (h := hnum)]

@@ -1,6 +1,6 @@
 module
 
-public import Veir.Rewriter.WellFormed.Construction
+public import Veir.IR.Grind
 public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
@@ -44,9 +44,9 @@ theorem RegionPtr.blockChain_Rewriter_pushResult
   apply RegionPtr.blockChain_unchanged (ctx := ctx) hWf <;> grind
 
 set_option maxHeartbeats 1000000 in
-theorem pushResult_wellFormed :
-    ConstructionWellFormed ctx op ∅ ∅ →
-    ConstructionWellFormed (Rewriter.pushResult ctx op type hop) op ∅ ∅ := by
+theorem pushResult_wellFormed {op : OperationPtr} {hop : op.InBounds ctx} (room : op.getNumResults! ctx < (op.get! ctx).capResults) :
+    ctx.WellFormed →
+    (Rewriter.pushResult ctx op type hop).WellFormed := by
   intro wf
   have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := wf
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -97,11 +97,11 @@ end Construction
 
 variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
-theorem Rewriter.initOpResults_constructionWellFormed {opPtr : Sim.OperationPtr}
+theorem Rewriter.initOpResults_wellFormed {opPtr : Sim.OperationPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
-    ConstructionWellFormed ctx.spec opPtr.spec ∅ ∅ →
-    ConstructionWellFormed ctx'.spec opPtr.spec ∅ ∅ := by
+    ctx.spec.WellFormed →
+    ctx'.spec.WellFormed := by
   simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim
   · subst ctx'
@@ -110,7 +110,7 @@ theorem Rewriter.initOpResults_constructionWellFormed {opPtr : Sim.OperationPtr}
     intro hwf
     apply ih heq
     rw [Rewriter.pushResultAt_spec (heq := rfl)]
-    exact Construction.pushResult_wellFormed hwf
+    exact Construction.pushResult_wellFormed (by grind [Array.usize_toUInt64_toNat]) hwf
 
 theorem Rewriter.initOpResults_numResults {opPtr : Sim.OperationPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
@@ -133,18 +133,5 @@ theorem Rewriter.initOpResults_preserves_parent (ptr : Veir.OperationPtr)
     (ptr.get! ctx'.spec).parent = (ptr.get! ctx.spec).parent := by
   simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind [Rewriter.pushResultAt_spec]
-
-/-- Completing the result loop restores the result capacity equality. -/
-theorem Rewriter.initOpResults_finishesResults {opPtr : Sim.OperationPtr}
-    {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
-    (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx')
-    (hwf : ConstructionWellFormed ctx.spec opPtr.spec ∅ ∅)
-    (hindex : index.toNat ≤ resultTypes.size)
-    (hcapacity : (opPtr.spec.get! ctx.spec).capResults = resultTypes.size) :
-    ConstructionWellFormed ctx'.spec opPtr.spec ∅ ∅ ∧
-      (opPtr.spec.get! ctx'.spec).capResults = opPtr.spec.getNumResults! ctx'.spec := by
-  refine ⟨initOpResults_constructionWellFormed heq hwf, ?_⟩
-  rw [initOpResults_preserves_capResults opPtr.spec heq, initOpResults_numResults heq hindex]
-  exact hcapacity
 
 end Veir

@@ -83,12 +83,9 @@ theorem Rewriter.eraseOp_value_inBounds {ctx : Parser.IR.RawContext} {op : Sim.O
 
 theorem Rewriter.createOp_numResults {ctx next : Parser.IR.RawContext}
     {opType types operands successors regions props ip h₁ h₂ h₃ h₄ h₅ h₆ p}
-    (wf : ctx.spec.WellFormed)
+    (_wf : ctx.spec.WellFormed)
     (hc : createOp ctx opType types operands successors regions props ip h₁ h₂ h₃ h₄ h₅ h₆ = some (next, p)) :
     p.spec.getNumResults! next.spec = types.size := by
-  have hib := Rewriter.createOp_new_inBounds p hc
-  have hcap := (Rewriter.createOp_preserves_wellFormed wf hc).operations p.spec hib.ib
-    |>.capResults_eq_numResults
   simp only [createOp.unfold] at hc
   split at hc
   · contradiction
@@ -100,26 +97,23 @@ theorem Rewriter.createOp_numResults {ctx next : Parser.IR.RawContext}
       · split at hc
         · contradiction
         · rename_i regionsCtx hregions
-          have hr : (allocated.spec.get! regionsCtx.spec).capResults = types.size := by
-            rw [Rewriter.initOpRegions_preserves_capResults _ hregions,
-              Rewriter.initOpResults_preserves_capResults _ (heq := rfl)]
-            have hs := Sim.OperationPtr.allocFresh_spec' halloc
-            clear hc hcap hib wf hregions
-            grind [Operation.empty, Array.sizeU64_toNat]
+          have hr : allocated.spec.getNumResults! regionsCtx.spec = types.size := by
+            rw [Rewriter.initOpRegions_preserves_numResults _ hregions]
+            exact Rewriter.initOpResults_numResults rfl (by simp)
           split at hc
           · simp only [Option.bind_eq_bind, Option.bind] at hc
             split at hc
             · contradiction
             · rename_i inserted hinsert
               obtain ⟨rfl, rfl⟩ := Option.some.inj hc
-              rw [← hcap, (Rewriter.insertOp?_layoutUnchanged hinsert).preserves.ops _ hib.ib |>.numResults,
-                Rewriter.initBlockOperands_preserves_capResults,
-                Rewriter.initOpOperands_preserves_capResults _ (heq := rfl)]
+              rw [Rewriter.insertOp?_preserves_numResults p.spec hinsert, Rewriter.initBlockOperands_preserves_numResults,
+                Rewriter.initOpOperands_preserves_numResults _ (heq := rfl)]
               exact hr
           · obtain ⟨rfl, rfl⟩ := Option.some.inj hc
-            rw [← hcap, Rewriter.initBlockOperands_preserves_capResults,
-              Rewriter.initOpOperands_preserves_capResults _ (heq := rfl)]
+            rw [Rewriter.initBlockOperands_preserves_numResults,
+              Rewriter.initOpOperands_preserves_numResults _ (heq := rfl)]
             exact hr
+
 
 theorem Rewriter.createBlock_new_not_inBounds {ctx next : Parser.IR.RawContext} {types ip hip hrep p}
     (hc : createBlock ctx types ip hip hrep = some (next, p)) : ¬ p.spec.InBounds ctx.spec := by

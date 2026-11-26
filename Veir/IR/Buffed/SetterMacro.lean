@@ -448,8 +448,8 @@ meta def mkRegionSec (cfg : Cfg) : MacroM (TSyntax `tactic) := do
 
 /-- The full `Sim` constructor skeleton, with the per-section tactics spliced in. -/
 meta def mkMain (cfg : Cfg) (spec : Term) (wAttr : TSyntax ``Parser.Tactic.grindParam)
-    (hsimv whaves hdisjOp hdisjBl tOpBase tNumBO tBOslots tNumRG tNthRegion tNumOO tOOslots
-     tNumRS tRSslots tBlBase tNumArgs tBAslots tRegion : TSyntax `tactic) :
+    (hsimv whaves hdisjOp hdisjBl tOpBase tNumBO tCountBO tBOslots tNumRG tCountRG tNthRegion tNumOO tCountOO tOOslots
+     tNumRS tCountRS tRSslots tBlBase tNumArgs tCountArgs tBAslots tRegion : TSyntax `tactic) :
     MacroM (TSyntax `tactic) := do
   let ctx := cfg.ctx
   let writer := cfg.w
@@ -483,15 +483,19 @@ meta def mkMain (cfg : Cfg) (spec : Term) (wAttr : TSyntax ``Parser.Tactic.grind
        · $tOpBase:tactic
        · constructor
          · $tNumBO:tactic
+         · $tCountBO:tactic
          · $tBOslots:tactic
        · constructor
          · $tNumRG:tactic
+         · $tCountRG:tactic
          · $tNthRegion:tactic
        · constructor
          · $tNumOO:tactic
+         · $tCountOO:tactic
          · $tOOslots:tactic
        · constructor
          · $tNumRS:tactic
+         · $tCountRS:tactic
          · $tRSslots:tactic
      · simp only [Sim.RawIRContext.spec, Erased.out_mk]
        intros blk blkIb
@@ -503,6 +507,7 @@ meta def mkMain (cfg : Cfg) (spec : Term) (wAttr : TSyntax ``Parser.Tactic.grind
        · $tBlBase:tactic
        · constructor
          · $tNumArgs:tactic
+         · $tCountArgs:tactic
          · $tBAslots:tactic
      · simp only [Sim.RawIRContext.spec, Erased.out_mk]
        intros rg rgIb
@@ -548,14 +553,24 @@ macro "prove_setLinkSim" ctx:ident wkind:ident w:ident wsfx:ident ssfx:ident spe
   let tOpBase ← mkOpBase cfg
   let tNumBO ← mkNumFrame cfg (← `(OperationPtr.numBlockOperands_frame)) (← `(henc.numBlockOperands))
     (← `(op)) (← `(hopin)) (← mkSg cfg "OperationPtr.get!")
+  let tCountBO ← mkNumFrame cfg (← `(OperationPtr.countBlockOperands_frame)) (← `(henc.countBlockOperands))
+    (← `(op)) (← `(hopin)) (← `(by change Veir.OperationPtr.getNumSuccessors! op _ = Veir.OperationPtr.getNumSuccessors! op _; exact $(← mkSg cfg "OperationPtr.getNumSuccessors!")))
   let tNumRG ← mkNumFrame cfg (← `(OperationPtr.numRegions_frame)) (← `(henc.numRegions))
     (← `(op)) (← `(hopin)) (← mkSg cfg "OperationPtr.get!")
+  let tCountRG ← mkNumFrame cfg (← `(OperationPtr.countRegions_frame)) (← `(henc.countRegions))
+    (← `(op)) (← `(hopin)) (← `(by change Veir.OperationPtr.getNumRegions! op _ = Veir.OperationPtr.getNumRegions! op _; exact $(← mkSg cfg "OperationPtr.getNumRegions!")))
   let tNumOO ← mkNumFrame cfg (← `(OperationPtr.numOperands_frame)) (← `(henc.numOperands))
     (← `(op)) (← `(hopin)) (← mkSg cfg "OperationPtr.get!")
+  let tCountOO ← mkNumFrame cfg (← `(OperationPtr.countOperands_frame)) (← `(henc.countOperands))
+    (← `(op)) (← `(hopin)) (← `(by change Veir.OperationPtr.getNumOperands! op _ = Veir.OperationPtr.getNumOperands! op _; exact $(← mkSg cfg "OperationPtr.getNumOperands!")))
   let tNumRS ← mkNumFrame cfg (← `(OperationPtr.numResults_frame)) (← `(henc.numResults))
     (← `(op)) (← `(hopin)) (← mkSg cfg "OperationPtr.get!")
+  let tCountRS ← mkNumFrame cfg (← `(OperationPtr.countResults_frame)) (← `(henc.countResults))
+    (← `(op)) (← `(hopin)) (← `(by change Veir.OperationPtr.getNumResults! op _ = Veir.OperationPtr.getNumResults! op _; exact $(← mkSg cfg "OperationPtr.getNumResults!")))
   let tNumArgs ← mkNumFrame cfg (← `(BlockPtr.numArguments_frame)) (← `(henc.numArguments))
     (← `(blk)) (← `(hblin)) (← mkSg cfg "BlockPtr.get!")
+  let tCountArgs ← mkNumFrame cfg (← `(BlockPtr.countArguments_frame)) (← `(henc.countArguments))
+    (← `(blk)) (← `(hblin)) (← `(by change Veir.BlockPtr.getNumArguments! blk _ = Veir.BlockPtr.getNumArguments! blk _; exact $(← mkSg cfg "BlockPtr.getNumArguments!")))
   let tNthRegion ← mkNthRegion cfg
   let tBOslots ← mkBOslots cfg
   let tOOslots ← mkOOslots cfg
@@ -566,7 +581,7 @@ macro "prove_setLinkSim" ctx:ident wkind:ident w:ident wsfx:ident ssfx:ident spe
   let hdisjOp ← mkHdisjFor cfg "op" (← `(op)) (← `(hopin))
   let hdisjBl ← mkHdisjFor cfg "block" (← `(blk)) (← `(hblin))
   let wAttr ← gp (⟨w.raw⟩ : Term)
-  mkMain cfg spec wAttr hsimv whaves hdisjOp hdisjBl tOpBase tNumBO tBOslots tNumRG tNthRegion
-    tNumOO tOOslots tNumRS tRSslots tBlBase tNumArgs tBAslots tRegion
+  mkMain cfg spec wAttr hsimv whaves hdisjOp hdisjBl tOpBase tNumBO tCountBO tBOslots tNumRG tCountRG tNthRegion
+    tNumOO tCountOO tOOslots tNumRS tCountRS tRSslots tBlBase tNumArgs tCountArgs tBAslots tRegion
 
 end Veir

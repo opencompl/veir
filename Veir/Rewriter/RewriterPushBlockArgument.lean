@@ -1,5 +1,7 @@
 module
 
+public import Veir.IR.Buffed.PushPublish
+
 public import Veir.IR
 public import Veir.Rewriter.LinkedList.Basic
 public import Veir.Rewriter.LinkedList.GetSet
@@ -35,7 +37,7 @@ protected def Rewriter.pushBlockArgument (ctx : IRContext OpInfo) (blockPtr : Bl
 
 /-- The five 8-byte field writes into the (pre-allocated) argument slot `idx` of `blockPtr`. -/
 @[inline]
-protected def Rewriter.setBlockArgumentRaw (blockPtr : Buffed.BlockMPtr) (ctx₁ : Buffed.IRBufContext)
+protected def Rewriter.blockArgumentPayload (blockPtr : Buffed.BlockMPtr) (ctx₁ : Buffed.IRBufContext)
     (idx : UInt64) (typeIdx : UInt64)
     (hslot : (blockPtr.getArgumentPtr idx).toNat + Buffed.BlockArgument.size.toNat ≤ ctx₁.size) :
     Buffed.IRBufContext :=
@@ -47,17 +49,9 @@ protected def Rewriter.setBlockArgumentRaw (blockPtr : Buffed.BlockMPtr) (ctx₁
   let ctx := arg.writeOwner ctx blockPtr (by prove_setSlotBounds ctx₁)
   ctx
 
-@[inline]
-protected def Rewriter.setBlockArgument (blockPtr : Buffed.BlockMPtr) (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
-    (hslot : (blockPtr.getArgumentPtr idx).toNat + Buffed.BlockArgument.size.toNat ≤ ctx₀.size)
-    (type : TypeAttr) : Option (Buffed.IRBufContext) :=
-  rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
-  have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
-  some (Rewriter.setBlockArgumentRaw blockPtr ctx idx typeIdx (by grind))
-
 set_option maxHeartbeats 1000000000 in
-/-- The `Sim` relation survives writing a fresh block argument into slot `idx` of `blockPtr`'s (pre-allocated) argument array while the spec pushes the corresponding `BlockArgument`. -/
-theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
+/-- The payload matches after writing a fresh block argument into slot `idx` of `blockPtr`'s (pre-allocated) argument array while the spec pushes the corresponding `BlockArgument`. -/
+theorem Rewriter.blockArgumentPayload_matches (blockPtr : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (type : TypeAttr)
     (blockPtrInBounds : blockPtr.InBounds ctx)
     (hidx : idx.toNat = blockPtr.spec.getNumArguments! ctx.spec)
@@ -67,8 +61,8 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
     (hattrs : buf₁.attributes = ctx.buf.attributes.push type)
     (htidx : typeIdx.toNat = ctx.buf.attributes.size)
     (hslot' : (Buffed.BlockMPtr.getArgumentPtr blockPtr.impl idx).toNat + Buffed.BlockArgument.size.toNat ≤ buf₁.size) :
-    Veir.Sim (OpInfo := OpInfo)
-      ⟨Rewriter.setBlockArgumentRaw blockPtr.impl buf₁ idx typeIdx hslot',
+    Sim.Publication.Payload (OpInfo := OpInfo)
+      ⟨Rewriter.blockArgumentPayload blockPtr.impl buf₁ idx typeIdx hslot',
        .mk (Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind))⟩ := by
   have hin := ctx.sim.in_bounds (.block blockPtr.spec) (by grind)
   have hszb : ctx.buf.mem.size < 2^63 := by grind
@@ -100,9 +94,9 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
   have hread : ∀ (w : Nat) (a len : UInt64),
       (a.toNat + len.toNat ≤ (Buffed.BlockMPtr.getArgumentPtr blockPtr.impl idx).toNat
        ∨ (Buffed.BlockMPtr.getArgumentPtr blockPtr.impl idx).toNat + 40 ≤ a.toNat) →
-      (Rewriter.setBlockArgumentRaw blockPtr.impl buf₁ idx typeIdx hslot').mem.read! (w := w) a len = ctx.buf.mem.read! a len := by
+      (Rewriter.blockArgumentPayload blockPtr.impl buf₁ idx typeIdx hslot').mem.read! (w := w) a len = ctx.buf.mem.read! a len := by
     intro w a len ha
-    simp only [Rewriter.setBlockArgumentRaw, Buffed.BlockArgumentMPtr.writeOwner,
+    simp only [Rewriter.blockArgumentPayload, Buffed.BlockArgumentMPtr.writeOwner,
       Buffed.BlockArgumentMPtr.writeIndex, Buffed.BlockArgumentMPtr.writeFirstUse,
       Buffed.BlockArgumentMPtr.writeType, Buffed.ValueImplMPtr.writeKind, hmem]
     rw [ExArray.read!_blit64_disjoint _ _ _ _ _
@@ -115,14 +109,14 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
         (by simp only [IsDisjoint]; have := ek Buffed.ValueImpl.Offsets.type 8 (by decide) (by decide); omega),
       ExArray.read!_blit64_disjoint _ _ _ _ _
         (by simp only [IsDisjoint]; omega)]
-  have hsizele : ctx.buf.mem.size ≤ (Rewriter.setBlockArgumentRaw blockPtr.impl buf₁ idx typeIdx hslot').mem.size := by
-    simp only [Rewriter.setBlockArgumentRaw, Buffed.BlockArgumentMPtr.writeOwner,
+  have hsizele : ctx.buf.mem.size ≤ (Rewriter.blockArgumentPayload blockPtr.impl buf₁ idx typeIdx hslot').mem.size := by
+    simp only [Rewriter.blockArgumentPayload, Buffed.BlockArgumentMPtr.writeOwner,
       Buffed.BlockArgumentMPtr.writeIndex, Buffed.BlockArgumentMPtr.writeFirstUse,
       Buffed.BlockArgumentMPtr.writeType, Buffed.ValueImplMPtr.writeKind, hmem]
     grind [ExArray.blit64_size]
-  have hattr : (Rewriter.setBlockArgumentRaw blockPtr.impl buf₁ idx typeIdx hslot').attributes
+  have hattr : (Rewriter.blockArgumentPayload blockPtr.impl buf₁ idx typeIdx hslot').attributes
       = ctx.buf.attributes.push type := by
-    simp only [Rewriter.setBlockArgumentRaw, Buffed.BlockArgumentMPtr.writeOwner,
+    simp only [Rewriter.blockArgumentPayload, Buffed.BlockArgumentMPtr.writeOwner,
       Buffed.BlockArgumentMPtr.writeIndex, Buffed.BlockArgumentMPtr.writeFirstUse,
       Buffed.BlockArgumentMPtr.writeType, Buffed.ValueImplMPtr.writeKind, hattrs]
   have hattrget : ∀ (i : Nat) (t : Attribute), ctx.buf.attributes[i]? = some t →
@@ -137,7 +131,7 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
   -- grows, so any window disjoint from the slot agrees (lookup-preserving `AgreesOn`).
   have hagreeD : ∀ lo hi : Nat,
       (hi ≤ (Buffed.BlockMPtr.getArgumentPtr blockPtr.impl idx).toNat ∨ (Buffed.BlockMPtr.getArgumentPtr blockPtr.impl idx).toNat + 40 ≤ lo) →
-      Buffed.AgreesOn (Rewriter.setBlockArgumentRaw blockPtr.impl buf₁ idx typeIdx hslot') ctx.buf lo hi :=
+      Buffed.AgreesOn (Rewriter.blockArgumentPayload blockPtr.impl buf₁ idx typeIdx hslot') ctx.buf lo hi :=
     fun lo hi hd => ⟨hsizele, fun w a len h1 h2 => hread w a len (by omega),
       fun i a h => by rw [hattr]; exact hattrget i a h⟩
   constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
@@ -152,9 +146,9 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
     grind [Rewriter.pushBlockArgument, Veir.BlockPtr.pushArgument_def, layout_grind]
   · -- in_bounds
     intros gptr gptrIb
-    have hrange : (Rewriter.setBlockArgumentRaw blockPtr.impl buf₁ idx typeIdx hslot').mem.range
+    have hrange : (Rewriter.blockArgumentPayload blockPtr.impl buf₁ idx typeIdx hslot').mem.range
         = ctx.buf.mem.range := by
-      simp only [Rewriter.setBlockArgumentRaw, Buffed.BlockArgumentMPtr.writeOwner,
+      simp only [Rewriter.blockArgumentPayload, Buffed.BlockArgumentMPtr.writeOwner,
         Buffed.BlockArgumentMPtr.writeIndex, Buffed.BlockArgumentMPtr.writeFirstUse,
         Buffed.BlockArgumentMPtr.writeType, Buffed.ValueImplMPtr.writeKind,
         ExArray.range_blit64, hmem]
@@ -360,7 +354,7 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
             grind [Nat.toUInt64_eq, UInt64.ofNat_toNat]
           constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
           · -- kind
-            simp only [Buffed.BlockArgumentMPtr.readKind!, hnMeq, Rewriter.setBlockArgumentRaw,
+            simp only [Buffed.BlockArgumentMPtr.readKind!, hnMeq, Rewriter.blockArgumentPayload,
               Buffed.BlockArgumentMPtr.writeOwner, Buffed.BlockArgumentMPtr.writeIndex,
               Buffed.BlockArgumentMPtr.writeFirstUse, Buffed.BlockArgumentMPtr.writeType,
               Buffed.ValueImplMPtr.writeKind]
@@ -370,7 +364,7 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
               ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.ValueImpl.Offsets.type 8 (by decide) (by decide); omega),
               ExArray.read64!_blit64_self]
           · -- type
-            simp only [Buffed.BlockArgumentMPtr.readType!, hnMeq, hnget, Rewriter.setBlockArgumentRaw,
+            simp only [Buffed.BlockArgumentMPtr.readType!, hnMeq, hnget, Rewriter.blockArgumentPayload,
               Buffed.BlockArgumentMPtr.writeOwner, Buffed.BlockArgumentMPtr.writeIndex,
               Buffed.BlockArgumentMPtr.writeFirstUse, Buffed.BlockArgumentMPtr.writeType,
               Buffed.ValueImplMPtr.writeKind]
@@ -381,7 +375,7 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
             clear hread ek
             grind
           · -- firstUse
-            simp only [Buffed.BlockArgumentMPtr.readFirstUse!, hnMeq, hnget, Rewriter.setBlockArgumentRaw,
+            simp only [Buffed.BlockArgumentMPtr.readFirstUse!, hnMeq, hnget, Rewriter.blockArgumentPayload,
               Buffed.BlockArgumentMPtr.writeOwner, Buffed.BlockArgumentMPtr.writeIndex,
               Buffed.BlockArgumentMPtr.writeFirstUse, Buffed.BlockArgumentMPtr.writeType,
               Buffed.ValueImplMPtr.writeKind]
@@ -391,7 +385,7 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
             simp only [Sim.OptionOpOperandPtr.Sim_def, Sim.OptionOpOperandPtr.spec, Sim.RawIRContext.spec, Erased.out_mk]
             rfl
           · -- index
-            simp only [Buffed.BlockArgumentMPtr.readIndex!, hnMeq, hnget, Rewriter.setBlockArgumentRaw,
+            simp only [Buffed.BlockArgumentMPtr.readIndex!, hnMeq, hnget, Rewriter.blockArgumentPayload,
               Buffed.BlockArgumentMPtr.writeOwner, Buffed.BlockArgumentMPtr.writeIndex,
               Buffed.BlockArgumentMPtr.writeFirstUse, Buffed.BlockArgumentMPtr.writeType,
               Buffed.ValueImplMPtr.writeKind]
@@ -400,7 +394,7 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
             clear hread ek
             grind
           · -- owner
-            simp only [Buffed.BlockArgumentMPtr.readOwner!, hnMeq, hnget, Rewriter.setBlockArgumentRaw,
+            simp only [Buffed.BlockArgumentMPtr.readOwner!, hnMeq, hnget, Rewriter.blockArgumentPayload,
               Buffed.BlockArgumentMPtr.writeOwner, Buffed.BlockArgumentMPtr.writeIndex,
               Buffed.BlockArgumentMPtr.writeFirstUse, Buffed.BlockArgumentMPtr.writeType,
               Buffed.ValueImplMPtr.writeKind]
@@ -452,34 +446,5 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
     (try dsimp only)
     rw [hattr]
     exact hattrget 0 _ ctx.sim.attr_empty
-
-/-- Option-level wrapper of `setBlockArgumentRaw_pushBlockArgument_sim`: destructures the `insertAttrs` success and hands the pieces to the raw theorem. -/
-theorem Rewriter.setBlockArgument_pushBlockArgument_sim (blockPtr : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
-    (idx : UInt64) (type : TypeAttr)
-    (blockPtrInBounds : blockPtr.InBounds ctx)
-    (hidx : idx.toNat = blockPtr.spec.getNumArguments! ctx.spec)
-    (hcap : idx.toNat < (blockPtr.spec.get! ctx.spec).capArguments)
-    (hslot : (Buffed.BlockMPtr.getArgumentPtr blockPtr.impl idx).toNat + Buffed.BlockArgument.size.toNat ≤ ctx.buf.size)
-    {newBuf : Buffed.IRBufContext}
-    (heq : Rewriter.setBlockArgument blockPtr.impl ctx.buf idx hslot type = some newBuf) :
-    Veir.Sim (OpInfo := OpInfo)
-      ⟨newBuf, .mk (Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind))⟩ := by
-  rw [Rewriter.setBlockArgument] at heq
-  split at heq
-  · exact absurd heq (by simp)
-  · rename_i buf₁ typeIdx hattr
-    simp only [Option.some.injEq] at heq
-    subst heq
-    have hmem : buf₁.mem = ctx.buf.mem := by
-      simp only [Buffed.IRBufContext.insertAttrs] at hattr
-      split at hattr <;> grind
-    have hattrs : buf₁.attributes = ctx.buf.attributes.push type := by
-      simp only [Buffed.IRBufContext.insertAttrs] at hattr
-      split at hattr <;> grind
-    have htidx : typeIdx.toNat = ctx.buf.attributes.size := by
-      simp only [Buffed.IRBufContext.insertAttrs] at hattr
-      split at hattr <;> grind [Nat.toUInt64_eq, UInt64.toNat_ofNat']
-    exact Rewriter.setBlockArgumentRaw_pushBlockArgument_sim blockPtr ctx idx type
-      blockPtrInBounds hidx hcap buf₁ typeIdx hmem hattrs htidx _
 
 end Veir
