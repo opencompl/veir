@@ -22,6 +22,7 @@ import Veir.Passes.ArithToLLVM.Proofs
 import Veir.Passes.Canonicalize.Proofs
 import Veir.Passes.RISCVCombines.Proofs
 import Veir.Benchmarks
+import Veir.Input
 import Veir.Parser.Lexer
 import Veir.Interpreter
 import Veir.Dialects.Builtin.InterpreterLemmas
