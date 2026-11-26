@@ -11,3 +11,4 @@ public import Veir.Rewriter.WellFormed.OpResults
 public import Veir.Rewriter.WellFormed.Region
 public import Veir.Rewriter.WellFormed.ReplaceOp
 public import Veir.Rewriter.WellFormed.Value
+public import Veir.Rewriter.WellFormed.EraseBlocks
