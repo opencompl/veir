@@ -610,7 +610,7 @@ theorem OperationPtr.getRegion!_initOpRegions {operation : OperationPtr}
     operation.getRegion! ctx' idx =
     if _ : operation = op ∧ idx ≥ op.getNumRegions! ctx ∧ idx < regions.size then regions[idx]
     else operation.getRegion! ctx idx := by
-  fun_induction Rewriter.initOpRegions <;> grind (splits := 15)
+  fun_induction Rewriter.initOpRegions <;> grind (branches := 15)
 
 @[simp, grind =>, simp_getset]
 private theorem BlockOperandPtrPtr.get!_initOpRegions {blockOperandPtr : BlockOperandPtrPtr}
