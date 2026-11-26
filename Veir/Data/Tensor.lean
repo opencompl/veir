@@ -192,8 +192,8 @@ theorem sliceIndex_compose (o1 st1 o2 st2 idx : List Nat) :
             · exact ih sts os' sts' is
 
 /--
-  Bounds check matching MLIR `verifyInBoundsSlice`: ranks agree, each offset is
-  in-bounds, and if `size ≠ 0` then `offset + (size - 1) * stride < dim`.
+  Ranks agree, each offset is in-bounds, and if `size ≠ 0` then
+  `offset + (size - 1) * stride < dim`.
 -/
 @[expose]
 def fitsSlice : List Nat → List Nat → List Nat → List Nat → Bool
@@ -203,7 +203,22 @@ def fitsSlice : List Nat → List Nat → List Nat → List Nat → Bool
       fitsSlice dims os ss sts
   | _, _, _, _ => false
 
-/-- Reject negatives (MLIR dynamic sentinels); otherwise `Int` → `Nat`. -/
+/-- Error for the first out-of-bounds dimension, if any. -/
+def sliceBoundsError? (shape offsets sizes strides : List Nat) (dimIdx : Nat := 0) :
+    Option String :=
+  match shape, offsets, sizes, strides with
+  | [], [], [], [] => none
+  | dim :: dims, o :: os, s :: ss, st :: sts =>
+    if o ≥ dim then
+      some s!"offset {dimIdx} is out-of-bounds: {o} >= {dim}"
+    else if s ≠ 0 && o + (s - 1) * st ≥ dim then
+      let lastPos := o + (s - 1) * st
+      some s!"slice along dimension {dimIdx} runs out-of-bounds: {lastPos} >= {dim}"
+    else
+      sliceBoundsError? dims os ss sts (dimIdx + 1)
+  | _, _, _, _ => none
+
+/-- Reject negatives; otherwise `Int` → `Nat`. -/
 @[expose]
 def staticIndices? : List Int → Option (List Nat)
   | [] => some []

@@ -8,4 +8,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: tensor.empty: Expected result to be a tensor, but found f32
+// CHECK: tensor.empty: result #0 must be ranked tensor of any non-token type values, but got 'f32'

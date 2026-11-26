@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: tensor.insert: Expected scalar type to match the tensor element type
+// CHECK: tensor.insert: failed to verify that scalar type matches element type of dest

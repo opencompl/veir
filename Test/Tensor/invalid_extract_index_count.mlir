@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: tensor.extract: Expected 3 operand(s)
+// CHECK: tensor.extract: incorrect number of indices for extract_element

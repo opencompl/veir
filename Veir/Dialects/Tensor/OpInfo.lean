@@ -12,7 +12,7 @@ namespace Veir
 
 public section
 
-open Veir.Data.Tensor (fitsSlice staticIndices?)
+open Veir.Data.Tensor (fitsSlice sliceBoundsError? staticIndices?)
 
 @[opcodes]
 inductive Tensor where
@@ -30,10 +30,18 @@ def Tensor.propertiesOf (op : Tensor) : Type :=
 
 def Tensor.fromAttrDict
     (op : Tensor) (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String (Tensor.propertiesOf op) := by
-  cases op
-  case extract_slice => exact ExtractSliceProperties.fromAttrDict attrDict
-  all_goals exact expectNoProperties "tensor" attrDict
+    Except String (Tensor.propertiesOf op) :=
+  match op with
+  | .extract_slice => ExtractSliceProperties.fromAttrDict attrDict
+  | .empty | .extract | .insert =>
+    if attrDict.size = 0 then .ok ()
+    else
+      let name := match op with
+        | .empty => "tensor.empty"
+        | .extract => "tensor.extract"
+        | .insert => "tensor.insert"
+        | .extract_slice => "tensor.extract_slice"
+      .error s!"invalid properties for op {name}: this operation has empty properties"
 
 def Tensor.toAttrDict
     (op : Tensor) (props : Tensor.propertiesOf op) :
@@ -66,7 +74,7 @@ instance : IsOpCode Tensor where
   fromAttrDict := Tensor.fromAttrDict
   toAttrDict := Tensor.toAttrDict
 
-/-- Decode a length-`rank` dense array, rejecting negatives (MLIR dynamic sentinels). -/
+/-- Decode a length-`rank` dense array; reject negatives. -/
 private def decodeStaticNats (attr : DenseArrayAttr) (rank : Nat)
     (name instrName : String) : Except String (List Nat) := do
   if attr.values.size ≠ rank then
@@ -77,6 +85,26 @@ private def decodeStaticNats (attr : DenseArrayAttr) (rank : Nat)
       throw s!"{instrName}: {name} entry {v} is negative (dynamic values are not supported)"
     out := out ++ [v.toNat]
   return out
+
+private def requireRankedTensor (ty : TypeAttr) (instrName : String) (operandIdx : Option Nat) :
+    Except String TensorType :=
+  match ty.val with
+  | .tensorType t => pure t
+  | type =>
+    let head := match operandIdx with
+      | some i => s!"{instrName}: operand #{i} must be ranked tensor of any non-token type values"
+      | none => s!"{instrName}: result #0 must be ranked tensor of any non-token type values"
+    throw s!"{head}, but got '{type}'"
+
+private def requireIndexOperands {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (start count : Nat) (instrName : String) : Except String PUnit := do
+  for i in [start:start + count] do
+    let ty := (op.getOperand! ctx.raw i).getType! ctx.raw
+    match ty.val with
+    | .indexType _ => pure ()
+    | _ =>
+      throw s!"{instrName}: operand #{i} must be variadic of index, but got '{ty}'"
 
 def Tensor.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Tensor] (opType : Tensor) (op : OperationPtr)
@@ -89,30 +117,36 @@ def Tensor.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .empty => do
     -- Tensor types are always statically shaped, so there are no dynamic size operands.
     op.verifyPlainOpCounts ctx opIn 0 1
-    let _ ← (resultType 0).verifyTensorType s!"{instrName}: Expected result to be a tensor"
+    let _ ← requireRankedTensor (resultType 0) instrName none
   | .extract => do
     if numOperands = 0 then
-      throw s!"{instrName}: Expected a tensor operand"
-    let source ← (operandType 0).verifyTensorType s!"{instrName}: Expected operand 0 to be a tensor"
-    op.verifyPlainOpCounts ctx opIn (1 + source.shape.size) 1
-    op.verifyIndexOperands ctx 1 source.shape.size instrName
+      throw s!"{instrName}: operand #0 must be ranked tensor of any non-token type values, \
+        but got '<missing>'"
+    let source ← requireRankedTensor (operandType 0) instrName (some 0)
+    op.verifyNonOperandCounts ctx opIn 1 0 0
+    if numOperands ≠ 1 + source.shape.size then
+      throw s!"{instrName}: incorrect number of indices for extract_element"
+    requireIndexOperands (OpInfo := OpInfo) op ctx 1 source.shape.size instrName
     if (resultType 0).val ≠ source.elementType then
-      throw s!"{instrName}: Expected result type to match the tensor element type"
+      throw s!"{instrName}: failed to verify that result type matches element type of tensor"
   | .insert => do
     if numOperands < 2 then
-      throw s!"{instrName}: Expected a scalar and a destination operand"
-    let dest ← (operandType 1).verifyTensorType s!"{instrName}: Expected operand 1 to be a tensor"
-    op.verifyPlainOpCounts ctx opIn (2 + dest.shape.size) 1
-    op.verifyIndexOperands ctx 2 dest.shape.size instrName
+      throw s!"{instrName}: operand #1 must be ranked tensor of any non-token type values, \
+        but got '<missing>'"
+    let dest ← requireRankedTensor (operandType 1) instrName (some 1)
+    op.verifyNonOperandCounts ctx opIn 1 0 0
+    if numOperands ≠ 2 + dest.shape.size then
+      throw s!"{instrName}: incorrect number of indices"
+    requireIndexOperands (OpInfo := OpInfo) op ctx 2 dest.shape.size instrName
     if (operandType 0).val ≠ dest.elementType then
-      throw s!"{instrName}: Expected scalar type to match the tensor element type"
-    op.verifyResultTypeMatches ctx (operandType 1)
-      s!"{instrName}: Expected result type to match the destination type"
+      throw s!"{instrName}: failed to verify that scalar type matches element type of dest"
+    if (resultType 0).val ≠ (operandType 1).val then
+      throw s!"{instrName}: failed to verify that result type matches type of dest"
   | .extract_slice => do
     -- Static-only: one SSA source, no dynamics, no rank reduction.
     op.verifyPlainOpCounts ctx opIn 1 1
-    let source ← (operandType 0).verifyTensorType s!"{instrName}: Expected operand 0 to be a tensor"
-    let result ← (resultType 0).verifyTensorType s!"{instrName}: Expected result to be a tensor"
+    let source ← requireRankedTensor (operandType 0) instrName (some 0)
+    let result ← requireRankedTensor (resultType 0) instrName none
     let props : Tensor.propertiesOf .extract_slice :=
       HasDialect.toDialectProperties (OpInfo := OpInfo) Tensor.extract_slice
         (op.getProperties! ctx.raw (ofDialect OpInfo Tensor.extract_slice))
@@ -121,14 +155,16 @@ def Tensor.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let offsets ← decodeStaticNats props.static_offsets rank "static_offsets" instrName
     let sizes ← decodeStaticNats props.static_sizes rank "static_sizes" instrName
     let strides ← decodeStaticNats props.static_strides rank "static_strides" instrName
-    let expectedSizes := result.shape.toList.map (Int.ofNat ·)
-    if props.static_sizes.values.toList ≠ expectedSizes then
-      throw s!"{instrName}: static_sizes must equal the result shape \
-        (rank-reducing and dynamic sizes are not supported)"
     if result.elementType ≠ source.elementType then
-      throw s!"{instrName}: Expected result element type to match the source element type"
-    if fitsSlice source.shape.toList offsets sizes strides ≠ true then
-      throw s!"{instrName}: slice window does not fit inside the source shape"
+      throw s!"expected element type to be '{source.elementType}'"
+    let expected : TensorType := { shape := sizes.toArray, elementType := source.elementType }
+    if result.shape.toList ≠ sizes then
+      throw s!"expected type to be '{expected}' or a rank-reduced version. (size mismatch)"
+    match sliceBoundsError? source.shape.toList offsets sizes strides with
+    | some msg => throw msg
+    | none =>
+      if fitsSlice source.shape.toList offsets sizes strides ≠ true then
+        throw s!"slice along dimension 0 runs out-of-bounds"
 
 /-- `empty` fills with element poison; `extract_slice` is static-only. -/
 def Tensor.interpretOp' (opType : Veir.Tensor) (properties : propertiesOf opType)
