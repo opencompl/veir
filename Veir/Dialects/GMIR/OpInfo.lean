@@ -193,6 +193,29 @@ instance : IsOpCode GMIR where
   toAttrDict := GMIR.toAttrDict
 
 /--
+Low Level Type
+
+For legalization, we only care about the bits occupied by a *scalar*, not by floats or integers.
+
+Also see: https://llvm.org/docs/GlobalISel/GMIR.html#low-level-type
+-/
+inductive LLT where
+  /-- A scalar of `width` bits. -/
+  | scalar (width : Nat)
+  /-- A pointer in address space `addressSpace`. -/
+  | pointer (addressSpace : Nat)
+deriving Inhabited, Repr, DecidableEq
+
+/--
+The low-level type of `type`. Returns `none` if `type` is neither an integer nor a pointer type.
+-/
+def LLT.ofType? (type : TypeAttr) : Option LLT :=
+  match type.val with
+  | .integerType type => some (.scalar type.bitwidth)
+  | .llvmPointerType type => some (.pointer type.addressSpace)
+  | _ => none
+
+/--
 This replicates the type-group information in LLVM's `GenericOpcodes.td`
 (llvm/include/llvm/Target/GenericOpcodes.td).
 
