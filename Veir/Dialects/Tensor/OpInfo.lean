@@ -103,7 +103,7 @@ def Tensor.interpretOp' (opType : Veir.Tensor) (_properties : propertiesOf opTyp
     let ⟨.tensorType ty, _⟩ ← resultTypes[0]? | none
     if h : ty.elementType.isType then
       let elemPoison ← RuntimeValue.getPoisonForType ⟨ty.elementType, h⟩
-      return (#[RuntimeValue.emptyTensor ty.shape elemPoison], none)
+      return (#[RuntimeValue.emptyTensor ty elemPoison], none)
     else none
   | .extract | .insert => none
 

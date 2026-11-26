@@ -39,7 +39,7 @@ private def testEmptyTensor : String := Id.run do
     return "2x3 tensor should have 6 elements"
   if TensorType.numElements { shape := #[0, 4], elementType := .integerType i32ty } ≠ 0 then
     return "tensor with a zero dimension should have 0 elements"
-  let empty := RuntimeValue.emptyTensor #[2, 2] i32Poison
+  let empty := RuntimeValue.emptyTensor { shape := #[2, 2], elementType := .integerType i32ty } i32Poison
   let RuntimeValue.tensor shape elems := empty | return "emptyTensor did not produce a .tensor"
   if shape ≠ #[2, 2] then
     return "emptyTensor did not store the shape"

@@ -24,7 +24,7 @@ inductive RuntimeValue where
 | felt (fieldType : FeltType) (value : Nat)
 /--
   A ranked tensor: static shape together with elements flattened in row-major
-  order. Well-formed values satisfy `elems.size = shape.foldl Nat.mul 1`.
+  order. Well-formed values satisfy `elems.size = ty.numElements` for the matching `TensorType` `ty`.
   The IR type still carries shape for typing; the value stores it so later
   ops (e.g. extract/insert) can use it without operand types.
 -/
