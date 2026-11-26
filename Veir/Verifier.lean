@@ -305,11 +305,26 @@ private def WfIRContext.verifyDominance
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
         throw s!"{opName}: operand #{index} does not dominate this use"
 
+/--
+Check that all operands of an operation are inside the given regions.
+The regions are typically the regions existing in a module, so that this check ensures that no
+operand crosses the boundary of the module.
+-/
+private def OperationPtr.verifyModuleOperands (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (moduleRegions : Option (Std.HashSet RegionPtr)) : Except String Unit := do
+  let some regions := moduleRegions | return
+  let useInside := (op.getParentRegion! ctx.raw).any regions.contains
+  unless (op.getOperands! ctx.raw).all (fun value =>
+      (value.getParentRegion! ctx.raw).any regions.contains = useInside
+    ) do
+    throw "operand crosses the boundary of the verified module"
+
 public section
 
 /--
 Verify the structural invariants of the IR context, the local invariants of all
-its operations, and SSA dominance in the operation tree rooted at `root`.
+its operations, and SSA dominance in the operation tree rooted at `root`. When
+the root is a builtin module, check that SSA edges stay on one side of its boundary.
 -/
 def WfIRContext.verify
     (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
@@ -317,6 +332,12 @@ def WfIRContext.verify
     throw "Block successors must belong to the same region as their predecessor"
   if !ctx.graphRegionsHaveAtMostOneBlock then
     throw "Graph regions may contain at most one block"
+  /- Collect all regions in the module. -/
+  let moduleRegions := if root.getOpType! ctx.raw = .builtin .module then
+      some (Std.HashSet.ofList (ctx.raw.regions.keys.filter fun region =>
+        (IRNode.operation root).isAncestorOf (.region region) ctx))
+    else
+      none
   ctx.raw.forOpsDepM (fun op opIn => do
     let opType := op.getOpType ctx.raw opIn
     let opName := String.fromUTF8! opType.name
@@ -329,7 +350,10 @@ def WfIRContext.verify
         | none => pure ()
         op.verifyOperandIsolation ctx opIn
         if let some funcOp := FunctionOp.of? op ctx.raw then
-          funcOp.verifyTrait))
+          funcOp.verifyTrait
+        /- TODO: check that the operands do not cross IsolatedFromAbove boundaries in addition to
+        module boundaries. -/
+        op.verifyModuleOperands ctx moduleRegions))
   ctx.raw.forBlocksDepM (fun block blockIn => block.verifyBlock ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyLLVMComdats
