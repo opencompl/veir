@@ -75,8 +75,7 @@ start of the entry block into a fresh unassigned value, which takes over all of 
 -/
 def precolourArguments (ctx : WfIRContext OpCode) (func : OperationPtr) :
     Except String (WfIRContext OpCode) := do
-  let some funcOp := FunctionOp.of? func ctx.raw
-    | throw "precolouring expects a function"
+  let some funcOp := FunctionOp.of? func ctx.raw | return ctx
   let some entry := funcOp.getEntryBlock? | return ctx
   let n := funcOp.getNumArguments
   let ctx := FunctionOp.setFunctionType! ctx funcOp

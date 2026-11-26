@@ -17,8 +17,7 @@ def RegisterAllocationPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
     let funcs ← allocatableFunctions ctx op
     let mut ctx := ctx
-    for f in funcs do
-        let some entry := functionEntry? ctx f | continue
+    for (_, entry) in funcs do
         ctx ← allocateBlock ctx entry
     return ctx
 
