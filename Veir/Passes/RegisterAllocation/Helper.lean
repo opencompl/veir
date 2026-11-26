@@ -108,14 +108,8 @@ def getFunctionEntry (ctx : WfIRContext OpCode) (f : OperationPtr) :
   return some entry
 
 /--
-The entry block of the function `f`, or `none` if `f` is not a function or has no body.
--/
-def functionEntry? (ctx : WfIRContext OpCode) (f : OperationPtr) : Option BlockPtr :=
-  (FunctionOp.of? f ctx.raw).bind (·.getEntryBlock?)
-
-/--
-The functions in the module `op` that have a body, or an error naming the first constraint
-`op` breaks.
+The functions in the module `op` paired with their validated entry blocks, or an error naming
+the first constraint `op` breaks.
 
 The shape of module this accepts, from the outside in:
 
@@ -129,14 +123,14 @@ Operations in the module body that are not function are passed over, as are func
 declarations, which have no body to allocate.
 -/
 def allocatableFunctions (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Except String (Array OperationPtr) := do
+    Except String (Array (OperationPtr × BlockPtr)) := do
     let some block ← getModuleBlock ctx op | return #[]
-    let mut funcs : Array OperationPtr := #[]
+    let mut funcs : Array (OperationPtr × BlockPtr) := #[]
     let mut f? := block.getFirstOp! ctx.raw
     while let some f := f? do
         f? := f.getNextOp! ctx.raw
-        let some _ ← getFunctionEntry ctx f | continue
-        funcs := funcs.push f
+        let some entry ← getFunctionEntry ctx f | continue
+        funcs := funcs.push (f, entry)
     return funcs
 
 
