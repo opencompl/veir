@@ -8,7 +8,7 @@ namespace Veir
 
 public section
 /--
-Assign a register to an unassigned register-typed SSA value, updating its type in the context.
+Assign a virtual register to an unassigned register-typed SSA value, updating its type in the context.
 Preserve existing assignments and reject values with non-register types
 or with a register class other than the one of `stack`.
 -/
@@ -24,19 +24,22 @@ def allocateRegister (ctx : WfIRContext OpCode) (value : ValuePtr) (stack : Regi
   return (ctx, s, reg)
 
 /--
-Allocate registers for an operation and all preceding operations in the same block by traversing backward.
-For each operation, allocate registers for all unallocated results before releasing reusable registers.
-At this stage, register reuse is limited to virtual registers.
+Allocate virtual registers for an operation and all preceding operations by traversing backward.
+For each operation, allocate registers for all unallocated results before releasing reusable virtual registers.
+with `collectValues`, collect results in forward order for the subsequent physical renaming round.
 Termination is guaranteed by the finite number of operations in the block.
 -/
 partial def allocateOps (ctx: WfIRContext OpCode) (op: Option OperationPtr)
-    (stack: RegisterStack .int) : Except String (WfIRContext OpCode × RegisterStack .int) := do
-    let some op := op | return (ctx, stack)
+    (stack: RegisterStack .int) (collectValues : Bool) (values : List ValuePtr := []) :
+    Except String (WfIRContext OpCode × RegisterStack .int × List ValuePtr) := do
+    let some op := op | return (ctx, stack, values)
+    let results := op.getResults! ctx.raw
+    let values := if collectValues then results.toList ++ values else values
     let mut ctx := ctx
     let mut stack := stack
     let mut resultRegs : Array RegisterType := #[]
 
-    for result in op.getResults! ctx.raw do
+    for result in results do
         let (newCtx, newStack, reg) ← allocateRegister ctx result stack
         ctx := newCtx
         stack := newStack
@@ -52,15 +55,19 @@ partial def allocateOps (ctx: WfIRContext OpCode) (op: Option OperationPtr)
         ctx := newCtx
         stack := newStack
 
-    allocateOps ctx (op.getPrevOp! ctx.raw) stack
+    allocateOps ctx (op.getPrevOp! ctx.raw) stack collectValues values
 
 /--
-Allocate registers for all operations in a block, traversing backwards with the default empty register stack.
-Return the context with updated register types on SSA values.
+Allocate virtual registers for all operations in a block, traversing backwards with the default empty register stack.
+When `collectValues` is true, returns all block arguments and operation results in forward order.
 -/
-def allocateBlock (ctx : WfIRContext OpCode) (block : BlockPtr) :
-    Except String (WfIRContext OpCode) := do
-  let (ctx, _) ← allocateOps ctx (block.getLastOp! ctx.raw) default
-  return ctx
+def allocateBlock (ctx : WfIRContext OpCode) (block : BlockPtr) (collectValues : Bool := false) :
+    Except String (WfIRContext OpCode × List ValuePtr) := do
+  let (ctx, _, values) ← allocateOps ctx (block.getLastOp! ctx.raw) default collectValues
+  let values := if collectValues then
+      (List.range (block.getNumArguments! ctx.raw)).map
+        (fun i => ValuePtr.blockArgument { block, index := i }) ++ values
+    else values
+  return (ctx, values)
 end
 end Veir
