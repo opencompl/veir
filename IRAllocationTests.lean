@@ -8,6 +8,23 @@ import Veir.IR.InBounds
 open Veir
 set_option maxHeartbeats 1000000
 
+/- The paired header fields occupy separate words and fit before the payload. -/
+open Buffed.Operation in
+example : Offsets.numResults + Sizes.numResults = Offsets.countResults ∧
+    Offsets.countResults + Sizes.countResults = Offsets.prev ∧
+    Offsets.numBlockOperands + Sizes.numBlockOperands = Offsets.countBlockOperands ∧
+    Offsets.countBlockOperands + Sizes.countBlockOperands = Offsets.numRegions ∧
+    Offsets.numRegions + Sizes.numRegions = Offsets.countRegions ∧
+    Offsets.countRegions + Sizes.countRegions = Offsets.numOperands ∧
+    Offsets.numOperands + Sizes.numOperands = Offsets.countOperands ∧
+    Offsets.countOperands + Sizes.countOperands = Offsets.attrs ∧
+    Offsets.properties.toInt = sizeBaseNat := by decide
+
+open Buffed.Block in
+example : Offsets.numArguments + Sizes.numArguments = Offsets.countArguments ∧
+    Offsets.countArguments + Sizes.countArguments = Offsets.arguments ∧
+    Offsets.arguments.toInt = sizeBaseNat := by decide
+
 private def NoObjects (ctx : Veir.IRContext OpCode) : Prop :=
   ∀ p : TopLevelPtr, ¬ p.InBounds ctx
 

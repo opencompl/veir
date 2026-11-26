@@ -13,13 +13,13 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
     (hnumArgs : numArgs.toNat ≤ Buffed.countCard)
     {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.BlockMPtr}
     (hsizele : ctx.buf.mem.size ≤ ctxBuf.mem.size)
-    (hsize : ptrImpl.toNat + (56 + numArgs.toNat * 40) ≤ ctxBuf.mem.size)
+    (hsize : ptrImpl.toNat + (64 + numArgs.toNat * 40) ≤ ctxBuf.mem.size)
     (hattr : ctxBuf.attributes = ctx.buf.attributes)
     (hagreeAll : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
       Buffed.AgreesOn ctxBuf ctx.buf (p.range ctx.spec).lower.toNat (p.range ctx.spec).upper.toNat)
     (hdisj : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
       (p.range ctx.spec).upper ≤ ptrImpl.toNat ∨
-        (ptrImpl.toNat : Int) + (56 + numArgs.toNat * 40) ≤ (p.range ctx.spec).lower)
+        (ptrImpl.toNat : Int) + (64 + numArgs.toNat * 40) ≤ (p.range ctx.spec).lower)
     (hnum : Buffed.BlockMPtr.readNumArguments! ctxBuf ptrImpl = numArgs)
     (huse : Buffed.BlockMPtr.readFirstUse! ctxBuf ptrImpl = Buffed.BlockOperandOPtr.none)
     (hprev : Buffed.BlockMPtr.readPrev! ctxBuf ptrImpl = Buffed.BlockOPtr.none)
@@ -69,7 +69,7 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
   have hnewib : ptrSpec.InBounds ctxSpec := by grind
   have hgetNew : ptrSpec.get! ctxSpec = Block.empty numArgs.toNat := by grind
   have hnewrange : (ptrSpec.range ctxSpec).lower = (ptrImpl.toNat : Int) ∧
-      (ptrSpec.range ctxSpec).upper = (ptrImpl.toNat : Int) + (56 + numArgs.toNat * 40) := by
+      (ptrSpec.range ctxSpec).upper = (ptrImpl.toNat : Int) + (64 + numArgs.toNat * 40) := by
     rw [BlockPtr.range_ideal hnewrepr hnewib]
     simp only [BlockPtr.rangeInt, Buffed.Block.rangeInt, add_nat_range_def,
       Buffed.Block.Offsets.afterInt, Buffed.Block.Sizes.argumentsNat, BlockPtr.toFlat]

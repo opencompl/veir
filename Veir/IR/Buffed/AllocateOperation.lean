@@ -23,13 +23,13 @@ theorem Sim.OperationPtr.reserved_header_bounds
     (hres : b₀.reserve (Buffed.OperationMPtr.computeOperationSize nr no nb ng
       (Buffed.Operation.propertySize op)) = some (b, address)) :
     (address + 40 * nr).toNat = address.toNat + nr.toNat * 40 ∧
-    (address + 40 * nr).toNat + 72 + (Buffed.Operation.propertySize op).toNat ≤ b.mem.size := by
+    (address + 40 * nr).toNat + 104 + (Buffed.Operation.propertySize op).toNat ≤ b.mem.size := by
   have hs := Buffed.IRBufContext.reserve_bounds hres |>.2
   have hc := Buffed.OperationMPtr.computeOperationSize_toNat nr no nb ng
     (Buffed.Operation.propertySize op) hr ho hbo hg (Nat.le_of_lt HasDialectOpInfo.propertySize_small)
   have hf := b.mem.fits_in_memory
   simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
-    show Buffed.Operation.sizeBase.toNat = 72 from rfl, Int64.maxNatValue] at *
+    show Buffed.Operation.sizeBase.toNat = 104 from rfl, Int64.maxNatValue] at *
   have hptr : (address + 40 * nr).toNat = address.toNat + nr.toNat * 40 := by
     rw [UInt64.toNat_add, UInt64.toNat_mul]
     simp only [show (40 : UInt64).toNat = 40 from rfl]
@@ -107,7 +107,7 @@ theorem Sim.OperationPtr.allocFresh_sim
         w n len (by
           simp only [ptr] at *
           simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
-            show Buffed.Operation.sizeBase.toNat = 72 from rfl] at hcompute
+            show Buffed.Operation.sizeBase.toNat = 104 from rfl] at hcompute
           omega)]
       exact Buffed.IRBufContext.reserve_read hres w n len hold
     · intro i a hi
@@ -124,7 +124,7 @@ theorem Sim.OperationPtr.allocFreshRaw_fresh
     (Buffed.Operation.propertySize op) hr ho hbo hg (Nat.le_of_lt HasDialectOpInfo.propertySize_small)
   apply reservation_fresh ctx hres (by omega)
   simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
-    show Buffed.Operation.sizeBase.toNat = 72 from rfl] at hc
+    show Buffed.Operation.sizeBase.toNat = 104 from rfl] at hc
   omega
 
 /-- Keep reservation control flow out of callers so their ghost specification

@@ -102,6 +102,8 @@ abbrev results : UInt64 := UInt64.ofNat (op.get! ctx).capResults * OpResult.size
 abbrev resultsNat : Nat := (op.get! ctx).capResults * OpResult.sizeNat
 abbrev numResults : UInt64 := countSize
 abbrev numResultsNat := countSizeNat
+abbrev countResults : UInt64 := countSize
+abbrev countResultsNat := countSizeNat
 abbrev prev : UInt64 := ptrSize
 abbrev prevNat := ptrSizeNat
 abbrev next : UInt64 := ptrSize
@@ -116,23 +118,29 @@ abbrev properties : UInt64 := propertySize (op.getOpType! ctx)
 abbrev propertiesNat : Nat := (propertySize (op.getOpType! ctx)).toNat
 abbrev numBlockOperands : UInt64 := countSize
 abbrev numBlockOperandsNat := countSizeNat
+abbrev countBlockOperands : UInt64 := countSize
+abbrev countBlockOperandsNat := countSizeNat
 abbrev blockOperands : UInt64 := UInt64.ofNat (op.get! ctx).capBlockOperands * BlockOperand.size
 abbrev blockOperandsNat : Nat := (op.get! ctx).capBlockOperands * BlockOperand.sizeNat
 abbrev numRegions : UInt64 := countSize
 abbrev numRegionsNat := countSizeNat
+abbrev countRegions : UInt64 := countSize
+abbrev countRegionsNat := countSizeNat
 abbrev regions : UInt64 := UInt64.ofNat (op.get! ctx).capRegions * ptrSize
 abbrev regionsNat : Nat := (op.get! ctx).capRegions * ptrSizeNat
 abbrev numOperands : UInt64 := countSize
 abbrev numOperandsNat := countSizeNat
+abbrev countOperands : UInt64 := countSize
+abbrev countOperandsNat := countSizeNat
 abbrev operands : UInt64 := UInt64.ofNat (op.get! ctx).capOperands * BlockOperand.size
 abbrev operandsNat : Nat := (op.get! ctx).capOperands * BlockOperand.sizeNat
 end Sizes
-abbrev sizeBase : UInt64 := 72
-abbrev sizeBaseNat : Nat := 72
+abbrev sizeBase : UInt64 := 104
+abbrev sizeBaseNat : Nat := 104
 abbrev size : UInt64 :=
   sizeBase + Sizes.results op ctx +
-  Sizes.properties op ctx +  Sizes.blockOperands op ctx +
-  Sizes.regions op ctx +  Sizes.operands op ctx
+  Sizes.properties op ctx + Sizes.blockOperands op ctx +
+  Sizes.regions op ctx + Sizes.operands op ctx
 abbrev sizeNat : Nat :=
   sizeBaseNat + Sizes.resultsNat op ctx +
   Sizes.propertiesNat op ctx +  Sizes.blockOperandsNat op ctx +
@@ -156,15 +164,17 @@ abbrev lastOp : UInt64 := ptrSize
 abbrev lastOpNat := ptrSizeNat
 abbrev numArguments : UInt64 := countSize
 abbrev numArgumentsNat := countSizeNat
+abbrev countArguments : UInt64 := countSize
+abbrev countArgumentsNat := countSizeNat
 abbrev arguments : UInt64 := UInt64.ofNat (bl.get! ctx).capArguments * BlockArgument.size
 abbrev argumentsNat : Nat := (bl.get! ctx).capArguments * BlockArgument.sizeNat
 end Sizes
 
-abbrev sizeBase : UInt64 := 56
-abbrev sizeBaseNat : Nat := 56
+abbrev sizeBase : UInt64 := 64
+abbrev sizeBaseNat : Nat := 64
 
-abbrev size : UInt64 := 56 + Sizes.arguments bl ctx
-abbrev sizeNat : Nat := 56 + Sizes.argumentsNat bl ctx
+abbrev size : UInt64 := sizeBase + Sizes.arguments bl ctx
+abbrev sizeNat : Nat := sizeBaseNat + Sizes.argumentsNat bl ctx
 end Block
 
 namespace Region
@@ -267,24 +277,32 @@ abbrev results : Int64 := -((0 : Int64) + Sizes.results op ctx)
 abbrev resultsInt : Int := -((0 : Int) + Sizes.resultsNat op ctx)
 abbrev numResults : Int64 := 0
 abbrev numResultsInt : Int := 0
-abbrev prev : Int64 := 8
-abbrev prevInt : Int := 8
-abbrev next : Int64 := 16
-abbrev nextInt : Int := 16
-abbrev parent : Int64 := 24
-abbrev parentInt : Int := 24
-abbrev opType : Int64 := 32
-abbrev opTypeInt : Int := 32
-abbrev numBlockOperands : Int64 := 40
-abbrev numBlockOperandsInt : Int := 40
-abbrev numRegions : Int64 := 48
-abbrev numRegionsInt : Int := 48
-abbrev numOperands : Int64 := 56
-abbrev numOperandsInt : Int := 56
-abbrev attrs : Int64 := 64
-abbrev attrsInt : Int := 64
-abbrev properties : Int64 := 72
-abbrev propertiesInt : Int := 72
+abbrev countResults : Int64 := 8
+abbrev countResultsInt : Int := 8
+abbrev prev : Int64 := 16
+abbrev prevInt : Int := 16
+abbrev next : Int64 := 24
+abbrev nextInt : Int := 24
+abbrev parent : Int64 := 32
+abbrev parentInt : Int := 32
+abbrev opType : Int64 := 40
+abbrev opTypeInt : Int := 40
+abbrev numBlockOperands : Int64 := 48
+abbrev numBlockOperandsInt : Int := 48
+abbrev countBlockOperands : Int64 := 56
+abbrev countBlockOperandsInt : Int := 56
+abbrev numRegions : Int64 := 64
+abbrev numRegionsInt : Int := 64
+abbrev countRegions : Int64 := 72
+abbrev countRegionsInt : Int := 72
+abbrev numOperands : Int64 := 80
+abbrev numOperandsInt : Int := 80
+abbrev countOperands : Int64 := 88
+abbrev countOperandsInt : Int := 88
+abbrev attrs : Int64 := 96
+abbrev attrsInt : Int := 96
+abbrev properties : Int64 := 104
+abbrev propertiesInt : Int := 104
 abbrev operands : Int64 := Offsets.properties + Sizes.properties op ctx
 abbrev operandsInt : Int := Offsets.propertiesInt + Sizes.propertiesNat op ctx
 abbrev blockOperands : Int64 := Offsets.operands op ctx + Sizes.operands op ctx
@@ -315,8 +333,10 @@ abbrev lastOp : Int64 := 40
 abbrev lastOpInt : Int := 40
 abbrev numArguments : Int64 := 48
 abbrev numArgumentsInt : Int := 48
-abbrev arguments : Int64 := 56
-abbrev argumentsInt : Int := 56
+abbrev countArguments : Int64 := 56
+abbrev countArgumentsInt : Int := 56
+abbrev arguments : Int64 := 64
+abbrev argumentsInt : Int := 64
 abbrev after : Int64 := arguments + Sizes.arguments bl ctx
 abbrev afterInt : Int := argumentsInt + Sizes.argumentsNat bl ctx
 end Offsets

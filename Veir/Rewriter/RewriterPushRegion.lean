@@ -202,7 +202,7 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     have haft := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op hopib
     have hri := ctx.sim.repr.operations_indices op (by grind)
     have hareaOP : Buffed.Operation.Offsets.operandsInt op ctx.spec
-        = 72 + ((Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat : Int) := by rfl
+        = 104 + ((Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat : Int) := by rfl
     have hareaBO : Buffed.Operation.Offsets.blockOperandsInt op ctx.spec
         = Buffed.Operation.Offsets.operandsInt op ctx.spec + ((op.get! ctx.spec).capOperands * 32 : Nat) := by rfl
     have hareaRG : Buffed.Operation.Offsets.regionsInt op ctx.spec
@@ -214,7 +214,7 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
       simp only [Buffed.Operation.Offsets.resultsInt, Buffed.Operation.Sizes.resultsNat]
       grind
     have hareaOPP : Buffed.Operation.Offsets.operandsInt opPtr.spec ctx.spec
-        = 72 + ((Buffed.Operation.propertySize (opPtr.spec.getOpType! ctx.spec)).toNat : Int) := by rfl
+        = 104 + ((Buffed.Operation.propertySize (opPtr.spec.getOpType! ctx.spec)).toNat : Int) := by rfl
     have hopMM : (UInt64.toNat op.toM : Int) = op.toFlat := by
       simp only [OperationPtr.toM]
       grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', OperationPtr.toFlat, layout_grind]
@@ -232,7 +232,7 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
         RegionPtr.rangeInt, Buffed.Region.rangeInt, add_nat_range_def] at hdrI
       have h24 : Buffed.Region.Offsets.afterInt = 24 := by decide
       grind [ExArray.range_lower, ExArray.range_upper]
-    have hro8 : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 72 →
+    have hro8 : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 104 →
         (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read64! (op.toM + off)
           = ctx.buf.mem.read64! (op.toM + off) := by
       intro off n hn h72
@@ -247,7 +247,7 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
             Buffed.Operation.rangeInt, add_nat_range_def] at hdd
           grind [layout_grind]
       · refine hrgdisj _ ?_ ?_ <;> grind [layout_grind]
-    have hro4 : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 72 →
+    have hro4 : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 104 →
         (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read32! (op.toM + off)
           = ctx.buf.mem.read32! (op.toM + off) := by
       intro off n hn h72
@@ -281,7 +281,7 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
       grind [Rewriter.pushRegion]
     obtain ⟨hgprev, hgnext, hgpar, hgattrs, hgty, hgcB, hgcRg, hgcO, hgcR, hgprops⟩ := hgets
     constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
-    · -- MatchesBase: framed — both writes land outside the 72-byte header.
+    · -- MatchesBase: framed — both writes land outside the 104-byte header.
       refine OperationPtr.matchesBase_frame ctx op hopib henc.toMatchesBase (hagreeD _ _ ?_ ?_) hlay
         hgprev hgnext hgpar hgattrs hgty hgprops opIb
       · clear hread hread32 hattr hslotread hparentread hrange hagreeD hoff hmul hidxlt
@@ -362,9 +362,9 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
             simp only [Buffed.OperationMPtr.computeRegionsOffset!, Buffed.OperationMPtr.computeBlockOperandsOffset!,
               Buffed.OperationMPtr.computeOperandsOffset!, Buffed.OperationMPtr.readNumBlockOperands!,
               Buffed.OperationMPtr.readNumOperands!, Buffed.OperationMPtr.readOpType!]
-            rw [hro8 Buffed.Operation.Offsets.numBlockOperands 40 (by decide) (by decide),
-              hro8 Buffed.Operation.Offsets.numOperands 56 (by decide) (by decide),
-              hro4 Buffed.Operation.Offsets.opType 32 (by decide) (by decide)]
+            rw [hro8 Buffed.Operation.Offsets.numBlockOperands 48 (by decide) (by decide),
+              hro8 Buffed.Operation.Offsets.numOperands 80 (by decide) (by decide),
+              hro4 Buffed.Operation.Offsets.opType 40 (by decide) (by decide)]
           have hidxu : ridx.toUInt64 = idx := by
             clear hread hagreeD hsizele hgprops henc
             grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', UInt64.ofNat_toNat]

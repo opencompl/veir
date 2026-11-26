@@ -14,7 +14,6 @@ import Veir.IR.Buffed.Frames
 
 import all Init.Util
 
-
 set_option linter.unusedSectionVars false
 
 @[expose] public section
@@ -876,7 +875,7 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
      IRContext.LayoutPreserved.of_layoutUnchanged_ltr (OperationPtr.setAttributes_preservesLayout _)
    have hlayF : ctx.spec.LayoutPreserved (ptr.spec.setAttributes ctxSpec attrs (by grind)) :=
      IRContext.LayoutPreserved.of_layoutUnchanged_ltr (by grind)
-   have hwaddr : ((ptr.impl + Buffed.Operation.Offsets.attrs).toNat : Int) = ptr.spec.id + 64 := by
+   have hwaddr : ((ptr.impl + Buffed.Operation.Offsets.attrs).toNat : Int) = ptr.spec.id + 96 := by
      rw [UInt64.uint64_add_int64_toNat_lt] <;> grind [_root_.Veir.OperationPtr.toFlat]
    -- The single attrs-word write over the post-`insertAttrs` buffer: any window disjoint
    -- from that word agrees, the pushed attribute table preserving all old lookups.
@@ -2555,8 +2554,8 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
             simpa using this
           have hcap : (ptrSpec.get! ctxSpec).capArguments = numArgs.toNat := by
             simp only [hget, Veir.Block.empty]
-          have hargInt : (Buffed.Block.Offsets.argumentsInt : Int) = 56 := by decide
-          have hbaseNat : Buffed.Block.sizeBaseNat = 56 := by decide
+          have hargInt : (Buffed.Block.Offsets.argumentsInt : Int) = 64 := by decide
+          have hbaseNat : Buffed.Block.sizeBaseNat = 64 := by decide
           have hszNat : Buffed.BlockArgument.sizeNat = 40 := by decide
           have hargNat : Buffed.Block.Sizes.argumentsNat ptrSpec ctxSpec = numArgs.toNat * 40 := by
             simp only [Buffed.Block.Sizes.argumentsNat, hcap, hszNat]
@@ -4329,23 +4328,23 @@ theorem Sim.OperationPtr.allocEmptyHeaderImpl_read64_old {ctx₀ : Buffed.IRBufC
     · obtain rfl := Option.some.injEq _ _ ▸ halloc
       simp only [Buffed.IRBufContext.size_def, show Buffed.OpResult.size = (40 : UInt64) from rfl,
         show ((40 : UInt64)).toNat = 40 from rfl,
-        show Buffed.Operation.sizeBase.toNat = 72 from rfl, Int64.maxNatValue] at *
+        show Buffed.Operation.sizeBase.toNat = 104 from rfl, Int64.maxNatValue] at *
       have hrange : ctx₀.mem.range = 0...ctx₀.mem.size := ExArray.range_def _
-      have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 64 →
+      have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 96 →
           (ctx₀.usize + 40 * numResults + k).toNat
           = (ctx₀.usize + 40 * numResults).toNat + kn := by
         intro k kn hkn hk
         rw [UInt64.toNat_add, hkn]
         apply Nat.mod_eq_of_lt
         omega
-      have h8 := hstep 8 8 rfl (by omega)
       have h16 := hstep 16 16 rfl (by omega)
       have h24 := hstep 24 24 rfl (by omega)
       have h32 := hstep 32 32 rfl (by omega)
       have h40 := hstep 40 40 rfl (by omega)
       have h48 := hstep 48 48 rfl (by omega)
-      have h56 := hstep 56 56 rfl (by omega)
       have h64 := hstep 64 64 rfl (by omega)
+      have h80 := hstep 80 80 rfl (by omega)
+      have h96 := hstep 96 96 rfl (by omega)
       clear hstep
       simp only [Buffed.OperationMPtr.writeOpType, Buffed.OperationMPtr.writePrev,
         Buffed.OperationMPtr.writeNext, Buffed.OperationMPtr.writeParent,
@@ -4381,23 +4380,23 @@ theorem Sim.OperationPtr.allocEmptyHeaderImpl_read32_old {ctx₀ : Buffed.IRBufC
     · obtain rfl := Option.some.injEq _ _ ▸ halloc
       simp only [Buffed.IRBufContext.size_def, show Buffed.OpResult.size = (40 : UInt64) from rfl,
         show ((40 : UInt64)).toNat = 40 from rfl,
-        show Buffed.Operation.sizeBase.toNat = 72 from rfl, Int64.maxNatValue] at *
+        show Buffed.Operation.sizeBase.toNat = 104 from rfl, Int64.maxNatValue] at *
       have hrange : ctx₀.mem.range = 0...ctx₀.mem.size := ExArray.range_def _
-      have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 64 →
+      have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 96 →
           (ctx₀.usize + 40 * numResults + k).toNat
           = (ctx₀.usize + 40 * numResults).toNat + kn := by
         intro k kn hkn hk
         rw [UInt64.toNat_add, hkn]
         apply Nat.mod_eq_of_lt
         omega
-      have h8 := hstep 8 8 rfl (by omega)
       have h16 := hstep 16 16 rfl (by omega)
       have h24 := hstep 24 24 rfl (by omega)
       have h32 := hstep 32 32 rfl (by omega)
       have h40 := hstep 40 40 rfl (by omega)
       have h48 := hstep 48 48 rfl (by omega)
-      have h56 := hstep 56 56 rfl (by omega)
       have h64 := hstep 64 64 rfl (by omega)
+      have h80 := hstep 80 80 rfl (by omega)
+      have h96 := hstep 96 96 rfl (by omega)
       clear hstep
       simp only [Buffed.OperationMPtr.writeOpType, Buffed.OperationMPtr.writePrev,
         Buffed.OperationMPtr.writeNext, Buffed.OperationMPtr.writeParent,
@@ -4433,23 +4432,23 @@ theorem Sim.OperationPtr.allocEmptyHeaderImpl_read_old {ctx₀ : Buffed.IRBufCon
     · obtain rfl := Option.some.injEq _ _ ▸ halloc
       simp only [Buffed.IRBufContext.size_def, show Buffed.OpResult.size = (40 : UInt64) from rfl,
         show ((40 : UInt64)).toNat = 40 from rfl,
-        show Buffed.Operation.sizeBase.toNat = 72 from rfl, Int64.maxNatValue] at *
+        show Buffed.Operation.sizeBase.toNat = 104 from rfl, Int64.maxNatValue] at *
       have hrange : ctx₀.mem.range = 0...ctx₀.mem.size := ExArray.range_def _
-      have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 64 →
+      have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 96 →
           (ctx₀.usize + 40 * numResults + k).toNat
           = (ctx₀.usize + 40 * numResults).toNat + kn := by
         intro k kn hkn hk
         rw [UInt64.toNat_add, hkn]
         apply Nat.mod_eq_of_lt
         omega
-      have h8 := hstep 8 8 rfl (by omega)
       have h16 := hstep 16 16 rfl (by omega)
       have h24 := hstep 24 24 rfl (by omega)
       have h32 := hstep 32 32 rfl (by omega)
       have h40 := hstep 40 40 rfl (by omega)
       have h48 := hstep 48 48 rfl (by omega)
-      have h56 := hstep 56 56 rfl (by omega)
       have h64 := hstep 64 64 rfl (by omega)
+      have h80 := hstep 80 80 rfl (by omega)
+      have h96 := hstep 96 96 rfl (by omega)
       clear hstep
       simp only [Buffed.OperationMPtr.writeOpType, Buffed.OperationMPtr.writePrev,
         Buffed.OperationMPtr.writeNext, Buffed.OperationMPtr.writeParent,
@@ -4492,23 +4491,23 @@ theorem Sim.OperationPtr.allocEmptyHeaderImpl_new_op_reads {ctx₀ : Buffed.IRBu
     · obtain rfl := Option.some.injEq _ _ ▸ halloc
       simp only [Buffed.IRBufContext.size_def, show Buffed.OpResult.size = (40 : UInt64) from rfl,
         show ((40 : UInt64)).toNat = 40 from rfl,
-        show Buffed.Operation.sizeBase.toNat = 72 from rfl, Int64.maxNatValue] at *
+        show Buffed.Operation.sizeBase.toNat = 104 from rfl, Int64.maxNatValue] at *
       have hrange : ctx₀.mem.range = 0...ctx₀.mem.size := ExArray.range_def _
-      have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 64 →
+      have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 96 →
           (ctx₀.usize + 40 * numResults + k).toNat
           = (ctx₀.usize + 40 * numResults).toNat + kn := by
         intro k kn hkn hk
         rw [UInt64.toNat_add, hkn]
         apply Nat.mod_eq_of_lt
         omega
-      have h8 := hstep 8 8 rfl (by omega)
       have h16 := hstep 16 16 rfl (by omega)
       have h24 := hstep 24 24 rfl (by omega)
       have h32 := hstep 32 32 rfl (by omega)
       have h40 := hstep 40 40 rfl (by omega)
       have h48 := hstep 48 48 rfl (by omega)
-      have h56 := hstep 56 56 rfl (by omega)
       have h64 := hstep 64 64 rfl (by omega)
+      have h80 := hstep 80 80 rfl (by omega)
+      have h96 := hstep 96 96 rfl (by omega)
       clear hstep
       simp only [Buffed.OperationMPtr.readNumResults!, Buffed.OperationMPtr.readNumOperands!,
         Buffed.OperationMPtr.readNumBlockOperands!, Buffed.OperationMPtr.readNumRegions!,
@@ -4523,13 +4522,13 @@ theorem Sim.OperationPtr.allocEmptyHeaderImpl_new_op_reads {ctx₀ : Buffed.IRBu
         grind (gen := 20) (splits := 30) [IsDisjoint, IsIncluded, ExArray.read64!_extend_new]
     · exact absurd halloc (by simp)
 
-/-- The property slot of the fresh operation starts at `ptrImpl + 72`, which is at or past the old buffer end. -/
+/-- The property slot of the fresh operation starts at `ptrImpl + 104`, which is at or past the old buffer end. -/
 theorem Sim.OperationPtr.allocEmptyHeaderImpl_properties_toNat {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxH : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize
       opType hr ho hbo hreg hp = some (ctxH, ptrImpl)) :
-    ∀ (off : Int64) (k : Nat), off.toInt = (k : Int) → k ≤ 72 →
+    ∀ (off : Int64) (k : Nat), off.toInt = (k : Int) → k ≤ 104 →
       (ptrImpl + off).toNat = ptrImpl.toNat + k := by
   have hptn := allocEmptyHeaderImpl_ptr_toNat h
   have hsz := allocEmptyHeaderImpl_size h
@@ -4538,10 +4537,10 @@ theorem Sim.OperationPtr.allocEmptyHeaderImpl_properties_toNat {ctx₀ : Buffed.
     numBlockOperands numRegions propSize hr ho hbo hreg hp
   have hnr := UInt64.toNat_lt numResults
   have hmax : Int64.maxValue.toInt = 2^63 - 1 := by decide
-  have hptrlt : ptrImpl.toNat + 72 < 2^63 := by
+  have hptrlt : ptrImpl.toNat + 104 < 2^63 := by
     simp only [Int64.maxNatValue,
       show Buffed.OpResult.size.toNat = 40 from rfl,
-      show Buffed.Operation.sizeBase.toNat = 72 from rfl] at *
+      show Buffed.Operation.sizeBase.toNat = 104 from rfl] at *
     omega
   intro off k hoff hk
   rw [UInt64.uint64_add_int64_toNat_lt (by omega) (by omega)]
@@ -4580,12 +4579,12 @@ def Sim.OperationPtr.allocEmptyImpl {opCode : OpInfo} (ctx₀ : Buffed.IRBufCont
           have hsz := Sim.OperationPtr.allocEmptyHeaderImpl_size heq
           have hptn := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_toNat heq
           have hoff := Sim.OperationPtr.allocEmptyHeaderImpl_properties_toNat heq
-            Buffed.Operation.Offsets.properties 72 (by decide) (by omega)
+            Buffed.Operation.Offsets.properties 104 (by decide) (by omega)
           have hcst := Buffed.OperationMPtr.computeOperationSize_toNat numResults numOperands
             numBlockOperands numRegions (HasDialectOpInfo.propertySize opCode) hr ho hbo hreg
             (Nat.le_of_lt HasDialectOpInfo.propertySize_small)
           simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
-            show Buffed.Operation.sizeBase.toNat = 72 from rfl] at *
+            show Buffed.Operation.sizeBase.toNat = 104 from rfl] at *
           omega)
         (by
           rw [Sim.OperationPtr.allocEmptyHeaderImpl_attributes heq]
@@ -4676,7 +4675,7 @@ theorem Sim.OperationPtr.allocEmptyImpl_read64_old {opCode : OpInfo}
     ctxBuf.mem.read64! n = ctx₀.mem.read64! n := by
   obtain ⟨ctxH, hH, h₁, h₂, rfl⟩ := allocEmptyImpl_eq h
   have hge := allocEmptyHeaderImpl_ptr_ge hH
-  have haddr := allocEmptyHeaderImpl_properties_toNat hH Buffed.Operation.Offsets.properties 72
+  have haddr := allocEmptyHeaderImpl_properties_toNat hH Buffed.Operation.Offsets.properties 104
     (by decide) (by omega)
   rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl (show n.toNat + 8
     ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat by omega))]
@@ -4694,7 +4693,7 @@ theorem Sim.OperationPtr.allocEmptyImpl_read32_old {opCode : OpInfo}
     ctxBuf.mem.read32! n = ctx₀.mem.read32! n := by
   obtain ⟨ctxH, hH, h₁, h₂, rfl⟩ := allocEmptyImpl_eq h
   have hge := allocEmptyHeaderImpl_ptr_ge hH
-  have haddr := allocEmptyHeaderImpl_properties_toNat hH Buffed.Operation.Offsets.properties 72
+  have haddr := allocEmptyHeaderImpl_properties_toNat hH Buffed.Operation.Offsets.properties 104
     (by decide) (by omega)
   rw [HasBuffedProperties.read32!_writePropertyAt (Or.inl (show n.toNat + 4
     ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat by omega))]
@@ -4712,7 +4711,7 @@ theorem Sim.OperationPtr.allocEmptyImpl_read_old {opCode : OpInfo}
     ctxBuf.mem.read! (w := w) n len = ctx₀.mem.read! n len := by
   obtain ⟨ctxH, hH, h₁, h₂, rfl⟩ := allocEmptyImpl_eq h
   have hge := allocEmptyHeaderImpl_ptr_ge hH
-  have haddr := allocEmptyHeaderImpl_properties_toNat hH Buffed.Operation.Offsets.properties 72
+  have haddr := allocEmptyHeaderImpl_properties_toNat hH Buffed.Operation.Offsets.properties 104
     (by decide) (by omega)
   rw [HasBuffedProperties.only_modifies_properties (Or.inl (show n.toNat + len.toNat
     ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat by omega))]
@@ -4732,7 +4731,7 @@ theorem Sim.OperationPtr.allocEmptyImpl_readProperty {opCode : OpInfo}
   exact HasBuffedProperties.read_after_write
 
 /-- The header fields of the freshly allocated operation read back as written: the property write
-lands past the 72-byte header, so the header lemma's values survive. -/
+lands past the 104-byte header, so the header lemma's values survive. -/
 theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {opCode : OpInfo}
     {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
@@ -4753,16 +4752,16 @@ theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {opCode : OpInfo}
   obtain ⟨hnr', hno', hnb', hnrg', hprev', hnext', hpar', hty', hattrs'⟩ :=
     allocEmptyHeaderImpl_new_op_reads hH
   have hstep := allocEmptyHeaderImpl_properties_toNat hH
-  have haddr := hstep Buffed.Operation.Offsets.properties 72 (by decide) (by omega)
+  have haddr := hstep Buffed.Operation.Offsets.properties 104 (by decide) (by omega)
   have h0 := hstep Buffed.Operation.Offsets.numResults 0 (by decide) (by omega)
-  have h8 := hstep Buffed.Operation.Offsets.prev 8 (by decide) (by omega)
-  have h16 := hstep Buffed.Operation.Offsets.next 16 (by decide) (by omega)
-  have h24 := hstep Buffed.Operation.Offsets.parent 24 (by decide) (by omega)
-  have h32 := hstep Buffed.Operation.Offsets.opType 32 (by decide) (by omega)
-  have h40 := hstep Buffed.Operation.Offsets.numBlockOperands 40 (by decide) (by omega)
-  have h48 := hstep Buffed.Operation.Offsets.numRegions 48 (by decide) (by omega)
-  have h56 := hstep Buffed.Operation.Offsets.numOperands 56 (by decide) (by omega)
-  have h64 := hstep Buffed.Operation.Offsets.attrs 64 (by decide) (by omega)
+  have h16 := hstep Buffed.Operation.Offsets.prev 16 (by decide) (by omega)
+  have h24 := hstep Buffed.Operation.Offsets.next 24 (by decide) (by omega)
+  have h32 := hstep Buffed.Operation.Offsets.parent 32 (by decide) (by omega)
+  have h40 := hstep Buffed.Operation.Offsets.opType 40 (by decide) (by omega)
+  have h48 := hstep Buffed.Operation.Offsets.numBlockOperands 48 (by decide) (by omega)
+  have h64 := hstep Buffed.Operation.Offsets.numRegions 64 (by decide) (by omega)
+  have h80 := hstep Buffed.Operation.Offsets.numOperands 80 (by decide) (by omega)
+  have h96 := hstep Buffed.Operation.Offsets.attrs 96 (by decide) (by omega)
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp only [Buffed.OperationMPtr.readNumResults!] at hnr' ⊢
     rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
@@ -5011,7 +5010,7 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
     numBlockOperands numRegions (Buffed.Operation.propertySize opType) h₁ h₂ h₃ h₄ hp
   simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
     show Buffed.ptrSize.toNat = 8 from rfl,
-    show Buffed.Operation.sizeBase.toNat = 72 from rfl,
+    show Buffed.Operation.sizeBase.toNat = 104 from rfl,
     Int64.maxNatValue] at hszdec hsize hptn hfits hfits₀
   have hfib' := IRContext.fieldsInBounds_OperationPtr_allocEmptyAt heqSpec ctx.sim.fieldsInBounds
   have hrepr' := IRContext.isRepr_OperationPtr_allocEmptyAt heqSpec ctx.sim.repr

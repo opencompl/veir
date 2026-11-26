@@ -58,7 +58,7 @@ theorem Sim.BlockPtr.allocFresh_sim {ctx : Sim.IRContext OpInfo}
     simp only [IsIncludedIN, ExArray.range_def] at hin
     refine ⟨by rw [hsize]; exact hbounds.1, ?_, ?_⟩
     · intro w n len hn hl
-      have hdr : n.toNat + len.toNat ≤ ptr.toNat ∨ ptr.toNat + (56 + numArgs.toNat * 40) ≤ n.toNat := by rw [hcompute] at hd; omega
+      have hdr : n.toNat + len.toNat ≤ ptr.toNat ∨ ptr.toNat + (64 + numArgs.toNat * 40) ≤ n.toNat := by rw [hcompute] at hd; omega
       rw [Buffed.BlockMPtr.initialize_read_disjoint b ptr numArgs hb w n len (by omega)]
       exact Buffed.IRBufContext.reserve_read hres w n len (by omega)
     · intro i a hi

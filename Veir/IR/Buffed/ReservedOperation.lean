@@ -95,7 +95,7 @@ theorem Sim.OperationPtr.allocReserved_sim {ctx : Sim.IRContext OpInfo} {opType 
     numBlockOperands numRegions (Buffed.Operation.propertySize opType) h₁ h₂ h₃ h₄ hp
   simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
     show Buffed.ptrSize.toNat = 8 from rfl,
-    show Buffed.Operation.sizeBase.toNat = 72 from rfl,
+    show Buffed.Operation.sizeBase.toNat = 104 from rfl,
     Int64.maxNatValue] at hszdec hsize hptn hfits hfits₀
   have hfib' := IRContext.fieldsInBounds_OperationPtr_allocEmptyAt heqSpec ctx.sim.fieldsInBounds
   have hrepr' := IRContext.isRepr_OperationPtr_allocEmptyAt heqSpec ctx.sim.repr

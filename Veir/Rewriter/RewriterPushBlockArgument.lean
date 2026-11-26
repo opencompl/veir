@@ -346,9 +346,9 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
               = blockPtr.spec.toFlat + (Buffed.Block.Offsets.argumentsInt + Buffed.BlockArgument.sizeNat * idx.toNat) := by
             rw [BlockArgumentPtr.toFlat_ideal]
             simp only [BlockArgumentPtr.toFlatNat, hargeq,
-              show Buffed.Block.Offsets.argumentsInt = 56 from rfl,
+              show Buffed.Block.Offsets.argumentsInt = 64 from rfl,
               show Buffed.BlockArgument.sizeNat = 40 from rfl]
-            have h0 : (0:Int) ≤ blockPtr.spec.toFlat + 56 := by omega
+            have h0 : (0:Int) ≤ blockPtr.spec.toFlat + 64 := by omega
             omega
           have hnMeq : arg.toM = Buffed.BlockMPtr.getArgumentPtr blockPtr.impl idx := by
             simp only [BlockArgumentPtr.toM]
@@ -417,9 +417,9 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
             intro hb
             grind [Veir.BlockArgumentPtr.inBounds_def]
           have hargflat : ((arg.toFlatNat : Nat) : Int)
-              = blk.toFlat + 56 + ((arg.index * 40 : Nat) : Int) := by
+              = blk.toFlat + 64 + ((arg.index * 40 : Nat) : Int) := by
             simp only [BlockArgumentPtr.toFlatNat, heqarg, show Buffed.BlockArgument.sizeNat = 40 from rfl,
-              show Buffed.Block.Offsets.argumentsInt = 56 from rfl]
+              show Buffed.Block.Offsets.argumentsInt = 64 from rfl]
             omega
           have hargget : arg.get! (Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind)) = arg.get! ctx.spec := by
             clear hagreeD hread hattr ek hoff hslotaddr husz hincl hmul hidxlt

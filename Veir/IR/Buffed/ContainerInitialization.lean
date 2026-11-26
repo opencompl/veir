@@ -14,7 +14,7 @@ macro "block_init_bounds" : tactic => `(tactic|
 
 @[inline]
 def BlockMPtr.initialize (b : IRBufContext) (ptr : BlockMPtr) (na : UInt64)
-    (hb : ptr.toNat + 56 ≤ b.mem.size) : IRBufContext :=
+    (hb : ptr.toNat + 64 ≤ b.mem.size) : IRBufContext :=
   let b := ptr.writeNumArguments b na (by block_init_bounds)
   let b := ptr.writeFirstUse b BlockOperandOPtr.none (by block_init_bounds)
   let b := ptr.writePrev b BlockOPtr.none (by block_init_bounds)
@@ -63,7 +63,7 @@ theorem BlockMPtr.initialize_reads (b : IRBufContext) (ptr : BlockMPtr) (na : UI
 
 theorem BlockMPtr.initialize_read_disjoint (b : IRBufContext) (ptr : BlockMPtr) (na : UInt64)
     (hb) (w : Nat) (n len : UInt64)
-    (hd : n.toNat + len.toNat ≤ ptr.toNat ∨ ptr.toNat + 56 ≤ n.toNat) :
+    (hd : n.toNat + len.toNat ≤ ptr.toNat ∨ ptr.toNat + 64 ≤ n.toNat) :
     (ptr.initialize b na hb).mem.read! (w := w) n len = b.mem.read! n len := by
   have hf := b.mem.fits_in_memory
   have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 48 →

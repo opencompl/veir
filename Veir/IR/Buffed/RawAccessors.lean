@@ -997,8 +997,8 @@ theorem BlockMPtr.computeBlockSize_toNat (numArgs : UInt64) (h : numArgs.toNat â
   have hlt : numArgs.toNat < 2 ^ 64 := UInt64.toNat_lt numArgs
   simp only [computeBlockSize, UInt64.toUInt64_toInt64, countCard, UInt32.size] at *
   rw [UInt64.toNat_add, UInt64.toNat_mul,
-    show Block.sizeBase.toNat = 56 from rfl, show BlockArgument.size.toNat = 40 from rfl,
-    show Block.sizeBaseNat = 56 from rfl, show BlockArgument.sizeNat = 40 from rfl]
+    show Block.sizeBase.toNat = 64 from rfl, show BlockArgument.size.toNat = 40 from rfl,
+    show Block.sizeBaseNat = 64 from rfl, show BlockArgument.sizeNat = 40 from rfl]
   omega
 
 /-- The number of bytes needed by an operation with the given array sizes and property size. -/
@@ -1026,7 +1026,7 @@ theorem OperationMPtr.computeOperationSize_toNat
   simp only [computeOperationSize, countCard, UInt32.size] at *
   rw [UInt64.toNat_add, UInt64.toNat_add, UInt64.toNat_add, UInt64.toNat_add, UInt64.toNat_add,
     UInt64.toNat_mul, UInt64.toNat_mul, UInt64.toNat_mul, UInt64.toNat_mul,
-    show Operation.sizeBase.toNat = 72 from rfl, show OpResult.size.toNat = 40 from rfl,
+    show Operation.sizeBase.toNat = 104 from rfl, show OpResult.size.toNat = 40 from rfl,
     show ptrSize.toNat = 8 from rfl]
   grind
 

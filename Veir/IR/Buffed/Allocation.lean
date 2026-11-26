@@ -24,7 +24,7 @@ theorem Sim.IRContext.reservation_disjoint (ctx : Sim.IRContext OpInfo)
 theorem Sim.OperationPtr.reservation_fresh (ctx : Sim.IRContext OpInfo)
     {b : Buffed.IRBufContext} {size address ptr : UInt64}
     (h : ctx.buf.reserve size = some (b, address))
-    (hlo : address.toNat ≤ ptr.toNat) (hhi : ptr.toNat + 72 ≤ address.toNat + size.toNat) :
+    (hlo : address.toNat ≤ ptr.toNat) (hhi : ptr.toNat + 104 ≤ address.toNat + size.toNat) :
     ¬ (⟨ptr.toNat⟩ : Veir.OperationPtr).InBounds ctx.spec := by
   intro hp
   have hd := ctx.reservation_disjoint h (.operation ⟨ptr.toNat⟩) hp

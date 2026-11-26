@@ -142,11 +142,11 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
     have hdisj := fun hne : op ≠ opPtr.spec =>
       Veir.Sim.disjoint_operation_operation (ctx := ctx) op opPtr.spec hopib opPtrInBounds.ib hne
     have hareaOP : Buffed.Operation.Offsets.operandsInt op ctx.spec
-        = 72 + ((Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat : Int) := by rfl
+        = 104 + ((Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat : Int) := by rfl
     have hareaBO : Buffed.Operation.Offsets.blockOperandsInt op ctx.spec
         = Buffed.Operation.Offsets.operandsInt op ctx.spec + ((op.get! ctx.spec).capOperands * 32 : Nat) := by rfl
     have hareaOPP : Buffed.Operation.Offsets.operandsInt opPtr.spec ctx.spec
-        = 72 + ((Buffed.Operation.propertySize (opPtr.spec.getOpType! ctx.spec)).toNat : Int) := by rfl
+        = 104 + ((Buffed.Operation.propertySize (opPtr.spec.getOpType! ctx.spec)).toNat : Int) := by rfl
     have hareaBOPP : Buffed.Operation.Offsets.blockOperandsInt opPtr.spec ctx.spec
         = Buffed.Operation.Offsets.operandsInt opPtr.spec ctx.spec + ((opPtr.spec.get! ctx.spec).capOperands * 32 : Nat) := by rfl
     have hopM : (UInt64.toNat op.toM : Int) = op.toFlat := by
@@ -166,7 +166,7 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
       grind [Rewriter.pushBlockOperand]
     obtain ⟨hgprev, hgnext, hgpar, hgattrs, hgty, hgcB, hgcRg, hgcO, hgcR, hgprops⟩ := hgets
     constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
-    · -- MatchesBase: framed — the write lands in the blockOperand array, past the 72-byte header.
+    · -- MatchesBase: framed — the write lands in the blockOperand array, past the 104-byte header.
       refine OperationPtr.matchesBase_frame ctx op hopib henc.toMatchesBase (hagreeD _ _ ?_) hlay
         hgprev hgnext hgpar hgattrs hgty hgprops opIb
       clear hread hattr ek hagreeD hoff husz hmul hidxlt
