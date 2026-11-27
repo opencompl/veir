@@ -108,6 +108,9 @@ def ValidResolvedFunction (f : ResolvedFunction) : Prop :=
     (∀ inst ∈ b.insts, ValidResolvedInst numParams insts.length f.blocks.size inst) ∧
     ValidResolvedTerminator numParams insts.length f.blocks.size b.terminator
 
+def ValidResolvedModule (m : ResolvedModule) : Prop :=
+  ∀ f ∈ m.funcs, ValidResolvedFunction f
+
 /-- Resolve a local reference by lookup, preserving integer literals. -/
 def resolveValue (env : NameEnv) : Value → Option ResolvedValue
   | .localIdent name => (env name).map .ref
@@ -353,6 +356,10 @@ def unresolveFunction (f : ResolvedFunction) : FuncDef :=
   let params := f.header.params.mapIdx fun i p => { p with name := (ValueId.param i).sourceName }
   ⟨{ f.header with params }, unresolveBlocks f.header.retType 0 f.blocks.toList.zipIdx⟩
 
+/-- Reconstruct the source AST for each function in module order. -/
+def unresolveModule (m : ResolvedModule) : Module :=
+  ⟨m.funcs.map unresolveFunction⟩
+
 theorem generatedName_injective (stem : String) :
     ∀ {i j : Nat}, stem ++ toString i = stem ++ toString j → i = j :=
   fun h => Nat.repr_inj.mp ((String.append_right_inj stem).mp h)
@@ -551,7 +558,7 @@ theorem unresolve_resolves_blocks (f : ResolvedFunction) (hf : ValidResolvedFunc
     exact .cons ⟨unresolve_resolves_insts f b.insts i hb.1, unresolve_resolves_terminator f _ hb.2⟩
       (ih (fun x hx => h x (by simp [hx])) _ _)
 
-theorem resolve_round_trip (f : ResolvedFunction) : ValidResolvedFunction f →
+theorem resolveFunction_round_trip (f : ResolvedFunction) : ValidResolvedFunction f →
     ∃ g, resolveFunction (unresolveFunction f) = some g ∧ EqModuloRenaming g f := by
   intro hf
   let g : ResolvedFunction := ⟨(unresolveFunction f).header,
@@ -564,5 +571,17 @@ theorem resolve_round_trip (f : ResolvedFunction) : ValidResolvedFunction f →
     simpa only [List.map_map, Function.comp_def] using
       congrArg (List.map fun p : Param => { p with name := "" })
         (List.zipIdx_map_fst 0 f.header.params)
+
+theorem resolve_round_trip (m : ResolvedModule) : ValidResolvedModule m →
+    ∃ m', resolveModule (unresolveModule m) = some m' ∧ m'.Equiv m := by
+  obtain ⟨fs⟩ := m
+  simp only [ValidResolvedModule, unresolveModule, resolveModule_iff, ResolvesModule, ResolvedModule.Equiv]
+  induction fs with
+  | nil => exact fun _ => ⟨⟨[]⟩, .nil, .nil⟩
+  | cons f fs ih =>
+    intro h
+    obtain ⟨g, hg, he⟩ := resolveFunction_round_trip f (h f (by simp))
+    obtain ⟨m', hr, hm⟩ := ih (fun x hx => h x (by simp [hx]))
+    exact ⟨⟨g :: m'.funcs⟩, .cons ((resolveFunction_iff _ _).mp hg) hr, .cons he hm⟩
 
 end Veir.NameResolutionSketch

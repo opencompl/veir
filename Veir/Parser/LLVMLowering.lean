@@ -667,7 +667,7 @@ def reverseModule (_ : WfIRContext OpCode) (_ : OperationPtr) :
   sorry
 
 theorem reverseModule_lowerModule {m : ResolvedModule}
-    (_ : ∀ f ∈ m.funcs, ValidResolvedFunction f) :
+    (_ : ValidResolvedModule m) :
     ∃ m', (lowerModule m >>= reverseModule.uncurry) = .ok m' ∧ m'.Equiv m := by
   sorry
 
