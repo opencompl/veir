@@ -174,12 +174,6 @@ end Specification
 
 abbrev BlockMap := BlockId → Option BlockPtr
 
-/-- Repeated phi entries for the same predecessor carry one resolved value. -/
-def PhiInputsAgree (incoming : List (BlockId × ResolvedValue)) : Prop :=
-  ∀ v ∈ incoming, ∀ w ∈ incoming, v.1 = w.1 → v.2 = w.2
-
-instance : DecidablePred PhiInputsAgree := fun _ => inferInstanceAs (Decidable (∀ _ ∈ _, ∀ _ ∈ _, _))
-
 theorem PhiInputsAgree.lookup_eq_some_iff (h : PhiInputsAgree incoming) :
     incoming.lookup src = some value ↔ (src, value) ∈ incoming := by
   have mem_of_lookup : ∀ {v}, incoming.lookup src = some v → (src, v) ∈ incoming := by
@@ -661,10 +655,138 @@ theorem lowerModule_correct : LowersModule ctx m root ↔
       equivalent_modulo_renaming ctx root ctx₂ root₂ := by
   sorry
 
-/-- Placeholder for recovering a resolved module, including branches and phis. -/
-def reverseModule (_ : WfIRContext OpCode) (_ : OperationPtr) :
-    Except LoweringError ResolvedModule := by
-  sorry
+/-- Follow a linked list with a bound from the owning context. -/
+def collectLoweredChain (next : α → Option α) (fuel : Nat) (first : Option α) :
+    Except LoweringError (List α) :=
+  loop fuel first []
+where
+  loop : Nat → Option α → List α → Except LoweringError (List α)
+    | _, none, acc => .ok acc.reverse
+    | 0, some _, _ => .error "invalid lowered IR chain"
+    | fuel + 1, some ptr, acc => loop fuel (next ptr) (ptr :: acc)
+
+def reverseRegion (ctx : IRContext OpCode) (op : OperationPtr) : Except LoweringError (List BlockPtr) :=
+  match (op.getRegions! ctx).toList with
+  | [region] => collectLoweredChain (·.getNextBlock! ctx) ctx.blocks.size (region.getFirstBlock! ctx)
+  | _ => .error "expected a single region"
+
+def reverseBlockOps (ctx : IRContext OpCode) (block : BlockPtr) : Except LoweringError (List OperationPtr) :=
+  collectLoweredChain (·.getNextOp! ctx) ctx.operations.size (block.getFirstOp! ctx)
+
+def reverseIntType : Attribute → Except LoweringError LLType
+  | .integerType ⟨width, .signless⟩ => .ok (.int width)
+  | _ => .error "expected a signless integer type"
+
+def reverseBinOp : OpCode → Option BinOp
+  | .llvm .and => some .and
+  | .llvm .or => some .or
+  | .llvm .xor => some .xor
+  | _ => none
+
+/-- Assign IDs before decoding any operands, including references around loops. -/
+def reverseValueIds (ctx : IRContext OpCode) (entry : BlockPtr)
+    (blocks : List (BlockPtr × List OperationPtr)) : Std.HashMap ValuePtr ValueId :=
+  let params := (entry.getArguments! ctx).toList.zipIdx
+  let defs := blocks.flatMap fun (block, ops) =>
+    (if block = entry then [] else (block.getArguments! ctx).toList) ++
+      (ops.filterMap fun op => (reverseBinOp (op.getOpType! ctx)).map fun _ => .opResult (op.getResult 0))
+  Std.HashMap.ofList (params.map (fun (ptr, i) => (ptr, .param i)) ++
+    defs.zipIdx.map (fun (ptr, i) => (ptr, .inst i)))
+
+def reverseOperand (ctx : IRContext OpCode) (ids : Std.HashMap ValuePtr ValueId)
+    (ptr : ValuePtr) : Except LoweringError ResolvedValue := do
+  if let some id := ids[ptr]? then return .ref id
+  let .opResult result := ptr | throw "unknown lowered operand"
+  unless result.index == 0 && result.op.getOpType! ctx == .llvm .mlir__constant do
+    throw "unknown lowered result"
+  let .integer attr := (result.op.getProperties! ctx Llvm.mlir__constant).value
+    | throw "expected an integer constant"
+  return .intConst attr.value
+
+def reverseBinary (ctx : IRContext OpCode) (val : ValuePtr → Except LoweringError ResolvedValue)
+    (op : OperationPtr) (bin : BinOp) : Except LoweringError ResolvedInst := do
+  let [ty] := (op.getResultTypes! ctx).toList | throw "expected one binary result"
+  let [lhs, rhs] := (op.getOperands! ctx).toList | throw "expected two binary operands"
+  if bin == .or && (op.getProperties! ctx Llvm.or).disjoint then
+    throw "unsupported disjoint flag"
+  return .bin (.bin bin (← reverseIntType ty.val) (← val lhs) (← val rhs))
+
+/-- A decoded edge carries the destination and one incoming value per destination phi. -/
+abbrev ReverseEdge := BlockId × Array ResolvedValue
+
+def reverseTerminator (ctx : IRContext OpCode) (blockIds : Std.HashMap BlockPtr BlockId)
+    (val : ValuePtr → Except LoweringError ResolvedValue) (op : OperationPtr) :
+    Except LoweringError (ResolvedTerminator × List ReverseEdge) := do
+  let operands := (op.getOperands! ctx).toList
+  let successors := (op.getSuccessors! ctx).toList
+  let edge := fun dst args => do
+    let some id := blockIds[dst]? | throw "branch to a block outside the function"
+    if id == 0 then throw "branch to the entry block"
+    unless args.length == (dst.getArguments! ctx).size do throw "wrong number of phi inputs"
+    return (id, (← args.mapM val).toArray)
+  match op.getOpType! ctx, operands, successors with
+  | .llvm .return, [v], [] => return (.ret (← val v), [])
+  | .llvm .br, args, [dst] =>
+    let e : ReverseEdge ← edge dst args
+    return (.br e.1, [e])
+  | .llvm .cond_br, cond :: args, [yes, no] =>
+    let yesCount := (yes.getArguments! ctx).size
+    let sizes := (op.getProperties! ctx Llvm.cond_br).operandSegmentSizes.values
+    unless sizes == #[1, Int.ofNat yesCount, Int.ofNat ((no.getArguments! ctx).size)] do
+      throw "invalid conditional branch operand segments"
+    let yesEdge : ReverseEdge ← edge yes (args.take yesCount)
+    let noEdge : ReverseEdge ← edge no (args.drop yesCount)
+    return (.condBr (← val cond) yesEdge.1 noEdge.1, [yesEdge, noEdge])
+  | _, _, _ => throw "unsupported or malformed terminator"
+
+def reverseFunction (ctx : IRContext OpCode) (op : OperationPtr) : Except LoweringError ResolvedFunction := do
+  unless op.getOpType! ctx == .llvm .func do throw "expected an LLVM function"
+  let props := op.getProperties! ctx Llvm.func
+  let some name := String.fromUTF8? props.sym_name.value | throw "invalid LLVM function name"
+  let [result] := props.function_type.outputs.toList | throw "expected one function result"
+  let retType ← reverseIntType result
+  let paramTypes ← props.function_type.inputs.toList.mapM reverseIntType
+  let params := paramTypes.zipIdx.map fun (ty, i) => Param.mk ty (ValueId.sourceName (.param i))
+  let blocks ← reverseRegion ctx op
+  let entry :: _ := blocks | throw "function has no entry block"
+  unless (entry.getArgumentTypes! ctx).toList.map Subtype.val == props.function_type.inputs.toList do
+    throw "entry block arguments do not match the function type"
+  let blockIds := Std.HashMap.ofList blocks.zipIdx
+  let body ← blocks.mapM fun block => do return (block, ← reverseBlockOps ctx block)
+  let val := reverseOperand ctx (reverseValueIds ctx entry body)
+  let decoded ← body.mapM fun (_, ops) => do
+    let term :: reversedInsts := ops.reverse | throw "block has no terminator"
+    let insts ← reversedInsts.reverse.filterMapM fun op =>
+      match reverseBinOp (op.getOpType! ctx) with
+      | some bin => some <$> reverseBinary ctx val op bin
+      | none => if op.getOpType! ctx == .llvm .mlir__constant then pure none
+                else throw "unsupported instruction in lowered block"
+    let (terminator, edges) ← reverseTerminator ctx blockIds val term
+    return (insts, terminator, edges)
+  let mut incoming := blocks.toArray.map fun _ => ([] : List (BlockId × Array ResolvedValue))
+  for ((_, _, edges), src) in decoded.zipIdx do
+    for (dst, values) in edges do
+      incoming := incoming.modify dst ((src, values) :: ·)
+  let mut resultBlocks := #[]
+  for ((block, (insts, terminator, _)), dst) in (blocks.zip decoded).zipIdx do
+    let predecessors := incoming[dst]!.reverse
+    let types := if dst == 0 then [] else (block.getArgumentTypes! ctx).toList
+    let phis ← types.zipIdx.mapM fun (ty, i) => do
+      let inputs ← predecessors.mapM fun (src, values) => do
+        let some v := values[i]? | throw "missing phi input"
+        return (src, v)
+      return ResolvedInst.phi (← reverseIntType ty.val) inputs
+    resultBlocks := resultBlocks.push ⟨phis ++ insts, terminator⟩
+  return ⟨⟨retType, name, params⟩, resultBlocks⟩
+
+/-- Recover the integer LLVM fragment, listing phi inputs in predecessor block and edge order. -/
+def reverseModule (ctx : WfIRContext OpCode) (root : OperationPtr) : Except LoweringError ResolvedModule := do
+  let raw := ctx.raw
+  unless raw.operations.contains root do throw "invalid module root"
+  unless root.getOpType! raw == .builtin .module do throw "expected a builtin module"
+  let [body] ← reverseRegion raw root | throw "expected a single module body block"
+  let funcs ← reverseBlockOps raw body
+  return ⟨← funcs.mapM (reverseFunction raw)⟩
 
 theorem reverseModule_lowerModule {m : ResolvedModule}
     (_ : ValidResolvedModule m) :
@@ -705,7 +827,7 @@ theorem selectPhiInputs_complete
       | @cons _ input _ _ hi ht =>
         rcases input with ⟨_, _⟩
         obtain ⟨rfl, hv⟩ := hi
-        simp [selectPhiInputs, (ha ty incoming List.mem_cons_self).lookup_eq_some_iff.mpr hv,
+        simp [selectPhiInputs, (PhiInputsAgree.lookup_eq_some_iff (ha ty incoming List.mem_cons_self)).mpr hv,
           ih ht (fun ty incoming hmem => ha ty incoming (List.mem_cons_of_mem _ hmem))]
   | @drop x xs ys hn _ ih =>
     cases x with

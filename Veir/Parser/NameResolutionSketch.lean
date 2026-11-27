@@ -108,9 +108,6 @@ def ValidResolvedFunction (f : ResolvedFunction) : Prop :=
     (∀ inst ∈ b.insts, ValidResolvedInst numParams insts.length f.blocks.size inst) ∧
     ValidResolvedTerminator numParams insts.length f.blocks.size b.terminator
 
-def ValidResolvedModule (m : ResolvedModule) : Prop :=
-  ∀ f ∈ m.funcs, ValidResolvedFunction f
-
 /-- Resolve a local reference by lookup, preserving integer literals. -/
 def resolveValue (env : NameEnv) : Value → Option ResolvedValue
   | .localIdent name => (env name).map .ref
@@ -296,6 +293,52 @@ def ResolvedTerminator.successors : ResolvedTerminator → List BlockId
 def ResolvedInst.phiType : ResolvedInst → Option LLType
   | .bin .. => none
   | .phi ty _ => some ty
+
+/-- Each source occurs once in `preds` for each of its edges to `dst`. -/
+def HasPredEdges (f : ResolvedFunction) (dst : BlockId) (preds : List BlockId) : Prop :=
+  ∀ src : BlockId,
+    preds.count src =
+      match f.blocks[src]? with
+      | none => 0
+      | some b => b.terminator.successors.count dst
+
+/-- Repeated phi entries for the same predecessor carry one resolved value. -/
+def PhiInputsAgree (incoming : List (BlockId × ResolvedValue)) : Prop :=
+  ∀ v ∈ incoming, ∀ w ∈ incoming, v.1 = w.1 → v.2 = w.2
+
+instance : DecidablePred PhiInputsAgree := fun _ => inferInstanceAs (Decidable (∀ _ ∈ _, ∀ _ ∈ _, _))
+
+def ResolvedFunction.valueType (f : ResolvedFunction) : ValueId → Option LLType
+  | .param i => f.header.params[i]?.map (·.ty)
+  | .inst i => ((f.blocks.toList.flatMap (·.insts))[i]?).map fun
+    | .bin (.bin _ ty _ _) => ty
+    | .phi ty _ => ty
+
+def ResolvedFunction.HasType (f : ResolvedFunction) (ty : LLType) : ResolvedValue → Prop
+  | .intConst _ => True
+  | .ref id => f.valueType id = some ty
+
+def WellFormedResolvedInst (f : ResolvedFunction) (dst : BlockId) : ResolvedInst → Prop
+  | .bin (.bin _ ty lhs rhs) => f.HasType ty lhs ∧ f.HasType ty rhs
+  | .phi ty incoming =>
+      HasPredEdges f dst (incoming.map Prod.fst) ∧ PhiInputsAgree incoming ∧
+      ∀ edge ∈ incoming, f.HasType ty edge.2
+
+def WellFormedResolvedTerminator (f : ResolvedFunction) : ResolvedTerminator → Prop
+  | .ret v => f.HasType f.header.retType v
+  | .br dst => dst ≠ 0
+  | .condBr c yes no => f.HasType (.int 1) c ∧ yes ≠ 0 ∧ no ≠ 0
+
+def WellFormedResolvedFunction (f : ResolvedFunction) : Prop :=
+  ValidResolvedFunction f ∧ 0 < f.blocks.size ∧
+  ∀ b dst, (b, dst) ∈ f.blocks.toList.zipIdx →
+    (dst = 0 → ∀ i ∈ b.insts, i.phiType = none) ∧
+    b.insts.Pairwise (fun earlier later => later.phiType ≠ none → earlier.phiType ≠ none) ∧
+    (∀ i ∈ b.insts, WellFormedResolvedInst f dst i) ∧
+    WellFormedResolvedTerminator f b.terminator
+
+def ValidResolvedModule (m : ResolvedModule) : Prop :=
+  ∀ f ∈ m.funcs, WellFormedResolvedFunction f
 
 def ResolvedFunction.eraseLocalNames (f : ResolvedFunction) : ResolvedFunction :=
   { f with header := { f.header with params := f.header.params.map fun p => { p with name := "" } } }
@@ -580,7 +623,7 @@ theorem resolve_round_trip (m : ResolvedModule) : ValidResolvedModule m →
   | nil => exact fun _ => ⟨⟨[]⟩, .nil, .nil⟩
   | cons f fs ih =>
     intro h
-    obtain ⟨g, hg, he⟩ := resolveFunction_round_trip f (h f (by simp))
+    obtain ⟨g, hg, he⟩ := resolveFunction_round_trip f (h f (by simp)).1
     obtain ⟨m', hr, hm⟩ := ih (fun x hx => h x (by simp [hx]))
     exact ⟨⟨g :: m'.funcs⟩, .cons ((resolveFunction_iff _ _).mp hg) hr, .cons he hm⟩
 
