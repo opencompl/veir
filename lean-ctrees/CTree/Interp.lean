@@ -8,7 +8,7 @@ public import CTree.Iter
 public section
 
 namespace CTree
-open Coinductive Lean.Order
+open Lean.Order
 
 variable {EIn E'In FIn CIn C'In DIn X Y : Type u} {E : EIn → Type u} {E' : E'In → Type u} {F : FIn → Type u}
   {C : CIn → Type u} {C' : C'In → Type u} {D : DIn → Type u} {R R' : Type u} (RR : R → R' → Prop)

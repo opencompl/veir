@@ -242,7 +242,8 @@ theorem pure_iff (v r : R) : MayReturn (pure v : CTree E C R) r ↔ r = v := by
   constructor
   · intro h
     generalize heq : (pure v : CTree E C R) = t at h
-    cases h <;> have hhead := congrArg CTree.unfold heq <;> grind
+    cases h <;> have hhead := congrArg CTree.unfold heq <;>
+      simp only [unfold_pure, unfold_ret, unfold_tauG, unfold_vis] at hhead <;> cases hhead <;> rfl
   · rintro rfl
     exact .ret _
 
@@ -272,20 +273,8 @@ theorem vis_iff (e : EIn) (k : E e → CTree E C R) (r : R) :
   constructor
   · intro h
     generalize heq : CTree.vis e k = t at h
-    cases h with
-    | ret r' =>
-      have hhead := congrArg CTree.unfold heq
-      simp [unfold_vis] at hhead
-    | tau c f x hx =>
-      have hhead := congrArg CTree.unfold heq
-      simp [unfold_tauG, unfold_vis] at hhead
-    | vis e' k' x hx =>
-      have hhead := congrArg CTree.unfold heq
-      simp only [unfold_vis] at hhead
-      injection hhead with he hk
-      subst he
-      obtain rfl : k = k' := eq_of_heq hk
-      exact ⟨x, hx⟩
+    cases h <;> have hhead := congrArg CTree.unfold heq <;>
+      simp only [unfold_ret, unfold_tauG, unfold_vis] at hhead <;> cases hhead <;> grind
   · rintro ⟨x, h⟩
     exact .vis e k x h
 
@@ -360,7 +349,7 @@ theorem PureOrErr.bind {EIn CIn X Y} {E : EIn → Type} {C : CIn → Type}
   (forall x, PureOrErr (k x)) →
   PureOrErr (Bind.bind t k) := by
   intros ht
-  induction ht <;> grind
+  induction ht <;> (try simp only [CTree.ret_pure, pure_bind]) <;> grind
 
 /--
 `CanInterpretTo t r` means that the CTree `t` can produce the outcome `r` when interpreted.
@@ -386,7 +375,8 @@ theorem pure_iff (v : R) (r : Interp R) :
   constructor
   · intro h
     generalize heq : (pure v : CTree E C R) = t at h
-    cases h <;> have hhead := congrArg CTree.unfold heq <;> grind
+    cases h <;> have hhead := congrArg CTree.unfold heq <;>
+      simp only [unfold_pure, unfold_ret, unfold_tauG, unfold_vis] at hhead <;> cases hhead <;> rfl
   · rintro rfl
     exact .ret _
 

@@ -2,8 +2,8 @@
 
 module
 
-public import Coinductive
 public import CTree.Effect
+public import QPFTypes
 
 public section
 
@@ -22,7 +22,7 @@ The present implementation makes slightly different design choices in how nondet
 
 namespace CTree
 
-open Coinductive Lean.Order
+open Lean.Order QPFTypes QPF QPFTypes.Unary
 open Subeffect (mapEff mapCont)
 
 /--
@@ -44,61 +44,51 @@ def C1 (c : C1In.{u}) : Type u :=
 
 /-! ## Low-level CTree definitions -/
 
--- TODO is universe w needed?
 /--
 The basic coinductive functor for CTree, with constructor resp. for leaves (`ret`),
 for n-ary nondeterministic choices (`tau`), and for n-ary events/effects (`vis`).
 In the `tau` case, the `C1` effect for a unary choice is hardcoded.
 -/
-inductive CTreeF {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u)
-    (R : Type v) (CTree : Type w) : Type (max u v w) where
-  | ret (r : R)
-  | tau (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree)
-  | vis (i : EIn) (k : E i → CTree)
+@[expose, qpf] def CTreeF {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u)
+    (R : Type v) (X : liveParam (Type (max u v))) : Type (max u v) :=
+  R ⊕ (Σ i, (C1 ⊕ₑ C) i → X) ⊕ (Σ i, E i → X)
+
+namespace CTreeF
+
+variable {EIn CIn : Type u} {E : EIn → Type u} {C : CIn → Type u} {R : Type v} {X : Type (max u v)}
+
+@[expose, match_pattern] def ret (r : R) : CTreeF E C R X := .inl r
+@[expose, match_pattern] def tau (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → X) : CTreeF E C R X :=
+  .inr (.inl ⟨i, k⟩)
+@[expose, match_pattern] def vis (i : EIn) (k : E i → X) : CTreeF E C R X :=
+  .inr (.inr ⟨i, k⟩)
+
+@[elab_as_elim, cases_eliminator] def cases {motive : CTreeF E C R X → Sort w}
+    (ret : ∀ r, motive (.ret r)) (tau : ∀ i k, motive (.tau i k))
+    (vis : ∀ i k, motive (.vis i k)) : (t : CTreeF E C R X) → motive t
+  | .ret r => ret r
+  | .tau i k => tau i k
+  | .vis i k => vis i k
+
+end CTreeF
 
 /--
-The coinductive library defines the bottom element as the cofixpoint of the provided inhabitant of the functor applied to unit.
-Here, the bottom element is thus defined as the spinning CTree.
+The bottom shape is a unary silent step, so its cofixpoint is the spinning CTree.
 -/
-instance {EIn : Type u} {E : EIn → Type u} {CIn : Type u} {C : CIn → Type u} {α : Type u} : Inhabited (CTreeF E C α PUnit) where
-  default := .tau (.inl .c1) (fun _ => ⟨⟩)
-
-/--
-Auxiliary definition to encode CTree as a polynomial functor
--/
-inductive CTreeF.In {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u) (α : Type u) : Type u where
-  | ret (r : α)
-  | tau (i : C1In ⊕ CIn)
-  | vis (i : EIn)
-
-/--
-CTree as a polynomial functor
--/
-instance {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u) (α : Type u) : PF (CTreeF E C α) where
-  P := ⟨CTreeF.In E C α, fun
-    | .ret _ => PEmpty
-    | .tau i => (C1 ⊕ₑ C) i
-    | .vis i => E i⟩
-  unpack
-    | .ret r => .obj (.ret r) nofun
-    | .tau i k => .obj (.tau i) k
-    | .vis i k => .obj (.vis i) k
-  pack
-    | .obj (.ret r) _ => .ret r
-    | .obj (.tau i) k => .tau i k
-    | .obj (.vis i) k => .vis i k
-  unpack_pack := by rintro _ ⟨⟩ <;> simp
-  pack_unpack := by rintro _ (⟨⟨⟩, _⟩ | ⟨⟨⟩⟩) <;> simp <;> funext x <;> cases x
+instance : HasBot (CTreeF E C R) where
+  botShape := .tau (.inl .c1) (fun _ => ⟨⟩)
 
 /--
 The high-level CTree datatype
 -/
-abbrev CTree {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u) (α : Type u) : Type u := CoInd (CTreeF E C α)
+abbrev CTree {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u) (α : Type u) : Type u := Cofix (CTreeF E C α)
 
 /--
 A CTree limited to depth n
 -/
-abbrev CTreeN {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u) (α : Type u) (n : Nat) : Type u := CoIndN (CTreeF E C α) n
+@[expose, implicit_reducible] def CTreeN {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u) (α : Type u) : Nat → Type u
+  | 0 => PUnit
+  | n + 1 => CTreeF E C α (CTreeN E C α n)
 
 
 variable {EIn FIn CIn : Type u} {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u} {R R' : Type u} (RR : R → R' → Prop)
@@ -106,12 +96,12 @@ variable {EIn FIn CIn : Type u} {E : EIn → Type u} {F : FIn → Type u} {C : C
 /--
 Folds the head of a CTree
 -/
-def CTree.fold (t : CTreeF E C R (CTree E C R)) : CTree E C R := CoInd.fold _ t
+def CTree.fold (t : CTreeF E C R (CTree E C R)) : CTree E C R := Cofix.mk t
 
 /--
 Unfolds the head of a CTree
 -/
-def CTree.unfold (t : CTree E C R) : CTreeF E C R (CTree E C R) := CoInd.unfold _ t
+def CTree.unfold (t : CTree E C R) : CTreeF E C R (CTree E C R) := Cofix.dest t
 
 /-! ## High-level CTree constructors -/
 
@@ -184,10 +174,18 @@ theorem CTree.fold_unfold (t : CTree E C R) :
 theorem CTree.unfold_fold (t : CTreeF E C R _) :
     (fold t).unfold = t := by simp [CTree.fold, CTree.unfold]
 
+/-- Observe the first `n` layers of a tree. -/
+def CTree.approx (t : CTree E C R) : (n : Nat) → CTreeN E C R n
+  | 0 => ⟨⟩
+  | n + 1 => match t.unfold with
+    | .ret r => .ret r
+    | .tau i k => .tau i (fun c => (k c).approx n)
+    | .vis i k => .vis i (fun e => (k e).approx n)
+
 @[simp, grind =]
 theorem approx_ret_succ (r : R) n :
   (CTree.ret (E := E) (C := C) r).approx (n + 1) = CTreeF.ret r := by
-    simp [CTree.ret, CTree.fold, CoInd.fold, PF.map, PF.pack, PF.unpack]
+    simp [CTree.ret, CTree.approx]
 
 @[simp]
 theorem approx_fold_ret_succ (r : R) n :
@@ -197,8 +195,7 @@ theorem approx_fold_ret_succ (r : R) n :
 @[simp, grind =]
 theorem approx_tau_succ i (k : (C1 ⊕ₑ C) i → CTree E C R) n :
   (CTree.tauG i k).approx (n + 1) = CTreeF.tau i (fun c => (k c).approx n) := by
-    simp only [CTree.tauG, CTree.fold, CoInd.fold, PF.map, PF.pack, PF.unpack]
-    rfl
+    simp [CTree.tauG, CTree.approx]
 
 @[simp]
 theorem approx_fold_tau_succ i (k : (C1 ⊕ₑ C) i → CTree E C R) n :
@@ -208,8 +205,7 @@ theorem approx_fold_tau_succ i (k : (C1 ⊕ₑ C) i → CTree E C R) n :
 @[simp, grind =]
 theorem approx_vis_succ i (k : E i → CTree E C R) n :
   (CTree.vis i k).approx (n + 1) = CTreeF.vis i (λ e => (k e).approx n) := by
-    simp only [CTree.vis, CTree.fold, CoInd.fold, PF.map, PF.pack]
-    rfl
+    simp [CTree.vis, CTree.approx]
 
 @[simp]
 theorem approx_fold_vis_succ i (t : E i → CTree E C R) n :
@@ -218,12 +214,12 @@ theorem approx_fold_vis_succ i (t : E i → CTree E C R) n :
 @[simp, grind =]
 theorem unfold_ret (r : R) :
   CTree.unfold (CTree.ret r) = CTreeF.ret (E := E) (C := C) r := by
-    simp [CTree.ret, CTree.fold, CTree.unfold]
+    simp [CTree.ret]
 
 @[simp, grind =]
 theorem unfold_tauG i (k : (C1 ⊕ₑ C) i → CTree E C R) :
   CTree.unfold (CTree.tauG i k) = CTreeF.tau i k := by
-    simp [CTree.tauG, CTree.fold, CTree.unfold]
+    simp [CTree.tauG]
 
 @[simp, grind =]
 theorem unfold_tau1 (t : CTree E C R) :
@@ -233,52 +229,23 @@ theorem unfold_tau1 (t : CTree E C R) :
 @[simp, grind =]
 theorem unfold_vis i (k : E i → CTree E C R) :
   CTree.unfold (CTree.vis i k) = CTreeF.vis i k := by
-    simp [CTree.vis, CTree.fold, CTree.unfold]
-
-theorem vis_monoN (i : EIn) (t1 t2 : E i → CTree E C R) n :
-  (∀ o, CoIndN.le _ ((t1 o).approx n) ((t2 o).approx n)) →
-  CoIndN.le _ ((CTree.vis i t1).approx (n + 1)) ((CTree.vis i t2).approx (n + 1))
- := by
-    intro hs
-    simp only [approx_vis_succ, CoIndN.le, PF.unpack]
-    right
-    constructor <;> try rfl
-    grind [coherent1]
+    simp [CTree.vis]
 
 @[partial_fixpoint_monotone]
 theorem vis_mono α [PartialOrder α] i (f : α → E i → CTree E C R) :
   monotone f →
   monotone (λ x => CTree.vis i (f x)) := by
-    intro hf t1 t2 hle
-    apply CoInd.le_leN
-    rintro ⟨n⟩; simp only [CoIndN.le]
-    apply vis_monoN
-    intro o
-    have := hf t1 t2 hle o
-    grind [CoInd.leN_le]
-
-@[simp]
-theorem tauG_monoN (i : C1In ⊕ CIn) (t1 t2 : (C1 ⊕ₑ C) i → CTree E C R) n :
-  (∀ o, CoIndN.le _ ((t1 o).approx n) ((t2 o).approx n)) →
-  CoIndN.le _ ((CTree.tauG i t1).approx (n + 1)) ((CTree.tauG i t2).approx (n + 1))
- := by
-    intro hs
-    simp only [approx_tau_succ, CoIndN.le, PF.unpack]
-    right
-    constructor <;> try rfl
-    grind [coherent1]
+    intro hf x y hxy
+    exact Cofix.mk_map_mono
+      (.vis i id) id (fun _ _ h => h) _ _ (hf x y hxy)
 
 @[partial_fixpoint_monotone]
 theorem tauG_mono α [PartialOrder α] i (f : α → (C1 ⊕ₑ C) i → CTree E C R) :
   monotone f →
   monotone (λ x => CTree.tauG i (f x)) := by
-    intro hf t1 t2 hle
-    apply CoInd.le_leN
-    rintro ⟨n⟩; simp only [CoIndN.le]
-    apply tauG_monoN
-    intro o
-    have := hf t1 t2 hle o
-    grind [CoInd.leN_le]
+    intro hf x y hxy
+    exact Cofix.mk_map_mono
+      (.tau i id) id (fun _ _ h => h) _ _ (hf x y hxy)
 
 @[partial_fixpoint_monotone]
 theorem tau_mono α [PartialOrder α] i (f : α → C i → CTree E C R) :
@@ -309,43 +276,103 @@ A single-state CTree that keeps emitting τ
 def CTree.spin : CTree E C R := CTree.tau1 spin
 partial_fixpoint
 
-@[simp]
-theorem CTree.bot_eq :
-  CoInd.bot (CTreeF E C R) = CTree.spin := by
-    ext n
-    induction n; congr 0
-    rw [CoInd.bot_eq, spin]
-    simp [PF.map, PF.pack, CoInd.fold, *, PF.unpack, default, tau1]
+private theorem dest_eq_unfold (t : CTree E C R) : Cofix.dest t = t.unfold := rfl
+
+/-- Finite observations determine a tree, by bisimulation. -/
+@[ext] theorem CTree.ext (t s : CTree E C R) :
+    (∀ n, t.approx n = s.approx n) → t = s := by
+  apply Cofix.bisim (fun x y : CTree E C R => ∀ n, x.approx n = y.approx n)
+  intro x y h
+  -- Depth one fixes the root; depth n+1 compares its children at depth n.
+  have hsucc (n : Nat) := h (n + 1)
+  simp only [dest_eq_unfold]
+  cases hx : CTree.unfold x <;> cases hy : CTree.unfold y <;>
+    simp only [CTree.approx, hx, hy] at hsucc <;> cases hsucc 0
+  case ret.ret.refl r => exact ⟨CTreeF.ret r, rfl, rfl⟩
+  all_goals
+    simp only [CTreeN, CTreeF, CTreeF.tau, CTreeF.vis, Sum.inr.injEq, Sum.inl.injEq, Sigma.mk.injEq,
+      heq_eq_eq, true_and] at hsucc
+  case tau.tau.refl i k l =>
+    exact ⟨CTreeF.tau i (fun o => ⟨(k o, l o), fun n => congrFun (hsucc n) o⟩), rfl, rfl⟩
+  case vis.vis.refl i k l =>
+    exact ⟨CTreeF.vis i (fun o => ⟨(k o, l o), fun n => congrFun (hsucc n) o⟩), rfl, rfl⟩
+
+@[simp] theorem CTree.bot_eq :
+    Cofix.bot (@TypeFun.ofCurried 1 (CTreeF E C R)) = (CTree.spin : CTree E C R) := by
+  have hb : CTree.unfold (Cofix.bot (@TypeFun.ofCurried 1 (CTreeF E C R))) =
+      CTreeF.tau (.inl .c1) (fun _ => Cofix.bot (@TypeFun.ofCurried 1 (CTreeF E C R))) := by
+    unfold CTree.unfold Cofix.bot
+    rw [Cofix.dest_abs, MvPFunctor.M.dest_bot, QPF.abs_map]
+    erw [QPF.abs_repr]
     rfl
+  apply CTree.ext
+  intro n
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    rw [CTree.spin.eq_def, CTree.tau1_def, approx_tau_succ]
+    simp only [CTree.approx, hb, ih]
+
+/-- For a unary polynomial functor, a non-bottom order step is precisely a
+layer whose corresponding children satisfy the relation. -/
+private theorem leStep_iff_liftR {F : TypeVec.{u} 1 → Type u} [QPF F] [IsPolynomial F]
+    [HasBot F TypeVec.nil] (p : Cofix F TypeVec.nil → Cofix F TypeVec.nil → Prop) (x y) :
+    Cofix.LeStep p x y ↔ x = Cofix.bot F ∨
+      MvFunctor.LiftR (TypeVec.RelLast TypeVec.nil p) (Cofix.dest x) (Cofix.dest y) := by
+  unfold Cofix.LeStep
+  rw [QPF.liftR_iff]
+  apply or_congr_right
+  constructor
+  · rintro ⟨a, fd, g, g', hx, hy, h⟩
+    refine ⟨a, _, _, (QPF.abs_repr _).symm.trans (congrArg QPF.abs hx),
+      (QPF.abs_repr _).symm.trans (congrArg QPF.abs hy), ?_⟩
+    intro i; obtain rfl : i = 0 := Fin.ext (by omega)
+    exact h
+  · rintro ⟨a, f, g, hx, hy, h⟩
+    refine ⟨a, TypeVec.nilFun, TypeVec.lastFun f, TypeVec.lastFun g, ?_, ?_, h 0⟩
+    all_goals
+      first | erw [hx, IsPolynomial.repr_abs] | erw [hy, IsPolynomial.repr_abs]
+      apply congrArg _
+      exact (TypeVec.split_dropFun_lastFun _).symm.trans
+        (congrArg (fun fd => TypeVec.splitFun fd _) (TypeVec.eq_nilFun _))
+
+private theorem leStep_iff (p : CTree E C R → CTree E C R → Prop) (t1 t2 : CTree E C R) :
+    Cofix.LeStep p t1 t2 ↔
+    t1 = .spin ∨
+    (∃ r, t1 = .ret r ∧ t2 = .ret r) ∨
+    (∃ i t1' t2', t1 = .tauG i t1' ∧ t2 = .tauG i t2' ∧ ∀ o, p (t1' o) (t2' o)) ∨
+    (∃ i t1' t2', t1 = .vis i t1' ∧ t2 = .vis i t2' ∧ ∀ o, p (t1' o) (t2' o)) := by
+  rw [leStep_iff_liftR, CTree.bot_eq]
+  apply or_congr_right
+  constructor
+  · rintro ⟨w, hx, hy⟩
+    rw [dest_eq_unfold] at hx hy
+    have hx := (CTree.fold_unfold t1).symm.trans (congrArg CTree.fold hx.symm)
+    have hy := (CTree.fold_unfold t2).symm.trans (congrArg CTree.fold hy.symm)
+    cases w using CTreeF.cases with
+    | ret r => exact Or.inl ⟨r, hx, hy⟩
+    | tau i k => exact Or.inr (Or.inl ⟨i, _, _, hx, hy, fun o => (k o).property⟩)
+    | vis i k => exact Or.inr (Or.inr ⟨i, _, _, hx, hy, fun o => (k o).property⟩)
+  · rintro (⟨r, rfl, rfl⟩ | ⟨i, k, k', rfl, rfl, hk⟩ | ⟨i, k, k', rfl, rfl, hk⟩)
+    · exact ⟨CTreeF.ret r, (unfold_ret r).symm, (unfold_ret r).symm⟩
+    · exact ⟨CTreeF.tau i (fun o => ⟨(k o, k' o), hk o⟩), (unfold_tauG i k).symm,
+        (unfold_tauG i k').symm⟩
+    · exact ⟨CTreeF.vis i (fun o => ⟨(k o, k' o), hk o⟩), (unfold_vis i k).symm,
+        (unfold_vis i k').symm⟩
 
 theorem CTree.le_unfold (t1 t2 : CTree E C R) :
   (t1 ⊑ t2) = (t1 = .spin ∨
     (∃ r, t1 = .ret r ∧ t2 = .ret r) ∨
     (∃ i t1' t2', t1 = .tauG i t1' ∧ t2 = .tauG i t2' ∧ ∀ o, t1' o ⊑ t2' o) ∨
     (∃ i t1' t2', t1 = .vis i t1' ∧ t2 = .vis i t2' ∧ ∀ o, t1' o ⊑ t2' o)) := by
-    ext
-    constructor
-    · intro h
-      rw [CoInd.le_unfold] at h
-      rcases h with (rfl|⟨i, _, _, _, _, h1, h2⟩); simp only [bot_eq, exists_and_left, true_or]
-      rw [<-Coinductive.unfold_fold _ t1, <-Coinductive.unfold_fold _ t2]
-      rw [<-PF.unpack_pack (CoInd.unfold _ t1), <-PF.unpack_pack (CoInd.unfold _ t2)]
-      simp only [h1, h2]
-      right
-      cases i <;> simp only [PF.pack, ret, fold, and_self, tauG, exists_and_left, vis] <;> grind
-    · rintro (rfl| ⟨_, rfl, rfl⟩ | ⟨_, _, _, rfl, rfl, _⟩|⟨_, _, _, rfl, rfl, _⟩)
-      · simp [CoInd.le_unfold]
-      · apply PartialOrder.rel_refl
-      · simp only [CoInd.le_unfold]
-        right
-        simp only [PF.unpack, tauG, fold, Coinductive.fold_unfold]
-        constructor <;> try rfl
-        grind
-      · simp only [CoInd.le_unfold]
-        right
-        simp only [PF.unpack, vis, fold, Coinductive.fold_unfold]
-        constructor <;> try rfl
-        grind
+  apply propext
+  constructor
+  · exact fun h => (leStep_iff _ _ _).mp (Cofix.le_step h)
+  · rintro (rfl | ⟨_, rfl, rfl⟩ | ⟨i, k, k', rfl, rfl, hk⟩ | ⟨i, k, k', rfl, rfl, hk⟩)
+    · rw [← CTree.bot_eq]; apply Cofix.bot_le
+    · apply PartialOrder.rel_refl
+    · exact tauG_mono _ i id (fun _ _ h => h) _ _ hk
+    · exact vis_mono _ i id (fun _ _ h => h) _ _ hk
 
 /--
 The monadic bind operator, that sequences a CTree and a continuation
@@ -360,20 +387,17 @@ partial_fixpoint
 @[simp, grind =]
 theorem CTree.bind_ret {β} r (t : β → CTree E C α) :
   CTree.bind (.ret r) t = t r := by
-    rw [CTree.bind]
-    simp [CTree.ret, CTree.fold, CTree.unfold]
+    rw [CTree.bind, unfold_ret]
 
 @[simp, grind =]
 theorem CTree.bind_vis {β} i k (t : β → CTree E C α) :
   CTree.bind (.vis i k) t = .vis i (λ o => CTree.bind (k o) t) := by
-    rw [CTree.bind]
-    simp [CTree.vis, CTree.fold, CTree.unfold]
+    rw [CTree.bind, unfold_vis]
 
 @[simp, grind =]
 theorem CTree.bind_tau {β} c k (t : β → CTree E C α) :
   CTree.bind (.tauG c k) t = .tauG c (λ o => CTree.bind (k o) t) := by
-    rw [CTree.bind]
-    simp [CTree.tauG, CTree.fold, CTree.unfold]
+    rw [CTree.bind, unfold_tauG]
 
 instance : Monad (CTree E C) where
   pure := CTree.ret
@@ -384,43 +408,46 @@ theorem bind_pure (value : α) (next : α → CTree E C β) :
     CTree.bind (pure value) next = next value :=
   CTree.bind_ret value next
 
+@[simp] theorem CTree.bind_spin (k : X → CTree E C Y) :
+    CTree.bind CTree.spin k = CTree.spin := by
+  apply CTree.ext
+  intro n
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    conv => lhs; rw [CTree.spin.eq_def, CTree.tau1_def, CTree.bind_tau, approx_tau_succ]
+    conv => rhs; rw [CTree.spin.eq_def, CTree.tau1_def, approx_tau_succ]
+    simp only [ih]
+
 @[partial_fixpoint_monotone]
 theorem bind_mono {γ} [PartialOrder γ]
   (f : γ → CTree E C X) (g : γ → X → CTree E C Y) :
   monotone f →
   monotone g →
   monotone (λ x => CTree.bind (f x) (g x)) := by
-    intro hf hg t1 t2 hle
-    apply CoInd.le_leN
-    intro n
-    dsimp only
-    have hlef : (f t1) ⊑ (f t2) := by apply hf; assumption
-    generalize f t1 = t1, f t2 = t2 at hlef
-    induction n generalizing t1 t2; simp only [CoIndN.le]
-    unfold CTree.bind
-    rw [CTree.le_unfold] at hlef
-    rcases hlef with (rfl|⟨x, rfl, rfl⟩|⟨_, _, _, rfl, rfl, _⟩|⟨_, _, _, rfl, rfl, _⟩)
-    · unfold CTree.spin
-      simp only [unfold_tau1, SumE.eq_inl, approx_tau_succ, CoIndN.le, CoIndN.bot, CTree.bot_eq]
-      left
-      unfold CTree.spin CTree.tau1
-      simp only [SumE.eq_inl, approx_tau_succ]
-      congr
-      funext
-      congr
-      ext n
-      induction n; congr 0
-      unfold CTree.bind CTree.spin CTree.tau1
-      simp_all
-    · rw [unfold_ret]
-      have := hg t1 t2 hle x
-      grind [CoInd.leN_le, monotone]
-    · simp only [unfold_tauG, approx_tau_succ]
-      apply tauG_monoN
-      grind [CoInd.leN_le, monotone]
-    · simp only [unfold_vis, approx_vis_succ]
-      apply vis_monoN
-      grind [CoInd.leN_le, monotone]
+  intro hf hg x y hxy
+  -- A return hands control to already-ordered continuations. At a branch or
+  -- event, the children are again binds of ordered input trees.
+  let p (a b : CTree E C Y) := a ⊑ b ∨
+    ∃ t s : CTree E C X, t ⊑ s ∧ a = CTree.bind t (g x) ∧ b = CTree.bind s (g y)
+  have known (a b : CTree E C Y) (h : a ⊑ b) : Cofix.LeStep p a b := by
+    rcases Cofix.le_step h with hb | ⟨i, fd, k, k', ha, hb, hk⟩
+    · exact Or.inl hb
+    · exact Or.inr ⟨i, fd, k, k', ha, hb, fun o => Or.inl (hk o)⟩
+  refine Cofix.le_coinduct p ?_ (Or.inr ⟨_, _, hf _ _ hxy, rfl, rfl⟩)
+  rintro a b (hab | ⟨t, s, hts, rfl, rfl⟩)
+  · exact known _ _ hab
+  rw [CTree.le_unfold] at hts
+  rcases hts with rfl | ⟨r, rfl, rfl⟩ | ⟨i, k, k', rfl, rfl, hk⟩ | ⟨i, k, k', rfl, rfl, hk⟩
+  · rw [CTree.bind_spin]
+    exact Or.inl CTree.bot_eq.symm
+  · simp only [CTree.bind_ret]; exact known _ _ (hg _ _ hxy r)
+  · simp only [CTree.bind_tau]
+    apply (leStep_iff _ _ _).mpr
+    exact Or.inr (Or.inr (Or.inl ⟨i, _, _, rfl, rfl, fun o => Or.inr ⟨_, _, hk o, rfl, rfl⟩⟩))
+  · simp only [CTree.bind_vis]
+    apply (leStep_iff _ _ _).mpr
+    exact Or.inr (Or.inr (Or.inr ⟨i, _, _, rfl, rfl, fun o => Or.inr ⟨_, _, hk o, rfl, rfl⟩⟩))
 
 instance : MonoBind (CTree E C) where
   bind_mono_left := by
