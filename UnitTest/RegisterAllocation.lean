@@ -108,7 +108,7 @@ Expected program:
 -/
 private def testEmptyBlock : Except String Bool := do
   let (ctx, block) := emptyBlock
-  let ctx ← allocateBlock ctx block
+  let (ctx, _) ← allocateBlock ctx block
   return (block.getFirstOp! ctx.raw).isNone && (block.getLastOp! ctx.raw).isNone
 
 #guard testEmptyBlock = .ok true
@@ -132,7 +132,7 @@ private def testAllocateBlock : Except String (Array (Option Int)) := do
   let (ctx, b) := addTestOp ctx block #[RegisterType.mk]
   let (ctx, sum) := addTestOp ctx block #[RegisterType.mk]
     #[a.getResult 0, b.getResult 0]
-  let ctx ← allocateBlock ctx block
+  let (ctx, _) ← allocateBlock ctx block
   indices ctx #[a.getResult 0, b.getResult 0, sum.getResult 0]
 
 #guard testAllocateBlock = .ok #[some (-1), some (-2), some (-1)]
@@ -154,7 +154,7 @@ private def testRepeatedOperand : Except String (Array (Option Int)) := do
   let (ctx, a) := addTestOp ctx block #[RegisterType.mk]
   let (ctx, sum) := addTestOp ctx block #[RegisterType.mk]
     #[a.getResult 0, a.getResult 0]
-  let ctx ← allocateBlock ctx block
+  let (ctx, _) ← allocateBlock ctx block
   indices ctx #[a.getResult 0, sum.getResult 0]
 
 #guard testRepeatedOperand = .ok #[some (-1), some (-1)]
@@ -173,7 +173,7 @@ Expected program:
 private def testUnusedResults : Except String (Array (Option Int)) := do
   let (ctx, block) := emptyBlock
   let (ctx, op) := addTestOp ctx block #[RegisterType.mk, RegisterType.mk]
-  let ctx ← allocateBlock ctx block
+  let (ctx, _) ← allocateBlock ctx block
   indices ctx (op.getResults! ctx.raw)
 
 #guard testUnusedResults = .ok #[some (-1), some (-2)]
@@ -199,7 +199,7 @@ private def testPhysicalRegister : Except String (Array (Option Int)) := do
   let (ctx, sum) := addTestOp ctx block #[RegisterType.mk]
     #[a.getResult 0, b.getResult 0]
   let (ctx, zero) := addTestOp ctx block #[RegisterType.mk .int (some 0)]
-  let ctx ← allocateBlock ctx block
+  let (ctx, _) ← allocateBlock ctx block
   indices ctx #[a.getResult 0, b.getResult 0, sum.getResult 0, zero.getResult 0]
 
 #guard testPhysicalRegister = .ok #[some (-1), some (-2), some (-1), some 0]

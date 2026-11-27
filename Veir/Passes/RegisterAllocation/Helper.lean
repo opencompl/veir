@@ -2,6 +2,7 @@ module
 
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
+public import Veir.Passes.RegisterAllocation.RegisterInfo
 
 namespace Veir
 
@@ -11,7 +12,7 @@ The number of function arguments passed in registers, `a0`–`a7`.
 Functions with more arguments pass the rest on the stack, which the allocator does not
 support yet.
 -/
-def maxRegisterArguments : Nat := 8
+def maxRegisterArguments : Nat := (RegisterInfo.argRegisters .int).size
 
 /--
 The number of function results returned in registers, `a0` and `a1`. Larger results are
