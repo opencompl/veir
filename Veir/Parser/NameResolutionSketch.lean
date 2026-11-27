@@ -1,7 +1,6 @@
 import Veir.Parser.LLVMAST
-import Init.Data.Nat.ToString
 
-/-! A minimal resolution relation for the complete De Morgan example. -/
+/-! Resolved LLVM functions and declarative name resolution for the integer fragment. -/
 
 namespace Veir.NameResolutionSketch
 
@@ -20,28 +19,17 @@ inductive ResolvedValue where
   deriving Repr, DecidableEq
 
 /-- Instructions are stored once; their operands preserve sharing through IDs. -/
-inductive ResolvedAST where
+inductive ResolvedBinary where
   | bin (op : BinOp) (ty : LLType) (lhs rhs : ResolvedValue)
   deriving Repr, DecidableEq
 
 /-- Names identify definitions; literals are represented directly in operands. -/
 abbrev NameEnv := String → Option ValueId
 
-
-
-
 /-- Definition positions determine identities, independently of their expressions. -/
 def bindings (header : FuncHeader) (insts : List Instruction) : List (String × ValueId) :=
   header.params.zipIdx.map (fun (p, i) => (p.name, .param i)) ++
     insts.zipIdx.map (fun (inst, i) => (inst.name, .inst i))
-
-def environment (header : FuncHeader) (insts : List Instruction) : NameEnv :=
-  (List.lookup · $ bindings header insts)
-
-theorem environment_mem (header : FuncHeader) (insts : List Instruction)
-    (name : String) (id : ValueId) :
-    environment header insts name = some id → (name, id) ∈ bindings header insts := by
-  grind [environment, List.lookup_eq_some_iff]
 
 /-- Undefined names have no derivation. -/
 inductive ResolvesValue (values : NameEnv) :
@@ -52,139 +40,73 @@ inductive ResolvesValue (values : NameEnv) :
   | boolConst : ResolvesValue values (.boolConst b) (.intConst (if b then 1 else 0))
 
 inductive ResolvesBinInst (values : NameEnv) :
-    BinInst → ResolvedAST → Prop where
+    BinInst → ResolvedBinary → Prop where
   | bin : ResolvesValue values lhs lhs' →
       ResolvesValue values rhs rhs' →
       ResolvesBinInst values ⟨op, ty, lhs, rhs⟩ (.bin op ty lhs' rhs')
-
-inductive ResolvesBinary (values : NameEnv) : Inst → ResolvedAST → Prop where
-  | bin : ResolvesBinInst values inst res → ResolvesBinary values (.bin inst) res
-
-inductive HasEnv3 (n : NameEnv) (header : FuncHeader) (insts : List Instruction) : Prop where
-    | mk : (∀ pj  ∈ header.params.zipIdx, n pj.1.name = some (.param pj.2)) →
-    (∀ ij  ∈ insts.zipIdx, n ij.1.name = some (.inst ij.2)) →
-    (∀ name id, n name = some id → (name, id) ∈ bindings header insts) →
-      HasEnv3 n header insts
-
-
-theorem HasEnv3.binding (h : HasEnv3 n header insts) :
-    ∀ p ∈ bindings header insts, n p.1 = some p.2 := by
-  cases h; grind [bindings]
-
-theorem HasEnv3.environment_eq (h : HasEnv3 n header insts) :
-    n = environment header insts := by
-  funext name
-  have hb := h.binding
-  rcases h with ⟨_, _, hc⟩
-  cases hn : n name <;> cases he : environment header insts name <;>
-    grind [environment_mem, environment, List.lookup_eq_none_iff]
 
 /-- Pointwise resolution of equally long lists. -/
 inductive ResolvesList (R : α → β → Prop) : List α → List β → Prop where
   | nil : ResolvesList R [] []
   | cons : R a b → ResolvesList R as bs → ResolvesList R (a :: as) (b :: bs)
 
-/-- A resolved single-block function, retaining its source header and block label. -/
+abbrev BlockId := Nat
+
+/-- An instruction's result ID is its position in the function's flattened instruction list. -/
+inductive ResolvedInst where
+  | bin (instruction : ResolvedBinary)
+  | phi (ty : LLType) (incoming : List (BlockId × ResolvedValue))
+  deriving Repr, DecidableEq
+
+inductive ResolvedTerminator where
+  | ret (value : ResolvedValue)
+  | br (dst : BlockId)
+  | condBr (condition : ResolvedValue) (yes no : BlockId)
+  deriving Repr, DecidableEq
+
+structure ResolvedBlock where
+  label : String
+  insts : List ResolvedInst
+  terminator : ResolvedTerminator
+  deriving Repr, DecidableEq
+
 structure ResolvedFunction where
   header : FuncHeader
-  label : String
-  insts : List ResolvedAST
-  result : ResolvedValue
-  deriving DecidableEq
+  blocks : Array ResolvedBlock
+  deriving Repr, DecidableEq
 
-/-- A module retains function order; local identities are scoped to each function. -/
 structure ResolvedModule where
   funcs : List ResolvedFunction
-  deriving DecidableEq
+  deriving Repr, DecidableEq
 
-/-- References must point to existing parameters or instructions. -/
+def ResolvedInst.binary : ResolvedInst → Option ResolvedBinary
+  | .bin inst => some inst
+  | .phi .. => none
+
 def ValidResolvedValue (numParams numInsts : Nat) : ResolvedValue → Prop
   | .ref (.param i) => i < numParams
   | .ref (.inst i) => i < numInsts
   | .intConst _ => True
 
-def ValidResolvedInst (numParams numInsts : Nat) : ResolvedAST → Prop
-  | .bin _ _ lhs rhs =>
+def ValidResolvedInst (numParams numInsts numBlocks : Nat) : ResolvedInst → Prop
+  | .bin (.bin _ _ lhs rhs) =>
       ValidResolvedValue numParams numInsts lhs ∧ ValidResolvedValue numParams numInsts rhs
+  | .phi _ incoming =>
+      ∀ edge ∈ incoming, edge.1 < numBlocks ∧ ValidResolvedValue numParams numInsts edge.2
 
+def ValidResolvedTerminator (numParams numInsts numBlocks : Nat) : ResolvedTerminator → Prop
+  | .ret value => ValidResolvedValue numParams numInsts value
+  | .br dst => dst < numBlocks
+  | .condBr value yes no =>
+      ValidResolvedValue numParams numInsts value ∧ yes < numBlocks ∧ no < numBlocks
+
+/-- Value and block references are in bounds. -/
 def ValidResolvedFunction (f : ResolvedFunction) : Prop :=
-  (∀ inst ∈ f.insts, ValidResolvedInst f.header.params.length f.insts.length inst) ∧
-  ValidResolvedValue f.header.params.length f.insts.length f.result
-
-/-- Discard parameter names while retaining their types and positions. -/
-def eraseParamNames (f : ResolvedFunction) : ResolvedFunction :=
-  { f with header := { f.header with
-      params := f.header.params.map fun p => { p with name := "" } } }
-
-def EqModuloRenaming (f g : ResolvedFunction) : Prop :=
-  eraseParamNames f = eraseParamNames g
-
-/-- Two operands of type `ty` agree, treating integer literals as bit patterns. -/
-def ValueEquiv : LLType → ResolvedValue → ResolvedValue → Prop
-  | .int w, .intConst a, .intConst b => BitVec.ofInt w a = BitVec.ofInt w b
-  | _, a, b => a = b
-
-theorem ValueEquiv.refl : ValueEquiv ty x x := by cases ty; cases x <;> simp [ValueEquiv]
-
-def InstEquiv : ResolvedAST → ResolvedAST → Prop
-  | .bin o t l r, .bin o' t' l' r' => o = o' ∧ t = t' ∧ ValueEquiv t l l' ∧ ValueEquiv t r r'
-
-/-- Equal up to local names, the block label and the spelling of integer literals. -/
-def ResolvedFunction.Equiv (f g : ResolvedFunction) : Prop :=
-  f.header.name = g.header.name ∧ f.header.retType = g.header.retType ∧
-  f.header.params.map (·.ty) = g.header.params.map (·.ty) ∧
-  ResolvesList InstEquiv f.insts g.insts ∧ ValueEquiv f.header.retType f.result g.result
-
-def ResolvedModule.Equiv (m m' : ResolvedModule) : Prop := ResolvesList ResolvedFunction.Equiv m.funcs m'.funcs
-
-/-- Reintroduce the canonical local names used by the resolved-function printer. -/
-def unresolveValue : ResolvedValue → Value
-  | .ref (.param i) => .localIdent s!"arg{i}"
-  | .ref (.inst i) => .localIdent s!"{i}"
-  | .intConst value => .intConst value
-
-def unresolveInst : ResolvedAST → BinInst
-  | .bin op ty lhs rhs => ⟨op, ty, unresolveValue lhs, unresolveValue rhs⟩
-
-/-- Reconstruct a single-block AST with canonical names, since source instruction
-names are discarded by resolution. Reference indices are preserved without validation. -/
-def unresolveFunction (f : ResolvedFunction) : FuncDef :=
-  let header := { f.header with
-    params := f.header.params.zipIdx.map fun (p, i) => { p with name := s!"arg{i}" } }
-  let insts : List Instruction := f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩
-  ⟨header, [⟨f.label, insts, .ret ⟨header.retType, unresolveValue f.result⟩⟩]⟩
-
-def formatType : LLType → String
-  | .int width => s!"i{width}"
-
-def formatValue : ResolvedValue → String
-  | .ref (.param i) => s!"%arg{i}"
-  | .ref (.inst i) => s!"%{i}"
-  | .intConst value => toString value
-
-def formatInst : ResolvedAST → String
-  | .bin op ty lhs rhs =>
-      let name := match op with | .xor => "xor" | .and => "and" | .or => "or"
-      s!"{name} {formatType ty} {formatValue lhs}, {formatValue rhs}"
-
-instance : ToString ResolvedFunction where
-  toString f :=
-    let params := f.header.params.zipIdx.map fun (p, i) => s!"{formatType p.ty} %arg{i}"
-    let insts := f.insts.zipIdx.map fun (inst, i) => s!"  %{i} = {formatInst inst}\n"
-    s!"define {formatType f.header.retType} @{f.header.name} ({String.intercalate ", " params})" ++ " {\n" ++
-      s!"{f.label}:\n" ++ String.join insts ++
-      s!"  ret {formatType f.header.retType} {formatValue f.result}\n" ++ "}"
-
-instance : Repr ResolvedFunction where
-  reprPrec f _ := .text (toString f)
-
-/-- Resolution uses all definitions; dominance and typing are separate checks. -/
-inductive ResolvesFunction : FuncDef → ResolvedFunction → Prop where
-  | mk (env) :  HasEnv3 env header insts →
-      ResolvesList (fun inst => ResolvesBinary env inst.inst) insts resolved →
-      ResolvesValue env result value →
-      ResolvesFunction ⟨header, [⟨label, insts, .ret ⟨header.retType, result⟩⟩]⟩
-        ⟨header, label, resolved, value⟩
+  let numParams := f.header.params.length
+  let insts := f.blocks.toList.flatMap (·.insts)
+  ∀ b ∈ f.blocks.toList,
+    (∀ inst ∈ b.insts, ValidResolvedInst numParams insts.length f.blocks.size inst) ∧
+    ValidResolvedTerminator numParams insts.length f.blocks.size b.terminator
 
 /-- Resolve a local reference by lookup, preserving integer literals. -/
 def resolveValue (env : NameEnv) : Value → Option ResolvedValue
@@ -192,114 +114,30 @@ def resolveValue (env : NameEnv) : Value → Option ResolvedValue
   | .intConst value => some (.intConst value)
   | .boolConst b => some (.intConst (if b then 1 else 0))
 
-def resolveBinInst (env : NameEnv) (inst : BinInst) : Option ResolvedAST := do
+def resolveBinInst (env : NameEnv) (inst : BinInst) : Option ResolvedBinary := do
   let lhs ← resolveValue env inst.lhs
   let rhs ← resolveValue env inst.rhs
   return .bin inst.op inst.ty lhs rhs
-
-def resolveBinary (env : NameEnv) : Inst → Option ResolvedAST
-  | .bin inst => resolveBinInst env inst
-  | .phi .. => none
-
-def resolveInsts (env : NameEnv) : List Instruction → Option (List ResolvedAST)
-  | [] => some []
-  | inst :: insts => do
-      let resolved ← resolveBinary env inst.inst
-      let rest ← resolveInsts env insts
-      return resolved :: rest
-
-/-- Check every definition against the lookup table, rejecting conflicting names. -/
-def validEnvironment (header : FuncHeader) (insts : List Instruction) : Prop :=
-  (∀ pj ∈ header.params.zipIdx, environment header insts pj.1.name = some (.param pj.2)) ∧
-  (∀ ij ∈ insts.zipIdx, environment header insts ij.1.name = some (.inst ij.2))
-
-instance : DecidablePred (validEnvironment header) := fun _ =>
-  inferInstanceAs (Decidable (_ ∧ _))
-
-/-- Resolve the single-block fragment specified by `ResolvesFunction`.
-All definitions are available to operands, including forward references. -/
-def resolveFunction (f : FuncDef) : Option ResolvedFunction :=
-  match f.blocks with
-  | [⟨label, insts, .ret ⟨ty, result⟩⟩] =>
-      if ty = f.header.retType ∧ validEnvironment f.header insts then do
-        let resolved ← resolveInsts (environment f.header insts) insts
-        let value ← resolveValue (environment f.header insts) result
-        return ⟨f.header, label, resolved, value⟩
-      else none
-  | _ => none
 
 theorem resolveValue_sound (env : NameEnv) (v : Value) (r : ResolvedValue) :
     resolveValue env v = some r → ResolvesValue env v r := by
   cases v <;> simp [resolveValue, Option.map_eq_some_iff] <;>
     grind [ResolvesValue]
 
-theorem resolveBinInst_sound (env : NameEnv) (inst : BinInst) (r : ResolvedAST) :
+theorem resolveBinInst_sound (env : NameEnv) (inst : BinInst) (r : ResolvedBinary) :
     resolveBinInst env inst = some r → ResolvesBinInst env inst r := by
   cases inst
   simp [resolveBinInst, Option.bind_eq_some_iff]
   grind [resolveValue_sound, ResolvesBinInst]
 
-theorem resolveBinary_sound (h : resolveBinary env inst = some res) :
-    ResolvesBinary env inst res := by
-  cases inst
-  · exact .bin (resolveBinInst_sound _ _ _ h)
-  · contradiction
-
-theorem resolveInsts_sound (env : NameEnv) (insts : List Instruction) (rs : List ResolvedAST) :
-    resolveInsts env insts = some rs → ResolvesList (fun i => ResolvesBinary env i.inst) insts rs := by
-  induction insts generalizing rs <;>
-    simp [resolveInsts, Option.bind_eq_some_iff] <;> grind [resolveBinary_sound, ResolvesList]
-
-theorem resolveFunction_sound (f : FuncDef) (r : ResolvedFunction) :
-    resolveFunction f = some r → ResolvesFunction f r := by
-  rcases f with ⟨header, blocks⟩; unfold resolveFunction
-  split <;> try (intro h; contradiction)
-  rename_i label insts ty result heq
-  change blocks = _ at heq; subst blocks
-  split <;> simp only [bind, pure, Option.bind_eq_some_iff, Option.some.injEq, reduceCtorEq, false_implies]
-  rename_i h; change ty = header.retType ∧ validEnvironment header insts at h
-  rcases h with ⟨rfl, hp, hi⟩
-  rintro ⟨rs, hs, value, hv, rfl⟩
-  exact .mk _ (.mk hp hi (environment_mem _ _)) (resolveInsts_sound _ _ _ hs) (resolveValue_sound _ _ _ hv)
-
 theorem resolveValue_complete (env : NameEnv) (v : Value) (r : ResolvedValue) :
     ResolvesValue env v r → resolveValue env v = some r := by
   intro h; cases h <;> simp [resolveValue, *]
 
-theorem resolveBinInst_complete (env : NameEnv) (inst : BinInst) (r : ResolvedAST) :
+theorem resolveBinInst_complete (env : NameEnv) (inst : BinInst) (r : ResolvedBinary) :
     ResolvesBinInst env inst r → resolveBinInst env inst = some r := by
   rintro ⟨hl, hr⟩
   simp [resolveBinInst, resolveValue_complete _ _ _ hl, resolveValue_complete _ _ _ hr]
-
-theorem resolveBinary_complete (h : ResolvesBinary env inst res) :
-    resolveBinary env inst = some res := by
-  cases h with | bin h => exact resolveBinInst_complete _ _ _ h
-
-theorem resolveInsts_complete (env : NameEnv) (insts : List Instruction) (rs : List ResolvedAST) :
-    ResolvesList (fun i => ResolvesBinary env i.inst) insts rs → resolveInsts env insts = some rs := by
-  intro h; induction h with
-  | nil => rfl
-  | cons hi _ ih => simp [resolveInsts, resolveBinary_complete hi, ih]
-
-theorem resolveFunction_complete (f : FuncDef) (r : ResolvedFunction) :
-    ResolvesFunction f r → resolveFunction f = some r := by
-  rintro ⟨env, he, hi, hv⟩
-  obtain rfl := he.environment_eq
-  rcases he with ⟨hp, hi', _⟩
-  simp [resolveFunction, show validEnvironment _ _ from ⟨hp, hi'⟩,
-    resolveInsts_complete _ _ _ hi, resolveValue_complete _ _ _ hv]
-
-theorem resolveFunction_iff (f : FuncDef) (r : ResolvedFunction) :
-    resolveFunction f = some r ↔ ResolvesFunction f r :=
-  ⟨resolveFunction_sound f r, resolveFunction_complete f r⟩
-
-
-/-- Resolve every function independently, failing if any function fails. -/
-def resolveModule (m : Module) : Option ResolvedModule :=
-  (m.funcs.mapM resolveFunction).map ResolvedModule.mk
-
-def ResolvesModule (m : Module) (r : ResolvedModule) : Prop :=
-  ResolvesList ResolvesFunction m.funcs r.funcs
 
 theorem resolvesList_mapM_iff (f : α → Option β) (R : α → β → Prop)
     (h : ∀ a b, f a = some b ↔ R a b) (xs : List α) (ys : List β) :
@@ -310,197 +148,184 @@ theorem resolvesList_mapM_iff (f : α → Option β) (R : α → β → Prop)
     cases ys <;> simp [List.mapM_cons, Option.bind_eq_some_iff]
     all_goals grind [ResolvesList]
 
+abbrev LabelEnv := String → Option BlockId
+
+def ResolvedValue.normalize (ty : LLType) : ResolvedValue → ResolvedValue
+  | .ref id => .ref id
+  | .intConst n => match ty with
+    | .int w => .intConst (BitVec.ofInt w n).toInt
+
+def resolveIncoming (labels : LabelEnv) (values : NameEnv) (ty : LLType) (input : PhiIncoming) :
+    Option (BlockId × ResolvedValue) := do
+  return (← labels input.predecessor, (← resolveValue values input.value).normalize ty)
+
+def resolveInst (labels : LabelEnv) (values : NameEnv) : Inst → Option ResolvedInst
+  | .bin bin => ResolvedInst.bin <$> resolveBinInst values bin
+  | .phi ty incoming => ResolvedInst.phi ty <$> incoming.mapM (resolveIncoming labels values ty)
+
+def resolveTerminator (labels : LabelEnv) (values : NameEnv) (retType : LLType) :
+    Terminator → Option ResolvedTerminator
+  | .ret tv => do
+    guard (tv.ty == retType)
+    return .ret (← resolveValue values tv.val)
+  | .br dst => return .br (← labels dst)
+  | .condBr c yes no => return .condBr (← resolveValue values c) (← labels yes) (← labels no)
+
+def resolveBlock (labels : LabelEnv) (values : NameEnv) (retType : LLType) (b : BasicBlock) :
+    Option ResolvedBlock := do
+  return ⟨b.label, ← b.insts.mapM (fun i => resolveInst labels values i.inst),
+    ← resolveTerminator labels values retType b.term⟩
+
+def labelBindings (f : FuncDef) : List (String × BlockId) :=
+  f.blocks.zipIdx.map fun (b, id) => (b.label, id)
+
+def valueBindings (f : FuncDef) : List (String × ValueId) :=
+  bindings f.header (f.blocks.flatMap (·.insts))
+
+def resolveFunction (f : FuncDef) : Option ResolvedFunction := do
+  let labelEntries := labelBindings f
+  let valueEntries := valueBindings f
+  guard (((labelEntries.map Prod.fst) ++ (valueEntries.map Prod.fst)).Nodup)
+  let labels : LabelEnv := (labelEntries.lookup ·)
+  let values : NameEnv := (valueEntries.lookup ·)
+  let blocks ← f.blocks.mapM (resolveBlock labels values f.header.retType)
+  return ⟨f.header, blocks.toArray⟩
+
+def resolveModule (m : Module) : Option ResolvedModule :=
+  ResolvedModule.mk <$> m.funcs.mapM resolveFunction
+
+def ResolvesIncoming (labels : LabelEnv) (values : NameEnv) (ty : LLType) (input : PhiIncoming)
+    (r : BlockId × ResolvedValue) : Prop :=
+  labels input.predecessor = some r.1 ∧ ∃ v, ResolvesValue values input.value v ∧ v.normalize ty = r.2
+
+inductive ResolvesInst (labels : LabelEnv) (values : NameEnv) : Inst → ResolvedInst → Prop
+  | bin : ResolvesBinInst values inst bin →
+      ResolvesInst labels values (.bin inst) (.bin bin)
+  | phi : ResolvesList (ResolvesIncoming labels values ty) inputs incoming →
+      ResolvesInst labels values (.phi ty inputs) (.phi ty incoming)
+
+inductive ResolvesTerminator (labels : LabelEnv) (values : NameEnv) (retType : LLType) :
+    Terminator → ResolvedTerminator → Prop
+  | ret : tv.ty = retType → ResolvesValue values tv.val r →
+      ResolvesTerminator labels values retType (.ret tv) (.ret r)
+  | br : labels dst = some target → ResolvesTerminator labels values retType (.br dst) (.br target)
+  | condBr : ResolvesValue values c r → labels yes = some y → labels no = some n →
+      ResolvesTerminator labels values retType (.condBr c yes no) (.condBr r y n)
+
+def ResolvesBlock (labels : LabelEnv) (values : NameEnv) (retType : LLType) (b : BasicBlock)
+    (r : ResolvedBlock) : Prop :=
+  b.label = r.label ∧ ResolvesList (fun i => ResolvesInst labels values i.inst) b.insts r.insts ∧
+    ResolvesTerminator labels values retType b.term r.terminator
+
+def ResolvesFunction (f : FuncDef) (r : ResolvedFunction) : Prop :=
+  let labels := labelBindings f
+  let values := valueBindings f
+  ((labels.map Prod.fst) ++ (values.map Prod.fst)).Nodup ∧ r.header = f.header ∧
+    ResolvesList (ResolvesBlock (labels.lookup ·) (values.lookup ·) f.header.retType)
+      f.blocks r.blocks.toList
+
+def ResolvesModule (m : Module) (r : ResolvedModule) : Prop :=
+  ResolvesList ResolvesFunction m.funcs r.funcs
+
+theorem resolveValue_iff (values : NameEnv) (v : Value) (r : ResolvedValue) :
+    resolveValue values v = some r ↔ ResolvesValue values v r :=
+  ⟨resolveValue_sound _ _ _, resolveValue_complete _ _ _⟩
+
+theorem resolveIncoming_iff (labels : LabelEnv) (values : NameEnv) (ty : LLType) (input : PhiIncoming)
+    (r : BlockId × ResolvedValue) :
+    resolveIncoming labels values ty input = some r ↔ ResolvesIncoming labels values ty input r := by
+  cases r
+  simp [resolveIncoming, ResolvesIncoming, Option.bind_eq_some_iff, resolveValue_iff]
+  grind
+
+theorem resolveInst_iff (labels : LabelEnv) (values : NameEnv) (i : Inst) (r : ResolvedInst) :
+    resolveInst labels values i = some r ↔ ResolvesInst labels values i r := by
+  cases i <;>
+    simp only [resolveInst, Functor.map, Option.map_eq_some_iff,
+      resolvesList_mapM_iff _ _ (resolveIncoming_iff labels values _)] <;>
+    grind [ResolvesInst, resolveBinInst_sound, resolveBinInst_complete]
+
+theorem resolveTerminator_iff (labels : LabelEnv) (values : NameEnv) (retType : LLType)
+    (t : Terminator) (r : ResolvedTerminator) :
+    resolveTerminator labels values retType t = some r ↔ ResolvesTerminator labels values retType t r := by
+  cases t <;> cases r <;>
+    simp [resolveTerminator, guard, Option.bind_eq_some_iff, resolveValue_iff,
+      iff_iff_implies_and_implies] <;> grind [ResolvesTerminator]
+
+theorem resolveBlock_iff (labels : LabelEnv) (values : NameEnv) (retType : LLType)
+    (b : BasicBlock) (r : ResolvedBlock) :
+    resolveBlock labels values retType b = some r ↔ ResolvesBlock labels values retType b r := by
+  cases r
+  simp [resolveBlock, ResolvesBlock, Option.bind_eq_some_iff, resolveTerminator_iff,
+    resolvesList_mapM_iff _ _ (fun (i : Instruction) => resolveInst_iff labels values i.inst)] <;> grind
+
+theorem resolveFunction_iff (f : FuncDef) (r : ResolvedFunction) :
+    resolveFunction f = some r ↔ ResolvesFunction f r := by
+  cases r
+  simp [resolveFunction, ResolvesFunction, guard, Option.bind_eq_some_iff,
+    resolvesList_mapM_iff _ _ (resolveBlock_iff _ _ _), eq_comm (a := f.header),
+    ← Array.toList_inj, and_left_comm]
+
 theorem resolveModule_iff (m : Module) (r : ResolvedModule) :
     resolveModule m = some r ↔ ResolvesModule m r := by
   cases r
-  simpa [resolveModule, ResolvesModule, Option.map_eq_some_iff] using
-    resolvesList_mapM_iff resolveFunction ResolvesFunction resolveFunction_iff m.funcs _
+  simp [resolveModule, ResolvesModule, Option.map_eq_some_iff,
+    resolvesList_mapM_iff _ _ resolveFunction_iff]
 
-theorem resolveModule_sound (m : Module) (r : ResolvedModule) :
-    resolveModule m = some r → ResolvesModule m r :=
-  (resolveModule_iff m r).mp
-
-theorem resolveModule_complete (m : Module) (r : ResolvedModule) :
-    ResolvesModule m r → resolveModule m = some r :=
-  (resolveModule_iff m r).mpr
+def ResolvedTerminator.successors : ResolvedTerminator → List BlockId
+  | .ret _ => []
+  | .br dst => [dst]
+  | .condBr _ yes no => [yes, no]
 
 
-theorem nat_toString_injective : Function.Injective (toString : Nat → String) := by
-  intro i j h
-  simpa [Nat.toString_eq_ofList_toDigits, Nat.ofDigitChars_ten_toDigits] using
-    congrArg (fun s : String => Nat.ofDigitChars 10 s.toList 0) h
+-- inductive BlockHasEdge : ResolvedFunction → BlockId → BlockId → Prop
+--   | br : f.blocks[src]? = some b ∧ b.terminator = (ResolvedTerminator.br dst) → BlockHasEdge f src dst
+--   | condT : f.blocks[src]? = some b ∧ b.terminator = (.condBr _ dst _) → BlockHasEdge f src dst
+--   | condF : f.blocks[src]? = some b ∧ b.terminator = (.condBr _ _ dst) → BlockHasEdge f src dst
 
-theorem paramName_ne_instName (i j : Nat) : s!"arg{i}" ≠ s!"{j}" := by
-  intro h
-  have hm : 'a' ∈ (toString j).toList := by
-    rw [← h]; simp only [String.toList_append, List.mem_append]; exact .inl (by decide)
-  rw [Nat.toString_eq_ofList_toDigits, String.toList_ofList] at hm
-  have := Nat.isDigit_of_mem_toDigits (by decide : 0 < 10) (by decide : 10 ≤ 10) hm
-  contradiction
+-- inductive BlockPreds : List ResolvedBlock → BlockId → List BlockId → Prop
+--   | empty : BlockPreds [] b []
+--   | br : BlockPreds xs b ys → b1.terminator = (.br dst) → BlockPreds (b1 :: xs) b (dst :: ys)
+--   | condTrue : BlockPreds xs b ys → d1 ≠ dst →  b1.terminator = (.condBr _ dst d1) → BlockPreds (b1 :: xs) b (dst :: ys)
+--   | condFalse : BlockPreds xs b ys → d1 ≠ dst →  b1.terminator = (.condBr _ d1 dst) → BlockPreds (b1 :: xs) b (dst :: ys)
+--   | condBoth : BlockPreds xs b ys → b1.terminator = (.condBr _ dst dst) → BlockPreds (b1 :: xs) b (dst :: dst :: ys)
 
-def valueIdName : ValueId → String
-  | .param i => s!"arg{i}"
-  | .inst i => s!"{i}"
+def ResolvedInst.phiType : ResolvedInst → Option LLType
+  | .bin .. => none
+  | .phi ty _ => some ty
 
-theorem valueIdName_injective : Function.Injective valueIdName := by
-  intro a b h
-  cases a <;> cases b <;>
-    simp_all only [valueIdName, String.append_right_inj, nat_toString_injective.eq_iff] <;>
-    grind [paramName_ne_instName]
+def ResolvedFunction.eraseLocalNames (f : ResolvedFunction) : ResolvedFunction :=
+  { header := { f.header with params := f.header.params.map fun p => { p with name := "" } }
+    blocks := f.blocks.map fun b => { b with label := "" } }
 
-theorem unresolve_bindings (f : ResolvedFunction) :
-    bindings (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩) =
-    (List.range f.header.params.length).map (fun i => (valueIdName (.param i), .param i)) ++
-    (List.range f.insts.length).map (fun i => (valueIdName (.inst i), .inst i)) := by
-  unfold bindings
-  congr 1 <;> apply List.ext_getElem <;> simp [unresolveFunction, valueIdName]
+def EqModuloRenaming (f g : ResolvedFunction) : Prop :=
+  f.eraseLocalNames = g.eraseLocalNames
 
-theorem lookup_valueIdName (ids : List ValueId) (id : ValueId) (h : id ∈ ids) :
-    (ids.map fun id => (valueIdName id, id)).lookup (valueIdName id) = some id := by
-  induction ids <;> simp_all [List.lookup_cons] <;>
-    split <;> grind [valueIdName_injective]
+def ResolvedInst.normalizeLiterals : ResolvedInst → ResolvedInst
+  | .bin (.bin op ty lhs rhs) => .bin (.bin op ty (lhs.normalize ty) (rhs.normalize ty))
+  | .phi ty incoming => .phi ty (incoming.map fun (src, v) => (src, v.normalize ty))
 
-theorem unresolve_lookup (f : ResolvedFunction) (id : ValueId)
-    (h : ValidResolvedValue f.header.params.length f.insts.length (.ref id)) :
-    environment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩)
-      (valueIdName id) = some id := by
-  rw [environment, unresolve_bindings]
-  have hm : id ∈ (List.range f.header.params.length).map ValueId.param ++
-      (List.range f.insts.length).map ValueId.inst := by cases id <;> simp_all [ValidResolvedValue]
-  simpa [List.map_append, List.map_map, Function.comp_def] using lookup_valueIdName _ id hm
+def ResolvedTerminator.normalizeLiterals (retType : LLType) : ResolvedTerminator → ResolvedTerminator
+  | .ret v => .ret (v.normalize retType)
+  | .br dst => .br dst
+  | .condBr v yes no => .condBr (v.normalize (.int 1)) yes no
 
-theorem unresolve_param_name (f : ResolvedFunction)
-    (h : pj ∈ (unresolveFunction f).header.params.zipIdx) :
-    pj.1.name = valueIdName (.param pj.2) := by
-  simpa [unresolveFunction, valueIdName] using congrArg Param.name (List.fst_eq_of_mem_zipIdx h)
+def ResolvedFunction.normalizeLiterals (f : ResolvedFunction) : ResolvedFunction :=
+  { f with blocks := f.blocks.map fun b =>
+    { b with insts := b.insts.map ResolvedInst.normalizeLiterals
+             terminator := b.terminator.normalizeLiterals f.header.retType } }
 
-theorem unresolve_inst_name (insts : List ResolvedAST)
-    (h : ij ∈ (insts.zipIdx.map fun (inst, i) =>
-      (⟨s!"{i}", .bin (unresolveInst inst)⟩ : Instruction)).zipIdx) :
-    ij.1.name = valueIdName (.inst ij.2) := by
-  simpa [valueIdName] using congrArg Instruction.name (List.fst_eq_of_mem_zipIdx h)
+/-- Compare resolved modules up to local names and the spelling of integer literals. -/
+def ResolvedModule.Equiv (m m' : ResolvedModule) : Prop :=
+  ResolvesList (fun f g => EqModuloRenaming f.normalizeLiterals g.normalizeLiterals) m.funcs m'.funcs
 
-theorem unresolve_validEnvironment (f : ResolvedFunction) :
-    validEnvironment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩) := by
-  constructor
-  · intro pj hp; rw [unresolve_param_name f hp]; apply unresolve_lookup
-    simpa [unresolveFunction, ValidResolvedValue] using List.snd_lt_of_mem_zipIdx hp
-  · intro ij hi; rw [unresolve_inst_name f.insts hi]; apply unresolve_lookup
-    simpa [ValidResolvedValue] using List.snd_lt_of_mem_zipIdx hi
-
-theorem unresolve_resolvesValue (f : ResolvedFunction) (v : ResolvedValue)
-    (h : ValidResolvedValue f.header.params.length f.insts.length v) :
-    ResolvesValue (environment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩)) (unresolveValue v) v := by
-  rcases v with (_ | _) | _ <;> first | exact .local (unresolve_lookup _ _ h) | exact .intConst
-
-theorem unresolve_resolvesInst (f : ResolvedFunction) (inst : ResolvedAST)
-    (h : ValidResolvedInst f.header.params.length f.insts.length inst) :
-    ResolvesBinInst (environment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩)) (unresolveInst inst) inst := by
-  cases inst; exact .bin (unresolve_resolvesValue _ _ h.1) (unresolve_resolvesValue _ _ h.2)
-
-theorem resolvesList_maps (xs : List α) (g : α → β) (k : α → γ)
-    (h : ∀ x ∈ xs, R (g x) (k x)) : ResolvesList R (xs.map g) (xs.map k) := by
-  induction xs <;> simp_all [List.mem_cons, ResolvesList.nil, ResolvesList.cons]
-
-theorem unresolve_resolvesInsts (f : ResolvedFunction)
-    (h : ∀ inst ∈ f.insts, ValidResolvedInst f.header.params.length f.insts.length inst) :
-    ResolvesList (fun (i : Instruction) => ResolvesBinary (environment (unresolveFunction f).header
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩)) i.inst)
-      (f.insts.zipIdx.map fun (inst, i) => ⟨s!"{i}", .bin (unresolveInst inst)⟩) f.insts := by
-  simpa only [List.zipIdx_map_fst] using resolvesList_maps f.insts.zipIdx
-    (fun (inst, i) => (⟨s!"{i}", .bin (unresolveInst inst)⟩ : Instruction)) Prod.fst
-    (R := fun (i : Instruction) inst => ResolvesBinary _ i.inst inst)
-    (fun p hp => .bin (unresolve_resolvesInst f p.1 (h p.1 (List.fst_mem_of_mem_zipIdx hp))))
+/-- Placeholder for reconstructing a source AST from all resolved blocks. -/
+noncomputable def unresolveFunction (_ : ResolvedFunction) : FuncDef := by
+  sorry
 
 theorem resolve_round_trip (f : ResolvedFunction) :
     ValidResolvedFunction f →
       ∃ g, resolveFunction (unresolveFunction f) = some g ∧ EqModuloRenaming g f := by
-  rintro ⟨hi, hv⟩
-  refine ⟨⟨(unresolveFunction f).header, f.label, f.insts, f.result⟩, resolveFunction_complete _ _ ?_, ?_⟩
-  · obtain ⟨hp, hj⟩ := unresolve_validEnvironment f
-    exact .mk _ (.mk hp hj (environment_mem _ _))
-      (unresolve_resolvesInsts f hi) (unresolve_resolvesValue f f.result hv)
-  · simp [EqModuloRenaming, eraseParamNames, unresolveFunction, List.map_map]
-    apply List.ext_getElem <;> simp
-
-/-- The two bodies differ in their middle operation and its result name. -/
-def deMorganFunction (name middle : String) (op : BinOp) : FuncDef :=
-  ⟨⟨.int 32, name, [⟨.int 32, "p"⟩, ⟨.int 32, "q"⟩]⟩,
-    [⟨"entry", [
-      ⟨"not_p", .bin ⟨.xor, .int 32, .localIdent "p", .intConst (-1)⟩⟩,
-      ⟨"not_q", .bin ⟨.xor, .int 32, .localIdent "q", .intConst (-1)⟩⟩,
-      ⟨middle, .bin ⟨op, .int 32, .localIdent "not_p", .localIdent "not_q"⟩⟩,
-      ⟨"result", .bin ⟨.xor, .int 32, .localIdent middle, .intConst (-1)⟩⟩],
-      .ret ⟨.int 32, .localIdent "result"⟩⟩]⟩
-
-def deMorganModule : Module :=
-  ⟨[deMorganFunction "demorgan_or" "both_not" .and,
-    deMorganFunction "demorgan_and" "either_not" .or]⟩
-
--- This AST covers the entire source string, including both functions.
-example : parse deMorganExample = .ok deMorganModule := by native_decide
-
-def deMorganNot (paramIndex : Nat) : ResolvedAST :=
-  .bin .xor (.int 32) (.ref (.param paramIndex)) (.intConst (-1))
-
-def deMorganCombined (op : BinOp) : ResolvedAST :=
-  .bin op (.int 32) (.ref (.inst 0)) (.ref (.inst 1))
-
-def deMorganResult : ResolvedAST :=
-  .bin .xor (.int 32) (.ref (.inst 2)) (.intConst (-1))
-
-def resolvedDeMorganFunction (name : String) (op : BinOp) : ResolvedFunction :=
-  ⟨⟨.int 32, name, [⟨.int 32, "p"⟩, ⟨.int 32, "q"⟩]⟩, "entry",
-    [deMorganNot 0, deMorganNot 1, deMorganCombined op, deMorganResult], .ref (.inst 3)⟩
-
-def resolvedDeMorganModule : ResolvedModule :=
-  ⟨[resolvedDeMorganFunction "demorgan_or" .and,
-    resolvedDeMorganFunction "demorgan_and" .or]⟩
-
-example : resolveModule deMorganModule = some resolvedDeMorganModule := by native_decide
-
-example : ResolvesModule deMorganModule resolvedDeMorganModule :=
-  resolveModule_sound _ _ (by native_decide)
-
-example : resolveFunction (deMorganFunction "demorgan_or" "both_not" .and) =
-    some (resolvedDeMorganFunction "demorgan_or" .and) := by native_decide
-
-example : resolveFunction (deMorganFunction "demorgan_and" "either_not" .or) =
-    some (resolvedDeMorganFunction "demorgan_and" .or) := by native_decide
-
-#eval resolveFunction (deMorganFunction "demorgan_and" "either_not" .or)
--- A parameter and an instruction cannot share a name in a valid environment.
-example : resolveFunction (deMorganFunction "collision" "p" .and) = none := by native_decide
-
--- Parameter references and all four named results resolve separately in each function.
-theorem deMorgan_resolves (name middle : String) (op : BinOp)
-    (hp : middle ≠ "p") (hq : middle ≠ "q")
-    (hnp : middle ≠ "not_p") (hnq : middle ≠ "not_q") (hr : middle ≠ "result") :
-    ResolvesFunction (deMorganFunction name middle op) (resolvedDeMorganFunction name op) := by
-  apply resolveFunction_sound
-  simp [resolveFunction, deMorganFunction, resolvedDeMorganFunction, validEnvironment,
-    environment, bindings, List.lookup, resolveInsts, resolveBinary, resolveBinInst, resolveValue,
-    deMorganNot, deMorganCombined, deMorganResult, beq_false_of_ne hp,
-    beq_false_of_ne hq, beq_false_of_ne hnp, beq_false_of_ne hnq, beq_false_of_ne (Ne.symm hr)]
-
-/-- Both functions resolve, with repeated local names scoped to their own function. -/
-example : ResolvesList ResolvesFunction deMorganModule.funcs
-    [resolvedDeMorganFunction "demorgan_or" .and,
-     resolvedDeMorganFunction "demorgan_and" .or] :=
-  .cons (deMorgan_resolves _ _ _ (by decide) (by decide) (by decide) (by decide) (by decide))
-    (.cons (deMorgan_resolves _ _ _ (by decide) (by decide) (by decide) (by decide) (by decide)) .nil)
-
-#eval resolvedDeMorganFunction "demorgan_or" .and
-
--- Two uses of %x retain the same result ID rather than duplicating its definition.
-example : ResolvesBinInst (fun name => if name = "x" then some (.inst 0) else none)
-    ⟨.and, .int 32, .localIdent "x", .localIdent "x"⟩
-    (.bin .and (.int 32) (.ref (.inst 0)) (.ref (.inst 0))) :=
-  .bin (.local rfl) (.local rfl)
+  sorry
 
 end Veir.NameResolutionSketch

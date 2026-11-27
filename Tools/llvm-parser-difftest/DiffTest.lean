@@ -1,27 +1,25 @@
-import Veir.Parser.LLVMControlFlow
+import Veir.Parser.LLVMParser
 import Veir.Input
 import Veir.Printer
 import Veir.IR.RootedIso
 
 /-!
-# Differential testing of the verified LLVM IR parser
+# Differential testing of the LLVM IR importer
 
 Compares two ways of bringing textual LLVM IR into VeIR:
 
 * reference: `mlir-translate --import-llvm` → `mlir-opt --mlir-print-op-generic`
   → VeIR's MLIR parser;
-* new: `LLVMLowering.ControlFlow.parseAndLower`.
+* new: `LLVMParser.parseAndLower`.
 
 The two IR graphs are compared with `rootedIso?`, the executable form of `RootedIso`: equality
 up to a renaming of operations and blocks. Both are also printed in generic form for
-inspection. As an auxiliary signal, mismatching graphs are also decoded with
-`LLVMLowering.reverseModule`, which forgets SSA names, constant placement and sharing,
-and attributes the new path does not produce.
+inspection.
 
 Usage: `lake env lean --run Tools/llvm-parser-difftest/DiffTest.lean <examples-dir> <out-dir>`
 -/
 
-open Veir LLVMLowering
+open Veir
 
 /-- Run `cmd args`, feeding `stdin`, and return its stdout or a message containing stderr.
 `lake env` points `LD_LIBRARY_PATH` at Lean's LLVM, which breaks the MLIR tools, so it is unset. -/
@@ -56,16 +54,14 @@ def referencePath (file : System.FilePath) : IO (Except String (WfIRContext OpCo
 
 inductive Outcome where
   | iso
-  | mismatch (normalisedEqual : Option Bool)
+  | mismatch
   | referenceError (msg : String)
   | newError (msg : String)
   | bothError (ref new : String)
 
 def Outcome.label : Outcome → String
   | .iso => "ISOMORPHIC"
-  | .mismatch (some true) => "MISMATCH (equal after reverseModule)"
-  | .mismatch (some false) => "MISMATCH (differs after reverseModule)"
-  | .mismatch none => "MISMATCH (reverseModule could not compare)"
+  | .mismatch => "MISMATCH"
   | .referenceError _ => "REFERENCE-ERROR"
   | .newError _ => "NEW-ERROR"
   | .bothError .. => "BOTH-ERROR"
@@ -75,7 +71,7 @@ def compareFile (file outDir : System.FilePath) : IO Outcome := do
   let stem := file.fileStem.getD "out"
   let src ← IO.FS.readFile file
   let ref ← referencePath file
-  let new := ControlFlow.parseAndLower src
+  let new := LLVMParser.parseAndLower src
   match ref, new with
   | .error r, .error n => return .bothError r n
   | .error r, .ok _ => return .referenceError r
@@ -86,11 +82,7 @@ def compareFile (file outDir : System.FilePath) : IO Outcome := do
     IO.FS.writeFile (outDir / s!"{stem}.mlir-translate.mlir") generic
     IO.FS.writeFile (outDir / s!"{stem}.reference.mlir") refText
     IO.FS.writeFile (outDir / s!"{stem}.new.mlir") newText
-    if rootedIso? rctx rroot nctx nroot then return .iso
-    let normalisedEqual := match reverseModule rctx rroot, reverseModule nctx nroot with
-      | .ok a, .ok b => some (decide (a = b))
-      | _, _ => none
-    return .mismatch normalisedEqual
+    return if rootedIso? rctx rroot nctx nroot then .iso else .mismatch
 
 def main (args : List String) : IO UInt32 := do
   let [examples, out] := args | IO.eprintln "usage: DiffTest <examples-dir> <out-dir>"; return 2

@@ -25,7 +25,7 @@ import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Parser.LLVMLexer
 import Veir.Parser.LLVMAST
-import Veir.Parser.LLVMControlFlow
+import Veir.Parser.LLVMParser
 import Veir.Interpreter
 import Veir.Interpreter.RootedIso
 import Veir.Dominance
