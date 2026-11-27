@@ -4,6 +4,7 @@ public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 
 import all Veir.Passes.InstCombine
+import Veir.Passes.InstCombine.InstructionSimplify
 
 namespace Veir
 
@@ -35,7 +36,8 @@ def applyPatterns : List (String × RewritePattern OpCode) := [
   ("not-not-to-x", notNotToX),
   ("de-morgan-and-to-or", deMorganAndToOr),
   ("de-morgan-or-to-and", deMorganOrToAnd)
-]
+] ++ (InstructionSimplify.namedPatterns.toList.map fun (name, patterns) =>
+  (name, RewritePattern.GreedyRewritePattern (patterns.map (·.run))))
 
 def ApplyPatternsPass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) :

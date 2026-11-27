@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
+import Veir.Passes.InstCombine.InstructionSimplify
 
 namespace Veir
 
@@ -252,30 +253,6 @@ def deMorganOrToAnd (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite deMorganOrToAnd_local rewriter op opInBounds
 
-/-- Rewrites `x * -1` to `0 - x`. Both overflow as signed integers exactly when `x` is the minimum
-    signed value, so `nsw` carries over; `nuw` does not. -/
-def mulNegOneToNeg_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, properties) := matchMul op ctx.raw
-    | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx.raw
-    | return (ctx, none)
-  if cst ≠ -1 then
-    return (ctx, none)
-  let .integerType type := (lhs.getType! ctx.raw).val
-    | return (ctx, none)
-  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
-  let (ctx, zero) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
-    #[] #[] cstProp none
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[lhs.getType! ctx.raw]
-    #[zero.getResult 0, lhs] #[] #[] ({ nsw := properties.nsw, nuw := false } : NswNuwProperties)
-    none
-  some (ctx, some (#[zero, newOp], #[newOp.getResult 0]))
-
-def mulNegOneToNeg (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite mulNegOneToNeg_local rewriter op opInBounds
-
 /-- Rewrites `x urem 2^k` to `x & (2^k - 1)`. -/
 def uremPow2ToAnd_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -356,7 +333,8 @@ def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.
     oriZeroToX, oriSelfToX,
     xoriZeroToX, xoriSelfToZero,
     notNotToX, deMorganAndToOr, deMorganOrToAnd,
-    mulNegOneToNeg, uremPow2ToAnd, sextSextToSext, bitreverseBitreverseToX, minMaxSelfToX
+    uremPow2ToAnd, sextSextToSext, bitreverseBitreverseToX, minMaxSelfToX,
+    InstructionSimplify.rewrite
   ]
   match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying pattern rewrites"
