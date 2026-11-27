@@ -156,13 +156,14 @@ structure RunRegionEIn (ctx : WfIRContext OpCode) (σ : Type) where
 abbrev RunRegionE (ctx : WfIRContext OpCode) (σ : Type) (_ : RunRegionEIn ctx σ) : Type :=
   σ × Array RuntimeValue
 
-/-- Trees whose region calls have not yet been interpreted. -/
-abbrev RegionTree (ctx : WfIRContext OpCode) (σ α : Type) :=
-  CTree (RunRegionE ctx σ ⊕ₑ (CallE ⊕ₑ (ErrorE ⊕ₑ UBE))) FreezeC α
+/-- Trees with the effects `E` whose region calls have not yet been interpreted. -/
+abbrev RegionTree {EIn : Type} (E : EIn → Type) (ctx : WfIRContext OpCode) (σ α : Type) :=
+  CTree (RunRegionE ctx σ ⊕ₑ E) FreezeC α
 
 /-- Request region execution without choosing its recursive interpretation. -/
-def runRegion (region : RegionPtr) (values : Array RuntimeValue) (state : σ)
-    (inBounds : region.InBounds ctx.raw := by grind) : RegionTree ctx σ (σ × Array RuntimeValue) :=
+def runRegion {EIn : Type} {E : EIn → Type} (region : RegionPtr) (values : Array RuntimeValue)
+    (state : σ) (inBounds : region.InBounds ctx.raw := by grind) :
+    RegionTree E ctx σ (σ × Array RuntimeValue) :=
   CTree.trigger (SubE := RunRegionE ctx σ) ⟨region, values, state, inBounds⟩
 
 /-- A CTree with the error and UB effect, and the freeze choice. -/
