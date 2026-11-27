@@ -1,4 +1,5 @@
 import Veir.Parser.LLVMAST
+import Std.Data.String.ToNat
 
 /-! Resolved LLVM functions and declarative name resolution for the integer fragment. -/
 
@@ -65,7 +66,6 @@ inductive ResolvedTerminator where
   deriving Repr, DecidableEq
 
 structure ResolvedBlock where
-  label : String
   insts : List ResolvedInst
   terminator : ResolvedTerminator
   deriving Repr, DecidableEq
@@ -173,7 +173,7 @@ def resolveTerminator (labels : LabelEnv) (values : NameEnv) (retType : LLType) 
 
 def resolveBlock (labels : LabelEnv) (values : NameEnv) (retType : LLType) (b : BasicBlock) :
     Option ResolvedBlock := do
-  return ⟨b.label, ← b.insts.mapM (fun i => resolveInst labels values i.inst),
+  return ⟨← b.insts.mapM (fun i => resolveInst labels values i.inst),
     ← resolveTerminator labels values retType b.term⟩
 
 def labelBindings (f : FuncDef) : List (String × BlockId) :=
@@ -214,7 +214,7 @@ inductive ResolvesTerminator (labels : LabelEnv) (values : NameEnv) (retType : L
 
 def ResolvesBlock (labels : LabelEnv) (values : NameEnv) (retType : LLType) (b : BasicBlock)
     (r : ResolvedBlock) : Prop :=
-  b.label = r.label ∧ ResolvesList (fun i => ResolvesInst labels values i.inst) b.insts r.insts ∧
+  ResolvesList (fun i => ResolvesInst labels values i.inst) b.insts r.insts ∧
     ResolvesTerminator labels values retType b.term r.terminator
 
 def ResolvesFunction (f : FuncDef) (r : ResolvedFunction) : Prop :=
@@ -295,11 +295,7 @@ def ResolvedInst.phiType : ResolvedInst → Option LLType
   | .phi ty _ => some ty
 
 def ResolvedFunction.eraseLocalNames (f : ResolvedFunction) : ResolvedFunction :=
-  { header := { f.header with params := f.header.params.map fun p => { p with name := "" } }
-    blocks := f.blocks.map fun b => { b with label := "" } }
-
-def EqModuloRenaming (f g : ResolvedFunction) : Prop :=
-  f.eraseLocalNames = g.eraseLocalNames
+  { f with header := { f.header with params := f.header.params.map fun p => { p with name := "" } } }
 
 def ResolvedInst.normalizeLiterals : ResolvedInst → ResolvedInst
   | .bin (.bin op ty lhs rhs) => .bin (.bin op ty (lhs.normalize ty) (rhs.normalize ty))
@@ -315,17 +311,258 @@ def ResolvedFunction.normalizeLiterals (f : ResolvedFunction) : ResolvedFunction
     { b with insts := b.insts.map ResolvedInst.normalizeLiterals
              terminator := b.terminator.normalizeLiterals f.header.retType } }
 
+/-- Compare resolved functions up to local names and bit patterns of integer literals. -/
+def EqModuloRenaming (f g : ResolvedFunction) : Prop :=
+  f.normalizeLiterals.eraseLocalNames = g.normalizeLiterals.eraseLocalNames
+
 /-- Compare resolved modules up to local names and the spelling of integer literals. -/
 def ResolvedModule.Equiv (m m' : ResolvedModule) : Prop :=
-  ResolvesList (fun f g => EqModuloRenaming f.normalizeLiterals g.normalizeLiterals) m.funcs m'.funcs
+  ResolvesList EqModuloRenaming m.funcs m'.funcs
 
-/-- Placeholder for reconstructing a source AST from all resolved blocks. -/
-noncomputable def unresolveFunction (_ : ResolvedFunction) : FuncDef := by
-  sorry
+def ValueId.sourceName : ValueId → String
+  | .param i => "arg" ++ toString i
+  | .inst i => "v" ++ toString i
 
-theorem resolve_round_trip (f : ResolvedFunction) :
-    ValidResolvedFunction f →
-      ∃ g, resolveFunction (unresolveFunction f) = some g ∧ EqModuloRenaming g f := by
-  sorry
+def blockName (id : BlockId) : String := "bb" ++ toString id
+
+def unresolveValue : ResolvedValue → Value
+  | .ref id => .localIdent id.sourceName
+  | .intConst n => .intConst n
+
+def unresolveInst : ResolvedInst → Inst
+  | .bin (.bin op ty lhs rhs) => .bin ⟨op, ty, unresolveValue lhs, unresolveValue rhs⟩
+  | .phi ty incoming =>
+    .phi ty (incoming.map fun (pred, value) => ⟨unresolveValue value, blockName pred⟩)
+
+def unresolveTerminator (retType : LLType) : ResolvedTerminator → Terminator
+  | .ret v => .ret ⟨retType, unresolveValue v⟩
+  | .br dst => .br (blockName dst)
+  | .condBr v yes no => .condBr (unresolveValue v) (blockName yes) (blockName no)
+
+def unresolveBlocks (retType : LLType) (nextInst : Nat) :
+    List (ResolvedBlock × BlockId) → List BasicBlock
+  | [] => []
+  | (block, id) :: rest =>
+    let insts := (block.insts.zipIdx nextInst).map fun (inst, i) =>
+      ⟨(ValueId.inst i).sourceName, unresolveInst inst⟩
+    ⟨blockName id, insts, unresolveTerminator retType block.terminator⟩ ::
+      unresolveBlocks retType (nextInst + block.insts.length) rest
+
+/-- Reconstruct the source AST with distinct names for parameters, results, and blocks. -/
+def unresolveFunction (f : ResolvedFunction) : FuncDef :=
+  let params := f.header.params.mapIdx fun i p => { p with name := (ValueId.param i).sourceName }
+  ⟨{ f.header with params }, unresolveBlocks f.header.retType 0 f.blocks.toList.zipIdx⟩
+
+theorem generatedName_injective (stem : String) :
+    ∀ {i j : Nat}, stem ++ toString i = stem ++ toString j → i = j :=
+  fun h => Nat.repr_inj.mp ((String.append_right_inj stem).mp h)
+
+theorem generatedName_ne {p q : String} {c d : Char}
+    (hp : p.toList.head? = some c) (hq : q.toList.head? = some d)
+    (h : c ≠ d) (i j : Nat) : p ++ toString i ≠ q ++ toString j := by
+  intro he
+  apply h
+  simpa [String.toList_append, List.head?_append, hp, hq] using
+    congrArg (fun s : String => s.toList.head?) he
+
+theorem unresolveBlocks_labels (retType : LLType) (blocks : List ResolvedBlock) (i j : Nat) :
+    (unresolveBlocks retType i (blocks.zipIdx j)).map BasicBlock.label =
+      (blocks.zipIdx j).map (fun b => blockName b.2) := by
+  induction blocks generalizing i j with
+  | nil => rfl
+  | cons b bs ih => simp [unresolveBlocks, ih]
+
+theorem unresolveBlocks_insts (retType : LLType) (blocks : List ResolvedBlock) (i j : Nat) :
+    (unresolveBlocks retType i (blocks.zipIdx j)).flatMap BasicBlock.insts =
+      ((blocks.flatMap ResolvedBlock.insts).zipIdx i).map
+        (fun (inst, k) => ⟨(ValueId.inst k).sourceName, unresolveInst inst⟩) := by
+  induction blocks generalizing i j with
+  | nil => rfl
+  | cons b bs ih => simp [unresolveBlocks, List.zipIdx_append, ih]
+
+theorem generatedBindings_zipIdx (xs : List α) (name : Nat → String) (id : Nat → β) :
+    (xs.mapIdx (fun i _ => name i)).zipIdx.map (fun (s, i) => (s, id i)) =
+      (List.range xs.length).map (fun i => (name i, id i)) := by
+  simp only [List.mapIdx_eq_zipIdx_map]
+  rw [List.range_eq_range']
+  apply List.ext_getElem?
+  simp [List.getElem?_zipIdx, Function.comp_def]
+  intro i
+  by_cases h : i < xs.length <;> simp [h]
+
+theorem bindings_zipIdx_map (xs : List α) (name : α → String) (id : Nat → β) :
+    (xs.map name).zipIdx.map (fun (s, i) => (s, id i)) =
+      xs.zipIdx.map (fun (x, i) => (name x, id i)) := by
+  simp [List.zipIdx_map, List.map_map, Function.comp_def]
+
+theorem labelBindings_unresolve (f : ResolvedFunction) :
+    labelBindings (unresolveFunction f) =
+      (List.range f.blocks.size).map (fun i => (blockName i, i)) := by
+  unfold labelBindings unresolveFunction
+  rw [← bindings_zipIdx_map _ BasicBlock.label (fun i => i), unresolveBlocks_labels]
+  simpa [List.mapIdx_eq_zipIdx_map] using
+    generatedBindings_zipIdx f.blocks.toList blockName (fun i => i)
+
+theorem valueBindings_unresolve (f : ResolvedFunction) :
+    valueBindings (unresolveFunction f) =
+      (List.range f.header.params.length).map (fun i => ((ValueId.param i).sourceName, .param i)) ++
+      (List.range (f.blocks.toList.flatMap ResolvedBlock.insts).length).map
+        (fun i => ((ValueId.inst i).sourceName, .inst i)) := by
+  unfold valueBindings unresolveFunction bindings
+  dsimp only
+  rw [unresolveBlocks_insts]
+  congr 1
+  · rw [← bindings_zipIdx_map _ Param.name]
+    simpa [List.mapIdx_eq_zipIdx_map, List.map_map, Function.comp_def] using
+      generatedBindings_zipIdx f.header.params (fun i => (ValueId.param i).sourceName) ValueId.param
+  · rw [← bindings_zipIdx_map _ Instruction.name]
+    simpa [List.mapIdx_eq_zipIdx_map, List.map_map, Function.comp_def] using
+      generatedBindings_zipIdx (f.blocks.toList.flatMap ResolvedBlock.insts)
+        (fun i => (ValueId.inst i).sourceName) ValueId.inst
+
+theorem nodup_generated (name : Nat → String) (n : Nat)
+    (h : ∀ {i j}, name i = name j → i = j) : ((List.range n).map name).Nodup := by
+  rw [List.Nodup, List.pairwise_map]
+  exact List.nodup_range.imp (fun hne he => hne (h he))
+
+theorem unresolve_names_nodup (f : ResolvedFunction) :
+    (((labelBindings (unresolveFunction f)).map Prod.fst) ++
+      ((valueBindings (unresolveFunction f)).map Prod.fst)).Nodup := by
+  rw [labelBindings_unresolve, valueBindings_unresolve]
+  simp only [List.map_append, List.map_map, Function.comp_def, List.nodup_append, List.mem_map, List.mem_append]
+  refine ⟨nodup_generated _ _ (generatedName_injective "bb"),
+    ⟨nodup_generated _ _ (generatedName_injective "arg"),
+     nodup_generated _ _ (generatedName_injective "v"), ?_⟩, ?_⟩
+  · rintro _ ⟨i, _, rfl⟩ _ ⟨j, _, rfl⟩
+    exact generatedName_ne (p := "arg") (q := "v") rfl rfl (by decide) i j
+  · rintro _ ⟨i, _, rfl⟩ _ (⟨j, _, rfl⟩ | ⟨j, _, rfl⟩)
+    · exact generatedName_ne (p := "bb") (q := "arg") rfl rfl (by decide) i j
+    · exact generatedName_ne (p := "bb") (q := "v") rfl rfl (by decide) i j
+
+theorem lookup_of_nodup_keys [BEq α] [LawfulBEq α] {es : List (α × β)}
+    (hn : (es.map Prod.fst).Nodup) (h : (key, value) ∈ es) :
+    es.lookup key = some value := by
+  induction es with
+  | nil => contradiction
+  | cons e es ih =>
+    rcases List.mem_cons.mp h with rfl | h
+    · exact List.lookup_cons_self
+    · have hk : key ∈ es.map Prod.fst := List.mem_map.mpr ⟨_, h, rfl⟩
+      have hne := (List.nodup_cons.mp hn).1
+      have hkey : key ≠ e.1 := fun he => hne (he ▸ hk)
+      rw [List.lookup_cons, beq_eq_false_iff_ne.mpr hkey]
+      exact ih (List.nodup_cons.mp hn).2 h
+
+theorem unresolve_lookup_block (f : ResolvedFunction) {i : BlockId} (h : i < f.blocks.size) :
+    (labelBindings (unresolveFunction f)).lookup (blockName i) = some i := by
+  apply lookup_of_nodup_keys (List.nodup_append.mp (unresolve_names_nodup f)).1
+  rw [labelBindings_unresolve]
+  exact List.mem_map.mpr ⟨i, List.mem_range.mpr h, rfl⟩
+
+theorem unresolve_lookup_value (f : ResolvedFunction) (id : ValueId)
+    (h : ValidResolvedValue f.header.params.length
+      (f.blocks.toList.flatMap ResolvedBlock.insts).length (.ref id)) :
+    (valueBindings (unresolveFunction f)).lookup id.sourceName = some id := by
+  apply lookup_of_nodup_keys (List.nodup_append.mp (unresolve_names_nodup f)).2.1
+  rw [valueBindings_unresolve]
+  cases id with
+  | param i => exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_range.mpr h, rfl⟩)
+  | inst i => exact List.mem_append_right _ (List.mem_map.mpr ⟨i, List.mem_range.mpr h, rfl⟩)
+
+theorem ResolvesList.map_of_mem {xs : List α} {F : α → β} {G : α → γ}
+    (h : ∀ x ∈ xs, R (F x) (G x)) : ResolvesList R (xs.map F) (xs.map G) := by
+  induction xs with
+  | nil => exact .nil
+  | cons x xs ih => exact .cons (h x (by simp)) (ih fun y hy => h y (by simp [hy]))
+
+def ResolvedInst.normalizePhiLiterals : ResolvedInst → ResolvedInst
+  | .phi ty incoming => .phi ty (incoming.map fun (src, v) => (src, v.normalize ty))
+  | inst => inst
+
+theorem ResolvedValue.normalize_idem (v : ResolvedValue) (ty : LLType) :
+    (v.normalize ty).normalize ty = v.normalize ty := by
+  cases ty
+  cases v <;> simp only [ResolvedValue.normalize, BitVec.ofInt_toInt]
+
+theorem ResolvedInst.normalizePhiLiterals_normalizeLiterals (inst : ResolvedInst) :
+    inst.normalizePhiLiterals.normalizeLiterals = inst.normalizeLiterals := by
+  cases inst <;> simp [ResolvedInst.normalizePhiLiterals, ResolvedInst.normalizeLiterals,
+    List.map_map, Function.comp_def, ResolvedValue.normalize_idem]
+
+theorem unresolve_resolves_value (f : ResolvedFunction) (v : ResolvedValue)
+    (h : ValidResolvedValue f.header.params.length
+      (f.blocks.toList.flatMap ResolvedBlock.insts).length v) :
+    ResolvesValue ((valueBindings (unresolveFunction f)).lookup ·) (unresolveValue v) v :=
+  match v with
+  | .ref id => .local (unresolve_lookup_value f id h)
+  | .intConst _ => .intConst
+
+theorem unresolve_resolves_inst (f : ResolvedFunction) (inst : ResolvedInst)
+    (h : ValidResolvedInst f.header.params.length
+      (f.blocks.toList.flatMap ResolvedBlock.insts).length f.blocks.size inst) :
+    ResolvesInst ((labelBindings (unresolveFunction f)).lookup ·)
+      ((valueBindings (unresolveFunction f)).lookup ·) (unresolveInst inst) inst.normalizePhiLiterals := by
+  cases inst with
+  | bin inst =>
+    cases inst
+    exact .bin (.bin (unresolve_resolves_value _ _ h.1) (unresolve_resolves_value _ _ h.2))
+  | phi ty incoming =>
+    apply ResolvesInst.phi
+    apply ResolvesList.map_of_mem
+    rintro ⟨pred, v⟩ hi
+    exact ⟨unresolve_lookup_block f (h _ hi).1, v, unresolve_resolves_value f v (h _ hi).2, rfl⟩
+
+theorem unresolve_resolves_terminator (f : ResolvedFunction) (term : ResolvedTerminator)
+    (h : ValidResolvedTerminator f.header.params.length
+      (f.blocks.toList.flatMap ResolvedBlock.insts).length f.blocks.size term) :
+    ResolvesTerminator ((labelBindings (unresolveFunction f)).lookup ·)
+      ((valueBindings (unresolveFunction f)).lookup ·) f.header.retType
+      (unresolveTerminator f.header.retType term) term :=
+  match term with
+  | .ret v => .ret rfl (unresolve_resolves_value f v h)
+  | .br _ => .br (unresolve_lookup_block f h)
+  | .condBr v _ _ => .condBr (unresolve_resolves_value f v h.1)
+      (unresolve_lookup_block f h.2.1) (unresolve_lookup_block f h.2.2)
+
+theorem unresolve_resolves_insts (f : ResolvedFunction) (insts : List ResolvedInst) (i : Nat)
+    (h : ∀ inst ∈ insts, ValidResolvedInst f.header.params.length
+      (f.blocks.toList.flatMap ResolvedBlock.insts).length f.blocks.size inst) :
+    ResolvesList (fun a : Instruction =>
+      ResolvesInst ((labelBindings (unresolveFunction f)).lookup ·)
+        ((valueBindings (unresolveFunction f)).lookup ·) a.inst)
+      ((insts.zipIdx i).map fun (inst, k) => ⟨(ValueId.inst k).sourceName, unresolveInst inst⟩)
+      (insts.map ResolvedInst.normalizePhiLiterals) := by
+  induction insts generalizing i with
+  | nil => exact .nil
+  | cons inst rest ih =>
+    exact .cons (unresolve_resolves_inst f inst (h inst (by simp)))
+      (ih (i + 1) fun x hx => h x (by simp [hx]))
+
+theorem unresolve_resolves_blocks (f : ResolvedFunction) (hf : ValidResolvedFunction f)
+    (bs : List ResolvedBlock) (h : ∀ b ∈ bs, b ∈ f.blocks.toList) (i j : Nat) :
+    ResolvesList (ResolvesBlock ((labelBindings (unresolveFunction f)).lookup ·)
+      ((valueBindings (unresolveFunction f)).lookup ·) f.header.retType)
+      (unresolveBlocks f.header.retType i (bs.zipIdx j))
+      (bs.map fun b => { b with insts := b.insts.map ResolvedInst.normalizePhiLiterals }) := by
+  induction bs generalizing i j with
+  | nil => exact .nil
+  | cons b bs ih =>
+    have hb := hf b (h b (by simp))
+    exact .cons ⟨unresolve_resolves_insts f b.insts i hb.1, unresolve_resolves_terminator f _ hb.2⟩
+      (ih (fun x hx => h x (by simp [hx])) _ _)
+
+theorem resolve_round_trip (f : ResolvedFunction) : ValidResolvedFunction f →
+    ∃ g, resolveFunction (unresolveFunction f) = some g ∧ EqModuloRenaming g f := by
+  intro hf
+  let g : ResolvedFunction := ⟨(unresolveFunction f).header,
+    f.blocks.map fun b => { b with insts := b.insts.map ResolvedInst.normalizePhiLiterals }⟩
+  refine ⟨g, (resolveFunction_iff _ _).mpr ⟨unresolve_names_nodup f, rfl, ?_⟩, ?_⟩
+  · simpa [g, unresolveFunction] using unresolve_resolves_blocks f hf f.blocks.toList (fun _ h => h) 0 0
+  · simp [g, EqModuloRenaming, ResolvedFunction.normalizeLiterals, ResolvedFunction.eraseLocalNames,
+      unresolveFunction, List.mapIdx_eq_zipIdx_map, List.map_map, Function.comp_def,
+      ResolvedInst.normalizePhiLiterals_normalizeLiterals]
+    simpa only [List.map_map, Function.comp_def] using
+      congrArg (List.map fun p : Param => { p with name := "" })
+        (List.zipIdx_map_fst 0 f.header.params)
 
 end Veir.NameResolutionSketch
