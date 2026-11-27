@@ -5,6 +5,7 @@ public import Veir.Interfaces.FunctionInterfaces
 
 namespace Veir
 
+public section
 /--
 The number of function arguments passed in registers, `a0`–`a7`.
 Functions with more arguments pass the rest on the stack, which the allocator does not
@@ -133,5 +134,5 @@ def allocatableFunctions (ctx : WfIRContext OpCode) (op : OperationPtr) :
         funcs := funcs.push (f, entry)
     return funcs
 
-
+end
 end Veir
