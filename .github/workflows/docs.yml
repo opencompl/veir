@@ -22,8 +22,6 @@ jobs:
     runs-on: namespace-profile-veir
     env:
       LEAN_NUM_THREADS: 4
-    environment:
-      name: github-pages
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -57,9 +55,10 @@ jobs:
           sed -i 's/^defaultTargets = .*$/defaultTargets = ["Veir"]/' lakefile.toml
           grep -qx 'defaultTargets = \["Veir"\]' lakefile.toml
 
-      # A deployment that times out leaves its `github-pages` artifact in the
-      # run, and `deploy-pages` refuses to deploy when a re-run adds a second
-      # one. Delete the artifacts of earlier attempts so a re-run can deploy.
+      # Every attempt of this job uploads a `github-pages` artifact, and
+      # `deploy-pages` refuses to deploy when the run holds more than one.
+      # Delete the artifacts of earlier attempts so a re-run of all jobs can
+      # deploy.
       - name: Delete the site artifacts of earlier attempts
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
@@ -73,6 +72,31 @@ jobs:
                 { ...context.repo, artifact_id: artifact.id });
             }
 
+      # The action would deploy right after its upload, and `deploy-pages` looks
+      # the artifact up only once. Half a second after the upload, that lookup
+      # sometimes came back empty and failed the run. The `deploy` job below
+      # deploys instead.
       - uses: leanprover-community/docgen-action@dacc1acc2a3f532cc577266979ba9c36c7593f7c # main, 2026-10-05
         with:
           build-page: false
+          deploy: false
+
+      # `deploy: false` also turns off the upload of the action, which writes
+      # the site to `docs/`.
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/
+
+  # A separate job starts some seconds after the upload, which gives the
+  # artifact time to show up in the lookup. "Re-run failed jobs" then also
+  # repeats a failed deployment without rebuilding the documentation. The
+  # artifact expires after one day; after that, re-run all jobs.
+  deploy:
+    needs: docs
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
