@@ -6,6 +6,11 @@
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
 
+  // CHECK-LABEL: "sym_name" = "return_only"
+  // CHECK-NEXT:  ^{{[^ ]+}}():
+  // CHECK-NEXT:  "riscv_cf.return"() : () -> ()
+  // CHECK-NEXT:  }) : () -> ()
+
   // less than 28 values
   "riscv_cf.func"() <{sym_name = "arithmetic", function_type = () -> ()}> ({
     %a = "riscv.li"() <{value = 5 : i64}> : () -> !riscv.reg
@@ -13,6 +18,15 @@
     %sum = "riscv.add"(%a, %b) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
+
+  // Fewer live values than registers, so the function is left unchanged.
+  // CHECK-LABEL: "sym_name" = "arithmetic"
+  // CHECK-NEXT:  ^{{[^ ]+}}():
+  // CHECK-NEXT:  [[A:%[^ ]+]] = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  [[B:%[^ ]+]] = "riscv.li"() <{"value" = 7 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.add"([[A]], [[B]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+  // CHECK-NEXT:  "riscv_cf.return"() : () -> ()
+  // CHECK-NEXT:  }) : () -> ()
 
   // more than 28 values loaded, but not used -> no spilling
   "riscv_cf.func"() <{sym_name = "unused_values", function_type = () -> ()}> ({
@@ -52,58 +66,47 @@
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
 
+  // Values that are never used do not occupy a register, so nothing is spilled.
+  // CHECK-LABEL: "sym_name" = "unused_values"
+  // CHECK-NEXT:  ^{{[^ ]+}}():
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 1 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 2 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 3 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 4 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 6 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 7 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 8 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 9 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 10 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 11 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 12 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 13 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 14 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 15 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 16 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 17 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 18 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 19 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 20 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 21 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 22 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 23 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 24 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 25 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 26 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 27 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 28 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 29 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 30 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 31 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 32 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 33 : i64}> : () -> !riscv.reg
+  // CHECK-NEXT:  "riscv_cf.return"() : () -> ()
+  // CHECK-NEXT:  }) : () -> ()
+
+
 }) : () -> ()
 
 
-// CHECK-LABEL: "sym_name" = "return_only"
-// CHECK-NEXT:  ^{{[^ ]+}}():
-// CHECK-NEXT:  "riscv_cf.return"() : () -> ()
-// CHECK-NEXT:  }) : () -> ()
 
-// Fewer live values than registers, so the function is left unchanged.
-// CHECK-LABEL: "sym_name" = "arithmetic"
-// CHECK-NEXT:  ^{{[^ ]+}}():
-// CHECK-NEXT:  [[A:%[^ ]+]] = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  [[B:%[^ ]+]] = "riscv.li"() <{"value" = 7 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.add"([[A]], [[B]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:  "riscv_cf.return"() : () -> ()
-// CHECK-NEXT:  }) : () -> ()
-
-// Values that are never used do not occupy a register, so nothing is spilled.
-// CHECK-LABEL: "sym_name" = "unused_values"
-// CHECK-NEXT:  ^{{[^ ]+}}():
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 1 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 2 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 3 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 4 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 6 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 7 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 8 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 9 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 10 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 11 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 12 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 13 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 14 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 15 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 16 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 17 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 18 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 19 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 20 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 21 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 22 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 23 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 24 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 25 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 26 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 27 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 28 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 29 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 30 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 31 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 32 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  %{{[^ ]+}} = "riscv.li"() <{"value" = 33 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:  "riscv_cf.return"() : () -> ()
-// CHECK-NEXT:  }) : () -> ()

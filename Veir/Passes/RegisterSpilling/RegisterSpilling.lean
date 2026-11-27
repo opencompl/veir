@@ -165,6 +165,28 @@ partial def lastUsesFrom (ctx : WfIRContext OpCode) (op : Option OperationPtr)
     lastUsesFrom ctx (op.getPrevOp! ctx.raw) (seenValues.insertMany operands) (lastUses.insert op dyingOperands)
 
 /--
+Currently spilling only works on blocks with unallocated integer registers.
+Spiller rejects blocks that contain:
+- `riscv.stack` type registers
+- preallocated integer registers (such as `riscv.reg<j0>`, `riscv.reg<x0>`)
+-/
+def checkSpillable (ctx : WfIRContext OpCode) (block : BlockPtr) : Except String Unit := do
+  let checkValue (value : ValuePtr) : Except String Unit := do
+    let .registerType reg := (value.getType! ctx.raw).val | return
+    match reg.cls with
+    | .stack => throw s!"register spilling does not support stack registers, got {reg}"
+    | .int =>
+      if reg.index.isSome then
+        throw s!"register spilling does not support preallocated registers, got {reg}"
+  for i in [0:block.getNumArguments! ctx.raw] do
+    checkValue (.blockArgument { block, index := i })
+  let mut op? := block.getFirstOp! ctx.raw
+  while let some op := op? do
+    op? := op.getNextOp! ctx.raw
+    for result in op.getResults! ctx.raw do
+      checkValue result
+
+/--
 Spill the values of `block` so that at most `numRegisters` are in registers at any point.
 Return the context with the spill code inserted and, for every spilled value, its slot.
 -/
@@ -185,6 +207,8 @@ def rv64NumRegisters : Nat := 28
 def RegisterSpillingPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
   (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let entries ← allocatableBlocks ctx op
+  for entry in entries do
+    RegisterSpilling.checkSpillable ctx entry
   let mut ctx := ctx
   for entry in entries do
       (ctx, _) ← RegisterSpilling.spillBlock ctx entry rv64NumRegisters
