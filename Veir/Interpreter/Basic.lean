@@ -66,6 +66,10 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | .rv64 rv64Op => do
     let (vals, act) ← Rv64.interpretOp' rv64Op properties resultTypes operands blockOperands
     return (vals, mem, act)
+  | .riscv_regalloc regAllocOp => do
+    let (vals, act) ←
+      Riscv_RegAlloc.interpretOp' regAllocOp properties resultTypes operands blockOperands
+    return (vals, mem, act)
   | .cf cfOp => do
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
     return (vals, mem, act)

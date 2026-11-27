@@ -17,6 +17,7 @@ public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.RISCV_Cf.OpInfo
 public import Veir.Dialects.RISCV_Stack.OpInfo
+public import Veir.Dialects.RISCV_RegAlloc.OpInfo
 public import Veir.Dialects.RV64.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Datapath.OpInfo
