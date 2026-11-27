@@ -45,6 +45,7 @@ match opCode with
 | .seq op => Seq.propertiesOf op
 | .tensor op => Tensor.propertiesOf op
 | .smt op => SMT.propertiesOf op
+| .linalg op => Linalg.propertiesOf op
 
 /--
   What are the memory effects of an operation with this opcode and these
@@ -80,6 +81,7 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .seq op, props => Seq.getEffects op props
   | .tensor op, props => Tensor.getEffects op props
   | .smt op, props => SMT.getEffects op props
+  | .linalg op, props => Linalg.getEffects op props
 
 /-- Delegate folding to the operation's dialect-local `HasOpInfo` instance. -/
 def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
@@ -113,6 +115,7 @@ def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
   | .seq op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .tensor op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .smt op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .linalg op, props => HasOpInfo.tryFold op props resultTypes constantOperands
 
 /--
   Return the kind of the region with the given index inside this operation.
@@ -146,6 +149,7 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .seq op => HasOpInfo.getRegionKind op index
   | .tensor op => HasOpInfo.getRegionKind op index
   | .smt op => HasOpInfo.getRegionKind op index
+  | .linalg op => HasOpInfo.getRegionKind op index
 
 /--
   Whether definitions in the indexed region of this opcode must dominate
@@ -180,6 +184,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .seq op => Seq.hasSSADominance op index
   | .tensor op => Tensor.hasSSADominance op index
   | .smt op => SMT.hasSSADominance op index
+  | .linalg op => Linalg.hasSSADominance op index
 
 /--
   Whether the indexed region of this opcode is exempt from the requirement
@@ -215,6 +220,7 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .seq op => HasOpInfo.hasNoTerminator op index
   | .tensor op => HasOpInfo.hasNoTerminator op index
   | .smt op => HasOpInfo.hasNoTerminator op index
+  | .linalg op => HasOpInfo.hasNoTerminator op index
 
 /-- Whether this opcode carries MLIR's `IsolatedFromAbove` trait. -/
 def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
@@ -246,6 +252,7 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .seq op => HasOpInfo.isIsolatedFromAbove op
   | .tensor op => HasOpInfo.isIsolatedFromAbove op
   | .smt op => HasOpInfo.isIsolatedFromAbove op
+  | .linalg op => HasOpInfo.isIsolatedFromAbove op
 
 /-- Whether this opcode carries MLIR's `SymbolTable` trait. -/
 def OpCode.isSymbolTable (opCode : OpCode) : Bool :=
@@ -277,6 +284,7 @@ def OpCode.isSymbolTable (opCode : OpCode) : Bool :=
   | .seq op => HasOpInfo.isSymbolTable op
   | .tensor op => HasOpInfo.isSymbolTable op
   | .smt op => HasOpInfo.isSymbolTable op
+  | .linalg op => HasOpInfo.isSymbolTable op
 
 /--
   Does this OpCode count as an MLIR basic block terminator? Dialects that do
@@ -312,6 +320,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .seq op => HasOpInfo.isTerminator op
   | .tensor op => HasOpInfo.isTerminator op
   | .smt op => HasOpInfo.isTerminator op
+  | .linalg op => HasOpInfo.isTerminator op
 
 /--
   Does this `OpCode` materialize a literal constant value, i.e. an op
@@ -350,6 +359,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .seq op => Seq.isConstantLike op
   | .tensor op => Tensor.isConstantLike op
   | .smt op => SMT.isConstantLike op
+  | .linalg op => Linalg.isConstantLike op
 
 /--
   Does an operation with this opcode produce a wholly poisoned result whenever
@@ -384,6 +394,7 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .seq op => HasOpInfo.propagatesPoison op
   | .tensor op => HasOpInfo.propagatesPoison op
   | .smt op => SMT.propagatesPoison op
+  | .linalg op => HasOpInfo.propagatesPoison op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
@@ -415,6 +426,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .seq op => Seq.fromAttrDict op attrDict
   | .tensor op => Tensor.fromAttrDict op attrDict
   | .smt op => SMT.fromAttrDict op attrDict
+  | .linalg op => Linalg.fromAttrDict op attrDict
 
 /--
   Converts the properties of an operation into a dictionary of attributes.
@@ -450,6 +462,7 @@ def Properties.toAttrDict
   | .seq op, props => Seq.toAttrDict op props
   | .tensor op, props => Tensor.toAttrDict op props
   | .smt op, props => SMT.toAttrDict op props
+  | .linalg op, props => Linalg.toAttrDict op props
 
 instance : IsOpCode OpCode where
   fromName := OpCode.fromName
@@ -488,6 +501,7 @@ def OpCode.symbolInterface? (opCode : OpCode) : Option (SymbolOpInterface (_prop
   | .seq op => HasOpInfo.symbolInterface? op
   | .tensor op => HasOpInfo.symbolInterface? op
   | .smt op => HasOpInfo.symbolInterface? op
+  | .linalg op => HasOpInfo.symbolInterface? op
 
 /-- Function-interface information assembled from the registered dialects. -/
 def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_propertiesOf opCode)) :=
@@ -519,6 +533,7 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .seq op => HasOpInfo.functionInterface? op
   | .tensor op => HasOpInfo.functionInterface? op
   | .smt op => HasOpInfo.functionInterface? op
+  | .linalg op => HasOpInfo.functionInterface? op
 
 theorem OpCode.functionInterface_requires_symbol {opCode : OpCode}
     {f : FunctionOpInterface (_propertiesOf opCode)}
@@ -565,6 +580,7 @@ def OpCode.branchOpInterface?
   | .seq op => HasOpInfo.branchOpInterface? op
   | .tensor op => HasOpInfo.branchOpInterface? op
   | .smt op => HasOpInfo.branchOpInterface? op
+  | .linalg op => HasOpInfo.branchOpInterface? op
 
 /-- Call-interface information assembled from the registered dialects. -/
 def OpCode.callOpInterface?
@@ -597,6 +613,7 @@ def OpCode.callOpInterface?
   | .seq op => HasOpInfo.callOpInterface? op
   | .tensor op => HasOpInfo.callOpInterface? op
   | .smt op => HasOpInfo.callOpInterface? op
+  | .linalg op => HasOpInfo.callOpInterface? op
 
 #generate_has_dialect_instances OpCode
 
@@ -631,6 +648,7 @@ def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) 
   | .seq op, props => lift op props
   | .tensor op, props => lift op props
   | .smt op, props => lift op props
+  | .linalg op, props => lift op props
 where
   lift {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode Dialect]
       (op : Dialect) (props : propertiesOf op) : Option (OpKind OpCode) := do
@@ -669,6 +687,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .seq opType => Seq.verifyLocalInvariants opType op ctx opIn
   | .tensor opType => Tensor.verifyLocalInvariants opType op ctx opIn
   | .smt opType => SMT.verifyLocalInvariants opType op ctx opIn
+  | .linalg opType => Linalg.verifyLocalInvariants opType op ctx opIn
 
 /-- Delegate commutativity to the operation's dialect-local `HasOpInfo` instance. -/
 def OpCode.isCommutative (opCode : OpCode) : Bool :=
@@ -700,6 +719,7 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .seq op => HasOpInfo.isCommutative op
   | .tensor op => HasOpInfo.isCommutative op
   | .smt op => HasOpInfo.isCommutative op
+  | .linalg op => HasOpInfo.isCommutative op
 
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
@@ -745,7 +765,7 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .builtin _
     | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .include _
-    | .function _ | .seq _ | .tensor _ | .smt _ => none
+    | .function _ | .seq _ | .tensor _ | .smt _ | .linalg _ => none
   guard materialized.fst.isConstantLike
   return materialized
 
