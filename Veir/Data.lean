@@ -5,3 +5,4 @@ import Veir.Data.Pointer
 import Veir.Data.FP
 import Veir.Data.Float
 import Veir.Data.PBV
+import Veir.Data.Tensor

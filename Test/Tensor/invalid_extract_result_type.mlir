@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: tensor.extract: Expected result type to match the tensor element type
+// CHECK: tensor.extract: failed to verify that result type matches element type of tensor

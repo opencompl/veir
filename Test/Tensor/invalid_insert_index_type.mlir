@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: tensor.insert: Expected operand 2 to be of index type, but found f32
+// CHECK: tensor.insert: operand #2 must be variadic of index, but got 'f32'

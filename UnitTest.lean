@@ -20,6 +20,8 @@ import UnitTest.ConstantValue
 import UnitTest.Evaluate
 import UnitTest.Interp
 import UnitTest.RuntimeValueSimp
+import UnitTest.TensorRuntimeValue
+import UnitTest.TensorCombine
 import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
 import UnitTest.RegionKindInterfaces

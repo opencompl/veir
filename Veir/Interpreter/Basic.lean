@@ -83,6 +83,9 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     GMIR.interpretOp' gmirOp properties resultTypes operands blockOperands mem
   | .gmir_riscv gmirRiscvOp =>
     GMIR_RISCV.interpretOp' gmirRiscvOp properties resultTypes operands blockOperands mem
+  | .tensor tensorOp => do
+    let (vals, act) ← Tensor.interpretOp' tensorOp properties resultTypes operands blockOperands
+    return (vals, mem, act)
   | .builtin .unrealized_conversion_cast => do
     let some resType := resultTypes[0]? | none
     match resType.val, operands.toList with

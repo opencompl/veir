@@ -22,7 +22,6 @@ attribute [local puddle]
   Riscv.interpretOp' Riscv.interpretOpCTree
 
 attribute [local riscv_combine]
-  RuntimeValue.isRefinedBy
   forall_riscvLoadCTree_canInterpretTo_ok
   _root_.Veir.RISCV.liFitsSImm12 RISCVImmediateProperties.immField
   rv64_interpretOp'_get_register
