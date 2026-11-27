@@ -11,7 +11,7 @@
   // CHECK-NEXT:  "riscv_cf.return"() : () -> ()
   // CHECK-NEXT:  }) : () -> ()
 
-  // less than 28 values
+  // less than 27 values
   "riscv_cf.func"() <{sym_name = "arithmetic", function_type = () -> ()}> ({
     %a = "riscv.li"() <{value = 5 : i64}> : () -> !riscv.reg
     %b = "riscv.li"() <{value = 7 : i64}> : () -> !riscv.reg
@@ -28,7 +28,7 @@
   // CHECK-NEXT:  "riscv_cf.return"() : () -> ()
   // CHECK-NEXT:  }) : () -> ()
 
-  // more than 28 values loaded, but not used -> no spilling
+  // more than 27 values loaded, but not used -> no spilling
   "riscv_cf.func"() <{sym_name = "unused_values", function_type = () -> ()}> ({
     %1 = "riscv.li"() <{value = 1 : i64}> : () -> !riscv.reg
     %2 = "riscv.li"() <{value = 2 : i64}> : () -> !riscv.reg

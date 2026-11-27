@@ -1,6 +1,6 @@
 // RUN: not veir-opt %s --split-input-file -p=register-spilling-riscv64 2>&1 >/dev/null | filecheck %s
 
-// Currently spilling only works on blocks with unallocated integer registers. Reject other blocks.
+// Currently spilling only works on blocks with integer registers that are unallocated or preallocated to a physical register. Reject other blocks.
 
 // reject block with `!riscv.stack` registers
 "builtin.module"() ({
@@ -24,16 +24,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: register spilling does not support preallocated registers, got !riscv.reg<j0>
-
-// -----
-
-// reject block with allocated physical registers
-"builtin.module"() ({
-  "riscv_cf.func"() <{sym_name = "physical", function_type = () -> ()}> ({
-    %a = "riscv.li"() <{value = 5 : i64}> : () -> !riscv.reg<x5>
-    "riscv_cf.return"() : () -> ()
-  }) : () -> ()
-}) : () -> ()
-
-// CHECK: register spilling does not support preallocated registers, got !riscv.reg<x5>
+// CHECK: register spilling does not support virtual registers, got !riscv.reg<j0>
