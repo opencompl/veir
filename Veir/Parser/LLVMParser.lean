@@ -53,4 +53,33 @@ theorem parseAndLower_correct :
       RootedIso ctx root ctx' root' :=
   parseAndLower_correct_of_lowerModule_correct fun _ _ _ => LLVMLowering.lowerModule_correct
 
+
+
+def printLLVM (ctx : WfIRContext OpCode) (root : OperationPtr) :
+    Except LoweringError String :=
+  (reverseModule ctx root).map fun m => (unresolveModule m).print
+
+def FunctionLayout (ctx : WfIRContext OpCode) (op : OperationPtr) : Prop :=
+  ∃ (name : String) (ret : TypeAttr) (region : RegionPtr),
+    bareName name ∧
+    MatchesOp ctx op Llvm.func #[] #[] #[region]
+      (LLVMFuncProperties.mk ⟨name.toUTF8⟩
+        { inputs := #[] ,
+          outputs := #[ret.val] } defaultFuncExtra)
+
+def Module.isValid (ctx : WfIRContext OpCode) (root : OperationPtr) : Prop :=
+  ∃ (region : RegionPtr) (body : BlockPtr) (funcs : List OperationPtr),
+    MatchesOp ctx root Builtin.module #[] #[] #[region] default defaultModuleAttrs ∧
+    region.BlockChain ctx.raw #[body] ∧
+    body.OpChain ctx.raw funcs.toArray ∧
+    body.getArgumentTypes! ctx.raw = #[] ∧
+    ∀ op ∈ funcs, FunctionLayout ctx op
+
+theorem parseAndLower_printLLVM_round_trip
+    (ctx : WfIRContext OpCode) (root : OperationPtr)  : Module.isValid  ctx root →
+    ∃ (ctx' : WfIRContext OpCode) (root' : OperationPtr),
+      ((printLLVM ctx root) >>= parseAndLower = .ok (ctx', root')) ∧
+      RootedIso ctx root ctx' root' := sorry
+
+
 end Veir.LLVMParser
