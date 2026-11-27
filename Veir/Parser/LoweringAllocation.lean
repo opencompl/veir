@@ -38,6 +38,7 @@ attribute [local simp] OperationPtr.set BlockPtr.set RegionPtr.set
   BlockPtr.setPrevBlock BlockPtr.setParent BlockPtr.setArguments BlockPtr.pushArgument
   RegionPtr.setParent RegionPtr.setFirstBlock RegionPtr.setLastBlock
   OpOperandPtr.setBack OpOperandPtr.setNextUse OpOperandPtr.set
+  BlockOperandPtr.setBack BlockOperandPtr.setNextUse BlockOperandPtr.set
   OpResultPtr.setFirstUse OpResultPtr.set BlockArgumentPtr.setFirstUse BlockArgumentPtr.set
 
 theorem value_setFirstUse_nextID : (ValuePtr.setFirstUse value ctx use hv).nextID = ctx.nextID := by
@@ -51,6 +52,14 @@ theorem pushResult_nextID : (Rewriter.pushResult ctx op ty ho).nextID = ctx.next
 theorem pushOperand_nextID : (Rewriter.pushOperand ctx op value ho hv hx).nextID = ctx.nextID := by
   simp only [Rewriter.pushOperand, OpOperandPtr.insertIntoCurrent]
   split <;> simp [OperationPtr.pushOperand]
+
+theorem pushBlockOperand_nextID : (Rewriter.pushBlockOperand ctx op block ho hb hx).nextID = ctx.nextID := by
+  simp only [Rewriter.pushBlockOperand, BlockOperandPtr.insertIntoCurrent]
+  split <;> simp [OperationPtr.pushBlockOperand]
+
+theorem initBlockOperands_nextID :
+    (Rewriter.initBlockOperands ctx op bs n ho hx hb hn).nextID = ctx.nextID := by
+  fun_induction Rewriter.initBlockOperands <;> simp_all +zetaDelta [pushBlockOperand_nextID]
 
 theorem initOpResults_nextID : (Rewriter.initOpResults ctx op ts i ho hi).nextID = ctx.nextID := by
   fun_induction Rewriter.initOpResults <;> simp_all +zetaDelta [pushResult_nextID]
@@ -108,6 +117,13 @@ theorem AllocationSafe.pushOperand (h : AllocationSafe ctx) :
   rcases h with ⟨hops, hbs, hrs⟩
   constructor <;> intro p hp <;> have hn := pushOperand_nextID (ctx := ctx) (op := op) (value := value) (ho := ho) (hv := hv) (hx := hx)
   all_goals grind
+
+theorem AllocationSafe.initBlockOperands (h : AllocationSafe ctx) :
+    AllocationSafe (Rewriter.initBlockOperands ctx op bs n ho hx hb hn) := by
+  rcases h with ⟨hops, hbs, hrs⟩
+  have hi := initBlockOperands_nextID (ctx := ctx) (op := op) (bs := bs)
+    (n := n) (ho := ho) (hx := hx) (hb := hb) (hn := hn)
+  constructor <;> intro p hp <;> grind
 
 theorem AllocationSafe.initOpResults (h : AllocationSafe ctx) :
     AllocationSafe (Rewriter.initOpResults ctx op ts i ho hi) := by

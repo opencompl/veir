@@ -1,4 +1,4 @@
-import Veir.Parser.LLVMLowering
+import Veir.Parser.LoweringIso
 
 /-! The text-to-VeIR pipeline for the LLVM integer fragment with control flow. -/
 
@@ -50,7 +50,7 @@ theorem parseAndLower_correct_of_lowerModule_correct
 theorem parseAndLower_correct :
     ParsesModule src ctx root ↔
     ∃ ctx' root', parseAndLower src = .ok (ctx', root') ∧
-      RootedIso ctx root ctx' root' := by
-  sorry
+      RootedIso ctx root ctx' root' :=
+  parseAndLower_correct_of_lowerModule_correct fun _ _ _ => LLVMLowering.lowerModule_correct
 
 end Veir.LLVMParser

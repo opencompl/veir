@@ -76,16 +76,18 @@ theorem AllocationSafe.createOp_total {insert : Bool} (h : AllocationSafe ctx) (
     {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode Dialect]
     (code : Dialect) (props : propertiesOf code) (hb : insert = true → block.InBounds ctx)
     (hv : ∀ v ∈ vs, v.InBounds ctx) (hr : ∀ r ∈ rs, r.InBounds ctx)
-    (hp : ∀ r ∈ rs, r.getParent! ctx = none) (hn : rs.size ≤ 1) :
-    ∃ ctx' op, Rewriter.createOp ctx code ts vs #[] rs props
-      (if insert then some (.atEnd block) else none) hv (by simp) hr (by cases insert <;> grind) hx = some (ctx', op) ∧ AllocationSafe ctx' := by
+    (hp : ∀ r ∈ rs, r.getParent! ctx = none) (hn : rs.size ≤ 1)
+    (bs : Array BlockPtr := #[]) (hsucc : ∀ b ∈ bs, b.InBounds ctx := by simp) :
+    ∃ ctx' op, Rewriter.createOp ctx code ts vs bs rs props
+      (if insert then some (.atEnd block) else none) hv hsucc hr (by cases insert <;> grind) hx = some (ctx', op) ∧ AllocationSafe ctx' := by
   obtain ⟨c, o, ha, hs⟩ := h.allocateOp code props
   let results := Rewriter.initOpResults c o ts 0 (by grind) (by grind)
   have hs₀ : AllocationSafe results := hs.initOpResults
   obtain ⟨c₁, hreg⟩ := initOpRegions_total (ctx := results) (op := o) (rs := rs) (by grind) (by grind) (by grind) (by grind) hn (by grind)
   let operands := Rewriter.initOpOperands c₁ o (by grind) vs (by grind) (by grind)
-  let wired := Rewriter.initBlockOperands operands o #[]
-  have hs₁ : AllocationSafe wired := by dsimp [wired]; unfold Rewriter.initBlockOperands; exact (hs₀.initOpRegions hreg).initOpOperands
+  let wired := Rewriter.initBlockOperands operands o bs (hoperands := by grind)
+  have hs₁ : AllocationSafe wired :=
+    (hs₀.initOpRegions hreg).initOpOperands.initBlockOperands
   obtain ⟨c₂, hi, hs₂⟩ := hs₁.insertIf_total (insert := insert) (op := o) (block := block) (by grind) (by grind) (fun hi => by have := hb hi; grind) (by grind)
   refine ⟨c₂, o, ?_, hs₂⟩; unfold Rewriter.createOp; dsimp only [results, wired, operands] at *; grind
 
