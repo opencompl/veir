@@ -1665,6 +1665,20 @@ theorem getPrevBlock!_eq_getPrevBlock {block : BlockPtr} (hin : block.InBounds c
 private theorem getPrevBlock!_def {block : BlockPtr} :
     block.getPrevBlock! ctx = (block.get! ctx).prev := by rfl
 
+/--
+The blocks whose terminators branch to `block`, once per CFG edge, so a
+predecessor with several edges to `block` occurs several times.
+-/
+def getPredecessors! (block : BlockPtr) (ctx : IRContext OpInfo) : Array BlockPtr := Id.run do
+  let mut preds := #[]
+  let mut currentUse := (block.get! ctx).firstUse
+  while let some predUse := currentUse do
+    let use := predUse.get! ctx
+    currentUse := use.nextUse
+    if let some parent := (use.owner.get! ctx).parent then
+      preds := preds.push parent
+  return preds
+
 end BlockPtr
 
 /-!
