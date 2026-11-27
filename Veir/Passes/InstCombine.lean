@@ -3,6 +3,8 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
+import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir
 
@@ -16,21 +18,32 @@ namespace Veir
 /-! ## Pattern Rewrites -/
 
 /-- Rewrites `x * 2` to `x + x`. -/
-def mulITwoToAddi_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, properties) := matchMuli op ctx.raw
-    | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx.raw
-    | return (ctx, none)
-  if cst ≠ 2 then
-    return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[lhs.getType! ctx.raw] #[lhs, lhs]
-    #[] #[] properties none
-  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+def mulITwoToAddiPattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+      let x ← Puddle.MatchProg.value type
+      let two ← Puddle.MatchProg.operation (.llvm .mlir__constant) #[] #[type]
+      Puddle.MatchProg.matchNative (type, two.properties)
+        (fun (ty, props) =>
+          match ty.val, props.value with
+          | .integerType intTy, LLVMConstantValue.integer attr =>
+            (BitVec.ofInt intTy.bitwidth attr.value).toInt = 2
+          | _, _ => false)
+      let root ← Puddle.MatchProg.root (.llvm .mul) #[x, two.res[0]!] #[type]
+      return (x, type, root.properties))
+    (fun (x, type, mulProps) => do
+      let addProps : Puddle.Handle OpCode (.prop (.llvm .add)) ←
+        Puddle.CreateProg.applyNative mulProps some
+      Puddle.CreateProg.operation (.llvm .add) #[x, x] #[type] addProps)
+    (fun newOp => newOp)
+
+private def compiledMulITwoToAddi : Puddle.CompiledPattern OpCode :=
+  mulITwoToAddiPattern.compile
 
 def mulITwoToAddi (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite mulITwoToAddi_local rewriter op opInBounds
+  compiledMulITwoToAddi.run rewriter op opInBounds
 
 /-- Rewrites `x * 0` to `0`. -/
 def mulIZeroToCst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
