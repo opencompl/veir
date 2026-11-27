@@ -5,8 +5,6 @@ import Veir.Interfaces.FunctionInterfaces
 
 namespace Veir
 
-public section
-
 /--
 Return block from module op, while enforcing the allocator's current restrictions on structures we can handle.
 
@@ -61,6 +59,36 @@ def getFunctionEntry (ctx : WfIRContext OpCode) (f : OperationPtr) :
   if funcOp.getNumResults != 0 then
     throw "register allocation does not support function return values"
   return some entry
-end
+
+
+
+/--
+The entry blocks of the functions in the module `op`, or an error naming the first
+constraint `op` breaks.
+
+The shape of module this accepts, from the outside in:
+
+- a *single region*, holding
+- a *single block*, the module body, with *no block arguments*, holding
+- *sibling functions*, each with *no input arguments* and *no return values*, whose body is
+  a *single block* with *no nested regions* in it.
+
+Anything else is rejected rather than worked around.
+
+Operations in the module body that are not function are passed over, as are function
+declarations, which have no body to allocate.
+-/
+
+public def allocatableBlocks (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Except String (Array BlockPtr) := do
+    let some block ← getModuleBlock ctx op | return #[]
+    let mut entries : Array BlockPtr := #[]
+    let mut f? := block.getFirstOp! ctx.raw
+    while let some f := f? do
+        f? := f.getNextOp! ctx.raw
+        let some fctBlock ← getFunctionEntry ctx f | continue
+        entries := entries.push fctBlock
+    return entries
+
 
 end Veir
