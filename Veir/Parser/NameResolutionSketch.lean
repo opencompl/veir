@@ -361,9 +361,36 @@ def ResolvedFunction.normalizeLiterals (f : ResolvedFunction) : ResolvedFunction
 def EqModuloRenaming (f g : ResolvedFunction) : Prop :=
   f.normalizeLiterals.eraseLocalNames = g.normalizeLiterals.eraseLocalNames
 
-/-- Compare resolved modules up to local names and the spelling of integer literals. -/
+def ResolvedInst.Equiv : ResolvedInst → ResolvedInst → Prop
+  | .phi ty xs, .phi ty' ys => ty = ty' ∧ xs.Perm ys
+  | i, j => i = j
+
+theorem ResolvedInst.Equiv.refl (i : ResolvedInst) : i.Equiv i := by
+  cases i <;> simp [ResolvedInst.Equiv]
+
+def ResolvedBlock.Equiv (b c : ResolvedBlock) : Prop :=
+  ResolvesList ResolvedInst.Equiv b.insts c.insts ∧ b.terminator = c.terminator
+
+def ResolvedFunction.Equiv (f g : ResolvedFunction) : Prop :=
+  let f' := f.normalizeLiterals.eraseLocalNames
+  let g' := g.normalizeLiterals.eraseLocalNames
+  f'.header = g'.header ∧ ResolvesList ResolvedBlock.Equiv f'.blocks.toList g'.blocks.toList
+
+theorem ResolvesList.refl {R : α → α → Prop} (h : ∀ a, R a a) (xs : List α) :
+    ResolvesList R xs xs := by
+  induction xs with
+  | nil => exact .nil
+  | cons a _ ih => exact .cons (h a) ih
+
+theorem EqModuloRenaming.equiv (h : EqModuloRenaming f g) : f.Equiv g := by
+  unfold EqModuloRenaming at h
+  unfold ResolvedFunction.Equiv
+  rw [h]
+  exact ⟨rfl, ResolvesList.refl (fun b => ⟨ResolvesList.refl ResolvedInst.Equiv.refl b.insts, rfl⟩) _⟩
+
+/-- Compare modules up to local names, integer literal spellings, and phi input order. -/
 def ResolvedModule.Equiv (m m' : ResolvedModule) : Prop :=
-  ResolvesList EqModuloRenaming m.funcs m'.funcs
+  ResolvesList ResolvedFunction.Equiv m.funcs m'.funcs
 
 def ValueId.sourceName : ValueId → String
   | .param i => "arg" ++ toString i
@@ -625,6 +652,6 @@ theorem resolve_round_trip (m : ResolvedModule) : ValidResolvedModule m →
     intro h
     obtain ⟨g, hg, he⟩ := resolveFunction_round_trip f (h f (by simp)).1
     obtain ⟨m', hr, hm⟩ := ih (fun x hx => h x (by simp [hx]))
-    exact ⟨⟨g :: m'.funcs⟩, .cons ((resolveFunction_iff _ _).mp hg) hr, .cons he hm⟩
+    exact ⟨⟨g :: m'.funcs⟩, .cons ((resolveFunction_iff _ _).mp hg) hr, .cons he.equiv hm⟩
 
 end Veir.NameResolutionSketch

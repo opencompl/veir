@@ -988,4 +988,85 @@ theorem lowerModule_correct_of_unique
   · rintro ⟨_, _, he, hi⟩
     exact lowersModule_of_lowerModule_iso he hi
 
+/-! ## Reversal -/
+
+theorem collectLoweredChain_loop_eq {next : α → Option α} {xs : List α} {fuel : Nat}
+    (hf : xs.length ≤ fuel) (hn : ∀ i x, xs[i]? = some x → next x = xs[i+1]?) (acc : List α) :
+    collectLoweredChain.loop next fuel xs.head? acc = .ok (acc.reverse ++ xs) := by
+  induction xs generalizing fuel acc with
+  | nil => simp [collectLoweredChain.loop]
+  | cons x xs ih =>
+    cases fuel with
+    | zero => simp at hf
+    | succ fuel =>
+      have hnext : next x = xs.head? := by simpa [List.head?_eq_getElem?] using hn 0 x rfl
+      simp only [List.head?_cons, collectLoweredChain.loop, hnext]
+      rw [ih (by simpa using hf) (fun i y hy => hn (i+1) y hy)]
+      simp
+
+theorem collectLoweredChain_eq {next : α → Option α} {xs : Array α} {fuel : Nat}
+    (hf : xs.size ≤ fuel) (hn : ∀ i (hi : i < xs.size), next xs[i] = xs[i+1]?) :
+    collectLoweredChain next fuel xs[0]? = .ok xs.toList := by
+  simpa [collectLoweredChain, List.head?_eq_getElem?] using
+    collectLoweredChain_loop_eq (xs := xs.toList) (by simpa using hf)
+      (fun i x hx => by
+        have ⟨hi, he⟩ := Array.getElem?_eq_some_iff.mp (by simpa using hx : xs[i]? = some x)
+        simpa [he] using hn i hi) []
+
+theorem size_le_hashMap_of_nodup {xs : Array α} [BEq α] [LawfulBEq α] [Hashable α]
+    (m : Std.HashMap α β) (hn : xs.toList.Nodup) (hm : ∀ x ∈ xs, x ∈ m) :
+    xs.size ≤ m.size := by
+  simpa using hn.length_le_of_subset (l₂ := m.keys) (fun x hx => Std.HashMap.mem_keys.mpr (hm x (by simpa using hx)))
+
+theorem reverseBlockOps_eq (h : BlockPtr.OpChain b raw ops) :
+    reverseBlockOps raw b = .ok ops.toList := by
+  rw [reverseBlockOps, h.first]
+  exact collectLoweredChain_eq
+    (size_le_hashMap_of_nodup _ (BlockPtr.OpChain_array_toList_Nodup h) (fun _ => h.arrayInBounds)) (fun _ => h.next)
+
+theorem reverseRegion_eq (ho : op.getRegions! raw = #[r]) (h : RegionPtr.BlockChain r raw bs) :
+    reverseRegion raw op = .ok bs.toList := by
+  have hn : bs.toList.Nodup := List.nodup_iff_eq_of_getElem_eq.mpr fun i j hi hj he =>
+    Classical.byContradiction fun hne => RegionPtr.BlockChain_array_injective h i j hi hj hne he
+  rw [reverseRegion, ho]
+  change collectLoweredChain _ _ (r.getFirstBlock! raw) = _
+  rw [h.first]
+  exact collectLoweredChain_eq (size_le_hashMap_of_nodup _ hn (fun _ => h.arrayInBounds)) (fun _ => h.next)
+
+theorem reverseModule_eq_mapM {ops : List OperationPtr}
+    (hm : MatchesOp ctx root Builtin.module #[] #[] #[r] default defaultModuleAttrs)
+    (hr : RegionPtr.BlockChain r ctx.raw #[b]) (hb : BlockPtr.OpChain b ctx.raw ops.toArray) :
+    reverseModule ctx root = ResolvedModule.mk <$> ops.mapM (reverseFunction ctx.raw) := by
+  have hroot : ctx.raw.operations.contains root = true := Std.HashMap.mem_iff_contains.mp hm.1
+  have hcode : root.getOpType! ctx.raw = .builtin .module := congrArg Prod.fst hm.2.2
+  rw [reverseModule]
+  simp [hroot, hcode, reverseRegion_eq hm.regions_eq hr, reverseBlockOps_eq hb, bind, Except.bind,
+    pure, Except.pure, Functor.map, Except.map]
+
+theorem reverseModule_of_lowers (h : LowersModule ctx m root)
+    (hfunction : ∀ f op, LowersFunction ctx f op →
+      ∃ f', reverseFunction ctx.raw op = .ok f' ∧ f'.Equiv f) :
+    ∃ m', reverseModule ctx root = .ok m' ∧ m'.Equiv m := by
+  obtain ⟨r, b, ops, hm, hr, hb, _, hf⟩ := h
+  rw [reverseModule_eq_mapM hm hr hb]
+  have recovers {fs ops} (h : ResolvesList (LowersFunction ctx) fs ops) :
+      ∃ fs', ops.mapM (reverseFunction ctx.raw) = .ok fs' ∧ ResolvesList ResolvedFunction.Equiv fs' fs := by
+    induction h with
+    | nil => exact ⟨[], rfl, .nil⟩
+    | cons h _ ih =>
+      obtain ⟨f', he, hEq⟩ := hfunction _ _ h
+      obtain ⟨fs', ht, hEq'⟩ := ih
+      exact ⟨f' :: fs', by simp [List.mapM_cons, he, ht, bind, Except.bind, pure, Except.pure], .cons hEq hEq'⟩
+  obtain ⟨fs', he, heq⟩ := recovers hf
+  exact ⟨⟨fs'⟩, by rw [he]; rfl, heq⟩
+
+theorem reverseModule_lowerModule_of_reverseFunction
+    (h : ValidResolvedModule m)
+    (hfunction : ∀ ctx f op, LowersFunction ctx f op →
+      ∃ f', reverseFunction ctx.raw op = .ok f' ∧ f'.Equiv f) :
+    ∃ m', (lowerModule m >>= reverseModule.uncurry) = .ok m' ∧ m'.Equiv m := by
+  obtain ⟨ctx, root, hl⟩ := lowerModule_total_of_valid h
+  obtain ⟨m', hr, he⟩ := reverseModule_of_lowers (lowerModule_sound hl) (hfunction ctx)
+  exact ⟨m', by rw [hl]; exact hr, he⟩
+
 end Veir.LLVMLowering

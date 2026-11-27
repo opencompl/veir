@@ -834,13 +834,11 @@ theorem created_of_tail {tail : List BlockPtr}
     exact (resolvesList_lookup hl).2 k b p (by simpa [List.getElem?_drop, Nat.add_comm] using hs)
       (by simpa using hd) |>.2
 
-theorem lowerFunction_total (hs : AllocationSafe ctx.raw) (hb : parent.InBounds ctx.raw)
-    (h : LowersFunction specCtx f specOp) :
+theorem lowerFunction_total_of_checks (hs : AllocationSafe ctx.raw) (hb : parent.InBounds ctx.raw)
+    (hv : ValidResolvedFunction f) (hc : checkBlocks f = .ok ()) (hP : PhiTyped f) (hC : CondTyped f) :
     ∃ op ctx', (lowerFunction parent f).run ctx = .ok (op, ctx') ∧ AllocationSafe ctx'.raw ∧
       parent.InBounds ctx'.raw := by
-  have hc := h.checkBlocks
   obtain ⟨⟨entrySrc, he, _⟩, _⟩ := checkBlocks_accepts_iff.mp hc
-  obtain ⟨hP, hC⟩ := LowersFunction.typed h
   obtain ⟨⟨r, entry⟩, c, hbody, hs⟩ := createBody_total (ts := f.header.params.toArray.map (lowerType ·.ty)) hs
   obtain ⟨hmono, hr, hdetached, hent, htypes⟩ := createBody_ok hbody
   let ts (b : ResolvedBlock) := (b.insts.filterMap (fun i => i.phiType.map lowerType)).toArray
@@ -854,7 +852,7 @@ theorem lowerFunction_total (hs : AllocationSafe ctx.raw) (hb : parent.InBounds 
   let blocks := (entry :: tail).toArray
   let V := functionValues f entry (f.blocks.toList.zip blocks.toList)
   obtain ⟨e, hw, hs⟩ := lowerBlocks_total (V := V) (plans := plansOf f blocks) hs
-    (fun _ _ hf ha => hready_of (hcreated.frame hf) h.1 hc hP hC ha)
+    (fun _ _ hf ha => hready_of (hcreated.frame hf) hv hc hP hC ha)
   have hg' := grows_lowerBlocks (lookup := fun groups => lookupValue (V groups))
     (fun _ _ => grows_lookupValue) (fun _ _ hl => grows_lowerTerminator hl) _ _ _ hw
   have hparent := hg'.bounds (.block parent) (hg.bounds (.block parent) (hmono (.block parent) hb))
@@ -872,21 +870,36 @@ theorem lowerFunction_total (hs : AllocationSafe ctx.raw) (hb : parent.InBounds 
   exact ⟨(), ctx, by simp [StateT.run, StateT.lift, hc, Functor.map, Except.map],
     (r, entry), c, hbody, tail, d, htail, (), e, hw, hgop⟩
 
-theorem lowerFunctions_total (hs : AllocationSafe ctx.raw) (hb : parent.InBounds ctx.raw)
-    (h : ResolvesList (LowersFunction specCtx) fs ops) :
+theorem lowerFunction_total (hs : AllocationSafe ctx.raw) (hb : parent.InBounds ctx.raw)
+    (h : LowersFunction specCtx f specOp) :
+    ∃ op ctx', (lowerFunction parent f).run ctx = .ok (op, ctx') ∧ AllocationSafe ctx'.raw ∧
+      parent.InBounds ctx'.raw :=
+  lowerFunction_total_of_checks hs hb h.1 h.checkBlocks (LowersFunction.typed h).1 (LowersFunction.typed h).2
+
+theorem lowerFunctions_total_of_checks {parent : BlockPtr} {fs : List ResolvedFunction} (hs : AllocationSafe ctx.raw) (hb : parent.InBounds ctx.raw)
+    (h : ∀ f ∈ fs, ValidResolvedFunction f ∧ checkBlocks f = .ok () ∧ PhiTyped f ∧ CondTyped f) :
     ∃ ctx', (fs.forM fun f => do let _ ← lowerFunction parent f).run ctx = .ok ((), ctx') := by
-  induction h generalizing ctx with
+  induction fs generalizing ctx with
   | nil => exact ⟨ctx, rfl⟩
-  | cons hf _ ih =>
-    obtain ⟨op, c, he, hs, hb⟩ := lowerFunction_total hs hb hf
-    obtain ⟨d, hd⟩ := ih hs hb
+  | cons f fs ih =>
+    obtain ⟨hv, hc, hp, ht⟩ := h f (by simp)
+    obtain ⟨op, c, he, hs, hb⟩ := lowerFunction_total_of_checks hs hb hv hc hp ht
+    obtain ⟨d, hd⟩ := ih hs hb (fun g hg => h g (List.mem_cons_of_mem f hg))
     exact ⟨d, by
       rw [List.forM_eq_forM, List.forM_cons]
       exact lowerM_bind_ok.mpr ⟨(), c, lowerM_bind_ok.mpr ⟨op, c, he, rfl⟩, hd⟩⟩
 
+theorem lowerFunctions_total (hs : AllocationSafe ctx.raw) (hb : parent.InBounds ctx.raw)
+    (h : ResolvesList (LowersFunction specCtx) fs ops) :
+    ∃ ctx', (fs.forM fun f => do let _ ← lowerFunction parent f).run ctx = .ok ((), ctx') :=
+  lowerFunctions_total_of_checks hs hb fun _ hf =>
+    let ⟨_, h⟩ := resolvesList_mem_left h hf
+    ⟨h.1, h.checkBlocks, LowersFunction.typed h⟩
+
 end Complete
 
-theorem lowerModule_total (h : LowersModule ctx m root) :
+theorem lowerModule_total_of_checks
+    (h : ∀ f ∈ m.funcs, ValidResolvedFunction f ∧ checkBlocks f = .ok () ∧ Complete.PhiTyped f ∧ Complete.CondTyped f) :
     ∃ ctx₂ root₂, lowerModule m = .ok (ctx₂, root₂) := by
   obtain ⟨c, r, hc, hs⟩ := createModule_total
   obtain ⟨_, _, hm, _, _, _, _⟩ := createRawModule_sound hc
@@ -902,11 +915,48 @@ theorem lowerModule_total (h : LowersModule ctx m root) :
     · exact hs.operations p ((setAttributes_inBounds (.operation p)).mp hp)
     · exact hs.blocks p ((setAttributes_inBounds (.block p)).mp hp)
     · exact hs.regions p ((setAttributes_inBounds (.region p)).mp hp)
-  obtain ⟨_, _, _, _, _, _, _, hfs⟩ := h
-  obtain ⟨e, he⟩ := Complete.lowerFunctions_total hsafe hchain.blockInBounds hfs
+  obtain ⟨e, he⟩ := Complete.lowerFunctions_total_of_checks hsafe hchain.blockInBounds h
   refine ⟨e, r, ?_⟩
   simp only [lowerModule, hd, hget]
   rw [he]
   rfl
+
+theorem lowerModule_total (h : LowersModule ctx m root) :
+    ∃ ctx₂ root₂, lowerModule m = .ok (ctx₂, root₂) := by
+  obtain ⟨_, _, _, _, _, _, _, hfs⟩ := h
+  exact lowerModule_total_of_checks fun f hf =>
+    let ⟨_, h⟩ := resolvesList_mem_left hfs hf
+    ⟨h.1, h.checkBlocks, Complete.LowersFunction.typed h⟩
+
+theorem WellFormedResolvedFunction.block {f : ResolvedFunction} (h : WellFormedResolvedFunction f)
+    (hb : f.blocks[i]? = some b) :
+    (i = 0 → ∀ inst ∈ b.insts, inst.phiType = none) ∧
+    b.insts.Pairwise (fun earlier later => later.phiType ≠ none → earlier.phiType ≠ none) ∧
+    (∀ inst ∈ b.insts, WellFormedResolvedInst f i inst) ∧
+    WellFormedResolvedTerminator f b.terminator :=
+  h.2.2 b i (List.mk_mem_zipIdx_iff_getElem?.mpr (by simpa using hb))
+
+theorem WellFormedResolvedFunction.checks {f : ResolvedFunction} (h : WellFormedResolvedFunction f) :
+    checkBlocks f = .ok () ∧ Complete.PhiTyped f ∧ Complete.CondTyped f := by
+  refine ⟨?_, ?_, ?_⟩
+  · apply checkBlocks_accepts_iff.mpr
+    have he : f.blocks[0]? = some (getElem f.blocks 0 h.2.1) := by simp [h.2.1]
+    refine ⟨⟨_, he, (WellFormedResolvedFunction.block h he).1 rfl⟩, ?_, fun b i hi => ?_⟩
+    · intro b hb
+      obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hb
+      have hw := (WellFormedResolvedFunction.block h (by simpa using hi : f.blocks[i]? = some b)).2.2.2
+      have hv := (h.1 b hb).2
+      cases ht : b.terminator <;> simp_all [ValidResolvedTerminator, WellFormedResolvedTerminator,
+        ResolvedTerminator.successors]
+    · obtain ⟨_, ho, ht, _⟩ := h.2.2 b i hi
+      exact ⟨ho, fun ty incoming hm => ⟨(ht _ hm).2.1, (ht _ hm).1⟩⟩
+  · exact fun dst b ty incoming src id hb hi hm => (WellFormedResolvedFunction.block h hb).2.2.1 _ hi |>.2.2 _ hm
+  · intro src b id yes no hb ht
+    have hw := (WellFormedResolvedFunction.block h hb).2.2.2
+    exact (ht ▸ hw).1
+
+theorem lowerModule_total_of_valid (h : ValidResolvedModule m) :
+    ∃ ctx root, lowerModule m = .ok (ctx, root) :=
+  lowerModule_total_of_checks fun f hf => ⟨(h f hf).1, WellFormedResolvedFunction.checks (h f hf)⟩
 
 end Veir.LLVMLowering
