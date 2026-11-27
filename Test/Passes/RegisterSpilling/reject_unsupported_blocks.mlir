@@ -14,6 +14,8 @@
 
 // CHECK: register spilling does not support stack registers, got !riscv.stack
 
+// -----
+
 // reject block with allocated virtual registers
 "builtin.module"() ({
   "riscv_cf.func"() <{sym_name = "virtual", function_type = () -> ()}> ({
@@ -23,6 +25,8 @@
 }) : () -> ()
 
 // CHECK: register spilling does not support preallocated registers, got !riscv.reg<j0>
+
+// -----
 
 // reject block with allocated physical registers
 "builtin.module"() ({
