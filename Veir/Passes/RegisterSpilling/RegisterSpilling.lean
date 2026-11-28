@@ -206,11 +206,11 @@ def rv64NumRegisters : Nat := 28
 
 def RegisterSpillingPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
   (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-  let entries ← allocatableBlocks ctx op
-  for entry in entries do
+  let funcs ← allocatableFunctions ctx op
+  for (_, entry) in funcs do
     RegisterSpilling.checkSpillable ctx entry
   let mut ctx := ctx
-  for entry in entries do
+  for (_, entry) in funcs do
       (ctx, _) ← RegisterSpilling.spillBlock ctx entry rv64NumRegisters
   return ctx
 

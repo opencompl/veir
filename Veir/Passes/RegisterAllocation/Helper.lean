@@ -1,9 +1,59 @@
 module
 
 public import Veir.GlobalOpInfo
-import Veir.Interfaces.FunctionInterfaces
+public import Veir.Interfaces.FunctionInterfaces
 
 namespace Veir
+
+public section
+/--
+The number of function arguments passed in registers, `a0`–`a7`.
+Functions with more arguments pass the rest on the stack, which the allocator does not
+support yet.
+-/
+def maxRegisterArguments : Nat := 8
+
+/--
+The number of function results returned in registers, `a0` and `a1`. Larger results are
+returned through memory, which the allocator does not support yet.
+-/
+def maxRegisterResults : Nat := 2
+
+/-- The ABI registers `a<i>` (`x(10+i)`) that hold function arguments and return values. -/
+def aRegister (i : Nat) : RegisterType := { cls := .int, index := some (10 + i) }
+
+/--
+The results of function `funcOp`. An `llvm.func` that returns nothing declares a single
+`!llvm.void` result, which is not a value and is dropped here.
+-/
+def functionResultTypes {ctx : IRContext OpCode} {op : OperationPtr}
+    (funcOp : FunctionOp ctx op) : Array Attribute :=
+  match funcOp.getResultTypes with
+  | #[.llvmVoidType _] => #[]
+  | outputs => outputs
+
+/--
+Check the calling-convention limits of the function `funcOp`, which precolouring and allocation
+share: no variadic arguments, at most `maxRegisterArguments` arguments, and at most
+`maxRegisterResults` results.
+
+With `requirePrecoloured`, also check that every argument `i` is already assigned its
+calling-convention register `a<i>` (`x10`, `x11`, ...) in the signature, as
+`register-precolouring-riscv64` does.
+-/
+def checkCallingConvention {ctx : IRContext OpCode} {op : OperationPtr}
+    (funcOp : FunctionOp ctx op) (requirePrecoloured : Bool := false) : Except String Unit := do
+  if funcOp.getFunctionType.isVarArg then
+    throw "register allocation does not support variadic functions"
+  if funcOp.getNumArguments > maxRegisterArguments then
+    throw s!"register allocation supports at most {maxRegisterArguments} function arguments"
+  if (functionResultTypes funcOp).size > maxRegisterResults then
+    throw s!"register allocation supports at most {maxRegisterResults} function results"
+  if requirePrecoloured then
+    for (t, i) in funcOp.getArgumentTypes.zipIdx do
+      if t != .registerType (aRegister i) then
+        throw s!"register allocation requires argument {i} to be precoloured to {aRegister i}; \
+          run register-precolouring-riscv64 first"
 
 /--
 Return block from module op, while enforcing the allocator's current restrictions on structures we can handle.
@@ -32,11 +82,11 @@ def getModuleBlock (ctx : WfIRContext OpCode) (op : OperationPtr) :
 Return block from function op, while enforcing the allocator's current restrictions.
 
 We accept only functions with:
-- no arguments (TODO: will be added soon)
-- no return values (TODO: will be added soon)
-- this one or zero blocks
-- if it has a block, the block has no arguments
+- the calling-convention limits of `checkCallingConvention`, with precoloured arguments
+- one or zero blocks
 - if it has a block, the block has no nested regions
+- if it has a block, the block has no calls. Otherwise, a value live across a call could be
+  given a caller-saved register.
 Invalid input throws an error.
 
 Return the block inside function `f`, or `none` if it has no block.
@@ -47,48 +97,42 @@ def getFunctionEntry (ctx : WfIRContext OpCode) (f : OperationPtr) :
   let some entry := funcOp.getEntryBlock? | return none
   if (entry.getNextBlock! ctx.raw).isSome then
     throw "register allocation requires a single-block function"
-  -- TODO: Functions cannot take arguments yet, which is not very useful. Will be changed soon.
-  if entry.getNumArguments! ctx.raw != 0 then
-    throw "register allocation does not support block arguments"
+  checkCallingConvention funcOp (requirePrecoloured := true)
   let mut inner? := entry.getFirstOp! ctx.raw
-  -- scan for nested regions inside each operation
+  -- scan for nested regions and calls inside each operation
   while let some inner := inner? do
       inner? := inner.getNextOp! ctx.raw
       if inner.getNumRegions! ctx.raw != 0 then
           throw "register allocation does not support operations with nested regions"
-  if funcOp.getNumResults != 0 then
-    throw "register allocation does not support function return values"
+      if inner.getOpType! ctx.raw == .riscv_cf .call then
+          throw "register allocation does not support function calls"
   return some entry
 
-
-
 /--
-The entry blocks of the functions in the module `op`, or an error naming the first
-constraint `op` breaks.
+The functions in the module `op` paired with their validated entry blocks, or an error naming
+the first constraint `op` breaks.
 
 The shape of module this accepts, from the outside in:
 
 - a *single region*, holding
 - a *single block*, the module body, with *no block arguments*, holding
-- *sibling functions*, each with *no input arguments* and *no return values*, whose body is
-  a *single block* with *no nested regions* in it.
+- *sibling functions*, each accepted by `getFunctionEntry`.
 
 Anything else is rejected rather than worked around.
 
 Operations in the module body that are not function are passed over, as are function
 declarations, which have no body to allocate.
 -/
-
-public def allocatableBlocks (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Except String (Array BlockPtr) := do
+def allocatableFunctions (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Except String (Array (OperationPtr × BlockPtr)) := do
     let some block ← getModuleBlock ctx op | return #[]
-    let mut entries : Array BlockPtr := #[]
+    let mut funcs : Array (OperationPtr × BlockPtr) := #[]
     let mut f? := block.getFirstOp! ctx.raw
     while let some f := f? do
         f? := f.getNextOp! ctx.raw
-        let some fctBlock ← getFunctionEntry ctx f | continue
-        entries := entries.push fctBlock
-    return entries
+        let some entry ← getFunctionEntry ctx f | continue
+        funcs := funcs.push (f, entry)
+    return funcs
 
-
+end
 end Veir
